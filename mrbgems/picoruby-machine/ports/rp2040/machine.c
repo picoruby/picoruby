@@ -11,6 +11,8 @@
 #include "hardware/timer.h"
 #include "pico/sleep.h"
 #include "pico/stdlib.h"
+#include "pico/mutex.h"
+#include "hardware/irq.h"
 #include "pico/unique_id.h"
 #include "hardware/clocks.h"
 #include "hardware/structs/scb.h"
@@ -158,6 +160,70 @@ canon_process_char(uint8_t raw)
 #endif
 #define US_PER_MS (MRBC_TICK_UNIT * 1000)
 
+/*-------------------------------------
+ *
+ * USB pump - single-owner tud_task()
+ *
+ * TinyUSB's dcd IRQ handler (highest-order shared handler on
+ * USBCTRL_IRQ, installed by tud_init) services the hardware and
+ * enqueues events at interrupt level; tud_task() drains that queue and
+ * runs the class-driver callbacks. Historically PicoRuby also ran
+ * tud_task() directly inside the USB IRQ *and* from several
+ * thread-level paths (getchar, signal polling, Machine.tud_task), so
+ * the TinyUSB device stack (OPT_OS_NONE, no internal locking) was
+ * re-entered across contexts.
+ *
+ * Now tud_task() has a single owner: usb_pump_worker(), running in a
+ * claimed spare user IRQ at the lowest priority. Everything else - the
+ * USB IRQ, the 1 ms tick, and thread-level code - only *requests* a
+ * pump via irq_set_pending(). usb_mutex serializes the pump against
+ * the thread-level CDC write path; the worker uses a non-blocking
+ * try-lock and simply retires when a thread holds the mutex (that
+ * thread pumps by itself, and the next tick re-pends the worker, so a
+ * pump is never lost). This mirrors pico-sdk's pico_stdio_usb design.
+ *------------------------------------*/
+
+static mutex_t usb_mutex;
+static int usb_pump_irq_num = -1;
+/* True while the current context holds usb_mutex and is inside
+ * tud_task()/the FIFO drain: callbacks that run from there (e.g. the
+ * input echo in picorb_hal_stdin_push -> picorb_hal_write) must not
+ * take the mutex again. Single core, so a plain flag is exact. */
+static volatile bool in_usb_pump = false;
+
+static void
+usb_pump_request(void)
+{
+  if (usb_pump_irq_num >= 0) {
+    irq_set_pending((uint)usb_pump_irq_num);
+  }
+}
+
+/* Move CDC RX bytes into the stdin ring buffer. Runs only under
+ * usb_mutex. tud_cdc_rx_cb() pushes on arrival; this catches bytes it
+ * had to leave in the CDC FIFO while the ring buffer was full. */
+static void
+usb_cdc_drain(void)
+{
+  while (tud_cdc_available() && RingBuffer_free_size(stdin_rb) > 1) {
+    uint8_t cdc_ch = (uint8_t)tud_cdc_read_char();
+    picorb_hal_stdin_push(cdc_ch);
+  }
+}
+
+static void
+usb_pump_worker(void)
+{
+  if (mutex_try_enter(&usb_mutex, NULL)) {
+    in_usb_pump = true;
+    tud_task();
+    usb_cdc_drain();
+    in_usb_pump = false;
+    mutex_exit(&usb_mutex);
+  }
+  /* else: a thread-level holder is pumping; the 1 ms tick re-pends. */
+}
+
 static volatile uint32_t interrupt_nesting = 0;
 
 static volatile bool in_tick_processing = false;
@@ -169,6 +235,11 @@ static mrb_state *mrb_;
 static void
 alarm_handler(void)
 {
+  /* 1 ms backstop for the USB pump: guarantees TinyUSB servicing even
+   * when the VM computes without touching IO, and re-pends a pump that
+   * backed off while a thread held usb_mutex. One NVIC write. */
+  usb_pump_request();
+
   if (in_tick_processing) {
     timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
     hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
@@ -198,7 +269,10 @@ alarm_handler(void)
 static void
 usb_irq_handler(void)
 {
-  tud_task();
+  /* Registered LOWEST_ORDER on USBCTRL_IRQ: TinyUSB's dcd handler
+   * (highest order) has already serviced the hardware and enqueued
+   * events; all we do is schedule the pump to drain them. */
+  usb_pump_request();
 }
 
 void
@@ -241,6 +315,12 @@ picorb_hal_init(void)
 #else
   #error "Unsupported Board"
 #endif
+
+  mutex_init(&usb_mutex);
+  usb_pump_irq_num = (int)user_irq_claim_unused(true);
+  irq_set_exclusive_handler((uint)usb_pump_irq_num, usb_pump_worker);
+  irq_set_priority((uint)usb_pump_irq_num, PICO_LOWEST_IRQ_PRIORITY);
+  irq_set_enabled((uint)usb_pump_irq_num, true);
 
   tud_init(TUD_OPT_RHPORT);
   irq_add_shared_handler(USBCTRL_IRQ, usb_irq_handler,
@@ -314,23 +394,65 @@ picorb_hal_write(int fd, const void *buf, int nbytes)
 {
 #if CFG_TUD_CDC >= 2
   // Use separate CDC instances: stdout -> CDC0, stderr -> CDC1
-  uint8_t cdc_instance = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
-  tud_cdc_n_write(cdc_instance, buf, nbytes);
-  int len = tud_cdc_n_write_flush(cdc_instance);
+  uint8_t itf = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
 #else
-  tud_cdc_write(buf, nbytes);
-  int len = tud_cdc_write_flush();
+  const uint8_t itf = 0;
 #endif
-  return len;
+  if (in_usb_pump) {
+    /* Called from inside the pump (e.g. the input echo that
+     * tud_cdc_rx_cb triggers via picorb_hal_stdin_push): the mutex is
+     * already held by this context. Write what fits; dropping under
+     * flood matches the previous behavior of this path. */
+    tud_cdc_n_write(itf, buf, (uint32_t)nbytes);
+    return (int)tud_cdc_n_write_flush(itf);
+  }
+  if (!mutex_enter_timeout_ms(&usb_mutex, 100)) {
+    return 0;
+  }
+  int written = 0;
+  const uint8_t *p = (const uint8_t *)buf;
+  absolute_time_t deadline = make_timeout_time_ms(500);
+  while (written < nbytes) {
+    uint32_t avail = tud_cdc_n_write_available(itf);
+    if (avail > 0) {
+      uint32_t n = (uint32_t)(nbytes - written);
+      if (n > avail) n = avail;
+      uint32_t n2 = tud_cdc_n_write(itf, p + written, n);
+      tud_cdc_n_write_flush(itf);
+      written += (int)n2;
+    }
+    else {
+      /* TX FIFO full. If no host is listening, or it stopped reading
+       * for too long, give up instead of stalling the VM. Otherwise
+       * pump TinyUSB ourselves (we hold the mutex) so the endpoint
+       * transfer completes and frees FIFO space. */
+      if (!tud_cdc_n_connected(itf) || time_reached(deadline)) {
+        break;
+      }
+      in_usb_pump = true;
+      tud_task();
+      in_usb_pump = false;
+      tud_cdc_n_write_flush(itf);
+    }
+  }
+  mutex_exit(&usb_mutex);
+  return written;
 }
 
 int picorb_hal_flush(int fd) {
 #if CFG_TUD_CDC >= 2
-  uint8_t cdc_instance = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
-  int len = tud_cdc_n_write_flush(cdc_instance);
+  uint8_t itf = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
 #else
-  int len = tud_cdc_write_flush();
+  const uint8_t itf = 0;
 #endif
+  if (in_usb_pump) {
+    return (int)tud_cdc_n_write_flush(itf);
+  }
+  if (!mutex_enter_timeout_ms(&usb_mutex, 100)) {
+    return 0;
+  }
+  int len = (int)tud_cdc_n_write_flush(itf);
+  mutex_exit(&usb_mutex);
   return len;
 }
 
@@ -356,15 +478,12 @@ picorb_hal_read_available(void)
 int
 picorb_hal_getchar(void)
 {
-  tud_task();
-
-  /* Drain any bytes left in the CDC FIFO that tud_cdc_rx_cb() could
-   * not push because the ring buffer was full at the time.  Now that
-   * the caller has consumed at least one byte, there should be room. */
-  while (tud_cdc_available() && RingBuffer_free_size(stdin_rb) > 1) {
-    uint8_t cdc_ch = (uint8_t)tud_cdc_read_char();
-    picorb_hal_stdin_push(cdc_ch);
-  }
+  /* Input arrives via the USB pump (tud_cdc_rx_cb / usb_cdc_drain fill
+   * the stdin ring buffer); this function only consumes the buffer, so
+   * the CDC FIFO has exactly one consumer. Ask for a pump so leftover
+   * FIFO bytes (ring buffer was full) get another chance now that the
+   * caller is consuming. */
+  usb_pump_request();
 
   if (sigint_status == MACHINE_SIGINT_RECEIVED) {
     sigint_status = MACHINE_SIG_NONE;
@@ -442,7 +561,23 @@ picorb_hal_abort(const char *s)
 void
 Machine_tud_task(void)
 {
-  tud_task();
+  /* Public "kick the USB pump" entry (Machine.tud_task from Ruby, BLE
+   * init, io_wait_for_input, signal polling). Pumps synchronously when
+   * the mutex is free so existing callers keep their semantics;
+   * otherwise defers to the pump IRQ. */
+  if (in_usb_pump) {
+    return;
+  }
+  if (mutex_enter_timeout_ms(&usb_mutex, 10)) {
+    in_usb_pump = true;
+    tud_task();
+    usb_cdc_drain();
+    in_usb_pump = false;
+    mutex_exit(&usb_mutex);
+  }
+  else {
+    usb_pump_request();
+  }
 }
 
 bool

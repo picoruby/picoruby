@@ -154,7 +154,8 @@ tud_msc_read10_cb(uint8_t lun, uint32_t lba, uint32_t offset, void* buffer, uint
   if (0 < offset || bufsize != MSC_SECTOR_SIZE) {
     printf("Failed in tud_msc_read10_cb()\n");
     printf("offset: %d, bufsize: %d\n", offset, bufsize);
-    tud_task();
+    /* No tud_task() here: this callback already runs inside tud_task()
+     * (the USB pump), so re-entering it is invalid. */
     abort();
   }
 
@@ -185,7 +186,8 @@ tud_msc_write10_cb(uint8_t lun, uint32_t lba, uint32_t offset, uint8_t* buffer, 
   if (0 < offset || bufsize != MSC_SECTOR_SIZE) {
     printf("Failed in tud_msc_write10_cb()\n");
     printf("offset: %d, bufsize: %d\n", offset, bufsize);
-    tud_task();
+    /* No tud_task() here: this callback already runs inside tud_task()
+     * (the USB pump), so re-entering it is invalid. */
     abort();
   }
 
