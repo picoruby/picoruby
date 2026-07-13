@@ -51,8 +51,10 @@ module Editor
     @prev_cursor_y: Integer
     @prompt: String
     @prompt_margin: Integer
+    @idle_handler: (^() -> void)?
 
     def initialize: () -> void
+    attr_accessor idle_handler: (^() -> void)?
     def prompt=: (String word) -> Integer
     def history_head: -> Integer
     def save_history: -> Integer
@@ -93,4 +95,3 @@ module Editor
     def start: () { (self, Editor::Buffer, Integer, String?) -> void }  -> void
   end
 end
-

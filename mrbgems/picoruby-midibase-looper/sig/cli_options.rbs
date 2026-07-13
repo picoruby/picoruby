@@ -1,0 +1,37 @@
+class LooperCLIOptions
+  @audio: Symbol
+  @midi_out: Symbol
+  @click_out: Symbol
+  @midi_thru: bool
+  @polyphony: Integer
+  @click_voice_cost: Integer
+  @uart_unit: Symbol
+  @rx: Integer
+  @tx: Integer
+  @baud: Integer
+  @left: Integer
+  @right: Integer
+  @ldac: Integer
+  @cs: Integer
+  @sck: Integer
+  @copi: Integer
+  attr_reader audio: Symbol
+  attr_reader midi_out: Symbol
+  attr_reader click_out: Symbol
+  attr_reader midi_thru: bool
+  attr_reader polyphony: Integer
+  attr_reader click_voice_cost: Integer
+  attr_reader uart_unit: Symbol
+  attr_reader rx: Integer
+  attr_reader tx: Integer
+  attr_reader baud: Integer
+  attr_reader left: Integer
+  attr_reader right: Integer
+  attr_reader ldac: Integer
+  attr_reader cs: Integer
+  attr_reader sck: Integer
+  attr_reader copi: Integer
+  def self.build_parser: () -> PicoOptionParser
+  def parse: (Array[String] args) -> (self | Symbol)
+  private def normalize: () -> self
+end

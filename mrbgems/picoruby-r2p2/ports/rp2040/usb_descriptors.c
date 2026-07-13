@@ -91,6 +91,8 @@ enum
   ITF_NUM_CDC_0_DATA,
   ITF_NUM_CDC_1,
   ITF_NUM_CDC_1_DATA,
+  ITF_NUM_CDC_2,
+  ITF_NUM_CDC_2_DATA,
   ITF_NUM_HID_KEYBOARD,
   ITF_NUM_HID_MOUSE,
   ITF_NUM_HID_CONSUMER,
@@ -108,9 +110,13 @@ enum
   #define EPNUM_CDC_1_OUT     0x05
   #define EPNUM_CDC_1_IN      0x85
 
-  #define EPNUM_HID_KEYBOARD  0x89
-  #define EPNUM_HID_MOUSE     0x8A
-  #define EPNUM_HID_CONSUMER  0x8B
+  #define EPNUM_CDC_2_NOTIF   0x87
+  #define EPNUM_CDC_2_OUT     0x08
+  #define EPNUM_CDC_2_IN      0x88
+
+  #define EPNUM_HID_KEYBOARD  0x8A
+  #define EPNUM_HID_MOUSE     0x8B
+  #define EPNUM_HID_CONSUMER  0x8C
 
 #elif CFG_TUSB_MCU == OPT_MCU_CXD56
   // CXD56 USB driver has fixed endpoint type (bulk/interrupt/iso) and direction (IN/OUT) by its number
@@ -123,9 +129,13 @@ enum
   #define EPNUM_CDC_1_OUT     0x05
   #define EPNUM_CDC_1_IN      0x84
 
-  #define EPNUM_HID_KEYBOARD  0x89
-  #define EPNUM_HID_MOUSE     0x8A
-  #define EPNUM_HID_CONSUMER  0x8B
+  #define EPNUM_CDC_2_NOTIF   0x87
+  #define EPNUM_CDC_2_OUT     0x08
+  #define EPNUM_CDC_2_IN      0x89
+
+  #define EPNUM_HID_KEYBOARD  0x8A
+  #define EPNUM_HID_MOUSE     0x8B
+  #define EPNUM_HID_CONSUMER  0x8C
 
 #elif defined(TUD_ENDPOINT_ONE_DIRECTION_ONLY)
   // MCUs that don't support a same endpoint number with different direction IN and OUT
@@ -138,9 +148,13 @@ enum
   #define EPNUM_CDC_1_OUT     0x05
   #define EPNUM_CDC_1_IN      0x86
 
-  #define EPNUM_HID_KEYBOARD  0x89
-  #define EPNUM_HID_MOUSE     0x8A
-  #define EPNUM_HID_CONSUMER  0x8B
+  #define EPNUM_CDC_2_NOTIF   0x87
+  #define EPNUM_CDC_2_OUT     0x08
+  #define EPNUM_CDC_2_IN      0x89
+
+  #define EPNUM_HID_KEYBOARD  0x8A
+  #define EPNUM_HID_MOUSE     0x8B
+  #define EPNUM_HID_CONSUMER  0x8C
 
 #else
   #define EPNUM_CDC_0_NOTIF   0x81
@@ -151,9 +165,13 @@ enum
   #define EPNUM_CDC_1_OUT     0x04
   #define EPNUM_CDC_1_IN      0x84
 
-  #define EPNUM_HID_KEYBOARD  0x85
-  #define EPNUM_HID_MOUSE     0x86
-  #define EPNUM_HID_CONSUMER  0x87
+  #define EPNUM_CDC_2_NOTIF   0x85
+  #define EPNUM_CDC_2_OUT     0x06
+  #define EPNUM_CDC_2_IN      0x86
+
+  #define EPNUM_HID_KEYBOARD  0x87
+  #define EPNUM_HID_MOUSE     0x88
+  #define EPNUM_HID_CONSUMER  0x89
 
 #endif
 
@@ -201,14 +219,17 @@ uint8_t const desc_fs_configuration[] =
   // 2nd CDC: Interface number, string index, EP notification address and size, EP data address (out, in) and size.
   TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 5, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT, EPNUM_CDC_1_IN, 64),
 
+  // 3rd CDC: dedicated raw MIDI byte stream output.
+  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_2, 6, EPNUM_CDC_2_NOTIF, 8, EPNUM_CDC_2_OUT, EPNUM_CDC_2_IN, 64),
+
   // HID Keyboard
-  TUD_HID_DESCRIPTOR(ITF_NUM_HID_KEYBOARD, 6, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_hid_keyboard_report), EPNUM_HID_KEYBOARD, CFG_TUD_HID_EP_BUFSIZE, 10),
+  TUD_HID_DESCRIPTOR(ITF_NUM_HID_KEYBOARD, 7, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_hid_keyboard_report), EPNUM_HID_KEYBOARD, CFG_TUD_HID_EP_BUFSIZE, 10),
 
   // HID Mouse
-  TUD_HID_DESCRIPTOR(ITF_NUM_HID_MOUSE, 7, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_mouse_report), EPNUM_HID_MOUSE, CFG_TUD_HID_EP_BUFSIZE, 10),
+  TUD_HID_DESCRIPTOR(ITF_NUM_HID_MOUSE, 8, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_mouse_report), EPNUM_HID_MOUSE, CFG_TUD_HID_EP_BUFSIZE, 10),
 
   // HID Consumer Control
-  TUD_HID_DESCRIPTOR(ITF_NUM_HID_CONSUMER, 8, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_consumer_report), EPNUM_HID_CONSUMER, CFG_TUD_HID_EP_BUFSIZE, 10),
+  TUD_HID_DESCRIPTOR(ITF_NUM_HID_CONSUMER, 9, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_consumer_report), EPNUM_HID_CONSUMER, CFG_TUD_HID_EP_BUFSIZE, 10),
 };
 
 #if TUD_OPT_HIGH_SPEED
@@ -226,14 +247,17 @@ uint8_t const desc_hs_configuration[] =
   // 2nd CDC: Interface number, string index, EP notification address and size, EP data address (out, in) and size.
   TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_1, 5, EPNUM_CDC_1_NOTIF, 8, EPNUM_CDC_1_OUT, EPNUM_CDC_1_IN, 512),
 
+  // 3rd CDC: dedicated raw MIDI byte stream output.
+  TUD_CDC_DESCRIPTOR(ITF_NUM_CDC_2, 6, EPNUM_CDC_2_NOTIF, 8, EPNUM_CDC_2_OUT, EPNUM_CDC_2_IN, 512),
+
   // HID Keyboard
-  TUD_HID_DESCRIPTOR(ITF_NUM_HID_KEYBOARD, 6, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_hid_keyboard_report), EPNUM_HID_KEYBOARD, CFG_TUD_HID_EP_BUFSIZE, 10),
+  TUD_HID_DESCRIPTOR(ITF_NUM_HID_KEYBOARD, 7, HID_ITF_PROTOCOL_KEYBOARD, sizeof(desc_hid_keyboard_report), EPNUM_HID_KEYBOARD, CFG_TUD_HID_EP_BUFSIZE, 10),
 
   // HID Mouse
-  TUD_HID_DESCRIPTOR(ITF_NUM_HID_MOUSE, 7, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_mouse_report), EPNUM_HID_MOUSE, CFG_TUD_HID_EP_BUFSIZE, 10),
+  TUD_HID_DESCRIPTOR(ITF_NUM_HID_MOUSE, 8, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_mouse_report), EPNUM_HID_MOUSE, CFG_TUD_HID_EP_BUFSIZE, 10),
 
   // HID Consumer Control
-  TUD_HID_DESCRIPTOR(ITF_NUM_HID_CONSUMER, 8, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_consumer_report), EPNUM_HID_CONSUMER, CFG_TUD_HID_EP_BUFSIZE, 10),
+  TUD_HID_DESCRIPTOR(ITF_NUM_HID_CONSUMER, 9, HID_ITF_PROTOCOL_NONE, sizeof(desc_hid_consumer_report), EPNUM_HID_CONSUMER, CFG_TUD_HID_EP_BUFSIZE, 10),
 };
 
 // other speed configuration
@@ -321,9 +345,10 @@ char const *string_desc_arr[] =
   NULL,                          // 3: Serials will use unique ID if possible
   "PicoRuby CDC",                // 4: CDC Interface 0 (Application)
   "PicoRuby CDC Debug",          // 5: CDC Interface 1 (Debug)
-  "PicoRuby HID Keyboard",       // 6: HID Keyboard
-  "PicoRuby HID Mouse",          // 7: HID Mouse
-  "PicoRuby HID Consumer Control", // 8: HID Consumer Control
+  "PicoRuby CDC MIDI",           // 6: CDC Interface 2 (raw MIDI output)
+  "PicoRuby HID Keyboard",       // 7: HID Keyboard
+  "PicoRuby HID Mouse",          // 8: HID Mouse
+  "PicoRuby HID Consumer Control", // 9: HID Consumer Control
 };
 
 static uint16_t _desc_str[32 + 1];

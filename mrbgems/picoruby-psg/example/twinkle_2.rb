@@ -1,4 +1,5 @@
 require 'psg'
+require 'midibase-mml'
 
 tracks = [
   '@0 T120 S0 M800 L4 O5 f  f >c   c |  d    d   c2    |<b-  b-  a  a | g  g f2|>c  c <b- b-| a  a  g2     |>c   c  <b- b- | a  a g2        |f  f> c   c |  d    d   c2    | <b- b-  a  a | g  g f2',
@@ -6,7 +7,14 @@ tracks = [
   '@1 T120 S0      L8 O3 f>ca4<a>e>c4|<<b->f>d4<<a>f>c4|<<g>eb-4<f>ca4| c4<c4f2| f>ca4<cg>e4|<f>ca4<cg>e<b-| a>f>c4<<g>eb-4|<f>ca4c4 <c4    |f>ca4<a>e>c4|<<b->f>d4<<a>f>c4|<<g>eb-4<f>ca4| c4<c4f2'
 ]
 
+# PSG.set_tuning(:just_f_major, pitch: 440)
+
 driver = PSG::Driver.new(:mcp4922, copi: 15, sck: 14, cs: 13, ldac: 12)
-
-driver.play_mml(tracks)
-
+synth = PSG::Synth.new(driver).start
+router = MIDIBASE::Router.new
+router.connect(:mml, synth, priority: 0)
+sequence = MIDIBASE::MML::Sequence.new(tracks)
+player = MIDIBASE::MML::Player.new(sequence, output: router.output(:mml)).start
+player.join
+synth.stop.join
+driver.join

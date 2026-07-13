@@ -23,7 +23,7 @@ on_uart0_rx(void)
 {
   while (uart_is_readable(uart0)) {
     uint8_t ch = uart_getc(uart0);
-    UART_pushBuffer(rx_buffers[0], ch);
+    UART_pushBufferAt(rx_buffers[0], ch, time_us_32());
   }
 }
 
@@ -32,7 +32,7 @@ on_uart1_rx(void)
 {
   while (uart_is_readable(uart1)) {
     uint8_t ch = uart_getc(uart1);
-    UART_pushBuffer(rx_buffers[1], ch);
+    UART_pushBufferAt(rx_buffers[1], ch, time_us_32());
   }
 }
 

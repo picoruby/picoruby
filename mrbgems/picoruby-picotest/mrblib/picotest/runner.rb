@@ -109,6 +109,9 @@ module Picotest
           f.puts "puts"
           f.print 'puts "', SEPARATOR, '"', "\n"
           f.puts "puts JSON.generate(my_test.result)"
+          f.puts "if RUBY_PLATFORM.include?(\"wasm\") && defined?(JS)"
+          f.puts "  JS.eval(\"globalThis.__picotestDone = true\")"
+          f.puts "end"
         end
         error_file = "#{@tmpdir}/#{klass.to_s}_error"
         File.open(error_file, "w") do |error|

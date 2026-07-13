@@ -33,12 +33,17 @@ You may need to look for a fine configuration.
 
 Most problems on the terminal emulator would come from CR/LF handling and escape sequence timing issue.
 
-### Dual CDC USB ports for debug output
+### USB CDC ports
 
-R2P2 uses dual CDC (Communications Device Class) USB ports to separate standard output and debug output:
+R2P2 uses three CDC (Communications Device Class) USB ports:
 
 - **CDC 0** (in Linux, typically `/dev/ttyACM0`): Main terminal for shell interaction and application stdout
 - **CDC 1** (e.g. `/dev/ttyACM1`): Debug output (stderr) for system messages and debug prints
+- **CDC 2** (e.g. `/dev/ttyACM2`): Raw MIDI byte stream output for WebSerial
+
+The third interface changes the composite USB product ID from older two-CDC
+firmware. The host operating system may enumerate all ports again after a
+firmware update.
 
 Debug output is only enabled in debug builds.
 

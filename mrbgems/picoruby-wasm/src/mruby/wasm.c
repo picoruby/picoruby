@@ -1,6 +1,7 @@
 #include <emscripten.h>
 
 #include "mruby.h"
+#include "mruby/gc.h"
 #include "mruby/string.h"
 
 #include "mruby_compiler.h"
@@ -135,6 +136,7 @@ picorb_init(void)
     fprintf(stderr, "Failed to initialize mruby state\n");
     return -1;
   }
+  mrb_gc_scheduler_driven(global_mrb, TRUE);
 
  // mrb_init_picoruby_gems(global_mrb);
   mrb_js_init(global_mrb);

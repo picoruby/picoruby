@@ -19,7 +19,7 @@ extern "C" {
  *   ‑ producer (core‑0) : Ruby / Sequencer / LiveMixer
  *   ‑ consumer (core‑1) : ISR side of PSG engine
  *
- * Each slot carries an entire PSG command packet (up to 64‑bit).
+ * Each slot carries an entire PSG command packet.
  * Exactly one writer and one reader are assumed — no other locking required.
  */
 typedef enum {
@@ -28,17 +28,19 @@ typedef enum {
   PSG_PKT_CH_MUTE       = 2,  // ch, 0/1
   PSG_PKT_PAN_SET       = 3,  // ch, bal(0-15)
   PSG_PKT_TIMBRE_SET    = 4,  // ch, timbre
-  PSG_PKT_LEGATO_SET    = 5   // ch, legato
+  PSG_PKT_LEGATO_SET    = 5,  // ch, legato
+  PSG_PKT_VOICE_WRITE   = 6   // voice, volume, mixer flags + noise period, tone period
 } psg_opcode_t;
 
 /* ----- packet layout -------------------------------------------------- */
-/* 8-byte slot, naturally aligned to 4 bytes */
+/* 12-byte slot, naturally aligned to 4 bytes */
 typedef struct __attribute__((packed, aligned(4))) {
   uint32_t tick;    // 0-4294967295 ms (32-bit for 49 days)
   uint8_t  op;      // psg_opcode_t
   uint8_t  reg;     // 0–13 or channel idx for LFO_SET
   uint8_t  val;     // main parameter
   uint8_t  arg;     // sub parameter (rate_hi/depth/shape etc.)
+  uint16_t aux;     // extended parameter
 } psg_packet_t;
 
 #ifndef PSG_PACKET_QUEUE_BITS

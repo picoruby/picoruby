@@ -96,6 +96,7 @@ PSG_write_reg(uint8_t reg, uint8_t val)
     /* ---- Noise ---- */
     case 6:
       psg.r.noise_period = val & 0x1F;
+      if (!psg.noise_shift) psg.noise_shift = 0x1FFFF;
       break;
     /* ---- Mixer ---- */
     case 7:
@@ -186,6 +187,36 @@ PSG_process_packet(const psg_packet_t *pkt)
       PSG_exit_critical(t);
       break;
     }
+    case PSG_PKT_VOICE_WRITE: {
+      uint8_t tr = pkt->reg & 0x03;
+      uint8_t volume = pkt->val & 0x1F;
+      uint8_t noise_period = pkt->arg & 0x1F;
+      uint8_t mixer_flags = (pkt->arg >> 6) & 0x03;
+      if (2 < tr) break;
+      psg_cs_token_t t = PSG_enter_critical();
+      if (volume) {
+        uint16_t tone_period = pkt->aux & 0x0FFF;
+        psg.r.tone_period[tr] = tone_period;
+        update_tone_inc(tr);
+        if (mixer_flags & 0x02) {
+          psg.r.noise_period = noise_period;
+          psg.noise_shift = 0x1FFFF;
+          psg.noise_cnt = 0;
+        }
+        if (mixer_flags & 0x01) psg.r.mixer &= ~(1u << tr);
+        else psg.r.mixer |= (1u << tr);
+        if (mixer_flags & 0x02) psg.r.mixer &= ~(1u << (tr + 3));
+        else psg.r.mixer |= (1u << (tr + 3));
+        psg.r.volume[tr] = volume;
+        if ((volume & 0x10) && !psg.legato[tr]) RESET_ENVELOPE(tr);
+        psg.mute_mask &= ~(1u << tr);
+      } else {
+        psg.r.volume[tr] = 0;
+        psg.mute_mask |= (1u << tr);
+      }
+      PSG_exit_critical(t);
+      break;
+    }
     default: // ignore?
       break;
   }
@@ -229,7 +260,6 @@ PSG_rb_pop(void)  // consumes one slot
   PSG_COMPILER_BARRIER();
   PSG_exit_critical(t);
 }
-
 
 // volume table: 1.5 dB steps with 3.0 dB headroom for 12-bit range
 static const uint16_t vol_tab[16] = {

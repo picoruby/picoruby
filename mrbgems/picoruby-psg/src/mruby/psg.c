@@ -12,6 +12,179 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <math.h>
+
+#define PSG_PERIOD_Q8_SCALE 256.0
+#define PSG_TONE_K ((double)CHIP_CLOCK / 32.0)
+
+static uint32_t psg_period_q8[128];
+static double psg_a4_frequency = 440.0;
+
+#define PSG_DRUM_CHANNEL 9
+static const uint16_t psg_just_major_num[12] = { 1, 16, 9, 6, 5, 4, 45, 3, 8, 5, 9, 15 };
+static const uint16_t psg_just_major_den[12] = { 1, 15, 8, 5, 4, 3, 32, 2, 5, 3, 5, 8 };
+static const uint16_t psg_just_minor_num[12] = { 1, 16, 10, 6, 5, 4, 64, 3, 8, 5, 9, 15 };
+static const uint16_t psg_just_minor_den[12] = { 1, 15, 9, 5, 4, 3, 45, 2, 5, 3, 5, 8 };
+
+static double
+psg_equal_frequency(double note, double a4_frequency)
+{
+  return a4_frequency * pow(2.0, (note - 69.0) / 12.0);
+}
+
+static uint32_t
+psg_period_q8_from_frequency(double frequency)
+{
+  return (uint32_t)((PSG_TONE_K / frequency) * PSG_PERIOD_Q8_SCALE + 0.5);
+}
+
+static void
+psg_build_equal_tuning(double a4_frequency)
+{
+  int note = 0;
+  while (note < 128) {
+    psg_period_q8[note] = psg_period_q8_from_frequency(psg_equal_frequency((double)note, a4_frequency));
+    note++;
+  }
+}
+
+static void
+psg_build_just_tuning(int tonic, bool minor, double a4_frequency)
+{
+  const uint16_t *num = minor ? psg_just_minor_num : psg_just_major_num;
+  const uint16_t *den = minor ? psg_just_minor_den : psg_just_major_den;
+  int tonic_note = 60 + tonic;
+  double tonic_frequency = psg_equal_frequency((double)tonic_note, a4_frequency);
+  int note = 0;
+
+  while (note < 128) {
+    int diff = note - tonic_note;
+    int degree = diff % 12;
+    if (degree < 0) {
+      degree += 12;
+    }
+    int octave = (diff - degree) / 12;
+    double ratio = (double)num[degree] / (double)den[degree];
+    double frequency = tonic_frequency * ratio * pow(2.0, (double)octave);
+    psg_period_q8[note] = psg_period_q8_from_frequency(frequency);
+    note++;
+  }
+}
+
+static bool
+psg_parse_just_tuning(mrb_sym sym, int *tonic, bool *minor)
+{
+#define PSG_MATCH_TUNING(name, pitch_class, is_minor) \
+  if (sym == MRB_SYM(name)) {                         \
+    *tonic = (pitch_class);                           \
+    *minor = (is_minor);                              \
+    return true;                                      \
+  }
+
+  PSG_MATCH_TUNING(just_c_major, 0, false)
+  PSG_MATCH_TUNING(just_c_sharp_major, 1, false)
+  PSG_MATCH_TUNING(just_d_flat_major, 1, false)
+  PSG_MATCH_TUNING(just_d_major, 2, false)
+  PSG_MATCH_TUNING(just_d_sharp_major, 3, false)
+  PSG_MATCH_TUNING(just_e_flat_major, 3, false)
+  PSG_MATCH_TUNING(just_e_major, 4, false)
+  PSG_MATCH_TUNING(just_f_major, 5, false)
+  PSG_MATCH_TUNING(just_f_sharp_major, 6, false)
+  PSG_MATCH_TUNING(just_g_flat_major, 6, false)
+  PSG_MATCH_TUNING(just_g_major, 7, false)
+  PSG_MATCH_TUNING(just_g_sharp_major, 8, false)
+  PSG_MATCH_TUNING(just_a_flat_major, 8, false)
+  PSG_MATCH_TUNING(just_a_major, 9, false)
+  PSG_MATCH_TUNING(just_a_sharp_major, 10, false)
+  PSG_MATCH_TUNING(just_b_flat_major, 10, false)
+  PSG_MATCH_TUNING(just_b_major, 11, false)
+  PSG_MATCH_TUNING(just_c_minor, 0, true)
+  PSG_MATCH_TUNING(just_c_sharp_minor, 1, true)
+  PSG_MATCH_TUNING(just_d_flat_minor, 1, true)
+  PSG_MATCH_TUNING(just_d_minor, 2, true)
+  PSG_MATCH_TUNING(just_d_sharp_minor, 3, true)
+  PSG_MATCH_TUNING(just_e_flat_minor, 3, true)
+  PSG_MATCH_TUNING(just_e_minor, 4, true)
+  PSG_MATCH_TUNING(just_f_minor, 5, true)
+  PSG_MATCH_TUNING(just_f_sharp_minor, 6, true)
+  PSG_MATCH_TUNING(just_g_flat_minor, 6, true)
+  PSG_MATCH_TUNING(just_g_minor, 7, true)
+  PSG_MATCH_TUNING(just_g_sharp_minor, 8, true)
+  PSG_MATCH_TUNING(just_a_flat_minor, 8, true)
+  PSG_MATCH_TUNING(just_a_minor, 9, true)
+  PSG_MATCH_TUNING(just_a_sharp_minor, 10, true)
+  PSG_MATCH_TUNING(just_b_flat_minor, 10, true)
+  PSG_MATCH_TUNING(just_b_minor, 11, true)
+
+#undef PSG_MATCH_TUNING
+  return false;
+}
+
+static mrb_value
+mrb_psg_s_set_tuning(mrb_state *mrb, mrb_value klass)
+{
+  mrb_sym tuning = MRB_SYM(equal);
+  mrb_sym kw_names[] = { MRB_SYM(pitch) };
+  mrb_value kw_values[1];
+  mrb_kwargs kwargs = { 1, 0, kw_names, kw_values, NULL };
+  double a4_frequency = 440.0;
+  int tonic = 0;
+  bool minor = false;
+  mrb_get_args(mrb, "|n:", &tuning, &kwargs);
+
+  if (!mrb_undef_p(kw_values[0])) {
+    a4_frequency = mrb_as_float(mrb, kw_values[0]);
+  }
+  if (a4_frequency <= 0.0) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Invalid PSG tuning pitch: %f", a4_frequency);
+  }
+  psg_a4_frequency = a4_frequency;
+
+  if (tuning == MRB_SYM(equal)) {
+    psg_build_equal_tuning(psg_a4_frequency);
+  } else if (psg_parse_just_tuning(tuning, &tonic, &minor)) {
+    psg_build_just_tuning(tonic, minor, psg_a4_frequency);
+  } else {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "Unsupported PSG tuning: %S", mrb_symbol_value(tuning));
+  }
+
+  return mrb_symbol_value(tuning);
+}
+
+static mrb_value
+mrb_psg_s_note_to_period(mrb_state *mrb, mrb_value klass)
+{
+  mrb_float note;
+  mrb_sym kw_names[] = { MRB_SYM(round) };
+  mrb_value kw_values[1];
+  mrb_kwargs kwargs = { 1, 0, kw_names, kw_values, NULL };
+  mrb_get_args(mrb, "f:", &note, &kwargs);
+
+  mrb_bool round = true;
+  if (!mrb_undef_p(kw_values[0])) {
+    round = mrb_bool(kw_values[0]);
+  }
+
+  if (0.0 <= note && note <= 127.0) {
+    int index = (int)note;
+    uint32_t period_q8 = psg_period_q8[index];
+    if (note != (double)index && index < 127) {
+      period_q8 = (uint32_t)((int32_t)period_q8 + (int32_t)(((int32_t)psg_period_q8[index + 1] - (int32_t)period_q8) * (note - (double)index)));
+    }
+    if (round) {
+      return mrb_fixnum_value((period_q8 + 128) >> 8);
+    } else {
+      return mrb_fixnum_value(period_q8 >> 8);
+    }
+  }
+
+  double frequency = psg_equal_frequency(note, psg_a4_frequency);
+  double period = PSG_TONE_K / frequency;
+  if (round) {
+    period += 0.5;
+  }
+  return mrb_fixnum_value((mrb_int)period);
+}
 
 static mrb_value
 mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
@@ -31,6 +204,29 @@ mrb_driver_send_reg(mrb_state *mrb, mrb_value klass)
   return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
 }
 
+static mrb_value
+mrb_driver_voice_write(mrb_state *mrb, mrb_value self)
+{
+  mrb_int voice, tone_period, noise_period, volume, mixer_flags;
+  mrb_get_args(mrb, "iiiii", &voice, &tone_period, &noise_period, &volume, &mixer_flags);
+  if (voice < 0 || 2 < voice ||
+      tone_period < 0 || 0x0FFF < tone_period ||
+      noise_period < 0 || 31 < noise_period ||
+      volume < 0 || 31 < volume ||
+      mixer_flags < 0 || 3 < mixer_flags) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "Invalid PSG voice write");
+  }
+  psg_packet_t p = {
+    .tick = 0,
+    .op   = PSG_PKT_VOICE_WRITE,
+    .reg  = (uint8_t)voice,
+    .val  = (uint8_t)volume,
+    .arg  = (uint8_t)(((mixer_flags & 0x03) << 6) | (noise_period & 0x1F)),
+    .aux  = (uint16_t)tone_period,
+  };
+  return PSG_rb_push(&p) ? mrb_true_value() : mrb_false_value();
+}
+
 static void
 reset_psg(mrb_state *mrb)
 {
@@ -43,6 +239,7 @@ reset_psg(mrb_state *mrb)
   rb.tail = 0;
   psg_cs_token_t t = PSG_enter_critical();
   memset(&psg, 0, sizeof(psg));
+  psg.noise_shift = 0x1FFFF;
   psg.r.volume[0] = psg.r.volume[1] = psg.r.volume[2] = 15; // max volume. no envelope
   psg.r.mixer = 0x38; // all noise off, all tone on
   psg.mute_mask = 0x07; // all tracks muted. The driver must unmute first!
@@ -228,6 +425,12 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   struct RClass *module_PSG = mrb_define_module_id(mrb, MRB_SYM(PSG));
   struct RClass *class_Driver = mrb_define_class_under_id(mrb, module_PSG, MRB_SYM(Driver), mrb->object_class);
 
+  psg_build_equal_tuning(psg_a4_frequency);
+
+  mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(note_to_period), mrb_psg_s_note_to_period, MRB_ARGS_REQ(1) | MRB_ARGS_KEY(1, 0));
+  mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(set_tuning), mrb_psg_s_set_tuning, MRB_ARGS_OPT(1) | MRB_ARGS_KEY(1, 0));
+  mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUM_CHANNEL), mrb_fixnum_value(PSG_DRUM_CHANNEL));
+
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(CHIP_CLOCK), mrb_fixnum_value(CHIP_CLOCK));
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(SAMPLE_RATE), mrb_fixnum_value(SAMPLE_RATE));
 
@@ -242,6 +445,7 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_mcp4922), mrb_driver_s_select_mcp4922, MRB_ARGS_REQ(1));
 //  mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_usbaudio), mrb_driver_s_select_usbaudio, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(send_reg), mrb_driver_send_reg, MRB_ARGS_ARG(2, 1));
+  mrb_define_method_id(mrb, class_Driver, MRB_SYM(voice_write), mrb_driver_voice_write, MRB_ARGS_REQ(5));
   mrb_define_method_id(mrb, class_Driver, MRB_SYM_Q(buffer_empty), mrb_driver_buffer_empty_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(buffer_flush), mrb_driver_buffer_flush, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Driver, MRB_SYM(deinit), mrb_driver_deinit, MRB_ARGS_NONE());
