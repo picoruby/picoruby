@@ -19,11 +19,16 @@ c_open_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
   } else {
     rx_buffer_size = GET_INT_ARG(1);
   }
-  mrbc_value rx_buffer_value = mrbc_instance_new(vm, mrbc_class_UART_RxBuffer, sizeof(RingBuffer) + sizeof(uint8_t) * rx_buffer_size);
+  size_t allocation_size = UART_rx_buffer_allocation_size((size_t)rx_buffer_size);
+  if (allocation_size == 0) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx_buffer_size is not power of two");
+    return;
+  }
+  mrbc_value rx_buffer_value = mrbc_instance_new(vm, mrbc_class_UART_RxBuffer, allocation_size);
 
   RingBuffer *rx = (RingBuffer *)rx_buffer_value.instance->data;
-  if (!RingBuffer_init(rx, rx_buffer_size)) {
-    mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx_buffer_size is not power of two");
+  if (!UART_rx_buffer_init(rx, (size_t)rx_buffer_size)) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "UART: failed to initialize rx buffer");
     return;
   }
   SET_RETURN(rx_buffer_value);
@@ -127,7 +132,7 @@ c_getbyte(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   uint8_t byte;
-  if (!RingBuffer_pop(rx, &byte)) {
+  if (!UART_popBuffer(rx, &byte)) {
     SET_NIL_RETURN();
     return;
   }
@@ -146,7 +151,7 @@ c_ungetbyte(mrbc_vm *vm, mrbc_value v[], int argc)
     return;
   }
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  if (!RingBuffer_unshift(rx, (uint8_t)(GET_INT_ARG(1) & 0xff))) {
+  if (!UART_unshiftBuffer(rx, (uint8_t)(GET_INT_ARG(1) & 0xff))) {
     mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx buffer is full");
     return;
   }
@@ -158,6 +163,25 @@ c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   SET_INT_RETURN(RingBuffer_data_size(rx));
+}
+
+static void
+c_last_read_timestamp_us(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  uint64_t timestamp_us;
+  if (!UART_lastReadTimestamp(rx, &timestamp_us)) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_INT_RETURN((mrbc_int_t)timestamp_us);
+}
+
+static void
+c_rx_overflow_count(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
+  SET_INT_RETURN((mrbc_int_t)UART_rxOverflowCount(rx));
 }
 
 static void
@@ -320,6 +344,8 @@ mrbc_uart_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_UART, "getbyte", c_getbyte);
   mrbc_define_method(vm, mrbc_class_UART, "ungetbyte", c_ungetbyte);
   mrbc_define_method(vm, mrbc_class_UART, "bytes_available", c_bytes_available);
+  mrbc_define_method(vm, mrbc_class_UART, "last_read_timestamp_us", c_last_read_timestamp_us);
+  mrbc_define_method(vm, mrbc_class_UART, "rx_overflow_count", c_rx_overflow_count);
   mrbc_define_method(vm, mrbc_class_UART, "write", c_write);
   mrbc_define_method(vm, mrbc_class_UART, "putc", c_putc);
   mrbc_define_method(vm, mrbc_class_UART, "gets", c_gets);

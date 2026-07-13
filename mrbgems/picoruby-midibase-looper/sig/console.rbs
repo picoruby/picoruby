@@ -1,0 +1,31 @@
+class LooperConsole
+  QUANTIZE: Hash[String, Symbol]
+  METRONOME: Hash[String, Symbol]
+  @looper: MIDIBASE::Looper
+  @options: LooperCLIOptions?
+  @record_watch_task: Task?
+  @console_stopped: bool
+  @line: PicoLine
+  def self.usage: () -> void
+  def initialize: (MIDIBASE::Looper looper, ?options: LooperCLIOptions?) -> void
+  def run: (MIDIBASE::Session session) -> void
+  private def execute: (String line, MIDIBASE::Session session) -> bool
+  private def record_and_report: (Integer voices) -> void
+  def watch_recording: (Symbol part_id, Integer before_tracks, Symbol state) -> void
+  private def recording_pending?: (Symbol state) -> bool
+  private def report_recording_state: (Symbol state, Hash[Symbol, untyped] status, ?asynchronous: bool) -> void
+  private def print_io_configuration: () -> void
+  private def click_destination: () -> String
+  private def execute_part: (Array[String] args) -> void
+  private def execute_arrange: (Array[String] args) -> void
+  private def integer_text?: (String value) -> bool
+  private def part_status: (Hash[Symbol, untyped] status, Symbol id) -> Hash[Symbol, untyped]?
+  private def required_integer: (String? value, String name) -> Integer
+  private def track_index: (String? value) -> Integer
+  private def parse_meter: (String? value) -> Array[Integer]
+  private def print_tracks: () -> void
+  private def print_parts: () -> void
+  private def print_arrangement: () -> void
+  private def print_status: () -> void
+  private def print_help: () -> void
+end

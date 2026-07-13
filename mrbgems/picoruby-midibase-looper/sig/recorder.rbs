@@ -1,0 +1,22 @@
+module MIDIBASE
+  class Looper
+    class Recorder
+      @loop_ticks: Integer
+      @grid_ticks: Integer?
+      @voice_limit: Integer
+      @buffer: EventBuffer
+      @active: Array[Integer]
+      @overflow: bool
+      @channel_mask: Integer
+      attr_reader buffer: EventBuffer
+      attr_reader voice_limit: Integer
+      attr_reader channel_mask: Integer
+      def initialize: (loop_ticks: Integer, grid_ticks: Integer?, voice_limit: Integer, max_events: Integer) -> void
+      def note_on: (Integer tick, Integer channel, Integer note, Integer velocity) -> bool
+      def note_off: (Integer tick, Integer channel, Integer note, Integer velocity) -> bool
+      def finish: () -> EventBuffer?
+      def overflow?: () -> bool
+      private def active_index: (Integer channel, Integer note) -> Integer?
+    end
+  end
+end

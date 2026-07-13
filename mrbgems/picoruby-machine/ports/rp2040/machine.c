@@ -390,14 +390,11 @@ picorb_hal_sleep_us(mrb_state *mrb, mrb_int usec)
 #endif
 
 int
-picorb_hal_write(int fd, const void *buf, int nbytes)
+picorb_hal_cdc_write(uint8_t itf, const void *buf, int nbytes, uint32_t timeout_ms)
 {
-#if CFG_TUD_CDC >= 2
-  // Use separate CDC instances: stdout -> CDC0, stderr -> CDC1
-  uint8_t itf = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
-#else
-  const uint8_t itf = 0;
-#endif
+  if (nbytes <= 0) {
+    return 0;
+  }
   if (in_usb_pump) {
     /* Called from inside the pump (e.g. the input echo that
      * tud_cdc_rx_cb triggers via picorb_hal_stdin_push): the mutex is
@@ -406,12 +403,13 @@ picorb_hal_write(int fd, const void *buf, int nbytes)
     tud_cdc_n_write(itf, buf, (uint32_t)nbytes);
     return (int)tud_cdc_n_write_flush(itf);
   }
-  if (!mutex_enter_timeout_ms(&usb_mutex, 100)) {
+  bool locked = (timeout_ms == 0) ? mutex_try_enter(&usb_mutex, NULL) : mutex_enter_timeout_ms(&usb_mutex, 100);
+  if (!locked) {
     return 0;
   }
   int written = 0;
   const uint8_t *p = (const uint8_t *)buf;
-  absolute_time_t deadline = make_timeout_time_ms(500);
+  absolute_time_t deadline = make_timeout_time_ms(timeout_ms);
   while (written < nbytes) {
     uint32_t avail = tud_cdc_n_write_available(itf);
     if (avail > 0) {
@@ -437,6 +435,24 @@ picorb_hal_write(int fd, const void *buf, int nbytes)
   }
   mutex_exit(&usb_mutex);
   return written;
+}
+
+bool
+picorb_hal_cdc_connected(uint8_t itf)
+{
+  return tud_cdc_n_connected(itf);
+}
+
+int
+picorb_hal_write(int fd, const void *buf, int nbytes)
+{
+#if CFG_TUD_CDC >= 2
+  // Use separate CDC instances: stdout -> CDC0, stderr -> CDC1
+  uint8_t itf = (fd == FD_STDERR) ? CDC_INSTANCE_STDERR : CDC_INSTANCE_STDOUT;
+#else
+  const uint8_t itf = 0;
+#endif
+  return picorb_hal_cdc_write(itf, buf, nbytes, 500);
 }
 
 int picorb_hal_flush(int fd) {

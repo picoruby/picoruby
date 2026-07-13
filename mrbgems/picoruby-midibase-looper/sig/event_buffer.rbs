@@ -1,0 +1,18 @@
+module MIDIBASE
+  class Looper
+    class EventBuffer
+      RECORD_SIZE: Integer
+      attr_reader count: Integer
+      attr_reader max_events: Integer
+      def initialize: (Integer max_events) -> void
+      def append: (Integer tick, Symbol command, Integer channel, Integer note, Integer velocity) -> Integer?
+      def tick_at: (Integer index) -> Integer
+      def set_tick_at: (Integer index, Integer tick) -> Integer
+      def event_at: (Integer index) -> MIDIBASE::event_t
+      def sort!: () -> self
+      def clear: () -> self
+      def seal!: () -> self
+      def sealed?: () -> bool
+    end
+  end
+end

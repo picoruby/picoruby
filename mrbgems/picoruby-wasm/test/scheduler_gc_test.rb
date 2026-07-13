@@ -1,5 +1,10 @@
 class WasmSchedulerGCTest < Picotest::Test
+  def test_scheduler_driven_gc_is_enabled_by_default_in_wasm
+    assert_true GC.scheduler_driven
+  end
+
   def test_scheduler_driven_gc_can_be_enabled_without_breaking_tasks
+    origin_scheduler = GC.scheduler_driven
     origin_gen = GC.generational_mode
     begin
       GC.scheduler_driven = true
@@ -21,13 +26,14 @@ class WasmSchedulerGCTest < Picotest::Test
       assert_true ran
       assert_equal :DORMANT, task.status
     ensure
-      GC.scheduler_driven = false
+      GC.scheduler_driven = origin_scheduler
       GC.generational_mode = origin_gen
       GC.start
     end
   end
 
   def test_scheduler_driven_gc_allows_allocations_across_wasm_idle_points
+    origin_scheduler = GC.scheduler_driven
     origin_gen = GC.generational_mode
     origin_interval = GC.interval_ratio
     begin
@@ -47,7 +53,7 @@ class WasmSchedulerGCTest < Picotest::Test
 
       assert_equal 30, count
     ensure
-      GC.scheduler_driven = false
+      GC.scheduler_driven = origin_scheduler
       GC.step_limit = 0
       GC.interval_ratio = origin_interval
       GC.generational_mode = origin_gen

@@ -38,6 +38,7 @@ async function main() {
   // Dynamically import the WASM module
   const wasmModulePath = resolve(WASM_DIR, 'picoruby.js');
   let Module;
+  globalThis.__picotestDone = false;
   try {
     const createModule = (await import(wasmModulePath)).default;
     Module = await createModule({
@@ -92,6 +93,10 @@ async function main() {
 
     // Tick the VM
     Module.ccall('mrb_tick_wasm', null, [], []);
+
+    if (globalThis.__picotestDone === true) {
+      break;
+    }
 
     if (status === 0 && gcSchedulerPending() !== 1) {
       idleCount++;

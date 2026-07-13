@@ -1,0 +1,26 @@
+module MIDIBASE
+  module MML
+    class Player
+      SOURCE: MIDIBASE::Router::source_t
+      type clock_t = untyped
+      type output_t = untyped
+
+      @source: MIDIBASE::Router::source_t
+      attr_reader sequence: Sequence
+      attr_reader clock: clock_t
+      def initialize: (Sequence sequence, ?clock: clock_t, output: output_t, ?source: MIDIBASE::Router::source_t) -> void
+      def start: () -> self
+      def join: () -> self
+      def stop: () -> self
+      def pause: () -> self
+      def resume: () -> self
+      def rewind: () -> self
+      def stopped?: () -> bool
+      def paused?: () -> bool
+      def position: () -> Array[Integer]
+      def run: () -> void
+      private def reset_playback: () -> void
+      private def dispatch: (event_t event) -> void
+    end
+  end
+end

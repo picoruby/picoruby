@@ -230,10 +230,7 @@ static mrb_value
 mrb_sandbox_stop(mrb_state *mrb, mrb_value self)
 {
   SS();
-  if (!mrb_stop_task(mrb, ss->task)) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "Already stopped");
-  }
-  return mrb_true_value();
+  return mrb_bool_value(mrb_stop_task(mrb, ss->task));
 }
 
 static mrb_value

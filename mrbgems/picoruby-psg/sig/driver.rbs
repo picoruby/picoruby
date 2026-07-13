@@ -1,6 +1,22 @@
 #$DEBUG: bool
 
 module PSG
+  type voice_program_step_t = [Integer, Integer, Integer, Integer]
+  type voice_program_t = Array[voice_program_step_t]
+
+  DRUM_CHANNEL: Integer
+  MAX_VOICE_PROGRAM_STEPS: Integer
+
+  @voice_programs: Hash[Symbol, voice_program_t]
+  @drum_program_map: Hash[Integer, Symbol]
+
+  def self.note_to_period: (Integer | Float note, ?round: bool) -> Integer
+  def self.set_tuning: (?Symbol tuning, ?pitch: Integer | Float) -> Symbol
+  def self.define_voice_program: (Symbol name, voice_program_t steps) -> voice_program_t
+  def self.voice_program: (Symbol name) -> voice_program_t
+  def self.assign_drum_program: (Integer note, Symbol? program_name) -> Symbol?
+  def self.drum_program: (Integer note) -> voice_program_t?
+
   class Driver
     CHIP_CLOCK: Integer
     SAMPLE_RATE: Integer
@@ -13,9 +29,8 @@ module PSG
     def buffer_empty?: () -> bool
     def buffer_flush: () -> nil
     def deinit: () -> nil
-    def replay: () -> Symbol
-    def stop_mml: () -> Symbol
     def send_reg: (Integer reg, Integer val, ?Integer tick_delay) -> bool
+    def voice_write: (Integer voice, Integer tone_period, Integer noise_period, Integer volume, Integer mixer_flags) -> bool
     def set_lfo: (Integer ch, Integer depth, Integer rate, ?Integer tick_delay) -> bool
     def set_pan: (Integer ch, Integer pan, ?Integer tick_delay) -> bool
     def set_timbre: (Integer ch, Integer timbre_index, ?Integer tick_delay) -> bool
@@ -25,29 +40,7 @@ module PSG
     def mute_direct: (Integer ch, Integer flag) -> nil
 
     WAIT_MS: Integer
-    @mml_playback: PSG::Playback?
-    @bgm_playback: PSG::Playback?
-    def play_mml: (Array[String] tracks, ?terminate: bool) -> self
-    def start_mml: (Array[String] tracks, ?loop: bool, ?terminate: bool) -> PSG::Playback
     def play_prs: (String filename, ?terminate: bool) -> void
-    def start_bgm: (Array[String] tracks) -> PSG::Playback
-    def stop_bgm: () -> void
-    private def trap: () -> void
     private def invoke: (Symbol command, Integer arg1, Integer arg2, Integer arg3, ?Integer arg4) -> void
   end
-
-  class Keyboard
-    KEY2PERIOD: Hash[Integer, Integer]
-    TONE_K: Float
-    CH: Integer
-    @ch_reg: Integer
-    @channel: Integer
-    @driver: PSG::Driver
-    def self.note_to_period: (Integer note) -> Integer
-    def initialize: (PSG::Driver driver, ?channel: Integer) -> void
-    def note_on: (Integer period) -> bool
-    def note_off: () -> bool
-    def start: () -> void
-  end
-
 end

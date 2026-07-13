@@ -14,12 +14,17 @@ class UARTTest < Picotest::Test
 
   def test_getbyte_returns_nil_when_rx_buffer_is_empty
     assert_nil @uart.getbyte
+    assert_nil @uart.last_read_timestamp_us
   end
 
   def test_ungetbyte
     assert_nil @uart.ungetbyte(0x141)
     assert_equal 0x41, @uart.getbyte
+    timestamp_us = @uart.last_read_timestamp_us
+    assert timestamp_us.is_a?(Integer)
+    assert 0 <= timestamp_us
     assert_nil @uart.getbyte
+    assert_equal 0, @uart.rx_overflow_count
   end
 
   def test_putc

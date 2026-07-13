@@ -82,6 +82,7 @@ module JS
     def createObjectURL: (JS::Object blob) -> String
     def create_object: () -> JS::Object
     def create_array: () -> JS::Array
+    def new: (*untyped args) -> JS::Object
 
     # localStorage methods
     def setItem: (String key, String value) -> void

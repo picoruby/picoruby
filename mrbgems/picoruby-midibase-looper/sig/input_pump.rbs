@@ -1,0 +1,25 @@
+module MIDIBASE
+  class Looper
+    class InputPump
+      DEFAULT_PRIORITY: Integer
+
+      type input_t = untyped
+      type output_t = untyped
+
+      @input: input_t
+      @output: output_t
+      @source: Router::source_t
+      @stopped: bool
+      @task: Task?
+      @priority: Integer
+      @timestamped_input: bool
+      @fast_output: bool
+
+      def initialize: (input_t input, output: output_t, source: Router::source_t, ?priority: Integer) -> void
+      def start: () -> self
+      def run: () -> void
+      def stop: () -> self
+      def join: () -> self
+    end
+  end
+end
