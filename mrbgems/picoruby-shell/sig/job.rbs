@@ -1,7 +1,7 @@
 # Classes
 class Shell
   class Job
-    @sandbox: untyped
+    @sandbox: untyped | nil
     @params: Array[String]
 
     attr_reader name: String
@@ -10,6 +10,7 @@ class Shell
     def exec: () -> bool
     def resume: () -> void
     def state: () -> Symbol
+    def close: () -> void
     private def trap: () -> void
   end
 end

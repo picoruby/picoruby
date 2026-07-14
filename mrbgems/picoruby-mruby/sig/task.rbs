@@ -20,6 +20,7 @@ class Task
   def suspend: () -> self
   def resume: () -> self
   def terminate: () -> self
+  def close: () -> nil
   def join: () -> self
 
   class Stat

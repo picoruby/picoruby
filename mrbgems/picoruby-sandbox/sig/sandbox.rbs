@@ -13,6 +13,7 @@ class Sandbox
   def resume: () -> bool
   def suspend: () -> bool
   def terminate: () -> bool
+  def close: () -> nil
   def stop: () -> bool
   def free_parser: () -> nil
   def state: () -> Symbol
