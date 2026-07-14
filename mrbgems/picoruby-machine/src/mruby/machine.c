@@ -1,4 +1,5 @@
 #include "mruby.h"
+#include "mruby/gc.h"
 #include "mruby/string.h"
 #include "mruby/presym.h"
 #include "mruby/array.h"
@@ -10,6 +11,9 @@ static inline void
 io_wait_for_input(mrb_state *mrb)
 {
   Machine_tud_task();
+  if (mrb_gc_scheduler_pending(mrb)) {
+    mrb_gc_step(mrb);
+  }
   picorb_hal_idle_cpu(mrb);
 }
 
