@@ -35,18 +35,18 @@ heap_exit_critical(void)
 
 #if !defined(HEAP_SIZE)
   #if defined(PICO_RP2040)
-    #define RAM_SIZE_KB         264
-    #define WIFI_STACK_SIZE_KB   32
+    #define RAM_SIZE_KB             264
+    #define WIFI_RESERVED_SIZE_KB    32
   #elif defined(PICO_RP2350)
-    #define RAM_SIZE_KB         524
-    #define WIFI_STACK_SIZE_KB   80
+    #define RAM_SIZE_KB             520
+    #define WIFI_RESERVED_SIZE_KB    76
   #else
     #error "PICO_RP2040 or PICO_RP2350 must be defined"
   #endif
   // Compiling a big Ruby code may need more stack size
   #define BASIC_STACK_SIZE_KB   80
   #if defined(USE_WIFI)
-    #define STACK_SIZE_KB (BASIC_STACK_SIZE_KB + WIFI_STACK_SIZE_KB)
+    #define STACK_SIZE_KB (BASIC_STACK_SIZE_KB + WIFI_RESERVED_SIZE_KB)
   #else
     #define STACK_SIZE_KB BASIC_STACK_SIZE_KB
   #endif
