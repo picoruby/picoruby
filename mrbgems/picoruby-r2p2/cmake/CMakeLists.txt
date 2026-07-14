@@ -219,6 +219,7 @@ if(PICORB_VM_MRUBY)
   add_compile_definitions(MRB_UTF8_STRING=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
     ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include
+    ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/include
   )
 elseif(PICORB_VM_MRUBYC)
   add_compile_definitions(PICORB_VM_MRUBYC=1)
