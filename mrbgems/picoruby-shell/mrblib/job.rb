@@ -36,6 +36,13 @@ class Shell
       @sandbox.state
     end
 
+    def close
+      sandbox = @sandbox
+      return if sandbox.nil?
+      sandbox.close
+      @sandbox = nil
+    end
+
     def exec
       ARGV.clear
       i = 0

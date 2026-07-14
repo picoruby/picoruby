@@ -20,7 +20,9 @@ void mrb_irep_cutref(mrb_state *, struct mrb_irep *);
 static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
   SandboxState *ss = (SandboxState *)ptr;
-  mrb_gc_unregister(mrb, ss->task);
+  if (!mrb_nil_p(ss->task)) {
+    mrb_gc_unregister(mrb, ss->task);
+  }
   /* Drop the sandbox's counted reference; procs created from this irep
      hold their own refs and the irep is freed when the last one dies. */
   if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
@@ -303,6 +305,20 @@ mrb_sandbox_terminate(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+static mrb_value
+mrb_sandbox_close(mrb_state *mrb, mrb_value self)
+{
+  SandboxState *ss = (SandboxState *)mrb_data_get_ptr(mrb, self, &mrb_sandbox_state_type);
+  if (mrb_nil_p(ss->task)) {
+    return mrb_nil_value();
+  }
+
+  mrb_value task = ss->task;
+  mrb_close_task(mrb, task);
+  ss->task = mrb_nil_value();
+  return mrb_nil_value();
+}
+
 
 void
 mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
@@ -325,6 +341,7 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb), mrb_sandbox_exec_vm_code, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb_from_memory), mrb_sandbox_exec_vm_code_from_memory, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(terminate), mrb_sandbox_terminate, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(close), mrb_sandbox_close, MRB_ARGS_NONE());
 }
 
 void

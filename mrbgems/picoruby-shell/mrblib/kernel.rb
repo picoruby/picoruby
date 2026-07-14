@@ -1,6 +1,11 @@
 module Kernel
   def system(command) # steep:ignore MethodArityMismatch
     # @type var command: String
-    Shell::Job.new(*command.split).exec
+    job = Shell::Job.new(*command.split)
+    begin
+      job.exec
+    ensure
+      job.close
+    end
   end
 end

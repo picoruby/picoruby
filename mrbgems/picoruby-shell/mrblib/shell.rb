@@ -680,7 +680,11 @@ class Shell
 
       # Execute command
       job = Job.new(*cmd_args)
-      job.exec
+      begin
+        job.exec
+      ensure
+        job.close
+      end
     ensure
       # Close and restore
       $stdin.close if redirect_in && $stdin != old_stdin
@@ -904,6 +908,7 @@ class Shell
     i = @jobs.size - 1
     while 0 <= i
       if @jobs[i].state == :DORMANT
+        @jobs[i].close
         @jobs.delete_at(i)
       end
       i -= 1
@@ -911,4 +916,3 @@ class Shell
   end
 
 end
-

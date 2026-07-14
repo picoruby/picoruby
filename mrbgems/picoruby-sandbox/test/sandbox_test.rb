@@ -63,4 +63,17 @@ class SandboxTest < Picotest::Test
 
     assert_equal :new, sandbox.result
   end
+
+  def test_close_removes_task_from_scheduler
+    dormant_count = Task.stat[:dormant][:count] if picoruby?
+    sandbox = Sandbox.new
+    sandbox.compile(":done")
+    sandbox.execute
+    sandbox.wait(timeout: nil)
+
+    assert_equal dormant_count + 1, Task.stat[:dormant][:count] if picoruby?
+    assert_nil sandbox.close
+    assert_equal dormant_count, Task.stat[:dormant][:count] if picoruby?
+    assert_nil sandbox.close
+  end
 end

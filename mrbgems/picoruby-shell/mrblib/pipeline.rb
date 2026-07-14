@@ -96,7 +96,11 @@ class Shell
       if @commands.size == 1
         # Single command - no pipeline needed
         job = Job.new(*@commands[0])
-        job.exec
+        begin
+          job.exec
+        ensure
+          job.close
+        end
         return
       end
 
@@ -138,7 +142,11 @@ class Shell
 
         # Execute command using Job (which uses Sandbox)
         job = Job.new(*cmd_args)
-        job.exec
+        begin
+          job.exec
+        ensure
+          job.close
+        end
       ensure
         $stdin = old_stdin
         $stdout = old_stdout
