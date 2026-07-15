@@ -212,7 +212,7 @@ endif()
 if(USE_WIFI)
   # these are used only in WiFi build
   target_link_libraries(${PROJECT_NAME} PRIVATE
-    pico_cyw43_arch_lwip_threadsafe_background
+    pico_cyw43_arch_lwip_poll
     pico_btstack_ble
     pico_btstack_cyw43
   )
