@@ -23,7 +23,7 @@ MRuby::CrossBuild.new("picoruby-wasm") do |conf|
   conf.linker.command = 'emcc'
   conf.archiver.command = 'emar'
 
-  conf.picoruby
+  conf.picoruby(alloc_estalloc: false)
   conf.gembox "mruby-posix"
   conf.gembox "stdlib"
 

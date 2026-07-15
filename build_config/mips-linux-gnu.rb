@@ -25,7 +25,7 @@ MRuby::CrossBuild.new("mips-linux-gnu") do |conf|
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
-  conf.femtoruby(alloc_libc: true)
+  conf.femtoruby
 
   conf.gembox "minimum"
   conf.gembox "core"

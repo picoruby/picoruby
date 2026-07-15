@@ -5,8 +5,6 @@ MRuby::CrossBuild.new('picoruby-32bit') do |conf|
   conf.cc.defines << "MRB_TICK_UNIT=4"
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=3"
 
-  conf.cc.defines << "PICORB_ALLOC_ALIGN=4"
-  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
   conf.cc.defines << "ESTALLOC_DEBUG"
 
   conf.cc.defines << "MRB_INT64"
@@ -28,7 +26,7 @@ MRuby::CrossBuild.new('picoruby-32bit') do |conf|
   conf.cc.flags << '-falign-labels=2'
   conf.linker.flags << '-m32'
 
-  conf.picoruby
+  conf.picoruby(alloc_align: 4)
 
   conf.gembox "minimum"
   conf.gembox "core"

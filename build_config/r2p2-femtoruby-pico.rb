@@ -37,7 +37,7 @@ MRuby::CrossBuild.new("r2p2-femtoruby-pico") do |conf|
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
-  conf.femtoruby(alloc_libc: false)
+  conf.femtoruby
 
   conf.gembox "minimum"
   conf.gembox "core"

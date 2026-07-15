@@ -47,7 +47,7 @@ MRuby::CrossBuild.new("r2p2-femtoruby-pico2_w") do |conf|
   conf.cc.defines << "USE_WIFI"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
-  conf.femtoruby(alloc_libc: false)
+  conf.femtoruby
 
   conf.gembox "minimum"
   conf.gembox "core"

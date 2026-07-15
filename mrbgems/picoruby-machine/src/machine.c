@@ -32,10 +32,16 @@ debug_printf(const char *format, ...)
 
 #if defined(PICORB_VM_MRUBY)
 
+#if defined(PICORB_ALLOC_ESTALLOC)
+#include "mruby/alloc.c"
+#endif
 #include "mruby/machine.c"
 
 #elif defined(PICORB_VM_MRUBYC)
 
+#if defined(PICORB_ALLOC_ESTALLOC) && defined(MRBC_ALLOC_LIBC)
+#include "mrubyc/alloc.c"
+#endif
 #include "mrubyc/machine.c"
 
 #endif

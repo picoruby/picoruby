@@ -16,8 +16,6 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
   conf.cc.defines << "MRB_INT64"
   conf.cc.defines << "MRB_NO_BOXING"
   conf.cc.defines << "MRB_32BIT"
-  conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
-  conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
   conf.cc.defines << "USE_WIFI"
   conf.cc.defines << "MRB_USE_CUSTOM_RO_DATA_P"
   conf.cc.defines << "MRB_LINK_TIME_RO_DATA_P"
