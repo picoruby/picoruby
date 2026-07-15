@@ -18,8 +18,8 @@ Net_clear_error(void)
   net_error[0] = '\0';
 }
 
-static void
-Net_set_error(const char *format, ...)
+void
+Net_set_last_error(const char *format, ...)
 {
   va_list args;
 
@@ -43,9 +43,23 @@ cyw43_lwip_ready(const char *operation)
     return true;
   }
 
-  Net_set_error(
-    "%s: CYW43/LwIP is not initialized. "
-    "Call CYW43.init, CYW43.enable_sta_mode, and CYW43.connect_timeout before using sockets",
+  Net_set_last_error(
+    "%s: CYW43/LwIP is not initialized; call CYW43.init before sockets",
+    operation
+  );
+  return false;
+}
+
+static bool
+cyw43_wifi_ready(const char *operation)
+{
+  int status = cyw43_tcpip_link_status(&cyw43_state, CYW43_ITF_STA);
+  if (status == CYW43_LINK_UP) {
+    return true;
+  }
+
+  Net_set_last_error(
+    "%s: CYW43 Wi-Fi is not connected; call CYW43.connect_timeout before sockets",
     operation
   );
   return false;
@@ -118,6 +132,9 @@ Net_get_ip(const char *name, void *ip)
   if (!cyw43_lwip_ready("Net_get_ip")) {
     return -1;
   }
+  if (!cyw43_wifi_ready("Net_get_ip")) {
+    return -1;
+  }
   lwip_begin();
   err_t err = dns_gethostbyname(name, addr, dns_callback, addr);
   lwip_end();
@@ -139,10 +156,10 @@ Net_get_ip(const char *name, void *ip)
       return 0;
     }
     D("Net_get_ip: DNS resolution timed out for %s\n", name);
-    Net_set_error("Net_get_ip: DNS resolution timed out for %s", name);
+    Net_set_last_error("Net_get_ip: DNS resolution timed out for %s", name);
   } else {
     D("Net_get_ip: DNS failed for %s with error %d\n", name, err);
-    Net_set_error("Net_get_ip: DNS failed for %s with error %d", name, err);
+    Net_set_last_error("Net_get_ip: DNS failed for %s with error %d", name, err);
   }
 
   return -1;

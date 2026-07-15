@@ -68,6 +68,7 @@ extern void Net_busy_wait_ms(int ms);
 extern int Net_get_ip(const char *name, void *ip);
 #if !defined(PICORB_PLATFORM_ESP32)
 extern const char* Net_get_last_error(void);
+extern void Net_set_last_error(const char *format, ...);
 #endif
 #endif
 

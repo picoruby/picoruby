@@ -76,6 +76,31 @@ static err_t ssl_sent_callback(void *arg, struct altcp_pcb *pcb, u16_t len);
 static void ssl_err_callback(void *arg, err_t err);
 static err_t ssl_poll_callback(void *arg, struct altcp_pcb *pcb);
 
+static const char*
+lwip_err_name(err_t err)
+{
+  switch (err) {
+    case ERR_OK: return "ERR_OK";
+    case ERR_MEM: return "ERR_MEM";
+    case ERR_BUF: return "ERR_BUF";
+    case ERR_TIMEOUT: return "ERR_TIMEOUT";
+    case ERR_RTE: return "ERR_RTE";
+    case ERR_INPROGRESS: return "ERR_INPROGRESS";
+    case ERR_VAL: return "ERR_VAL";
+    case ERR_WOULDBLOCK: return "ERR_WOULDBLOCK";
+    case ERR_USE: return "ERR_USE";
+    case ERR_ALREADY: return "ERR_ALREADY";
+    case ERR_ISCONN: return "ERR_ISCONN";
+    case ERR_CONN: return "ERR_CONN";
+    case ERR_IF: return "ERR_IF";
+    case ERR_ABRT: return "ERR_ABRT";
+    case ERR_RST: return "ERR_RST";
+    case ERR_CLSD: return "ERR_CLSD";
+    case ERR_ARG: return "ERR_ARG";
+    default: return "ERR_UNKNOWN";
+  }
+}
+
 /* ========================================================================
  * Callback Functions
  * ======================================================================== */
@@ -92,6 +117,7 @@ ssl_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
 
   if (err != ERR_OK) {
     D("SSL callback: error");
+    Net_set_last_error("SSL connect callback failed: %s (%d)", lwip_err_name(err), (int)err);
     ssl_sock->state = SSL_STATE_ERROR;
     ssl_sock->connected = false;
     return err;
@@ -166,6 +192,7 @@ ssl_err_callback(void *arg, err_t err)
   picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)arg;
   if (!ssl_sock) return;
 
+  Net_set_last_error("SSL connection error: %s (%d)", lwip_err_name(err), (int)err);
   ssl_sock->state = SSL_STATE_ERROR;
   ssl_sock->connected = false;
   ssl_sock->tls_pcb = NULL;  /* PCB is already freed by LwIP */
@@ -448,6 +475,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 
   if (!tls_config) {
     D("SSL: TLS config failed");
+    Net_set_last_error("SSL TLS config allocation failed");
     return false;
   }
   D("SSL: TLS config ok");
@@ -464,6 +492,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   ssl_sock->tls_pcb = altcp_tls_new(tls_config, IPADDR_TYPE_V4);
   if (!ssl_sock->tls_pcb) {
     D("SSL: TLS PCB failed");
+    Net_set_last_error("SSL TLS PCB allocation failed");
     altcp_tls_free_config(tls_config);
     return false;
   }
@@ -480,6 +509,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   mbedtls_ssl_context *ssl_ctx = altcp_tls_context(ssl_sock->tls_pcb);
   if (!ssl_ctx) {
     D("SSL: altcp_tls_context failed");
+    Net_set_last_error("SSL TLS context creation failed");
     altcp_tls_free_config(tls_config);
     return false;
   }
@@ -503,6 +533,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   err_t err = altcp_connect(ssl_sock->tls_pcb, &ip_addr, ssl_sock->port, ssl_connected_callback);
   if (err != ERR_OK) {
     D("SSL: altcp_connect failed");
+    Net_set_last_error("SSL altcp_connect failed: %s (%d)", lwip_err_name(err), (int)err);
     ssl_sock->state = SSL_STATE_ERROR;
     lwip_end();
     return false;
@@ -524,6 +555,9 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
     return true;
   } else {
     D("SSL: timeout or error, state=%d", ssl_sock->state);
+    if (!Net_get_last_error()[0]) {
+      Net_set_last_error("SSL handshake timed out");
+    }
     /* Cleanup on timeout */
     if (ssl_sock->tls_pcb) {
       lwip_begin();
