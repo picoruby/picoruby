@@ -18,6 +18,9 @@
 #include "hardware/structs/scb.h"
 #include "hardware/sync.h"
 #include "pico/aon_timer.h"
+#if defined(PICO_CYW43_ARCH_POLL)
+#include "pico/cyw43_arch.h"
+#endif
 
 #include <stdint.h>
 #include <string.h>
@@ -364,6 +367,18 @@ picorb_hal_idle_cpu()
 picorb_hal_idle_cpu(mrb_state *mrb)
 #endif
 {
+#if defined(PICO_CYW43_ARCH_POLL)
+  /* cyw43_arch POLL mode: pump the shared async_context (cyw43_driver, lwIP and
+     btstack) then block until there is new stack work or the next scheduler
+     tick, whichever comes first. Unlike bare __wfi this self-bounds on the
+     deadline via an armed timer, so it also sidesteps the RP2350
+     __wfi-does-not-wake issue below. No-op until the stack is brought up. */
+  if (cyw43_is_initialized(&cyw43_state)) {
+    cyw43_arch_poll();
+    cyw43_arch_wait_for_work_until(make_timeout_time_ms(MRBC_TICK_UNIT));
+    return;
+  }
+#endif
 #if defined(PICO_RP2040)
   __wfi();
 #elif defined(PICO_RP2350)
