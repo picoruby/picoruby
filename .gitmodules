@@ -4,8 +4,8 @@
 [submodule "mrbgems/picoruby-mruby/lib/mruby"]
 	path = mrbgems/picoruby-mruby/lib/mruby
 	url = https://github.com/mruby/mruby.git
-[submodule "mrbgems/picoruby-mruby/lib/estalloc"]
-	path = mrbgems/picoruby-mruby/lib/estalloc
+[submodule "mrbgems/picoruby-machine/lib/estalloc"]
+	path = mrbgems/picoruby-machine/lib/estalloc
 	url = https://github.com/picoruby/estalloc
 [submodule "mrbgems/mruby-compiler2"]
 	path = mrbgems/mruby-compiler

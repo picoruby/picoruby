@@ -16,8 +16,16 @@
 #include "hal.h" // in picoruby-machine
 #include "main_task.c"
 
-#if defined(PICORB_VM_MRUBY) && defined(PICORB_ALLOC_ESTALLOC)
-#include "../../picoruby-mruby/include/alloc.h"
+#if !defined(PICORB_ALLOC_ESTALLOC)
+#error "R2P2 RP2040 port requires PICORB_ALLOC_ESTALLOC"
+#endif
+
+#if defined(PICORB_VM_MRUBYC) && !defined(MRBC_ALLOC_LIBC)
+#error "R2P2 RP2040 FemtoRuby port requires MRBC_ALLOC_LIBC for Estalloc"
+#endif
+
+#if defined(PICORB_VM_MRUBY)
+#include "../../picoruby-machine/include/estalloc_mruby.h"
 static critical_section_t heap_critsec;
 
 static void
@@ -54,11 +62,7 @@ heap_exit_critical(void)
   #define HEAP_SIZE (HEAP_SIZE_KB * 1024)
 #endif
 
-#if defined(R2P2_ALLOC_LIBC)
-  #define heap_pool NULL
-#else
-  static uint8_t heap_pool[HEAP_SIZE] __attribute__((aligned(8)));
-#endif
+static uint8_t heap_pool[HEAP_SIZE] __attribute__((aligned(8)));
 
 #if defined(PICORB_VM_MRUBY)
   extern mrb_state *global_mrb; /* defined in mruby-compiler (ccontext.c) */
@@ -136,19 +140,15 @@ main(void)
 
   gpio_init_safe();
 
-#if !defined(R2P2_ALLOC_LIBC)
   assert((uint8_t *)heap_pool + HEAP_SIZE <= (uint8_t *)__StackBottom
          && "heap_pool overlaps with C stack");
-#endif
 
   int ret = 0;
 
 #if defined(PICORB_VM_MRUBY)
   mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
-#if defined(PICORB_ALLOC_ESTALLOC)
   critical_section_init(&heap_critsec);
   mrb_alloc_set_critical_section(heap_enter_critical, heap_exit_critical);
-#endif
   global_mrb = mrb;
   mrc_irep *irep = mrb_read_irep(mrb, main_task);
   mrc_ccontext *cc = mrc_ccontext_new(mrb);
@@ -169,6 +169,7 @@ main(void)
   mrb_close(mrb);
   mrc_ccontext_free(cc);
 #elif defined(PICORB_VM_MRUBYC)
+  PICORB_ESTALLOC_MRUBYC_INIT(heap_pool, HEAP_SIZE);
   mrbc_init(heap_pool, HEAP_SIZE);
   mrbc_tcb *main_tcb = mrbc_create_task(main_task, 0);
   if (!main_tcb) {

@@ -1,11 +1,20 @@
 #include <mruby.h>
 #include <mruby/presym.h>
-#include "alloc.h"
+#include <mruby/hash.h>
+#if defined(PICORB_ALLOC_ESTALLOC)
+#include <estalloc_mruby.h>
+#endif
 
 static mrb_value
 mrb_picorubyvm_s_memory_statistics(mrb_state *mrb, mrb_value klass)
 {
+#if defined(PICORB_ALLOC_ESTALLOC)
   return mrb_alloc_statistics(mrb);
+#else
+  mrb_value hash = mrb_hash_new_capa(mrb, 1);
+  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(allocator)), mrb_symbol_value(mrb_intern_lit(mrb, "LIBC")));
+  return hash;
+#endif
 }
 
 static mrb_value

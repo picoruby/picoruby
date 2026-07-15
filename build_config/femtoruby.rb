@@ -8,7 +8,7 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
-  conf.femtoruby(alloc_libc: false)
+  conf.femtoruby
 
   # Link OpenSSL libraries for socket SSL support
   conf.linker.libraries << 'ssl'
@@ -22,4 +22,3 @@ MRuby::Build.new do |conf|
   conf.gem core: "picoruby-shinonome"
   conf.gem core: "picoruby-bin-r2p2"
 end
-

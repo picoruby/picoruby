@@ -64,7 +64,12 @@ module MRuby
       "#{ident}#{major}#{minor}"
     end
 
-    def picoruby
+    def add_define_once(define)
+      key, = define.split("=")
+      cc.defines << define if cc.defines.none? { _1 == key || _1.start_with?("#{key}=") }
+    end
+
+    def picoruby(alloc_estalloc: true, alloc_align: 8)
       # Place picoruby-mruby at the top so that Kernel#require is defined first
       if gems.first
         gems.first.add_dependency 'picoruby-mruby'
@@ -72,6 +77,10 @@ module MRuby
         gem core: 'picoruby-mruby'
       end
       common
+      if alloc_estalloc
+        add_define_once "PICORB_ALLOC_ESTALLOC"
+        add_define_once "PICORB_ALLOC_ALIGN=#{alloc_align}"
+      end
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/include"
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/include"
       cc.defines << "PICORB_VM_MRUBY"
@@ -93,16 +102,21 @@ module MRuby
       debug_flag
     end
 
-    def femtoruby(alloc_libc: true)
+    def femtoruby(alloc_libc: true, alloc_align: 8)
       common
 
       # Override by environment variable
       alloc_libc = false if ENV["PICORB_NO_LIBC_ALLOC"]
 
+      if alloc_libc
+        add_define_once "PICORB_ALLOC_ESTALLOC"
+        add_define_once "PICORB_ALLOC_ALIGN=#{alloc_align}"
+      end
+
       cc.defines << "PICORB_VM_MRUBYC"
       cc.defines << "MRBC_SCHEDULER_EXIT=1"
       cc.defines << "MRBC_NO_STDIO" # skip implementing methods like c_object_puts
-      cc.defines << (alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
+      add_define_once(alloc_libc ? "MRBC_ALLOC_LIBC" : "MRBC_USE_ALLOC_PROF")
       cc.defines << "DISABLE_MRUBY"
       cc.defines << "MRBC_INT64" if cc.defines.include?("PICORB_INT64")
       %w(MRBC_USE_MATH=1 MAX_SYMBOLS_COUNT=1000 MAX_VM_COUNT=255 MAX_REGS_SIZE=255).each do |define|

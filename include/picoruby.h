@@ -27,8 +27,14 @@
 #if defined(PICORB_VM_MRUBYC)
 
 #include <mrubyc.h>
+#if defined(PICORB_ALLOC_ESTALLOC) && defined(MRBC_ALLOC_LIBC)
+#include <estalloc_mrubyc.h>
+#else
+#define PICORB_ESTALLOC_MRUBYC_INIT(heap, size) ((void)0)
+#endif
 
 #define picorb_vm_init()  do { \
+  PICORB_ESTALLOC_MRUBYC_INIT(vm_heap, HEAP_SIZE); \
   mrbc_init(vm_heap, HEAP_SIZE); \
   vm = mrbc_vm_open(NULL); \
   picoruby_init_require(vm); \
@@ -106,18 +112,14 @@ bool picoruby_load_model_by_name(const char *gem);
 #include <mruby/variable.h>
 #include <mruby/presym.h>
 #include <mruby/error.h>
+#include <stdlib.h>
 //#include "../mrbgems/picoruby-mruby/include/task.h"
-#if defined(PICORB_ALOC_TLSF)
-#include "../mrbgems/picoruby-mruby/lib/tlsf/tlsf.h"
-#elif defined(PICORB_ALLOC_O1HEAP)
-#include "../mrbgems/picoruby-mruby/lib/o1heap/o1heap/o1heap.h"
-#elif defined(PICORB_ALLOC_TINYALLOC)
-#include "../mrbgems/picoruby-mruby/lib/tinyalloc/tinyalloc.h"
-#elif defined(PICORB_ALLOC_ESTALLOC)
-#include "../mrbgems/picoruby-mruby/lib/estalloc/estalloc.h"
+#if defined(PICORB_ALLOC_ESTALLOC)
+#include "../mrbgems/picoruby-machine/lib/estalloc/estalloc.h"
+#include "../mrbgems/picoruby-machine/include/estalloc_mruby.h"
 #endif
-#include "../mrbgems/picoruby-mruby/include/alloc.h"
 
+#if defined(PICORB_ALLOC_ESTALLOC)
 #define picorb_vm_init()  do { \
   vm = mrb_open_with_custom_alloc(vm_heap, HEAP_SIZE); \
   if (vm == NULL) { \
@@ -126,6 +128,16 @@ bool picoruby_load_model_by_name(const char *gem);
   } \
   global_mrb = vm; \
 } while(0)
+#else
+#define picorb_vm_init()  do { \
+  vm = mrb_open(); \
+  if (vm == NULL) { \
+    fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv); \
+    return EXIT_FAILURE; \
+  } \
+  global_mrb = vm; \
+} while(0)
+#endif
 
 #define picorb_warn(fmt, ...)   mrb_warn(mrb, fmt, ##__VA_ARGS__)
 

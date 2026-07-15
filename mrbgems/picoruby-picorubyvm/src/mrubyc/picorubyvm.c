@@ -1,4 +1,7 @@
 #include <mrubyc.h>
+#if defined(MRBC_ALLOC_LIBC) && defined(PICORB_ALLOC_ESTALLOC)
+#include <estalloc_mrubyc.h>
+#endif
 
 static void
 c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
@@ -26,6 +29,39 @@ c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
     &ret,
     &mrbc_symbol_value(mrbc_str_to_symid("frag")),
     &mrbc_integer_value(mem.fragmentation)
+  );
+  SET_RETURN(ret);
+#elif defined(PICORB_ALLOC_ESTALLOC)
+  ESTALLOC_STAT mem;
+  if (picorb_estalloc_mrubyc_statistics(&mem) != 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Estalloc is not initialized");
+    return;
+  }
+  mrbc_value ret = mrbc_hash_new(vm, 5);
+  mrbc_hash_set(
+    &ret,
+    &mrbc_symbol_value(mrbc_str_to_symid("allocator")),
+    &mrbc_symbol_value(mrbc_str_to_symid("ESTALLOC"))
+  );
+  mrbc_hash_set(
+    &ret,
+    &mrbc_symbol_value(mrbc_str_to_symid("total")),
+    &mrbc_integer_value(mem.total)
+  );
+  mrbc_hash_set(
+    &ret,
+    &mrbc_symbol_value(mrbc_str_to_symid("used")),
+    &mrbc_integer_value(mem.used)
+  );
+  mrbc_hash_set(
+    &ret,
+    &mrbc_symbol_value(mrbc_str_to_symid("free")),
+    &mrbc_integer_value(mem.free)
+  );
+  mrbc_hash_set(
+    &ret,
+    &mrbc_symbol_value(mrbc_str_to_symid("frag")),
+    &mrbc_integer_value(mem.frag)
   );
   SET_RETURN(ret);
 #else
@@ -83,4 +119,3 @@ mrbc_picorubyvm_init(mrbc_vm *vm)
 
   mrbc_instruction_sequence_init(vm, class_PicoRubyVM);
 }
-

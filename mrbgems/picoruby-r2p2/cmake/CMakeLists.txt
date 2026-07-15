@@ -210,6 +210,7 @@ if(USE_WIFI)
 endif()
 
 add_compile_definitions(PICORB_ALLOC_ESTALLOC=1)
+add_compile_definitions(PICORB_ALLOC_ALIGN=8)
 
 if(PICORB_VM_MRUBY)
   add_compile_definitions(PICORB_VM_MRUBY=1)
@@ -223,6 +224,7 @@ if(PICORB_VM_MRUBY)
   )
 elseif(PICORB_VM_MRUBYC)
   add_compile_definitions(PICORB_VM_MRUBYC=1)
+  add_compile_definitions(MRBC_ALLOC_LIBC=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
     ${PICORUBY_ROOT}/mrbgems/picoruby-mrubyc/lib/mrubyc/src
   )
