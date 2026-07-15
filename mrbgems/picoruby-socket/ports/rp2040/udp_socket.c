@@ -12,6 +12,9 @@
 #define PICORB_NO_LWIP_HELPERS
 #include "lwip/udp.h"
 #include "lwip/dns.h"
+#ifdef PICO_CYW43_ARCH_POLL
+#include "pico/cyw43_arch.h"
+#endif
 
 /* Pre-allocated receive buffer size for UDP.
  * 1500 covers max Ethernet frame payload. Sufficient for NTP (48 bytes),

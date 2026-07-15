@@ -18,11 +18,12 @@ mrb_alloc_statistics(mrb_state *mrb)
 {
   ESTALLOC_STAT mem;
   picorb_heap_stat(&mem);
-  mrb_value hash = mrb_hash_new_capa(mrb, 5);
+  mrb_value hash = mrb_hash_new_capa(mrb, 6);
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(allocator)), mrb_symbol_value(MRB_SYM(ESTALLOC)));
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(total)), mrb_fixnum_value(mem.total));
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(used)), mrb_fixnum_value(mem.used));
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(free)), mrb_fixnum_value(mem.free));
+  mrb_hash_set(mrb, hash, mrb_symbol_value(mrb_intern_lit(mrb, "max_free")), mrb_fixnum_value(mem.max_free));
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(frag)), mrb_fixnum_value(mem.frag));
   return hash;
 }

@@ -293,10 +293,7 @@ static void
 mrb_ssl_socket_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
-    picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)ptr;
-    if (!SSLSocket_closed(mrb, ssl_sock)) {
-      SSLSocket_close(mrb, ssl_sock);
-    }
+    SSLSocket_close(mrb, (picorb_ssl_socket_t *)ptr);
   }
 }
 

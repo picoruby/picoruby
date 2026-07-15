@@ -47,12 +47,25 @@ heap_exit_critical(void)
 #if !defined(HEAP_SIZE)
   #if defined(PICO_RP2040)
     #define RAM_SIZE_KB             264
-    #define WIFI_RESERVED_SIZE_KB    32
   #elif defined(PICO_RP2350)
     #define RAM_SIZE_KB             520
-    #define WIFI_RESERVED_SIZE_KB    33
   #else
     #error "PICO_RP2040 or PICO_RP2350 must be defined"
+  #endif
+  #if defined(USE_WIFI) && defined(R2P2_ALLOC_LIBC)
+    /*
+     * When libc/newlib allocation is separated from Estalloc, keep room for
+     * CYW43/LwIP/mbedTLS outside heap_pool. In shared mode, libc allocation is
+     * routed to Estalloc too, so reserving this RAM would only shrink the
+     * shared heap and invalidate the experiment.
+     */
+    #if defined(PICO_RP2040)
+      #define WIFI_RESERVED_SIZE_KB  32
+    #else
+      #define WIFI_RESERVED_SIZE_KB  64
+    #endif
+  #else
+    #define WIFI_RESERVED_SIZE_KB    18
   #endif
   // Compiling a big Ruby code may need more stack size
   #define BASIC_STACK_SIZE_KB   80

@@ -62,6 +62,8 @@
 
 #if LWIP_ALTCP_TLS && LWIP_ALTCP_TLS_MBEDTLS
 
+#include "../include/socket.h"
+
 #include "lwip/altcp.h"
 #include "lwip/altcp_tls.h"
 #include "lwip/priv/altcp_priv.h"
@@ -298,6 +300,7 @@ altcp_mbedtls_lower_recv_process(struct altcp_pcb *conn, altcp_mbedtls_state_t *
     }
     if (ret != 0) {
       LWIP_DEBUGF(ALTCP_MBEDTLS_DEBUG, ("mbedtls_ssl_handshake failed: %d\n", ret));
+      Net_set_last_error("mbedTLS handshake failed: -0x%04x", (unsigned int)-ret);
       /* handshake failed, connection has to be closed */
       if (conn->err) {
         conn->err(conn->arg, ERR_CLSD);
@@ -662,8 +665,11 @@ altcp_tls_wrap(struct altcp_tls_config *config, struct altcp_pcb *inner_pcb)
   if (ret != NULL) {
     if (altcp_mbedtls_setup(config, ret, inner_pcb) != ERR_OK) {
       altcp_free(ret);
+      altcp_free(inner_pcb);
       return NULL;
     }
+  } else {
+    altcp_free(inner_pcb);
   }
   return ret;
 }

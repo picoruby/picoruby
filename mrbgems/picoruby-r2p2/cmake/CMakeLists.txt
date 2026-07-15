@@ -62,6 +62,8 @@ if(USE_WIFI)
     file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
       ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
       ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
+      ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/common/*.c
+      ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/rp2040/*.c
     )
   else()
     # pico_w uses picoruby-socket instead of picoruby-net to avoid function conflicts
@@ -139,27 +141,41 @@ target_link_directories(${PROJECT_NAME} PRIVATE
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/lib
 )
 
-pico_generate_pio_header(${PROJECT_NAME}
-  ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/rp2040/psg_drv_mcp4922_pio.pio
-)
+if(NOT PICO_BOARD STREQUAL "pico2_w")
+  pico_generate_pio_header(${PROJECT_NAME}
+    ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/rp2040/psg_drv_mcp4922_pio.pio
+  )
+endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
 if(NOT R2P2_ALLOC_LIBC)
-  target_link_options(${PROJECT_NAME} PRIVATE -Wl,--wrap=malloc_usable_size)
+  target_link_options(${PROJECT_NAME} PRIVATE
+    -Wl,--wrap=malloc
+    -Wl,--wrap=calloc
+    -Wl,--wrap=realloc
+    -Wl,--wrap=free
+    -Wl,--wrap=malloc_usable_size
+  )
 endif()
 
 # RP2040: 4KB stack fits in SCRATCH_Y, use SDK default linker script
 # RP2350: 8KB stack needs RAM, use custom linker script
 if(PICO_BOARD STREQUAL "pico" OR PICO_BOARD STREQUAL "pico_w")
   set(PICORB_STACK_SIZE 0x1000) # 4KB
+  set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB (in SCRATCH_X)
 elseif(PICO_BOARD STREQUAL "pico2" OR PICO_BOARD STREQUAL "pico2_w")
   set(PICORB_STACK_SIZE 0x2000) # 8KB
+  if(PICO_BOARD STREQUAL "pico2_w")
+    set(PICORB_CORE1_STACK_SIZE 0x0000) # PSG/core1 omitted in WiFi build
+  else()
+    set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB
+  endif()
   pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/memmap_rp2350.ld)
 endif()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
   PICO_STACK_SIZE=${PICORB_STACK_SIZE}
-  PICO_CORE1_STACK_SIZE=0x0800 # 2KB (in SCRATCH_X)
+  PICO_CORE1_STACK_SIZE=${PICORB_CORE1_STACK_SIZE}
   PICO_HEAP_SIZE=0x0400        # 1KB
 )
 

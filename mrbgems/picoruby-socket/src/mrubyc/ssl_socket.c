@@ -12,7 +12,7 @@ static void
 mrbc_ssl_socket_free(mrbc_value *self)
 {
   ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)self->instance->data;
-  if (wrapper->ptr && !SSLSocket_closed(wrapper->vm, wrapper->ptr)) {
+  if (wrapper->ptr) {
     SSLSocket_close(wrapper->vm, wrapper->ptr);
     wrapper->ptr = NULL;
   }
