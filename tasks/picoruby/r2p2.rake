@@ -141,7 +141,8 @@ namespace :r2p2 do
                 #{r2p2_def_board(board)} \
                 #{r2p2_def_build_type(mode)} \
                 #{r2p2_def_psg_mcp4922_dma} \
-                #{r2p2_def_psg_pwm_dma}
+                #{r2p2_def_psg_pwm_dma} \
+                -D R2P2_ALLOC_LIBC=#{ENV["R2P2_ALLOC_LIBC"] ? "ON" : "OFF"}
               DEFS
               sh "cmake -S #{R2P2_GEM_DIR}/cmake -B #{dir} #{defs}"
               sh "cmake --build #{dir}"

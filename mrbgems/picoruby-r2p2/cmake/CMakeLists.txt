@@ -8,6 +8,15 @@ include(pico_extras_import.cmake)
 # Initialize the SDK
 pico_sdk_init()
 
+option(R2P2_ALLOC_LIBC "Use pico-sdk/newlib malloc implementation instead of routing libc allocation to Estalloc" OFF)
+if(R2P2_ALLOC_LIBC)
+  add_compile_definitions(R2P2_ALLOC_LIBC=1)
+else()
+  if(TARGET pico_malloc)
+    set_target_properties(pico_malloc PROPERTIES INTERFACE_SOURCES "")
+  endif()
+endif()
+
 execute_process (COMMAND date +%Y%m%d OUTPUT_VARIABLE CMAKE_BUILDDATE OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process (COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE CMAKE_REVISION OUTPUT_STRIP_TRAILING_WHITESPACE WORKING_DIRECTORY ${PICORUBY_ROOT})
 # R2P2_VERSION is passed via -D from rake task
@@ -135,6 +144,9 @@ pico_generate_pio_header(${PROJECT_NAME}
 )
 
 target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
+if(NOT R2P2_ALLOC_LIBC)
+  target_link_options(${PROJECT_NAME} PRIVATE -Wl,--wrap=malloc_usable_size)
+endif()
 
 # RP2040: 4KB stack fits in SCRATCH_Y, use SDK default linker script
 # RP2350: 8KB stack needs RAM, use custom linker script

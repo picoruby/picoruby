@@ -2,7 +2,7 @@
 #define PICORUBY_ESTALLOC_MRUBYC_H
 
 #include <stddef.h>
-#include "../lib/estalloc/estalloc.h"
+#include "picorb_heap.h"
 
 #ifdef __cplusplus
 extern "C" {

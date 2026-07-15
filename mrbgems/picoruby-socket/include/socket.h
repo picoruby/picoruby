@@ -66,6 +66,9 @@ extern void lwip_end(void);
 extern void Net_busy_wait_ms(int ms);
 /* Note: ip parameter type depends on LwIP configuration (ip_addr_t in implementation) */
 extern int Net_get_ip(const char *name, void *ip);
+#if !defined(PICORB_PLATFORM_ESP32)
+extern const char* Net_get_last_error(void);
+#endif
 #endif
 
 #endif
