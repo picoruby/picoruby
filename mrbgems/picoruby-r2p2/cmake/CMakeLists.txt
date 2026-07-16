@@ -8,9 +8,9 @@ include(pico_extras_import.cmake)
 # Initialize the SDK
 pico_sdk_init()
 
-option(R2P2_ALLOC_LIBC "Use pico-sdk/newlib malloc implementation instead of routing libc allocation to Estalloc" OFF)
-if(R2P2_ALLOC_LIBC)
-  add_compile_definitions(R2P2_ALLOC_LIBC=1)
+option(R2P2_NO_SHARED_ALLOC "Use pico-sdk/newlib malloc implementation instead of routing libc allocation to Estalloc" OFF)
+if(R2P2_NO_SHARED_ALLOC)
+  add_compile_definitions(R2P2_NO_SHARED_ALLOC=1)
 else()
   if(TARGET pico_malloc)
     set_target_properties(pico_malloc PROPERTIES INTERFACE_SOURCES "")
@@ -148,7 +148,7 @@ if(NOT PICO_BOARD STREQUAL "pico2_w")
 endif()
 
 target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
-if(NOT R2P2_ALLOC_LIBC)
+if(NOT R2P2_NO_SHARED_ALLOC)
   target_link_options(${PROJECT_NAME} PRIVATE
     -Wl,--wrap=malloc
     -Wl,--wrap=calloc

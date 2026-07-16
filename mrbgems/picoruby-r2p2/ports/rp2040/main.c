@@ -52,12 +52,12 @@ heap_exit_critical(void)
   #else
     #error "PICO_RP2040 or PICO_RP2350 must be defined"
   #endif
-  #if defined(USE_WIFI) && defined(R2P2_ALLOC_LIBC)
+  #if defined(USE_WIFI) && defined(R2P2_NO_SHARED_ALLOC)
     /*
      * When libc/newlib allocation is separated from Estalloc, keep room for
      * CYW43/LwIP/mbedTLS outside heap_pool. In shared mode, libc allocation is
      * routed to Estalloc too, so reserving this RAM would only shrink the
-     * shared heap and invalidate the experiment.
+     * shared heap.
      */
     #if defined(PICO_RP2040)
       #define WIFI_RESERVED_SIZE_KB  32

@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "picorb_heap.h"
 
-#if defined(PICORB_ALLOC_ESTALLOC) && !defined(R2P2_ALLOC_LIBC)
+#if defined(PICORB_ALLOC_ESTALLOC) && !defined(R2P2_NO_SHARED_ALLOC)
 
 void *__real_malloc(size_t size);
 void *__real_calloc(size_t nmemb, size_t size);

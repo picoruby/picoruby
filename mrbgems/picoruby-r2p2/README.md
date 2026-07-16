@@ -120,6 +120,10 @@ rake r2p2:picoruby:pico2:debug
 rake r2p2:picoruby:pico2_w:prod
 ```
 
+By default, R2P2 shares Estalloc with the libc-backed WiFi stack. Set
+`R2P2_NO_SHARED_ALLOC` to make LwIP/mbedTLS use newlib `malloc`/`free`
+instead.
+
 The output `.uf2` file is generated in:
 ```
 build/r2p2/{vm}/{board}/{mode}/R2P2-{VM}-{BOARD}-{VERSION}-{DATE}-{REV}.uf2
