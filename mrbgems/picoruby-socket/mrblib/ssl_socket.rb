@@ -30,6 +30,8 @@ class SSLSocket < BasicSocket
   # Instance methods
 
   def connect
+    host = remote_host
+    SocketDNSResolver.resolve(host) if Object.const_defined?(:SocketDNSResolver)
     __connect_poll
     event_queue = @event_queue
     return self unless event_queue

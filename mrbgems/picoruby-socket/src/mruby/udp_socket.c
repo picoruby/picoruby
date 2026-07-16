@@ -257,9 +257,15 @@ udp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   MRB_SET_INSTANCE_TT(udp_socket_class, MRB_TT_DATA);
 
   mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(initialize), mrb_udp_socket_initialize, MRB_ARGS_NONE());
+#ifdef PICO_CYW43_ARCH_POLL
+  mrb_define_private_method_id(mrb, udp_socket_class, MRB_SYM(__bind_resolved), mrb_udp_socket_bind, MRB_ARGS_REQ(2));
+  mrb_define_private_method_id(mrb, udp_socket_class, MRB_SYM(__connect_resolved), mrb_udp_socket_connect, MRB_ARGS_REQ(2));
+  mrb_define_private_method_id(mrb, udp_socket_class, MRB_SYM(__send_resolved), mrb_udp_socket_send, MRB_ARGS_ARG(1, 3));
+#else
   mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(bind), mrb_udp_socket_bind, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(connect), mrb_udp_socket_connect, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(send), mrb_udp_socket_send, MRB_ARGS_ARG(1, 3));
+#endif
   mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(recvfrom_nonblock), mrb_udp_socket_recvfrom_nonblock, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, udp_socket_class, MRB_SYM(close), mrb_udp_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, udp_socket_class, MRB_SYM_Q(closed), mrb_udp_socket_closed_p, MRB_ARGS_NONE());
