@@ -3,6 +3,7 @@ class TCPSocket < BasicSocket
   # This file provides additional Ruby-level methods
 
   def initialize(host, port)
+    SocketDNSResolver.resolve(host) if Object.const_defined?(:SocketDNSResolver)
     __initialize_poll(host, port)
     event_queue = @event_queue
     return unless event_queue
