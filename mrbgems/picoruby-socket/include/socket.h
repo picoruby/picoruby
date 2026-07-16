@@ -191,6 +191,9 @@ picorb_ssl_socket_t* SSLSocket_create(picorb_state *vm, picorb_ssl_context_t *ss
 bool SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname);
 bool SSLSocket_set_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, int port);
 bool SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+int SSLSocket_connection_state(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+bool SSLSocket_finish_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+picorb_socket_t* SSLSocket_event_socket(picorb_ssl_socket_t *ssl_sock);
 ssize_t SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
 ssize_t SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, bool nonblock);
 bool SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
@@ -198,6 +201,7 @@ bool SSLSocket_closed(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 bool SSLSocket_ready(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 const char* SSLSocket_remote_host(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 int SSLSocket_remote_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
+void SSLSocket_notify_readable(picorb_ssl_socket_t *ssl_sock);
 
 /* Address resolution */
 bool resolve_address(const char *host, char *ip, size_t ip_len);

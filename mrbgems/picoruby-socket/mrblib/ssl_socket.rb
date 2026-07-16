@@ -29,6 +29,43 @@ class SSLSocket < BasicSocket
 
   # Instance methods
 
+  def connect
+    __connect_poll
+    event_queue = @event_queue
+    return self unless event_queue
+
+    while __connection_state == 1
+      unless event_queue.pop(timeout_ms: 10_000)
+        close
+        raise SocketError, "SSL handshake timed out"
+      end
+    end
+
+    if __connection_state == 2
+      event_queue.pop(true)
+      return self if __finish_connect
+
+      close
+      raise SocketError, "SSL receive buffer allocation failed"
+    end
+
+    message = __error_message
+    close
+    raise SocketError, message || "SSL handshake failed"
+  end
+
+  def readpartial(maxlen)
+    event_queue = @event_queue
+    return __readpartial_poll(maxlen) unless event_queue
+
+    data = read_nonblock(maxlen)
+    until data
+      event_queue.pop
+      data = read_nonblock(maxlen)
+    end
+    data || raise(IOError, "SSL read failed")
+  end
+
   def addr
     # Returns [address_family, port, hostname, numeric_address]
     # Delegates to underlying TCP socket
