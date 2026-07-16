@@ -120,12 +120,14 @@ ssl_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
     Net_set_last_error("SSL connect callback failed: %s (%d)", lwip_err_name(err), (int)err);
     ssl_sock->state = SSL_STATE_ERROR;
     ssl_sock->connected = false;
+    SSLSocket_notify_readable(ssl_sock);
     return err;
   }
 
   D("SSL callback: success");
   ssl_sock->state = SSL_STATE_CONNECTED;
   ssl_sock->connected = true;
+  SSLSocket_notify_readable(ssl_sock);
   return ERR_OK;
 }
 
@@ -140,6 +142,7 @@ ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (pbuf) pbuf_free(pbuf);
     ssl_sock->state = SSL_STATE_ERROR;
     ssl_sock->connected = false;
+    SSLSocket_notify_readable(ssl_sock);
     return err;
   }
 
@@ -147,22 +150,22 @@ ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   if (!pbuf) {
     ssl_sock->state = SSL_STATE_NONE;
     ssl_sock->connected = false;
+    SSLSocket_notify_readable(ssl_sock);
     return ERR_OK;
   }
 
   /* Copy data into pre-allocated buffer (no heap allocation in callback) */
   picorb_socket_t *sock = ssl_sock->base_socket;
   if (!sock->recv_buf) {
-    Net_set_last_error("SSL recv buffer is not allocated");
-    pbuf_free(pbuf);
+    /* The VM task allocates this buffer after the handshake notification.
+     * Keep the pbuf owned by LwIP so the callback can be retried. */
     return ERR_MEM;
   }
   size_t total_len = pbuf->tot_len;
   size_t new_size = sock->recv_len + total_len;
 
   if (new_size > sock->recv_capacity) {
-    /* Buffer full - cannot accept more data */
-    pbuf_free(pbuf);
+    /* Keep the pbuf owned by LwIP and retry after the VM drains the buffer. */
     return ERR_MEM;
   }
 
@@ -180,6 +183,7 @@ ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   /* Tell LwIP we processed the data */
   altcp_recved(pcb, total_len);
   pbuf_free(pbuf);
+  SSLSocket_notify_readable(ssl_sock);
 
   return ERR_OK;
 }
@@ -203,6 +207,7 @@ ssl_err_callback(void *arg, err_t err)
   ssl_sock->state = SSL_STATE_ERROR;
   ssl_sock->connected = false;
   ssl_sock->tls_pcb = NULL;  /* PCB is already freed by LwIP */
+  SSLSocket_notify_readable(ssl_sock);
 }
 
 static err_t
@@ -429,6 +434,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
     D("SSL: bad params");
     return false;
   }
+  Net_set_last_error("");
 
   /* Get port from base_socket if set, otherwise use 443 */
   if (ssl_sock->port == 0) {
@@ -538,6 +544,8 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   D("SSL: waiting before connect");
   Net_busy_wait_ms(100);
 
+  ssl_sock->state = SSL_STATE_CONNECTING;
+
   /* Initiate connection */
   D("SSL: initiating connection to port %d", ssl_sock->port);
   lwip_begin();
@@ -558,7 +566,9 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   lwip_end();
   D("SSL: altcp_connect ok");
 
-  ssl_sock->state = SSL_STATE_CONNECTING;
+  if (ssl_sock->base_socket->event_queue) {
+    return true;
+  }
 
   /* Wait for connection to establish */
   D("SSL: waiting for connection");
@@ -569,24 +579,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 
   if (ssl_sock->state == SSL_STATE_CONNECTED) {
     D("SSL: connected");
-    if (!ssl_sock->base_socket->recv_buf) {
-      ssl_sock->base_socket->recv_buf = (char *)picorb_alloc(vm, SSL_RECV_BUF_SIZE + 1);
-      if (!ssl_sock->base_socket->recv_buf) {
-        Net_set_last_error("SSL recv buffer allocation failed");
-        lwip_begin();
-        altcp_abort(ssl_sock->tls_pcb);
-        lwip_end();
-        ssl_sock->tls_pcb = NULL;
-        if (ssl_sock->ssl_ctx->tls_config == tls_config) {
-          ssl_sock->ssl_ctx->tls_config = NULL;
-        }
-        altcp_tls_free_config(tls_config);
-        return false;
-      }
-      ssl_sock->base_socket->recv_capacity = SSL_RECV_BUF_SIZE;
-      ssl_sock->base_socket->recv_len = 0;
-    }
-    return true;
+    return SSLSocket_finish_connect(vm, ssl_sock);
   } else {
     D("SSL: timeout or error, state=%d", ssl_sock->state);
     if (!Net_get_last_error()[0]) {
@@ -606,6 +599,40 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
     ssl_sock->state = SSL_STATE_ERROR;
     return false;
   }
+}
+
+int
+SSLSocket_connection_state(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
+{
+  (void)vm;
+  return ssl_sock ? ssl_sock->state : SSL_STATE_ERROR;
+}
+
+bool
+SSLSocket_finish_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
+{
+  if (!ssl_sock || ssl_sock->state != SSL_STATE_CONNECTED || !ssl_sock->base_socket) {
+    return false;
+  }
+  if (ssl_sock->base_socket->recv_buf) {
+    return true;
+  }
+
+  ssl_sock->base_socket->recv_buf = (char *)picorb_alloc(vm, SSL_RECV_BUF_SIZE + 1);
+  if (!ssl_sock->base_socket->recv_buf) {
+    Net_set_last_error("SSL recv buffer allocation failed");
+    return false;
+  }
+  ssl_sock->base_socket->recv_capacity = SSL_RECV_BUF_SIZE;
+  ssl_sock->base_socket->recv_len = 0;
+  ssl_sock->base_socket->event_pending = false;
+  return true;
+}
+
+picorb_socket_t*
+SSLSocket_event_socket(picorb_ssl_socket_t *ssl_sock)
+{
+  return ssl_sock ? ssl_sock->base_socket : NULL;
 }
 
 ssize_t
@@ -720,6 +747,11 @@ SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   }
 
   if (ssl_sock->base_socket) {
+    SSLSocket_notify_readable(ssl_sock);
+    if (ssl_sock->base_socket->event_queue) {
+      picorb_free(vm, ssl_sock->base_socket->event_queue);
+      ssl_sock->base_socket->event_queue = NULL;
+    }
     if (ssl_sock->base_socket->recv_buf) {
       picorb_free(vm, ssl_sock->base_socket->recv_buf);
     }
