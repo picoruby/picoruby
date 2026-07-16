@@ -1,5 +1,6 @@
 static mrbc_value write_values = {.tt = MRBC_TT_NIL};
 static mrbc_value read_values = {.tt = MRBC_TT_NIL};
+static mrbc_value event_queue = {.tt = MRBC_TT_NIL};
 
 #define NODE_BOX_SIZE 10
 #define VM_REGS_SIZE 110 // can be reduced?
@@ -7,23 +8,19 @@ static mrbc_value read_values = {.tt = MRBC_TT_NIL};
 void
 BLE_push_event(uint8_t *data, uint16_t size)
 {
-  if (packet_mutex) return;
-  packet_mutex = true;
-  packet_flag = true;
-  packet_size = size;
-  if (packet != NULL) {
-    mrbc_raw_free(packet);
+  if (event_queue.tt == MRBC_TT_NIL) return;
+  mrbc_value event = mrbc_string_new(NULL, (const void *)data, size);
+  if (mrbc_task_queue_push(&event_queue, &event) != MRBC_TASK_QUEUE_PUSH_OK) {
+    mrbc_decref(&event);
   }
-  packet = mrbc_raw_alloc(packet_size);
-  memcpy(packet, data, packet_size);
-  packet_mutex = false;
 }
 
 void
 BLE_heartbeat(void)
 {
-  if (packet_mutex) return;
-  heatbeat_flag = true;
+  if (event_queue.tt == MRBC_TT_NIL) return;
+  mrbc_value event = mrbc_symbol_value(mrbc_str_to_symid("heartbeat"));
+  mrbc_task_queue_push(&event_queue, &event);
 }
 
 int
@@ -60,33 +57,6 @@ BLE_read_data(BLE_read_value_t *read_value)
 
 
 static void
-c_pop_heartbeat(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (heatbeat_flag) {
-    heatbeat_flag = false;
-    SET_TRUE_RETURN();
-  } else {
-    SET_FALSE_RETURN();
-  }
-}
-
-static void
-c_pop_packet(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  if (packet_mutex || !packet_flag) {
-    SET_NIL_RETURN();
-    return;
-  }
-  packet_mutex = true;
-  packet_flag = false;
-  mrb_value packet_value = mrbc_string_new(vm, (const char *)packet, packet_size);
-  mrbc_raw_free(packet);
-  packet = NULL;
-  packet_mutex = false;
-  SET_RETURN(packet_value);
-}
-
-static void
 c_pop_write_value(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (write_values_mutex) {
@@ -121,6 +91,8 @@ c_push_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  if (event_queue.tt != MRBC_TT_NIL) mrbc_decref(&event_queue);
+  event_queue = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("event_queue"));
   write_values = mrbc_hash_new(vm, 0);
   read_values = mrbc_hash_new(vm, 0);
 
@@ -185,11 +157,7 @@ mrbc_ble_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_BLE, "gap_local_bd_addr", c_gap_local_bd_addr);
   mrbc_define_method(vm, class_BLE, "pop_write_value", c_pop_write_value);
   mrbc_define_method(vm, class_BLE, "push_read_value", c_push_read_value);
-  mrbc_define_method(vm, class_BLE, "pop_heartbeat", c_pop_heartbeat);
-  mrbc_define_method(vm, class_BLE, "pop_packet", c_pop_packet);
-
   mrbc_init_class_BLE_Peripheral(vm, class_BLE);
   mrbc_init_class_BLE_Broadcaster(vm, class_BLE);
   mrbc_init_class_BLE_Central(vm, class_BLE);
 }
-

@@ -3,31 +3,27 @@
 #include "mruby/string.h"
 #include "mruby/hash.h"
 #include "mruby/array.h"
+#include "task.h"
 
 static mrb_state *_mrb = NULL;
 static mrb_value write_values;
 static mrb_value read_values;
+static mrb_value event_queue;
 
 void
 BLE_push_event(uint8_t *data, uint16_t size)
 {
-  if (packet_mutex) return;
-  packet_mutex = true;
-  packet_flag = true;
-  packet_size = size;
-  if (packet != NULL) {
-    mrb_free(_mrb, packet);
-  }
-  packet = mrb_malloc(_mrb, packet_size);
-  memcpy(packet, data, packet_size);
-  packet_mutex = false;
+  if (_mrb == NULL || mrb_nil_p(event_queue)) return;
+  mrb_value event = mrb_str_new(_mrb, (const char *)data, size);
+  (void)mrb_task_queue_push(_mrb, event_queue, event);
 }
 
 void
 BLE_heartbeat(void)
 {
-  if (packet_mutex) return;
-  heatbeat_flag = true;
+  if (_mrb == NULL || mrb_nil_p(event_queue)) return;
+  mrb_state *mrb = _mrb;
+  (void)mrb_task_queue_push(_mrb, event_queue, mrb_symbol_value(MRB_SYM(heartbeat)));
 }
 
 int
@@ -62,30 +58,6 @@ BLE_read_data(BLE_read_value_t *read_value)
 
 
 static mrb_value
-mrb_pop_heartbeat(mrb_state *mrb, mrb_value self)
-{
-  if (heatbeat_flag) {
-    heatbeat_flag = false;
-    return mrb_true_value();
-  }
-  return mrb_false_value();
-}
-
-static mrb_value
-mrb_pop_packet(mrb_state *mrb, mrb_value self)
-{
-  mrb_value packet_value = mrb_nil_value();
-  if (packet_mutex || !packet_flag) return packet_value;
-  packet_mutex = true;
-  packet_flag = false;
-  packet_value = mrb_str_new(mrb, (const char *)packet, packet_size);
-  mrb_free(mrb, packet);
-  packet = NULL;
-  packet_mutex = false;
-  return packet_value;
-}
-
-static mrb_value
 mrb_pop_write_value(mrb_state *mrb, mrb_value self)
 {
   if (write_values_mutex) return mrb_nil_value();
@@ -113,6 +85,7 @@ static mrb_value
 mrb__init(mrb_state *mrb, mrb_value self)
 {
   _mrb = mrb;
+  event_queue = mrb_iv_get(mrb, self, MRB_IVSYM(event_queue));
   write_values = mrb_hash_new(mrb);
   mrb_gc_register(mrb, write_values);
   read_values = mrb_hash_new(mrb);
@@ -185,9 +158,6 @@ mrb_picoruby_ble_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(gap_local_bd_addr), mrb_gap_local_bd_addr, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_write_value), mrb_pop_write_value, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(push_read_value), mrb_push_read_value, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_heartbeat), mrb_pop_heartbeat, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_packet), mrb_pop_packet, MRB_ARGS_NONE());
-
   mrb_init_class_BLE_Peripheral(mrb, class_BLE);
   mrb_init_class_BLE_Broadcaster(mrb, class_BLE);
   mrb_init_class_BLE_Central(mrb, class_BLE);
