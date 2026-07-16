@@ -281,7 +281,7 @@ mrb_break(mrb_state *mrb, mrb_value self)
     if (mrb_float_p(break_ms_val)) {
       break_ms = (uint32_t)(mrb_float(break_ms_val) * 1000);
     } else if (mrb_fixnum_p(break_ms_val)) {
-      break_ms = (uint32_t)mrb_fixnum(break_ms_val);
+      break_ms = (uint32_t)(mrb_fixnum(break_ms_val) * 1000);
     } else {
       mrb_raise(mrb, E_TYPE_ERROR, "can't convert into time interval");
     }
