@@ -16,10 +16,12 @@
 void
 UDPSocket_notify_readable(picorb_socket_t *sock)
 {
-  if (!sock || !sock->event_queue) return;
+  if (!sock || !sock->event_queue || sock->event_pending) return;
   mrb_value queue = *(mrb_value *)sock->event_queue;
   mrb_state *mrb = (mrb_state *)sock->vm;
-  (void)mrb_task_queue_push(mrb, queue, mrb_true_value());
+  if (mrb_task_queue_push(mrb, queue, mrb_true_value()) == MRB_TASK_QUEUE_PUSH_OK) {
+    sock->event_pending = true;
+  }
 }
 #else
 void
@@ -190,6 +192,7 @@ mrb_udp_socket_recvfrom_nonblock(mrb_state *mrb, mrb_value self)
 
   /* If no data available (non-blocking socket), return nil */
   if (received == 0) {
+    sock->event_pending = false;
     mrb_free(mrb, buf);
     return mrb_nil_value();
   }

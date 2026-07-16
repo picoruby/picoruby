@@ -290,6 +290,7 @@ UDPSocket_close(picorb_state *vm, picorb_socket_t *sock)
     sock->recv_buf = NULL;
   }
 
+  UDPSocket_notify_readable(sock);
   if (sock->event_queue) {
     picorb_free(vm, sock->event_queue);
     sock->event_queue = NULL;

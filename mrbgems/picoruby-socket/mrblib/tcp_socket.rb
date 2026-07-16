@@ -2,6 +2,8 @@ class TCPSocket < BasicSocket
   # TCPSocket is mostly implemented in C
   # This file provides additional Ruby-level methods
 
+  alias __readpartial_poll readpartial
+
   # Class methods
 
   def self.open(host, port)
@@ -24,5 +26,16 @@ class TCPSocket < BasicSocket
 
   def connected?
     !closed?
+  end
+
+  def readpartial(maxlen)
+    event_queue = @event_queue
+    return __readpartial_poll(maxlen) unless event_queue
+
+    while true
+      data = read_nonblock(maxlen)
+      return data if data
+      event_queue.pop
+    end
   end
 end
