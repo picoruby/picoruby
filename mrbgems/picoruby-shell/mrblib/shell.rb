@@ -105,6 +105,7 @@ class Shell
     end
     flawless = true
     while exe = Shell.next_executable
+      sleep_ms 3 # For GC.scheduler_driven step
       path = "#{root}#{exe[:path]}"
       unless self.ensure_system_file(path, exe[:code], exe[:crc])
         flawless = false
@@ -135,6 +136,7 @@ class Shell
       dirs = %w(bin home etc etc/init.d etc/network etc/dfu var var/log lib)
       di = 0
       while di < dirs.size
+        sleep_ms 3 # For GC.scheduler_driven step
         dir = dirs[di]
         unless Dir.exist?(dir)
           puts "Creating directory: #{dir}"
@@ -210,7 +212,7 @@ class Shell
         skip = true
         break
       end
-      sleep 0.1
+      sleep_ms 100
       j += 1
     end
     STDIN.read_nonblock 1024 # discard remaining input
