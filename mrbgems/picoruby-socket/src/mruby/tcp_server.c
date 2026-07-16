@@ -5,6 +5,30 @@
 #include "mruby/class.h"
 #include "mruby/data.h"
 #include "mruby/string.h"
+#include "mruby/variable.h"
+#ifdef PICO_CYW43_ARCH_POLL
+#include "task.h"
+#endif
+
+#ifdef PICO_CYW43_ARCH_POLL
+void
+TCPServer_notify_accepted(picorb_tcp_server_t *server)
+{
+  void *queue_ptr = TCPServer_event_queue(server);
+  if (!queue_ptr || TCPServer_event_pending(server)) return;
+  mrb_state *mrb = (mrb_state *)TCPServer_vm(server);
+  mrb_value queue = *(mrb_value *)queue_ptr;
+  if (mrb_task_queue_push(mrb, queue, mrb_true_value()) == MRB_TASK_QUEUE_PUSH_OK) {
+    TCPServer_set_event_pending(server, true);
+  }
+}
+#else
+void
+TCPServer_notify_accepted(picorb_tcp_server_t *server)
+{
+  (void)server;
+}
+#endif
 
 /* Data type for TCPServer */
 static void
@@ -72,6 +96,16 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
 
   mrb_data_init(self, server, &mrb_tcp_server_type);
 
+#ifdef PICO_CYW43_ARCH_POLL
+  struct RClass *task_class = mrb_class_get_id(mrb, MRB_SYM(Task));
+  struct RClass *queue_class = mrb_class_get_under_id(mrb, task_class, MRB_SYM(Queue));
+  mrb_value queue = mrb_obj_new(mrb, queue_class, 0, NULL);
+  mrb_iv_set(mrb, self, MRB_IVSYM(event_queue), queue);
+  void *queue_ptr = mrb_malloc(mrb, sizeof(mrb_value));
+  *(mrb_value *)queue_ptr = queue;
+  TCPServer_set_event_queue(server, mrb, queue_ptr);
+#endif
+
   return self;
 }
 
@@ -98,6 +132,16 @@ mrb_tcp_server_accept_nonblock(mrb_state *mrb, mrb_value self)
   /* Create TCPSocket object for client */
   tcp_socket_class = mrb_class_get_id(mrb, MRB_SYM(TCPSocket));
   client_obj = mrb_obj_value(mrb_data_object_alloc(mrb, tcp_socket_class, client, &mrb_socket_type));
+
+#ifdef PICO_CYW43_ARCH_POLL
+  struct RClass *task_class = mrb_class_get_id(mrb, MRB_SYM(Task));
+  struct RClass *queue_class = mrb_class_get_under_id(mrb, task_class, MRB_SYM(Queue));
+  mrb_value queue = mrb_obj_new(mrb, queue_class, 0, NULL);
+  mrb_iv_set(mrb, client_obj, MRB_IVSYM(event_queue), queue);
+  client->vm = mrb;
+  client->event_queue = mrb_malloc(mrb, sizeof(mrb_value));
+  *(mrb_value *)client->event_queue = queue;
+#endif
 
   return client_obj;
 }
