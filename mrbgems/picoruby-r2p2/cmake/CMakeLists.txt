@@ -58,20 +58,11 @@ if(USE_WIFI)
     ${PICO_SDK_PATH}/src/rp2_common/pico_mbedtls/pico_mbedtls.c
   )
   list(APPEND SOURCE_FILES ${ADD_WIFI_SOURCE_FILES})
-  if(PICO_BOARD STREQUAL "pico2_w")
-    file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-      ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
-      ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
-      ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/common/*.c
-      ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/rp2040/*.c
-    )
-  else()
-    # pico_w uses picoruby-socket instead of picoruby-net to avoid function conflicts
-    file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-      ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
-      ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
-    )
-  endif()
+  # WiFi builds use picoruby-socket instead of picoruby-net to avoid function conflicts.
+  file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
+    ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
+    ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
+  )
 else()
   file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
       ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
@@ -141,11 +132,9 @@ target_link_directories(${PROJECT_NAME} PRIVATE
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/lib
 )
 
-if(NOT PICO_BOARD STREQUAL "pico2_w")
-  pico_generate_pio_header(${PROJECT_NAME}
-    ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/rp2040/psg_drv_mcp4922_pio.pio
-  )
-endif()
+pico_generate_pio_header(${PROJECT_NAME}
+  ${PICORUBY_ROOT}/mrbgems/picoruby-psg/ports/rp2040/psg_drv_mcp4922_pio.pio
+)
 
 target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
 if(NOT R2P2_NO_SHARED_ALLOC)
@@ -165,11 +154,7 @@ if(PICO_BOARD STREQUAL "pico" OR PICO_BOARD STREQUAL "pico_w")
   set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB (in SCRATCH_X)
 elseif(PICO_BOARD STREQUAL "pico2" OR PICO_BOARD STREQUAL "pico2_w")
   set(PICORB_STACK_SIZE 0x2000) # 8KB
-  if(PICO_BOARD STREQUAL "pico2_w")
-    set(PICORB_CORE1_STACK_SIZE 0x0000) # PSG/core1 omitted in WiFi build
-  else()
-    set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB
-  endif()
+  set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB
   pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/memmap_rp2350.ld)
 endif()
 

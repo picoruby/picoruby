@@ -48,7 +48,12 @@ heap_exit_critical(void)
   #if defined(PICO_RP2040)
     #define RAM_SIZE_KB             264
   #elif defined(PICO_RP2350)
-    #define RAM_SIZE_KB             520
+    /*
+     * RP2350 has 512KB of regular SRAM plus 8KB of scratch SRAM. R2P2's
+     * RP2350 linker script reserves scratch SRAM for core0 stack, so heap_pool
+     * must be sized against regular SRAM only.
+     */
+    #define RAM_SIZE_KB             512
   #else
     #error "PICO_RP2040 or PICO_RP2350 must be defined"
   #endif
@@ -65,7 +70,7 @@ heap_exit_critical(void)
       #define WIFI_RESERVED_SIZE_KB  64
     #endif
   #else
-    #define WIFI_RESERVED_SIZE_KB    18
+    #define WIFI_RESERVED_SIZE_KB    15
   #endif
   // Compiling a big Ruby code may need more stack size
   #define BASIC_STACK_SIZE_KB   80

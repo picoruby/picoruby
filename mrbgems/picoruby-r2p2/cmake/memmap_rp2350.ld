@@ -4,8 +4,8 @@
  * Core 0 stack uses the combined 8KB SCRATCH_X+SCRATCH_Y region,
  * allowing PICO_STACK_SIZE=8KB without consuming regular RAM.
  *
- * Core 1 stack, when enabled, is reserved at the end of regular RAM.
- * pico2_w builds set PICO_CORE1_STACK_SIZE=0 because PSG/core1 is omitted.
+ * Core 1 stack is reserved at the end of regular RAM so core 0 can keep the
+ * full 8KB scratch stack.
  */
 
 MEMORY

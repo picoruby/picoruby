@@ -53,6 +53,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
   conf.gembox "peripherals"
   conf.gembox "peripheral_utils"
   conf.gembox "networking"
+  conf.gem core: 'picoruby-psg'
   unless ENV['PICORB_DEBUG']
     # Shinonome is too big for debug build
     conf.gem core: 'picoruby-shinonome'
