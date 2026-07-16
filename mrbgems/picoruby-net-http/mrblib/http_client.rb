@@ -69,7 +69,7 @@ module Net
 
     # Finish HTTP session
     def finish
-      if @socket && !@socket.closed?
+      if @socket
         @socket.close
       end
       @socket = nil

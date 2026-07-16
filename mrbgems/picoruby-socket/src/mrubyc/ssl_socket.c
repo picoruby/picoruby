@@ -12,7 +12,7 @@ static void
 mrbc_ssl_socket_free(mrbc_value *self)
 {
   ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)self->instance->data;
-  if (wrapper->ptr && !SSLSocket_closed(wrapper->vm, wrapper->ptr)) {
+  if (wrapper->ptr) {
     SSLSocket_close(wrapper->vm, wrapper->ptr);
     wrapper->ptr = NULL;
   }
@@ -180,8 +180,17 @@ c_ssl_socket_open(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Perform SSL handshake */
   if (!SSLSocket_connect(vm, wrapper->ptr)) {
+#if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
+    const char *net_error = Net_get_last_error();
+#endif
     SSLSocket_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
+#if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
+    if (net_error && net_error[0]) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), net_error);
+      return;
+    }
+#endif
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL connection failed");
     return;
   }
@@ -212,6 +221,13 @@ c_ssl_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Perform SSL handshake */
   if (!SSLSocket_connect(vm, wrapper->ptr)) {
+#if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
+    const char *net_error = Net_get_last_error();
+    if (net_error && net_error[0]) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), net_error);
+      return;
+    }
+#endif
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL handshake failed");
     return;
   }

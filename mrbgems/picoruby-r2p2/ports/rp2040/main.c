@@ -26,6 +26,10 @@
 
 #if defined(PICORB_VM_MRUBY)
 #include "../../picoruby-machine/include/estalloc_mruby.h"
+#endif
+
+#include "../../picoruby-machine/include/picorb_heap.h"
+
 static critical_section_t heap_critsec;
 
 static void
@@ -39,17 +43,34 @@ heap_exit_critical(void)
 {
   critical_section_exit(&heap_critsec);
 }
-#endif
 
 #if !defined(HEAP_SIZE)
   #if defined(PICO_RP2040)
     #define RAM_SIZE_KB             264
-    #define WIFI_RESERVED_SIZE_KB    32
   #elif defined(PICO_RP2350)
-    #define RAM_SIZE_KB             520
-    #define WIFI_RESERVED_SIZE_KB    76
+    /*
+     * RP2350 has 512KB of regular SRAM plus 8KB of scratch SRAM. R2P2's
+     * RP2350 linker script reserves scratch SRAM for core0 stack, so heap_pool
+     * must be sized against regular SRAM only.
+     */
+    #define RAM_SIZE_KB             512
   #else
     #error "PICO_RP2040 or PICO_RP2350 must be defined"
+  #endif
+  #if defined(USE_WIFI) && defined(R2P2_NO_SHARED_ALLOC)
+    /*
+     * When libc/newlib allocation is separated from Estalloc, keep room for
+     * CYW43/LwIP/mbedTLS outside heap_pool. In shared mode, libc allocation is
+     * routed to Estalloc too, so reserving this RAM would only shrink the
+     * shared heap.
+     */
+    #if defined(PICO_RP2040)
+      #define WIFI_RESERVED_SIZE_KB  32
+    #else
+      #define WIFI_RESERVED_SIZE_KB  64
+    #endif
+  #else
+    #define WIFI_RESERVED_SIZE_KB    15
   #endif
   // Compiling a big Ruby code may need more stack size
   #define BASIC_STACK_SIZE_KB   80
@@ -148,7 +169,7 @@ main(void)
 #if defined(PICORB_VM_MRUBY)
   mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
   critical_section_init(&heap_critsec);
-  mrb_alloc_set_critical_section(heap_enter_critical, heap_exit_critical);
+  picorb_heap_set_critical_section(heap_enter_critical, heap_exit_critical);
   global_mrb = mrb;
   mrc_irep *irep = mrb_read_irep(mrb, main_task);
   mrc_ccontext *cc = mrc_ccontext_new(mrb);
@@ -170,6 +191,8 @@ main(void)
   mrc_ccontext_free(cc);
 #elif defined(PICORB_VM_MRUBYC)
   PICORB_ESTALLOC_MRUBYC_INIT(heap_pool, HEAP_SIZE);
+  critical_section_init(&heap_critsec);
+  picorb_heap_set_critical_section(heap_enter_critical, heap_exit_critical);
   mrbc_init(heap_pool, HEAP_SIZE);
   mrbc_tcb *main_tcb = mrbc_create_task(main_task, 0);
   if (!main_tcb) {

@@ -37,7 +37,7 @@ c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Estalloc is not initialized");
     return;
   }
-  mrbc_value ret = mrbc_hash_new(vm, 5);
+  mrbc_value ret = mrbc_hash_new(vm, 6);
   mrbc_hash_set(
     &ret,
     &mrbc_symbol_value(mrbc_str_to_symid("allocator")),
@@ -57,6 +57,11 @@ c_memory_statistics(struct VM *vm, mrbc_value v[], int argc)
     &ret,
     &mrbc_symbol_value(mrbc_str_to_symid("free")),
     &mrbc_integer_value(mem.free)
+  );
+  mrbc_hash_set(
+    &ret,
+    &mrbc_symbol_value(mrbc_str_to_symid("max_free")),
+    &mrbc_integer_value(mem.max_free)
   );
   mrbc_hash_set(
     &ret,

@@ -293,10 +293,7 @@ static void
 mrb_ssl_socket_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
-    picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)ptr;
-    if (!SSLSocket_closed(mrb, ssl_sock)) {
-      SSLSocket_close(mrb, ssl_sock);
-    }
+    SSLSocket_close(mrb, (picorb_ssl_socket_t *)ptr);
   }
 }
 
@@ -399,6 +396,13 @@ mrb_ssl_socket_s_open(mrb_state *mrb, mrb_value klass)
   }
 
   if (!SSLSocket_connect(mrb, ssl_sock)) {
+#if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
+    const char *net_error = Net_get_last_error();
+    if (net_error && net_error[0]) {
+      SSLSocket_close(mrb, ssl_sock);
+      mrb_raise(mrb, E_RUNTIME_ERROR, net_error);
+    }
+#endif
     SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL connection failed");
   }
@@ -425,6 +429,12 @@ mrb_ssl_socket_connect(mrb_state *mrb, mrb_value self)
   }
 
   if (!SSLSocket_connect(mrb, ssl_sock)) {
+#if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
+    const char *net_error = Net_get_last_error();
+    if (net_error && net_error[0]) {
+      mrb_raise(mrb, E_RUNTIME_ERROR, net_error);
+    }
+#endif
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL handshake failed");
   }
 

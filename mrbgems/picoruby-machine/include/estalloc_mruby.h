@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <mruby.h>
+#include "picorb_heap.h"
 
 MRB_BEGIN_DECL
 

@@ -53,6 +53,14 @@ def r2p2_def_psg_pwm_dma
   "-D PICORUBY_PSG_PWM_DMA=#{enabled ? 'ON' : 'OFF'}"
 end
 
+def r2p2_def_no_shared_alloc
+  enabled = ENV.key?("R2P2_NO_SHARED_ALLOC")
+
+  # Shared allocation is the default. Set R2P2_NO_SHARED_ALLOC to route
+  # libc allocation back to newlib malloc/free instead.
+  "-D R2P2_NO_SHARED_ALLOC=#{enabled ? 'ON' : 'OFF'}"
+end
+
 def r2p2_build_dir(vm, board, mode)
   "#{MRUBY_ROOT}/build/r2p2/#{vm}/#{board}/#{mode}"
 end
@@ -141,7 +149,8 @@ namespace :r2p2 do
                 #{r2p2_def_board(board)} \
                 #{r2p2_def_build_type(mode)} \
                 #{r2p2_def_psg_mcp4922_dma} \
-                #{r2p2_def_psg_pwm_dma}
+                #{r2p2_def_psg_pwm_dma} \
+                #{r2p2_def_no_shared_alloc}
               DEFS
               sh "cmake -S #{R2P2_GEM_DIR}/cmake -B #{dir} #{defs}"
               sh "cmake --build #{dir}"

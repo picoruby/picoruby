@@ -1,11 +1,11 @@
 /* PicoRuby custom linker script for RP2350
  *
  * Based on pico-sdk memmap_default.ld with one key change:
- * Core 0 stack moved from SCRATCH_Y (4KB limit) to end of RAM,
- * allowing PICO_STACK_SIZE > 4KB for deeper Ruby VM call stacks.
+ * Core 0 stack uses the combined 8KB SCRATCH_X+SCRATCH_Y region,
+ * allowing PICO_STACK_SIZE=8KB without consuming regular RAM.
  *
- * Core 1 stack remains in SCRATCH_X.
- * SCRATCH_Y is fully available for .scratch_y data.
+ * Core 1 stack is reserved at the end of regular RAM so core 0 can keep the
+ * full 8KB scratch stack.
  */
 
 MEMORY
@@ -14,6 +14,7 @@ MEMORY
     RAM(rwx) : ORIGIN =  0x20000000, LENGTH = 512k
     SCRATCH_X(rwx) : ORIGIN = 0x20080000, LENGTH = 4k
     SCRATCH_Y(rwx) : ORIGIN = 0x20081000, LENGTH = 4k
+    SCRATCH(rwx) : ORIGIN = 0x20080000, LENGTH = 8k
 }
 
 ENTRY(_entry_point)
@@ -204,37 +205,36 @@ SECTIONS
      *
      * stack1 section may be empty/missing if platform_launch_core1 is not used */
 
-    /* Core 1 stack remains in SCRATCH_X */
+    /* Core 1 stack is reserved in RAM, not SCRATCH. */
     .stack1_dummy (NOLOAD):
     {
         *(.stack1*)
-    } > SCRATCH_X
+    } > RAM
 
-    /* Core 0 stack: placed in RAM (not SCRATCH_Y) to allow > 4KB stack.
+    /* Core 0 stack: placed in combined SCRATCH_X+SCRATCH_Y.
      * The .stack_dummy section is only for size calculation (NOLOAD).
      * Actual stack pointer is set to __StackTop by crt0. */
     .stack_dummy (NOLOAD):
     {
         KEEP(*(.stack*))
-    } > RAM
+    } > SCRATCH
 
     .flash_end : {
         KEEP(*(.embedded_end_block*))
         PROVIDE(__flash_binary_end = .);
     } > FLASH =0xaa
 
-    /* Core 0 stack at end of RAM */
-    __StackTop = ORIGIN(RAM) + LENGTH(RAM);
+    /* Core 0 stack in combined scratch RAM */
+    __StackTop = ORIGIN(SCRATCH) + LENGTH(SCRATCH);
     __StackBottom = __StackTop - SIZEOF(.stack_dummy);
     PROVIDE(__stack = __StackTop);
 
-    /* Core 1 stack in SCRATCH_X (unchanged) */
-    __StackOneTop = ORIGIN(SCRATCH_X) + LENGTH(SCRATCH_X);
+    /* Core 1 stack, if enabled, at end of regular RAM */
+    __StackOneTop = ORIGIN(RAM) + LENGTH(RAM);
     __StackOneBottom = __StackOneTop - SIZEOF(.stack1_dummy);
 
-    /* Heap grows up from __end__; stack grows down from __StackTop.
-     * __HeapLimit caps the heap so it cannot collide with the stack. */
-    __HeapLimit = __StackBottom;
+    /* Heap grows up from __end__; core 1 stack grows down from RAM top. */
+    __HeapLimit = __StackOneBottom;
     /* __StackLimit is historically the max heap pointer (poorly named) */
     __StackLimit = __StackBottom;
 
@@ -249,8 +249,12 @@ SECTIONS
     PROVIDE (_end = __end__);
     PROVIDE (__llvm_libc_heap_limit = __HeapLimit);
 
-    /* Check that data + heap + stack fits in RAM */
-    ASSERT(__StackLimit >= __HeapLimit, "region RAM overflowed")
+    /* Check that RAM sections and the runtime core 0 stack do not overlap. */
+    ASSERT(__end__ <= __HeapLimit, "region RAM overflowed")
+    ASSERT(__StackOneBottom >= __end__, "core 1 stack overlaps RAM data")
+    ASSERT(__StackBottom >= ORIGIN(SCRATCH), "core 0 stack overflowed SCRATCH")
+    ASSERT(SIZEOF(.scratch_x) == 0, ".scratch_x cannot be used when core 0 stack uses SCRATCH")
+    ASSERT(SIZEOF(.scratch_y) == 0, ".scratch_y cannot be used when core 0 stack uses SCRATCH")
 
     ASSERT( __binary_info_header_end - __logical_binary_start <= 1024, "Binary info must be in first 1024 bytes of the binary")
     ASSERT( __embedded_block_end - __logical_binary_start <= 4096, "Embedded block must be in first 4096 bytes of the binary")

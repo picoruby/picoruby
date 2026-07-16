@@ -8,6 +8,15 @@ include(pico_extras_import.cmake)
 # Initialize the SDK
 pico_sdk_init()
 
+option(R2P2_NO_SHARED_ALLOC "Use pico-sdk/newlib malloc implementation instead of routing libc allocation to Estalloc" OFF)
+if(R2P2_NO_SHARED_ALLOC)
+  add_compile_definitions(R2P2_NO_SHARED_ALLOC=1)
+else()
+  if(TARGET pico_malloc)
+    set_target_properties(pico_malloc PROPERTIES INTERFACE_SOURCES "")
+  endif()
+endif()
+
 execute_process (COMMAND date +%Y%m%d OUTPUT_VARIABLE CMAKE_BUILDDATE OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process (COMMAND git rev-parse --short HEAD OUTPUT_VARIABLE CMAKE_REVISION OUTPUT_STRIP_TRAILING_WHITESPACE WORKING_DIRECTORY ${PICORUBY_ROOT})
 # R2P2_VERSION is passed via -D from rake task
@@ -49,18 +58,11 @@ if(USE_WIFI)
     ${PICO_SDK_PATH}/src/rp2_common/pico_mbedtls/pico_mbedtls.c
   )
   list(APPEND SOURCE_FILES ${ADD_WIFI_SOURCE_FILES})
-  if(PICO_BOARD STREQUAL "pico2_w")
-    file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-      ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
-      ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
-    )
-  else()
-    # pico_w uses picoruby-socket instead of picoruby-net to avoid function conflicts
-    file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-      ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
-      ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
-    )
-  endif()
+  # WiFi builds use picoruby-socket instead of picoruby-net to avoid function conflicts.
+  file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
+    ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
+    ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
+  )
 else()
   file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
       ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
@@ -135,19 +137,30 @@ pico_generate_pio_header(${PROJECT_NAME}
 )
 
 target_link_options(${PROJECT_NAME} PRIVATE -Wl,--gc-sections)
+if(NOT R2P2_NO_SHARED_ALLOC)
+  target_link_options(${PROJECT_NAME} PRIVATE
+    -Wl,--wrap=malloc
+    -Wl,--wrap=calloc
+    -Wl,--wrap=realloc
+    -Wl,--wrap=free
+    -Wl,--wrap=malloc_usable_size
+  )
+endif()
 
 # RP2040: 4KB stack fits in SCRATCH_Y, use SDK default linker script
 # RP2350: 8KB stack needs RAM, use custom linker script
 if(PICO_BOARD STREQUAL "pico" OR PICO_BOARD STREQUAL "pico_w")
   set(PICORB_STACK_SIZE 0x1000) # 4KB
+  set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB (in SCRATCH_X)
 elseif(PICO_BOARD STREQUAL "pico2" OR PICO_BOARD STREQUAL "pico2_w")
   set(PICORB_STACK_SIZE 0x2000) # 8KB
+  set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB
   pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/memmap_rp2350.ld)
 endif()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
   PICO_STACK_SIZE=${PICORB_STACK_SIZE}
-  PICO_CORE1_STACK_SIZE=0x0800 # 2KB (in SCRATCH_X)
+  PICO_CORE1_STACK_SIZE=${PICORB_CORE1_STACK_SIZE}
   PICO_HEAP_SIZE=0x0400        # 1KB
 )
 
@@ -200,7 +213,7 @@ endif()
 if(USE_WIFI)
   # these are used only in WiFi build
   target_link_libraries(${PROJECT_NAME} PRIVATE
-    pico_cyw43_arch_lwip_threadsafe_background
+    pico_cyw43_arch_lwip_poll
     pico_btstack_ble
     pico_btstack_cyw43
   )
