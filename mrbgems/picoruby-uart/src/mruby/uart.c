@@ -273,7 +273,7 @@ static mrb_value
 mrb_break(mrb_state *mrb, mrb_value self)
 {
   uint32_t break_ms;
-  mrb_value break_ms_val;
+  mrb_value break_ms_val = mrb_nil_value();
   mrb_get_args(mrb, "|o", &break_ms_val);
   if (mrb_nil_p(break_ms_val)) {
     break_ms = 100;
