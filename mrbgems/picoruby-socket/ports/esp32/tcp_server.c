@@ -131,6 +131,42 @@ TCPServer_port(picorb_state *vm, picorb_tcp_server_t *server)
   return server->port;
 }
 
+void
+TCPServer_set_event_queue(picorb_tcp_server_t *server, picorb_state *vm, void *queue)
+{
+  (void)server;
+  (void)vm;
+  (void)queue;
+}
+
+void*
+TCPServer_event_queue(picorb_tcp_server_t *server)
+{
+  (void)server;
+  return NULL;
+}
+
+picorb_state*
+TCPServer_vm(picorb_tcp_server_t *server)
+{
+  (void)server;
+  return NULL;
+}
+
+bool
+TCPServer_event_pending(picorb_tcp_server_t *server)
+{
+  (void)server;
+  return false;
+}
+
+void
+TCPServer_set_event_pending(picorb_tcp_server_t *server, bool pending)
+{
+  (void)server;
+  (void)pending;
+}
+
 bool
 TCPServer_listening(picorb_state *vm, picorb_tcp_server_t *server)
 {
