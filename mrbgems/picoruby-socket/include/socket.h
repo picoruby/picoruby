@@ -97,6 +97,7 @@ extern void Net_set_last_error(const char *format, ...);
 /* TCP Socket API */
 bool TCPSocket_create(picorb_state *vm, picorb_socket_t *sock);
 bool TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port);
+int TCPSocket_connection_state(picorb_state *vm, picorb_socket_t *sock);
 ssize_t TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
 ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock);
 bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
