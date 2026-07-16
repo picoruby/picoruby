@@ -2,6 +2,28 @@
 #include <string.h>
 #include <stdint.h>
 #include "picoruby.h"
+#ifdef PICO_CYW43_ARCH_POLL
+#include "c_task_queue.h"
+#endif
+
+#ifdef PICO_CYW43_ARCH_POLL
+void
+TCPSocket_notify_readable(picorb_socket_t *sock)
+{
+  if (!sock || !sock->event_queue || sock->event_pending) return;
+  mrbc_value event = mrbc_true_value();
+  if (mrbc_task_queue_push((mrbc_value *)sock->event_queue, &event) ==
+      MRBC_TASK_QUEUE_PUSH_OK) {
+    sock->event_pending = true;
+  }
+}
+#else
+void
+TCPSocket_notify_readable(picorb_socket_t *sock)
+{
+  (void)sock;
+}
+#endif
 
 /*
  * Helper function to get socket pointer from instance->data.
@@ -81,6 +103,23 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
                 "%s", errmsg[0] ? errmsg : "failed to connect");
     return;
   }
+
+#ifdef PICO_CYW43_ARCH_POLL
+  mrbc_value queue = mrbc_instance_new(vm, MRBC_CLASS(Task_Queue), 0);
+  mrbc_send(vm, v, argc, &queue, "initialize", 0);
+  mrbc_instance_setiv(&instance, mrbc_str_to_symid("@event_queue"), &queue);
+  sock->vm = vm;
+  sock->event_queue = picorb_alloc(vm, sizeof(mrbc_value));
+  if (!sock->event_queue) {
+    mrbc_decref(&queue);
+    TCPSocket_close(vm, sock);
+    picorb_free(vm, sock);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate event queue");
+    return;
+  }
+  *(mrbc_value *)sock->event_queue = queue;
+  mrbc_decref(&queue);
+#endif
 
   SET_RETURN(instance);
 }
@@ -232,6 +271,7 @@ c_tcp_socket_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   ssize_t received = TCPSocket_recv(vm, sock, buffer, maxlen, true);
 
   if (received == PICORB_RECV_WOULD_BLOCK) {
+    sock->event_pending = false;
     if (buffer != stack_buf) picorb_free(vm, buffer);
     SET_NIL_RETURN();
     return;

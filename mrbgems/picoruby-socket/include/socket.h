@@ -59,6 +59,7 @@ typedef struct {
   char errmsg[SOCKET_ERROR_MSG_LEN]; /* Last error message from C layer */
   void *vm;                   /* Owning VM for callback notification */
   void *event_queue;          /* VM-specific Task::Queue value (RP2040 only) */
+  bool event_pending;         /* A readable notification is already queued */
 } picorb_socket_t;
 
 /* LwIP helper functions - implemented in ports/rp2040/ */
@@ -99,6 +100,7 @@ bool TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host
 ssize_t TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
 ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock);
 bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
+void TCPSocket_notify_readable(picorb_socket_t *sock);
 
 /* Get socket info */
 const char* TCPSocket_remote_host(picorb_state *vm, picorb_socket_t *sock);

@@ -10,9 +10,12 @@
 void
 UDPSocket_notify_readable(picorb_socket_t *sock)
 {
-  if (!sock || !sock->event_queue) return;
+  if (!sock || !sock->event_queue || sock->event_pending) return;
   mrbc_value event = mrbc_true_value();
-  (void)mrbc_task_queue_push((mrbc_value *)sock->event_queue, &event);
+  if (mrbc_task_queue_push((mrbc_value *)sock->event_queue, &event) ==
+      MRBC_TASK_QUEUE_PUSH_OK) {
+    sock->event_pending = true;
+  }
 }
 #else
 void
@@ -304,6 +307,7 @@ c_udp_socket_recvfrom_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* If no data available (non-blocking socket), return nil */
   if (received == 0) {
+    sock->event_pending = false;
     picorb_free(vm, buffer);
     SET_NIL_RETURN();
     return;
