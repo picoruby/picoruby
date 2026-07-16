@@ -3,7 +3,6 @@ class UDPSocket
   # This file adds convenience methods
 
   # Receive data with blocking behavior
-  # Continuously polls recvfrom_nonblock until data is available
   def recvfrom(maxlen, flags = 0)
     Signal.trap(:INT) do
       self.close
@@ -11,7 +10,11 @@ class UDPSocket
     while true
       result = recvfrom_nonblock(maxlen, flags)
       break if result
-      sleep_ms 10
+      if event_queue = @event_queue
+        event_queue.pop
+      else
+        sleep_ms 10
+      end
     end
     # @type var result: [String, Array[String | Integer]]
     return result

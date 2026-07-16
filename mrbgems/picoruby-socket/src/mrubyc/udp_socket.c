@@ -2,6 +2,25 @@
 #include <string.h>
 #include <stdint.h>
 #include "picoruby.h"
+#ifdef PICO_CYW43_ARCH_POLL
+#include "c_task_queue.h"
+#endif
+
+#ifdef PICO_CYW43_ARCH_POLL
+void
+UDPSocket_notify_readable(picorb_socket_t *sock)
+{
+  if (!sock || !sock->event_queue) return;
+  mrbc_value event = mrbc_true_value();
+  (void)mrbc_task_queue_push((mrbc_value *)sock->event_queue, &event);
+}
+#else
+void
+UDPSocket_notify_readable(picorb_socket_t *sock)
+{
+  (void)sock;
+}
+#endif
 
 /*
  * Helper function to get socket pointer from instance->data.
@@ -43,6 +62,22 @@ c_udp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   socket_wrapper_t *wrapper = (socket_wrapper_t *)instance.instance->data;
   wrapper->ptr = sock;
   wrapper->vm = vm;
+
+#ifdef PICO_CYW43_ARCH_POLL
+  mrbc_value queue = mrbc_instance_new(vm, MRBC_CLASS(Task_Queue), 0);
+  mrbc_send(vm, v, argc, &queue, "initialize", 0);
+  mrbc_instance_setiv(&instance, mrbc_str_to_symid("@event_queue"), &queue);
+  sock->event_queue = picorb_alloc(vm, sizeof(mrbc_value));
+  if (!sock->event_queue) {
+    mrbc_decref(&queue);
+    UDPSocket_close(vm, sock);
+    picorb_free(vm, sock);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate event queue");
+    return;
+  }
+  *(mrbc_value *)sock->event_queue = queue;
+  mrbc_decref(&queue);
+#endif
 
   SET_RETURN(instance);
 }
