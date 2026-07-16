@@ -74,7 +74,7 @@ heap_exit_critical(void)
       #define WIFI_RESERVED_SIZE_KB  64
     #endif
   #else
-    #define WIFI_RESERVED_SIZE_KB    15
+    #define WIFI_RESERVED_SIZE_KB    20
   #endif
   // Compiling a big Ruby code may need more stack size
   #define BASIC_STACK_SIZE_KB   80

@@ -12,6 +12,7 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
   end
   spec.add_conflict 'picoruby-net'
   spec.add_dependency 'picoruby-machine'
+  spec.add_dependency 'mruby-task' unless build.posix? || build.platform?(:esp32)
 
   # Add include directory
   spec.cc.include_paths << "#{dir}/include"

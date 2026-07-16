@@ -57,6 +57,8 @@ typedef struct {
   char last_sender_host[256];
   int last_sender_port;
   char errmsg[SOCKET_ERROR_MSG_LEN]; /* Last error message from C layer */
+  void *vm;                   /* Owning VM for callback notification */
+  void *event_queue;          /* VM-specific Task::Queue value (RP2040 only) */
 } picorb_socket_t;
 
 /* LwIP helper functions - implemented in ports/rp2040/ */
@@ -115,6 +117,7 @@ ssize_t UDPSocket_recvfrom(picorb_state *vm, picorb_socket_t *sock, void *buf, s
                             char *host, size_t host_len, int *port);
 bool UDPSocket_close(picorb_state *vm, picorb_socket_t *sock);
 bool UDPSocket_closed(picorb_state *vm, picorb_socket_t *sock);
+void UDPSocket_notify_readable(picorb_socket_t *sock);
 
 /* TCP Server API */
 #ifdef PICORB_PLATFORM_POSIX
