@@ -22,7 +22,7 @@ static mrb_value
 mrb_open_rx_buffer(mrb_state *mrb, mrb_value self)
 {
   int rx_buffer_size;
-  mrb_value buffer_size;
+  mrb_value buffer_size = mrb_nil_value();
   mrb_get_args(mrb, "|o", &buffer_size);
   if (mrb_nil_p(buffer_size)) {
     rx_buffer_size = PICORB_UART_RX_BUFFER_SIZE;
@@ -105,7 +105,7 @@ mrb_read(mrb_state *mrb, mrb_value self)
   if (available_len == 0) {
     return mrb_nil_value();
   }
-  mrb_value len_val;
+  mrb_value len_val = mrb_nil_value();
   mrb_int len;
   mrb_get_args(mrb, "|o", &len_val);
   if (mrb_fixnum_p(len_val)) {
