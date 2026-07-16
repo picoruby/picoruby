@@ -1,5 +1,4 @@
 #include <stddef.h>
-#include <stdlib.h>
 
 void
 ENV_get_key_value(char **key, size_t *key_len, char **value, size_t *value_len)
@@ -13,11 +12,15 @@ ENV_get_key_value(char **key, size_t *key_len, char **value, size_t *value_len)
 int
 ENV_unsetenv(const char *name)
 {
-  return unsetenv(name);
+  (void)name;
+  return 0;
 }
 
 int
 ENV_setenv(const char *name, const char *value, int override)
 {
-  return setenv(name, value, override);
+  (void)name;
+  (void)value;
+  (void)override;
+  return 0;
 }
