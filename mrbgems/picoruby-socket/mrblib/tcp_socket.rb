@@ -10,10 +10,7 @@ class TCPSocket < BasicSocket
       return unless event_queue
 
       while __connection_state == 1
-        unless event_queue.pop(timeout_ms: __connection_timeout_ms)
-          close
-          raise SocketError, "connection timed out"
-        end
+        __wait_for_event(event_queue, "connection timed out")
       end
       return if __connection_state == 2
 
@@ -49,18 +46,7 @@ class TCPSocket < BasicSocket
 
   if Object.const_defined?(:SocketDNSResolver)
     def readpartial(maxlen)
-      event_queue = @event_queue
-      return __readpartial_poll(maxlen) unless event_queue
-
-      data = read_nonblock(maxlen)
-      until data
-        unless event_queue.pop(timeout_ms: __connection_timeout_ms)
-          close
-          raise SocketError, "read timeout"
-        end
-        data = read_nonblock(maxlen)
-      end
-      data || raise(IOError, "read failed")
+      __readpartial_event_queue(maxlen, "read timeout", "read failed")
     end
   end
 end

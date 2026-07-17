@@ -286,16 +286,6 @@ mrb_tcp_socket_ready_p(mrb_state *mrb, mrb_value self)
   return mrb_bool_value(Socket_ready(mrb, sock));
 }
 
-static mrb_value
-mrb_tcp_socket_connection_timeout_ms(mrb_state *mrb, mrb_value self)
-{
-#ifdef PICORB_DEBUG
-  return mrb_fixnum_value(30000);
-#else
-  return mrb_fixnum_value(10000);
-#endif
-}
-
 void
 tcp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
 {
@@ -307,7 +297,6 @@ tcp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
 #ifdef PICO_CYW43_ARCH_POLL
   mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__initialize_poll), mrb_tcp_socket_initialize, MRB_ARGS_REQ(2));
   mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__connection_state), mrb_tcp_socket_connection_state, MRB_ARGS_NONE());
-  mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__connection_timeout_ms), mrb_tcp_socket_connection_timeout_ms, MRB_ARGS_NONE());
   mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__error_message), mrb_tcp_socket_error_message, MRB_ARGS_NONE());
   mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__readpartial_poll), mrb_tcp_socket_readpartial, MRB_ARGS_REQ(1));
 #else
