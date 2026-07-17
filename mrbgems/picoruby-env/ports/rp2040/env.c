@@ -1,3 +1,8 @@
+/*
+ * RP2040 has no process environment.  Keep these operations as NOPs because
+ * newlib's setenv/unsetenv implementation touches the heap, which is unsafe
+ * for the firmware's memory model.
+ */
 #include <stddef.h>
 
 void
