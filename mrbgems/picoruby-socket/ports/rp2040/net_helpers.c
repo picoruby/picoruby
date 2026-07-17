@@ -197,6 +197,21 @@ Net_dns_status(void *ptr)
   return request ? request->state : 3;
 }
 
+int
+Net_dns_get_address(void *ptr, char *buf, size_t buflen)
+{
+  picorb_dns_request *request = (picorb_dns_request *)ptr;
+
+  if (!request || !buf || buflen == 0 || request->state != 2) {
+    return -1;
+  }
+  if (!ipaddr_ntoa_r(&request->address, buf, (int)buflen)) {
+    buf[0] = '\0';
+    return -1;
+  }
+  return 0;
+}
+
 void
 Net_dns_release(void *ptr)
 {

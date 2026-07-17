@@ -13,8 +13,9 @@ if Object.const_defined?(:SocketDNSResolver)
         end
         status = __status
       end
+      address = __address
       __release
-      return host if status == 2
+      return address if status == 2 && address
 
       raise SocketError, "DNS resolution failed for #{host}"
     end
