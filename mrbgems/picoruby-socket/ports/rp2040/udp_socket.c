@@ -71,7 +71,7 @@ udp_recv_callback(void *arg, struct udp_pcb *pcb, struct pbuf *pbuf,
   sock->recv_buf[sock->recv_len] = '\0';
 
   pbuf_free(pbuf);
-  UDPSocket_notify_readable(sock);
+  picorb_socket_notify_readable(sock);
 }
 
 /* Create UDP socket */
@@ -290,7 +290,7 @@ UDPSocket_close(picorb_state *vm, picorb_socket_t *sock)
     sock->recv_buf = NULL;
   }
 
-  UDPSocket_notify_readable(sock);
+  picorb_socket_notify_readable(sock);
   if (sock->event_queue) {
     picorb_free(vm, sock->event_queue);
     sock->event_queue = NULL;

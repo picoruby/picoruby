@@ -92,6 +92,13 @@ void Net_dns_abandon(void *request);
 #define picorb_state mrbc_vm
 #endif
 
+#ifdef PICO_CYW43_ARCH_POLL
+void picorb_task_queue_notify(picorb_state *vm, void *queue, bool *pending);
+bool picorb_task_queue_attach(picorb_state *vm, void *self, void **queue);
+bool picorb_socket_attach_event_queue(picorb_state *vm, void *self, picorb_socket_t *sock);
+void picorb_socket_notify_readable(picorb_socket_t *sock);
+#endif
+
 /* Special return value from read functions: no data available in non-blocking mode */
 #define PICORB_RECV_WOULD_BLOCK (-2)
 /* Special return value from blocking read functions: timed out waiting for data */
@@ -107,7 +114,6 @@ int TCPSocket_connection_state(picorb_state *vm, picorb_socket_t *sock);
 ssize_t TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
 ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock);
 bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
-void TCPSocket_notify_readable(picorb_socket_t *sock);
 
 /* Get socket info */
 const char* TCPSocket_remote_host(picorb_state *vm, picorb_socket_t *sock);
@@ -126,7 +132,6 @@ ssize_t UDPSocket_recvfrom(picorb_state *vm, picorb_socket_t *sock, void *buf, s
                             char *host, size_t host_len, int *port);
 bool UDPSocket_close(picorb_state *vm, picorb_socket_t *sock);
 bool UDPSocket_closed(picorb_state *vm, picorb_socket_t *sock);
-void UDPSocket_notify_readable(picorb_socket_t *sock);
 
 /* TCP Server API */
 #ifdef PICORB_PLATFORM_POSIX
@@ -213,7 +218,6 @@ bool SSLSocket_closed(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 bool SSLSocket_ready(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 const char* SSLSocket_remote_host(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 int SSLSocket_remote_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
-void SSLSocket_notify_readable(picorb_ssl_socket_t *ssl_sock);
 
 /* Address resolution */
 bool resolve_address(const char *host, char *ip, size_t ip_len);

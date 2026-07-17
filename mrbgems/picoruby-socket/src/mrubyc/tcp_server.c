@@ -9,28 +9,9 @@ void
 TCPServer_notify_accepted(picorb_tcp_server_t *server)
 {
   void *queue_ptr = TCPServer_event_queue(server);
-  if (!queue_ptr || TCPServer_event_pending(server)) return;
-  mrbc_value event = mrbc_true_value();
-  if (mrbc_task_queue_push((mrbc_value *)queue_ptr, &event) ==
-      MRBC_TASK_QUEUE_PUSH_OK) {
-    TCPServer_set_event_pending(server, true);
-  }
-}
-
-static bool
-attach_event_queue(mrbc_vm *vm, mrbc_value *self, picorb_socket_t *sock)
-{
-  mrbc_value queue = picorb_task_queue_new(vm);
-  mrbc_instance_setiv(self, mrbc_str_to_symid("event_queue"), &queue);
-  sock->vm = vm;
-  sock->event_queue = picorb_alloc(vm, sizeof(mrbc_value));
-  if (!sock->event_queue) {
-    mrbc_decref(&queue);
-    return false;
-  }
-  *(mrbc_value *)sock->event_queue = queue;
-  mrbc_decref(&queue);
-  return true;
+  bool pending = TCPServer_event_pending(server);
+  picorb_task_queue_notify(TCPServer_vm(server), queue_ptr, &pending);
+  TCPServer_set_event_pending(server, pending);
 }
 #else
 void
@@ -126,18 +107,13 @@ c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
 #ifdef PICO_CYW43_ARCH_POLL
-  mrbc_value queue = picorb_task_queue_new(vm);
-  mrbc_instance_setiv(&instance, mrbc_str_to_symid("event_queue"), &queue);
-  void *queue_ptr = picorb_alloc(vm, sizeof(mrbc_value));
-  if (!queue_ptr) {
-    mrbc_decref(&queue);
+  void *queue_ptr = NULL;
+  if (!picorb_task_queue_attach(vm, &instance, &queue_ptr)) {
     TCPServer_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate event queue");
     return;
   }
-  *(mrbc_value *)queue_ptr = queue;
-  mrbc_decref(&queue);
   TCPServer_set_event_queue(wrapper->ptr, vm, queue_ptr);
 #endif
 
@@ -180,7 +156,7 @@ c_tcp_server_accept_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   client_wrapper->vm = vm;
 
 #ifdef PICO_CYW43_ARCH_POLL
-  if (!attach_event_queue(vm, &client_obj, client)) {
+  if (!picorb_socket_attach_event_queue(vm, &client_obj, client)) {
     mrbc_decref(&client_obj);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate event queue");
     return;

@@ -12,25 +12,6 @@
 
 #define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
 
-#ifdef PICO_CYW43_ARCH_POLL
-void
-UDPSocket_notify_readable(picorb_socket_t *sock)
-{
-  if (!sock || !sock->event_queue || sock->event_pending) return;
-  mrb_value queue = *(mrb_value *)sock->event_queue;
-  mrb_state *mrb = (mrb_state *)sock->vm;
-  if (mrb_task_queue_push(mrb, queue, mrb_true_value()) == MRB_TASK_QUEUE_PUSH_OK) {
-    sock->event_pending = true;
-  }
-}
-#else
-void
-UDPSocket_notify_readable(picorb_socket_t *sock)
-{
-  (void)sock;
-}
-#endif
-
 /* UDPSocket.new() */
 static mrb_value
 mrb_udp_socket_initialize(mrb_state *mrb, mrb_value self)
@@ -50,13 +31,7 @@ mrb_udp_socket_initialize(mrb_state *mrb, mrb_value self)
   mrb_data_init(self, sock, &mrb_socket_type);
 
 #ifdef PICO_CYW43_ARCH_POLL
-  struct RClass *task_class = mrb_class_get_id(mrb, MRB_SYM(Task));
-  struct RClass *queue_class = mrb_class_get_under_id(mrb, task_class, MRB_SYM(Queue));
-  mrb_value queue = mrb_obj_new(mrb, queue_class, 0, NULL);
-  mrb_iv_set(mrb, self, MRB_IVSYM(event_queue), queue);
-  sock->vm = mrb;
-  sock->event_queue = mrb_malloc(mrb, sizeof(mrb_value));
-  *(mrb_value *)sock->event_queue = queue;
+  picorb_socket_attach_event_queue(mrb, &self, sock);
 #endif
 
   return self;

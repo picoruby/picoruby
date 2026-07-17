@@ -20,6 +20,50 @@ const struct mrb_data_type mrb_socket_type = {
 };
 
 #ifdef PICO_CYW43_ARCH_POLL
+void
+picorb_task_queue_notify(mrb_state *mrb, void *queue_ptr, bool *pending)
+{
+  if (!queue_ptr || !pending || *pending) return;
+  mrb_value queue = *(mrb_value *)queue_ptr;
+  if (mrb_task_queue_push(mrb, queue, mrb_true_value()) == MRB_TASK_QUEUE_PUSH_OK) {
+    *pending = true;
+  }
+}
+
+bool
+picorb_task_queue_attach(mrb_state *mrb, void *self_ptr, void **queue_ptr)
+{
+  mrb_value *self = (mrb_value *)self_ptr;
+  struct RClass *task_class = mrb_class_get_id(mrb, MRB_SYM(Task));
+  struct RClass *queue_class = mrb_class_get_under_id(mrb, task_class, MRB_SYM(Queue));
+  mrb_value queue = mrb_obj_new(mrb, queue_class, 0, NULL);
+
+  mrb_iv_set(mrb, *self, MRB_IVSYM(event_queue), queue);
+  *queue_ptr = mrb_malloc(mrb, sizeof(mrb_value));
+  if (!*queue_ptr) return false;
+  *(mrb_value *)*queue_ptr = queue;
+  return true;
+}
+
+bool
+picorb_socket_attach_event_queue(mrb_state *mrb, void *self_ptr,
+                                 picorb_socket_t *sock)
+{
+  if (!picorb_task_queue_attach(mrb, self_ptr, &sock->event_queue)) return false;
+  sock->vm = mrb;
+  return true;
+}
+
+void
+picorb_socket_notify_readable(picorb_socket_t *sock)
+{
+  if (!sock) return;
+  picorb_task_queue_notify((mrb_state *)sock->vm, sock->event_queue,
+                           &sock->event_pending);
+}
+#endif
+
+#ifdef PICO_CYW43_ARCH_POLL
 typedef struct {
   mrb_state *mrb;
   mrb_value queue;

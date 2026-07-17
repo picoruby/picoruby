@@ -76,13 +76,13 @@ tcp_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
     snprintf(sock->errmsg, sizeof(sock->errmsg), "connect failed: %d", (int)err);
-    TCPSocket_notify_readable(sock);
+    picorb_socket_notify_readable(sock);
     return err;
   }
 
   sock->state = SOCKET_STATE_CONNECTED;
   sock->connected = true;
-  TCPSocket_notify_readable(sock);
+  picorb_socket_notify_readable(sock);
   return ERR_OK;
 }
 
@@ -105,7 +105,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (pbuf) pbuf_free(pbuf);
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
-    TCPSocket_notify_readable(sock);
+    picorb_socket_notify_readable(sock);
     D("tcp_recv_callback: error, state set to ERROR");
     return err;
   }
@@ -115,7 +115,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     sock->state = SOCKET_STATE_CLOSED;
     sock->connected = false;
     sock->closed = true;
-    TCPSocket_notify_readable(sock);
+    picorb_socket_notify_readable(sock);
     D("tcp_recv_callback: connection closed");
     return ERR_OK;
   }
@@ -146,7 +146,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   /* Tell LwIP we processed the data */
   altcp_recved(pcb, total_len);
   pbuf_free(pbuf);
-  TCPSocket_notify_readable(sock);
+  picorb_socket_notify_readable(sock);
 
   return ERR_OK;
 }
@@ -171,7 +171,7 @@ tcp_err_callback(void *arg, err_t err)
   sock->state = SOCKET_STATE_ERROR;
   sock->connected = false;
   sock->pcb = NULL; /* PCB is already freed by LwIP */
-  TCPSocket_notify_readable(sock);
+  picorb_socket_notify_readable(sock);
 }
 
 /* Poll callback - called periodically by LwIP */
@@ -224,8 +224,6 @@ TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int
   altcp_err(sock->pcb, tcp_err_callback);
   altcp_poll(sock->pcb, tcp_poll_callback, 4);  /* Poll every 2 seconds (4 * 500ms) */
   altcp_arg(sock->pcb, sock);
-
-  Net_busy_wait_ms(100);
 
   /* Set the state before starting the asynchronous connection so callbacks
    * cannot be overwritten if the backend completes immediately. */
@@ -414,7 +412,7 @@ TCPSocket_close(picorb_state *vm, picorb_socket_t *sock)
     sock->recv_buf = NULL;
   }
 
-  TCPSocket_notify_readable(sock);
+  picorb_socket_notify_readable(sock);
   if (sock->event_queue) {
     picorb_free(vm, sock->event_queue);
     sock->event_queue = NULL;

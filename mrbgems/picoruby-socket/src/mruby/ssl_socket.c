@@ -12,40 +12,6 @@
 #define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
 #define E_EOF_ERROR    (mrb_class_get_id(mrb, MRB_SYM(EOFError)))
 
-#ifdef PICO_CYW43_ARCH_POLL
-void
-SSLSocket_notify_readable(picorb_ssl_socket_t *ssl_sock)
-{
-  picorb_socket_t *sock = SSLSocket_event_socket(ssl_sock);
-  if (!sock || !sock->event_queue || sock->event_pending) return;
-  mrb_value queue = *(mrb_value *)sock->event_queue;
-  mrb_state *mrb = (mrb_state *)sock->vm;
-  if (mrb_task_queue_push(mrb, queue, mrb_true_value()) == MRB_TASK_QUEUE_PUSH_OK) {
-    sock->event_pending = true;
-  }
-}
-
-static void
-mrb_ssl_socket_attach_event_queue(mrb_state *mrb, mrb_value self,
-                                  picorb_ssl_socket_t *ssl_sock)
-{
-  picorb_socket_t *sock = SSLSocket_event_socket(ssl_sock);
-  struct RClass *task_class = mrb_class_get_id(mrb, MRB_SYM(Task));
-  struct RClass *queue_class = mrb_class_get_under_id(mrb, task_class, MRB_SYM(Queue));
-  mrb_value queue = mrb_obj_new(mrb, queue_class, 0, NULL);
-  mrb_iv_set(mrb, self, MRB_IVSYM(event_queue), queue);
-  sock->vm = mrb;
-  sock->event_queue = mrb_malloc(mrb, sizeof(mrb_value));
-  *(mrb_value *)sock->event_queue = queue;
-}
-#else
-void
-SSLSocket_notify_readable(picorb_ssl_socket_t *ssl_sock)
-{
-  (void)ssl_sock;
-}
-#endif
-
 /* Data type for SSLContext */
 static void
 mrb_ssl_context_free(mrb_state *mrb, void *ptr)
@@ -398,7 +364,8 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
   mrb_data_init(self, ssl_sock, &mrb_ssl_socket_type);
 
 #ifdef PICO_CYW43_ARCH_POLL
-  mrb_ssl_socket_attach_event_queue(mrb, self, ssl_sock);
+  picorb_socket_attach_event_queue(mrb, &self,
+                                   SSLSocket_event_socket(ssl_sock));
 #endif
 
   return self;
@@ -442,7 +409,8 @@ mrb_ssl_socket_s_open(mrb_state *mrb, mrb_value klass)
   struct RData *data = mrb_data_object_alloc(mrb, cls, ssl_sock, &mrb_ssl_socket_type);
   mrb_value self = mrb_obj_value(data);
   mrb_iv_set(mrb, self, MRB_IVSYM(ssl_context), ssl_context_obj);
-  mrb_ssl_socket_attach_event_queue(mrb, self, ssl_sock);
+  picorb_socket_attach_event_queue(mrb, &self,
+                                   SSLSocket_event_socket(ssl_sock));
   return self;
 #else
   if (!SSLSocket_connect(mrb, ssl_sock)) {
