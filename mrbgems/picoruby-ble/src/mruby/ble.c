@@ -9,21 +9,45 @@ static mrb_state *_mrb = NULL;
 static mrb_value write_values;
 static mrb_value read_values;
 static mrb_value event_queue;
+static uint8_t pending_event_count;
+
+#define BLE_MAX_PENDING_EVENTS 16
 
 void
 BLE_push_event(uint8_t *data, uint16_t size)
 {
-  if (_mrb == NULL || mrb_nil_p(event_queue)) return;
+  if (_mrb == NULL || mrb_nil_p(event_queue) ||
+      BLE_MAX_PENDING_EVENTS <= pending_event_count) return;
   mrb_value event = mrb_str_new(_mrb, (const char *)data, size);
-  (void)mrb_task_queue_push(_mrb, event_queue, event);
+  if (mrb_task_queue_push(_mrb, event_queue, event) == MRB_TASK_QUEUE_PUSH_OK) {
+    pending_event_count++;
+  }
 }
 
 void
 BLE_heartbeat(void)
 {
-  if (_mrb == NULL || mrb_nil_p(event_queue)) return;
+  if (_mrb == NULL || mrb_nil_p(event_queue) ||
+      BLE_MAX_PENDING_EVENTS <= pending_event_count) return;
   mrb_state *mrb = _mrb;
-  (void)mrb_task_queue_push(_mrb, event_queue, mrb_symbol_value(MRB_SYM(heartbeat)));
+  if (mrb_task_queue_push(mrb, event_queue, mrb_symbol_value(MRB_SYM(heartbeat))) ==
+      MRB_TASK_QUEUE_PUSH_OK) {
+    pending_event_count++;
+  }
+}
+
+static mrb_value
+mrb_event_popped(mrb_state *mrb, mrb_value self)
+{
+  if (0 < pending_event_count) pending_event_count--;
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_event_queue_cleared(mrb_state *mrb, mrb_value self)
+{
+  pending_event_count = 0;
+  return mrb_nil_value();
 }
 
 int
@@ -86,6 +110,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
 {
   _mrb = mrb;
   event_queue = mrb_iv_get(mrb, self, MRB_IVSYM(event_queue));
+  pending_event_count = 0;
   write_values = mrb_hash_new(mrb);
   mrb_gc_register(mrb, write_values);
   read_values = mrb_hash_new(mrb);
@@ -153,11 +178,13 @@ mrb_picoruby_ble_gem_init(mrb_state* mrb)
 {
   struct RClass *class_BLE = mrb_define_class_id(mrb, MRB_SYM(BLE), mrb->object_class);
 
-  mrb_define_method_id(mrb, class_BLE, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(1));
+  mrb_define_private_method_id(mrb, class_BLE, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(hci_power_control), mrb_hci_power_control, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(gap_local_bd_addr), mrb_gap_local_bd_addr, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(pop_write_value), mrb_pop_write_value, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_BLE, MRB_SYM(push_read_value), mrb_push_read_value, MRB_ARGS_REQ(2));
+  mrb_define_private_method_id(mrb, class_BLE, MRB_SYM(_event_popped), mrb_event_popped, MRB_ARGS_NONE());
+  mrb_define_private_method_id(mrb, class_BLE, MRB_SYM(_event_queue_cleared), mrb_event_queue_cleared, MRB_ARGS_NONE());
   mrb_init_class_BLE_Peripheral(mrb, class_BLE);
   mrb_init_class_BLE_Broadcaster(mrb, class_BLE);
   mrb_init_class_BLE_Central(mrb, class_BLE);

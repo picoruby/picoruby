@@ -4,6 +4,5 @@ MRuby::Gem::Specification.new('picoruby-ble') do |spec|
   spec.summary = 'BLE class'
   spec.add_dependency 'picoruby-cyw43'
   spec.add_dependency 'picoruby-mbedtls'
-  spec.add_dependency 'mruby-task'
+  spec.add_dependency 'mruby-task' if build.picoruby?
 end
-

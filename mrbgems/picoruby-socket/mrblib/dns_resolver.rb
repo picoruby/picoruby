@@ -1,6 +1,6 @@
 if Object.const_defined?(:SocketDNSResolver)
   class SocketDNSResolver
-    def self.resolve(host)
+    def self.resolve_host(host)
       new(host).resolve(host)
     end
 

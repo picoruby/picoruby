@@ -124,6 +124,7 @@ class BLE
     started_at = Machine.board_millis
     total_timeout_ms = 0
     @event_queue.clear
+    _event_queue_cleared
     hci_power_control(HCI_POWER_ON)
     while true
       total_timeout_ms = Machine.board_millis - started_at
@@ -134,6 +135,7 @@ class BLE
       end
       wait_ms = timeout_ms ? timeout_ms - total_timeout_ms : nil
       event = @event_queue.pop(timeout_ms: wait_ms)
+      _event_popped if event
       if event.is_a?(String)
         packet_callback(event)
       elsif event

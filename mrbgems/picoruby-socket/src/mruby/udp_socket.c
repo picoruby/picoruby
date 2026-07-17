@@ -192,7 +192,9 @@ mrb_udp_socket_recvfrom_nonblock(mrb_state *mrb, mrb_value self)
 
   /* If no data available (non-blocking socket), return nil */
   if (received == 0) {
+#ifdef PICO_CYW43_ARCH_POLL
     sock->event_pending = false;
+#endif
     mrb_free(mrb, buf);
     return mrb_nil_value();
   }

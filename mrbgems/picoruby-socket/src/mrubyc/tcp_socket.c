@@ -41,6 +41,11 @@ get_socket_ptr(mrbc_value *v)
 static void
 c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+#ifdef PICO_CYW43_ARCH_POLL
+  mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(socket_wrapper_t));
+  v[0] = instance;
+  mrbc_instance_call_initialize(vm, v, argc);
+#else
   if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
@@ -105,9 +110,8 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
 #ifdef PICO_CYW43_ARCH_POLL
-  mrbc_value queue = mrbc_instance_new(vm, MRBC_CLASS(Task_Queue), 0);
-  mrbc_send(vm, v, argc, &queue, "initialize", 0);
-  mrbc_instance_setiv(&instance, mrbc_str_to_symid("@event_queue"), &queue);
+  mrbc_value queue = picorb_task_queue_new(vm);
+  mrbc_instance_setiv(&instance, mrbc_str_to_symid("event_queue"), &queue);
   sock->vm = vm;
   sock->event_queue = picorb_alloc(vm, sizeof(mrbc_value));
   if (!sock->event_queue) {
@@ -122,7 +126,79 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
 #endif
 
   SET_RETURN(instance);
+#endif
 }
+
+#ifdef PICO_CYW43_ARCH_POLL
+static void
+c_tcp_socket_initialize_poll(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 2 || GET_ARG(1).tt != MRBC_TT_STRING ||
+      GET_ARG(2).tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "host and port are required");
+    return;
+  }
+  int port = (int)GET_ARG(2).i;
+  const char *host = (const char *)GET_ARG(1).string->data;
+  if (port < 0 || 65535 < port) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid port number");
+    return;
+  }
+
+  picorb_socket_t *sock = picorb_alloc(vm, sizeof(picorb_socket_t));
+  if (!sock) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate socket");
+    return;
+  }
+  if (!TCPSocket_create(vm, sock)) {
+    picorb_free(vm, sock);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to create socket");
+    return;
+  }
+  socket_wrapper_t *wrapper = (socket_wrapper_t *)v[0].instance->data;
+  wrapper->ptr = sock;
+  wrapper->vm = vm;
+
+  mrbc_value queue = picorb_task_queue_new(vm);
+  mrbc_instance_setiv(&v[0], mrbc_str_to_symid("event_queue"), &queue);
+  sock->vm = vm;
+  sock->event_queue = picorb_alloc(vm, sizeof(mrbc_value));
+  if (!sock->event_queue) {
+    mrbc_decref(&queue);
+    TCPSocket_close(vm, sock);
+    picorb_free(vm, sock);
+    wrapper->ptr = NULL;
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate event queue");
+    return;
+  }
+  *(mrbc_value *)sock->event_queue = queue;
+  mrbc_decref(&queue);
+
+  if (!TCPSocket_connect(vm, sock, host, port)) {
+    mrbc_raisef(vm, mrbc_get_class_by_name("SocketError"), "%s",
+                sock->errmsg[0] ? sock->errmsg : "failed to connect");
+    return;
+  }
+  SET_NIL_RETURN();
+}
+
+static void
+c_tcp_socket_connection_state(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SET_INT_RETURN(TCPSocket_connection_state(vm, get_socket_ptr(v)));
+}
+
+static void
+c_tcp_socket_error_message(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  picorb_socket_t *sock = get_socket_ptr(v);
+  if (!sock || !sock->errmsg[0]) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_RETURN(mrbc_string_new_cstr(vm, sock->errmsg));
+}
+#endif
 /*
  * socket.send(data, flags) -> Integer
  */
@@ -271,7 +347,9 @@ c_tcp_socket_read_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   ssize_t received = TCPSocket_recv(vm, sock, buffer, maxlen, true);
 
   if (received == PICORB_RECV_WOULD_BLOCK) {
+#ifdef PICO_CYW43_ARCH_POLL
     sock->event_pending = false;
+#endif
     if (buffer != stack_buf) picorb_free(vm, buffer);
     SET_NIL_RETURN();
     return;
@@ -434,6 +512,16 @@ c_tcp_socket_ready_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
+static void
+c_tcp_socket_connection_timeout_ms(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+#ifdef PICORB_DEBUG
+  SET_INT_RETURN(30000);
+#else
+  SET_INT_RETURN(10000);
+#endif
+}
+
 void
 tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 {
@@ -441,8 +529,16 @@ tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_destructor(class_TCPSocket, mrbc_socket_free);
 
   mrbc_define_method(vm, class_TCPSocket, "new", c_tcp_socket_new);
-  mrbc_define_method(vm, class_TCPSocket, "send", c_tcp_socket_send);
+#ifdef PICO_CYW43_ARCH_POLL
+  mrbc_define_method(vm, class_TCPSocket, "__initialize_poll", c_tcp_socket_initialize_poll);
+  mrbc_define_method(vm, class_TCPSocket, "__connection_state", c_tcp_socket_connection_state);
+  mrbc_define_method(vm, class_TCPSocket, "__connection_timeout_ms", c_tcp_socket_connection_timeout_ms);
+  mrbc_define_method(vm, class_TCPSocket, "__error_message", c_tcp_socket_error_message);
+  mrbc_define_method(vm, class_TCPSocket, "__readpartial_poll", c_tcp_socket_readpartial);
+#else
   mrbc_define_method(vm, class_TCPSocket, "readpartial", c_tcp_socket_readpartial);
+#endif
+  mrbc_define_method(vm, class_TCPSocket, "send", c_tcp_socket_send);
   mrbc_define_method(vm, class_TCPSocket, "read_nonblock", c_tcp_socket_read_nonblock);
   mrbc_define_method(vm, class_TCPSocket, "close", c_tcp_socket_close);
   mrbc_define_method(vm, class_TCPSocket, "closed?", c_tcp_socket_closed_q);

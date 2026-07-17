@@ -12,6 +12,14 @@
 
 #define SOCKET_ERROR_MSG_LEN 128
 
+/* Connection states returned by the socket polling API. */
+#define SOCKET_STATE_NONE        0
+#define SOCKET_STATE_CONNECTING  1
+#define SOCKET_STATE_CONNECTED   2
+#define SOCKET_STATE_CLOSING     3
+#define SOCKET_STATE_CLOSED      4
+#define SOCKET_STATE_ERROR       99
+
 /* Socket structure for POSIX */
 #ifdef PICORB_PLATFORM_POSIX
 typedef struct {
@@ -33,14 +41,6 @@ typedef struct {
 /* Forward declarations for LwIP types */
 struct altcp_pcb;
 struct ip_addr;
-
-/* Socket states */
-#define SOCKET_STATE_NONE        0
-#define SOCKET_STATE_CONNECTING  1
-#define SOCKET_STATE_CONNECTED   2
-#define SOCKET_STATE_CLOSING     3
-#define SOCKET_STATE_CLOSED      4
-#define SOCKET_STATE_ERROR       99
 
 typedef struct {
   struct altcp_pcb *pcb;     /* LwIP control block */
@@ -228,6 +228,7 @@ bool resolve_address(const char *host, char *ip, size_t ip_len);
   void ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
   void tcp_server_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
   void mrbc_socket_free(mrbc_value *self);
+  mrbc_value picorb_task_queue_new(mrbc_vm *vm);
 #elif defined(PICORB_VM_MRUBY)
   #include "mruby.h"
   void mrb_socket_free(mrb_state *mrb, void *ptr);
