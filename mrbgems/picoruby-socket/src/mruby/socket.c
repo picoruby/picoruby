@@ -80,6 +80,19 @@ mrb_dns_resolver_status(mrb_state *mrb, mrb_value self)
 }
 
 static mrb_value
+mrb_dns_resolver_address(mrb_state *mrb, mrb_value self)
+{
+  mrb_dns_resolver *resolver = (mrb_dns_resolver *)
+    mrb_data_get_ptr(mrb, self, &mrb_dns_resolver_type);
+  char address[40];
+
+  if (Net_dns_get_address(resolver->request, address, sizeof(address)) != 0) {
+    return mrb_nil_value();
+  }
+  return mrb_str_new_cstr(mrb, address);
+}
+
+static mrb_value
 mrb_dns_resolver_release(mrb_state *mrb, mrb_value self)
 {
   mrb_dns_resolver *resolver = (mrb_dns_resolver *)
@@ -113,6 +126,8 @@ mrb_init_dns_resolver(mrb_state *mrb)
                        mrb_dns_resolver_initialize, MRB_ARGS_REQ(1));
   mrb_define_private_method_id(mrb, resolver, MRB_SYM(__status),
                                mrb_dns_resolver_status, MRB_ARGS_NONE());
+  mrb_define_private_method_id(mrb, resolver, MRB_SYM(__address),
+                               mrb_dns_resolver_address, MRB_ARGS_NONE());
   mrb_define_private_method_id(mrb, resolver, MRB_SYM(__release),
                                mrb_dns_resolver_release, MRB_ARGS_NONE());
   mrb_define_private_method_id(mrb, resolver, MRB_SYM(__abandon),
