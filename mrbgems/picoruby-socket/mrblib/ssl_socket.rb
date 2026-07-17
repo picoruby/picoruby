@@ -38,7 +38,8 @@ class SSLSocket < BasicSocket
 
     def connect
       host = remote_host
-      SocketDNSResolver.resolve_host(host)
+      resolved_host = SocketDNSResolver.resolve_host(host)
+      __set_connect_hostname(resolved_host)
       __connect_poll
       event_queue = @event_queue
       return self unless event_queue
