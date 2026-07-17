@@ -80,6 +80,19 @@ c_dns_resolver_status(mrbc_vm *vm, mrbc_value *v, int argc)
 }
 
 static void
+c_dns_resolver_address(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  mrbc_dns_resolver *resolver = get_dns_resolver(v);
+  char address[40];
+
+  if (Net_dns_get_address(resolver->request, address, sizeof(address)) != 0) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_RETURN(mrbc_string_new_cstr(vm, address));
+}
+
+static void
 c_dns_resolver_release(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   mrbc_dns_resolver *resolver = get_dns_resolver(v);
@@ -108,6 +121,7 @@ mrbc_dns_resolver_init(mrbc_vm *vm)
   mrbc_define_destructor(resolver, mrbc_dns_resolver_free);
   mrbc_define_method(vm, resolver, "new", c_dns_resolver_new);
   mrbc_define_method(vm, resolver, "__status", c_dns_resolver_status);
+  mrbc_define_method(vm, resolver, "__address", c_dns_resolver_address);
   mrbc_define_method(vm, resolver, "__release", c_dns_resolver_release);
   mrbc_define_method(vm, resolver, "__abandon", c_dns_resolver_abandon);
 }

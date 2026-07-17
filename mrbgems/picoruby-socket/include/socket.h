@@ -75,6 +75,7 @@ extern void Net_set_last_error(const char *format, ...);
 typedef void (*picorb_dns_notify_func)(void *arg);
 void* Net_dns_start(const char *name, picorb_dns_notify_func notify, void *arg);
 int Net_dns_status(void *request);
+int Net_dns_get_address(void *request, char *buf, size_t buflen);
 void Net_dns_release(void *request);
 void Net_dns_abandon(void *request);
 #endif
