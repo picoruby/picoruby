@@ -1,7 +1,7 @@
 class SocketDNSResolver
   @event_queue: Task::Queue
 
-  def self.resolve: (String host) -> String
+  def self.resolve_host: (String host) -> String
   def initialize: (String host) -> void
   def resolve: (String host) -> String
   private def __status: () -> Integer
