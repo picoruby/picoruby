@@ -102,7 +102,7 @@ mrb_set_scan_params(mrb_state *mrb, mrb_value self)
     scan_type_num = 1;
     mrb_notimplement(mrb); // TODO
   } else if (mrb_symbol(scan_type) == MRB_SYM(passive)) {
-    scan_type_num = 1;
+    scan_type_num = 0;
   } else {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong type of scan_type");
   }
