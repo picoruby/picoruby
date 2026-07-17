@@ -4,11 +4,13 @@ class EOFError < IOError; end
 
 class BasicSocket
   CONNECTION_TIMEOUT_MS = 10_000
+  READ_TIMEOUT_MS = 60_000
 
   private def __connection_timeout_ms
     CONNECTION_TIMEOUT_MS
   end
 
+  # A connection that timed out cannot be used, so release its resources here.
   private def __wait_for_event(event_queue, timeout_message)
     unless event_queue.pop(timeout_ms: __connection_timeout_ms)
       close
@@ -16,16 +18,21 @@ class BasicSocket
     end
   end
 
-  private def __readpartial_event_queue(maxlen, timeout_message, failure_message)
+  # A read timeout is recoverable (the peer may just be slow), so keep the
+  # socket open and let the caller retry or close.
+  private def __readpartial_event_queue(maxlen, timeout_message)
     event_queue = @event_queue
     return __readpartial_poll(maxlen) unless event_queue
 
     data = read_nonblock(maxlen)
     while data.nil?
-      __wait_for_event(event_queue, timeout_message)
+      unless event_queue.pop(timeout_ms: READ_TIMEOUT_MS)
+        raise SocketError, timeout_message
+      end
       data = read_nonblock(maxlen)
     end
-    data || raise(IOError, failure_message)
+    # @type var data: String
+    data
   end
 
   # IO-compatible methods

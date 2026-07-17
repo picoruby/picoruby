@@ -61,7 +61,7 @@ class SSLSocket < BasicSocket
     end
 
     def readpartial(maxlen)
-      __readpartial_event_queue(maxlen, "SSL read timeout", "SSL read failed")
+      __readpartial_event_queue(maxlen, "SSL read timeout")
     end
   end
 
