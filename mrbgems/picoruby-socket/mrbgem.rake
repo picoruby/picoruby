@@ -12,6 +12,7 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
   end
   spec.add_conflict 'picoruby-net'
   spec.add_dependency 'picoruby-machine'
+  spec.add_dependency 'picoruby-metaprog' if build.femtoruby?
   if build.picoruby? && !build.posix? && !build.platform?(:esp32)
     spec.add_dependency 'mruby-task'
   end
