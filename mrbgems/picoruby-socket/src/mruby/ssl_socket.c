@@ -460,6 +460,23 @@ mrb_ssl_socket_connect(mrb_state *mrb, mrb_value self)
   return self;
 }
 
+#ifdef PICO_CYW43_ARCH_POLL
+static mrb_value
+mrb_ssl_socket_set_connect_hostname(mrb_state *mrb, mrb_value self)
+{
+  char *hostname;
+  mrb_get_args(mrb, "z", &hostname);
+
+  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(
+    mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock || !SSLSocket_set_connect_hostname(mrb, ssl_sock, hostname)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set connect hostname");
+  }
+
+  return mrb_true_value();
+}
+#endif
+
 static mrb_value
 mrb_ssl_socket_connection_state(mrb_state *mrb, mrb_value self)
 {
@@ -745,6 +762,10 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_class_method_id(mrb, ssl_socket_class, MRB_SYM(open), mrb_ssl_socket_s_open, MRB_ARGS_REQ(3));
 #endif
 #ifdef PICO_CYW43_ARCH_POLL
+  mrb_define_private_method_id(mrb, ssl_socket_class,
+                               MRB_SYM(__set_connect_hostname),
+                               mrb_ssl_socket_set_connect_hostname,
+                               MRB_ARGS_REQ(1));
   mrb_define_private_method_id(mrb, ssl_socket_class, MRB_SYM(__connect_poll), mrb_ssl_socket_connect, MRB_ARGS_NONE());
   mrb_define_private_method_id(mrb, ssl_socket_class, MRB_SYM(__connection_state), mrb_ssl_socket_connection_state, MRB_ARGS_NONE());
   mrb_define_private_method_id(mrb, ssl_socket_class, MRB_SYM(__finish_connect), mrb_ssl_socket_finish_connect, MRB_ARGS_NONE());

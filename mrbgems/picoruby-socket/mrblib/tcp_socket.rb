@@ -4,7 +4,7 @@ class TCPSocket < BasicSocket
 
   if Object.const_defined?(:SocketDNSResolver)
     def initialize(host, port)
-      SocketDNSResolver.resolve_host(host)
+      host = SocketDNSResolver.resolve_host(host)
       __initialize_poll(host, port)
       event_queue = @event_queue
       return unless event_queue

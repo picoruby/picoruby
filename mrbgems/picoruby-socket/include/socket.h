@@ -208,6 +208,7 @@ typedef struct picorb_ssl_socket picorb_ssl_socket_t;
 
 picorb_ssl_socket_t* SSLSocket_create(picorb_state *vm, picorb_ssl_context_t *ssl_ctx);
 bool SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname);
+bool SSLSocket_set_connect_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname);
 bool SSLSocket_set_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, int port);
 bool SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
 int SSLSocket_connection_state(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
