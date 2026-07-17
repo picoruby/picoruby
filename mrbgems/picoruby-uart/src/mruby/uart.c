@@ -23,11 +23,13 @@ mrb_open_rx_buffer(mrb_state *mrb, mrb_value self)
 {
   int rx_buffer_size;
   mrb_value buffer_size;
-  mrb_get_args(mrb, "|o", &buffer_size);
+  mrb_get_args(mrb, "o", &buffer_size);
   if (mrb_nil_p(buffer_size)) {
     rx_buffer_size = PICORB_UART_RX_BUFFER_SIZE;
-  } else {
+  } else if (mrb_fixnum_p(buffer_size)) {
     rx_buffer_size = mrb_fixnum(buffer_size);
+  } else {
+    mrb_raise(mrb, E_TYPE_ERROR, "wrong argument type (expected Integer or nil)");
   }
   size_t allocation_size = UART_rx_buffer_allocation_size((size_t)rx_buffer_size);
   if (allocation_size == 0) {
@@ -105,12 +107,9 @@ mrb_read(mrb_state *mrb, mrb_value self)
   if (available_len == 0) {
     return mrb_nil_value();
   }
-  mrb_value len_val;
-  mrb_int len;
-  mrb_get_args(mrb, "|o", &len_val);
-  if (mrb_fixnum_p(len_val)) {
-    len = mrb_fixnum(len_val);
-    if (available_len < len) {
+  mrb_int len = 0;
+  if (mrb_get_args(mrb, "|i", &len) == 1) {
+    if (available_len < (size_t)len) {
       return mrb_nil_value();
     } else {
       available_len = len;
@@ -274,20 +273,19 @@ mrb_break(mrb_state *mrb, mrb_value self)
 {
   uint32_t break_ms;
   mrb_value break_ms_val;
-  mrb_get_args(mrb, "|o", &break_ms_val);
-  if (mrb_nil_p(break_ms_val)) {
+  if (mrb_get_args(mrb, "|o", &break_ms_val) == 0) {
     break_ms = 100;
   } else {
     if (mrb_float_p(break_ms_val)) {
       break_ms = (uint32_t)(mrb_float(break_ms_val) * 1000);
     } else if (mrb_fixnum_p(break_ms_val)) {
-      break_ms = (uint32_t)mrb_fixnum(break_ms_val);
+      break_ms = (uint32_t)(mrb_fixnum(break_ms_val) * 1000);
     } else {
       mrb_raise(mrb, E_TYPE_ERROR, "can't convert into time interval");
     }
   }
   int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
-  UART_break(unit_num, (uint32_t)break_ms);
+  UART_break(unit_num, break_ms);
   return self;
 }
 
@@ -305,12 +303,12 @@ mrb_picoruby_uart_gem_init(mrb_state* mrb)
   mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_NONE), mrb_fixnum_value(FLOW_CONTROL_NONE));
   mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_RTS_CTS), mrb_fixnum_value(FLOW_CONTROL_RTS_CTS));
 
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(open_rx_buffer), mrb_open_rx_buffer, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(open_connection), mrb_open_connection, MRB_ARGS_REQ(4));
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_baudrate), mrb__set_baudrate, MRB_ARGS_REQ(1));
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_flow_control), mrb__set_flow_control, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_format), mrb__set_format, MRB_ARGS_REQ(3));
-  mrb_define_method_id(mrb, class_UART, MRB_SYM(_set_function), mrb__set_function, MRB_ARGS_REQ(1));
+  mrb_define_private_method_id(mrb, class_UART, MRB_SYM(open_rx_buffer), mrb_open_rx_buffer, MRB_ARGS_REQ(1));
+  mrb_define_private_method_id(mrb, class_UART, MRB_SYM(open_connection), mrb_open_connection, MRB_ARGS_REQ(4));
+  mrb_define_private_method_id(mrb, class_UART, MRB_SYM(_set_baudrate), mrb__set_baudrate, MRB_ARGS_REQ(1));
+  mrb_define_private_method_id(mrb, class_UART, MRB_SYM(_set_flow_control), mrb__set_flow_control, MRB_ARGS_REQ(2));
+  mrb_define_private_method_id(mrb, class_UART, MRB_SYM(_set_format), mrb__set_format, MRB_ARGS_REQ(3));
+  mrb_define_private_method_id(mrb, class_UART, MRB_SYM(_set_function), mrb__set_function, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(read), mrb_read, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(readpartial), mrb_readpartial, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_UART, MRB_SYM(getbyte), mrb_getbyte, MRB_ARGS_NONE());
