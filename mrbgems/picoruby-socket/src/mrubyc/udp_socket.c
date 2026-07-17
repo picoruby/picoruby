@@ -67,9 +67,8 @@ c_udp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   wrapper->vm = vm;
 
 #ifdef PICO_CYW43_ARCH_POLL
-  mrbc_value queue = mrbc_instance_new(vm, MRBC_CLASS(Task_Queue), 0);
-  mrbc_send(vm, v, argc, &queue, "initialize", 0);
-  mrbc_instance_setiv(&instance, mrbc_str_to_symid("@event_queue"), &queue);
+  mrbc_value queue = picorb_task_queue_new(vm);
+  mrbc_instance_setiv(&instance, mrbc_str_to_symid("event_queue"), &queue);
   sock->event_queue = picorb_alloc(vm, sizeof(mrbc_value));
   if (!sock->event_queue) {
     mrbc_decref(&queue);
@@ -307,7 +306,9 @@ c_udp_socket_recvfrom_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* If no data available (non-blocking socket), return nil */
   if (received == 0) {
+#ifdef PICO_CYW43_ARCH_POLL
     sock->event_pending = false;
+#endif
     picorb_free(vm, buffer);
     SET_NIL_RETURN();
     return;
@@ -404,9 +405,15 @@ udp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_destructor(class_UDPSocket, mrbc_socket_free);
 
   mrbc_define_method(vm, class_UDPSocket, "new", c_udp_socket_new);
+#ifdef PICO_CYW43_ARCH_POLL
+  mrbc_define_method(vm, class_UDPSocket, "__bind_resolved", c_udp_socket_bind);
+  mrbc_define_method(vm, class_UDPSocket, "__connect_resolved", c_udp_socket_connect);
+  mrbc_define_method(vm, class_UDPSocket, "__send_resolved", c_udp_socket_send);
+#else
   mrbc_define_method(vm, class_UDPSocket, "bind", c_udp_socket_bind);
   mrbc_define_method(vm, class_UDPSocket, "connect", c_udp_socket_connect);
   mrbc_define_method(vm, class_UDPSocket, "send", c_udp_socket_send);
+#endif
   mrbc_define_method(vm, class_UDPSocket, "recvfrom_nonblock", c_udp_socket_recvfrom_nonblock);
   mrbc_define_method(vm, class_UDPSocket, "close", c_udp_socket_close);
   mrbc_define_method(vm, class_UDPSocket, "closed?", c_udp_socket_closed_q);

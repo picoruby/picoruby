@@ -2,23 +2,25 @@ class TCPSocket < BasicSocket
   # TCPSocket is mostly implemented in C
   # This file provides additional Ruby-level methods
 
-  def initialize(host, port)
-    SocketDNSResolver.resolve(host) if Object.const_defined?(:SocketDNSResolver)
-    __initialize_poll(host, port)
-    event_queue = @event_queue
-    return unless event_queue
+  if Object.const_defined?(:SocketDNSResolver)
+    def initialize(host, port)
+      SocketDNSResolver.resolve_host(host)
+      __initialize_poll(host, port)
+      event_queue = @event_queue
+      return unless event_queue
 
-    while __connection_state == 1
-      unless event_queue.pop(timeout_ms: 10_000)
-        close
-        raise SocketError, "connection timed out"
+      while __connection_state == 1
+        unless event_queue.pop(timeout_ms: __connection_timeout_ms)
+          close
+          raise SocketError, "connection timed out"
+        end
       end
-    end
-    return if __connection_state == 2
+      return if __connection_state == 2
 
-    message = __error_message
-    close
-    raise SocketError, message || "failed to connect"
+      message = __error_message
+      close
+      raise SocketError, message || "failed to connect"
+    end
   end
 
   # Class methods
@@ -45,15 +47,17 @@ class TCPSocket < BasicSocket
     !closed?
   end
 
-  def readpartial(maxlen)
-    event_queue = @event_queue
-    return __readpartial_poll(maxlen) unless event_queue
+  if Object.const_defined?(:SocketDNSResolver)
+    def readpartial(maxlen)
+      event_queue = @event_queue
+      return __readpartial_poll(maxlen) unless event_queue
 
-    data = read_nonblock(maxlen)
-    until data
-      event_queue.pop
       data = read_nonblock(maxlen)
+      until data
+        event_queue.pop
+        data = read_nonblock(maxlen)
+      end
+      data || raise(IOError, "read failed")
     end
-    data || raise(IOError, "read failed")
   end
 end

@@ -70,9 +70,17 @@ heap_exit_critical(void)
     #if defined(USE_WIFI) && defined(R2P2_NO_SHARED_ALLOC)
       #define HEAP_SIZE_KB 320
     #elif defined(PICORB_DEBUG)
-      #define HEAP_SIZE_KB 384
+      #if defined(PICORB_VM_MRUBYC)
+        #define HEAP_SIZE_KB 376
+      #else
+        #define HEAP_SIZE_KB 384
+      #endif
     #else
-      #define HEAP_SIZE_KB 396
+      #if defined(PICORB_VM_MRUBYC)
+        #define HEAP_SIZE_KB 390
+      #else
+        #define HEAP_SIZE_KB 396
+      #endif
     #endif
   #else
     #error "PICO_RP2040 or PICO_RP2350 must be defined"

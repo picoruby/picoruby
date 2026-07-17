@@ -4,17 +4,17 @@ class UDPSocket
 
   if Object.const_defined?(:SocketDNSResolver)
     def bind(host, port)
-      SocketDNSResolver.resolve(host) if host && host != "" && host != "0.0.0.0"
+      SocketDNSResolver.resolve_host(host) if host && host != "" && host != "0.0.0.0"
       __bind_resolved(host, port)
     end
 
     def connect(host, port)
-      SocketDNSResolver.resolve(host)
+      SocketDNSResolver.resolve_host(host)
       __connect_resolved(host, port)
     end
 
     def send(data, flags = 0, host = nil, port = nil)
-      SocketDNSResolver.resolve(host) if host
+      SocketDNSResolver.resolve_host(host) if host
       host ? __send_resolved(data, flags, host, port) : __send_resolved(data, flags)
     end
   end
