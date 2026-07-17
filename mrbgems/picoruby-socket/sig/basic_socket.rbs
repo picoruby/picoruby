@@ -3,6 +3,7 @@ end
 
 class BasicSocket
   CONNECTION_TIMEOUT_MS: Integer
+  READ_TIMEOUT_MS: Integer
 
   def puts: (*untyped args) -> nil
   def gets: (?String sep) -> String?
@@ -24,5 +25,5 @@ class BasicSocket
   private def __connection_timeout_ms: () -> Integer
   private def __wait_for_event: (untyped event_queue, String timeout_message) -> void
   private def __readpartial_poll: (Integer maxlen) -> String
-  private def __readpartial_event_queue: (Integer maxlen, String timeout_message, String failure_message) -> String
+  private def __readpartial_event_queue: (Integer maxlen, String timeout_message) -> String
 end
