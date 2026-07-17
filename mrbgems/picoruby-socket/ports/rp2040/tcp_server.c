@@ -57,7 +57,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (pbuf) pbuf_free(pbuf);
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
-    TCPSocket_notify_readable(sock);
+    picorb_socket_notify_readable(sock);
     D("tcp_server.c tcp_recv_callback: error, state set to ERROR");
     return err;
   }
@@ -67,7 +67,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     sock->state = SOCKET_STATE_CLOSED;
     sock->connected = false;
     sock->closed = true;
-    TCPSocket_notify_readable(sock);
+    picorb_socket_notify_readable(sock);
     D("tcp_server.c tcp_recv_callback: connection closed");
     return ERR_OK;
   }
@@ -99,7 +99,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   altcp_recved(pcb, total_len);
   pbuf_free(pbuf);
 
-  TCPSocket_notify_readable(sock);
+  picorb_socket_notify_readable(sock);
   D("tcp_server.c tcp_recv_callback: success, total recv_len=%zu\n", sock->recv_len);
   return ERR_OK;
 }
@@ -122,7 +122,7 @@ tcp_err_callback(void *arg, err_t err)
   sock->state = SOCKET_STATE_ERROR;
   sock->connected = false;
   sock->pcb = NULL; /* PCB is already freed by LwIP */
-  TCPSocket_notify_readable(sock);
+  picorb_socket_notify_readable(sock);
 }
 
 /* Accept callback - runs in LwIP callback context (may be IRQ/PendSV).

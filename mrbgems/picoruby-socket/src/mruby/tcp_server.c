@@ -15,18 +15,9 @@ void
 TCPServer_notify_accepted(picorb_tcp_server_t *server)
 {
   void *queue_ptr = TCPServer_event_queue(server);
-  if (!queue_ptr || TCPServer_event_pending(server)) return;
-  mrb_state *mrb = (mrb_state *)TCPServer_vm(server);
-  mrb_value queue = *(mrb_value *)queue_ptr;
-  if (mrb_task_queue_push(mrb, queue, mrb_true_value()) == MRB_TASK_QUEUE_PUSH_OK) {
-    TCPServer_set_event_pending(server, true);
-  }
-}
-#else
-void
-TCPServer_notify_accepted(picorb_tcp_server_t *server)
-{
-  (void)server;
+  bool pending = TCPServer_event_pending(server);
+  picorb_task_queue_notify(TCPServer_vm(server), queue_ptr, &pending);
+  TCPServer_set_event_pending(server, pending);
 }
 #endif
 
@@ -97,12 +88,12 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
   mrb_data_init(self, server, &mrb_tcp_server_type);
 
 #ifdef PICO_CYW43_ARCH_POLL
-  struct RClass *task_class = mrb_class_get_id(mrb, MRB_SYM(Task));
-  struct RClass *queue_class = mrb_class_get_under_id(mrb, task_class, MRB_SYM(Queue));
-  mrb_value queue = mrb_obj_new(mrb, queue_class, 0, NULL);
-  mrb_iv_set(mrb, self, MRB_IVSYM(event_queue), queue);
-  void *queue_ptr = mrb_malloc(mrb, sizeof(mrb_value));
-  *(mrb_value *)queue_ptr = queue;
+  void *queue_ptr = NULL;
+  if (!picorb_task_queue_attach(mrb, &self, &queue_ptr)) {
+    TCPServer_close(mrb, server);
+    DATA_PTR(self) = NULL;
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate event queue");
+  }
   TCPServer_set_event_queue(server, mrb, queue_ptr);
 #endif
 
@@ -134,13 +125,9 @@ mrb_tcp_server_accept_nonblock(mrb_state *mrb, mrb_value self)
   client_obj = mrb_obj_value(mrb_data_object_alloc(mrb, tcp_socket_class, client, &mrb_socket_type));
 
 #ifdef PICO_CYW43_ARCH_POLL
-  struct RClass *task_class = mrb_class_get_id(mrb, MRB_SYM(Task));
-  struct RClass *queue_class = mrb_class_get_under_id(mrb, task_class, MRB_SYM(Queue));
-  mrb_value queue = mrb_obj_new(mrb, queue_class, 0, NULL);
-  mrb_iv_set(mrb, client_obj, MRB_IVSYM(event_queue), queue);
-  client->vm = mrb;
-  client->event_queue = mrb_malloc(mrb, sizeof(mrb_value));
-  *(mrb_value *)client->event_queue = queue;
+  if (!picorb_socket_attach_event_queue(mrb, &client_obj, client)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate event queue");
+  }
 #endif
 
   return client_obj;

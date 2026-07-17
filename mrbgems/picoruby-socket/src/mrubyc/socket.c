@@ -20,6 +20,51 @@ picorb_task_queue_new(mrbc_vm *vm)
   return queue;
 }
 
+void
+picorb_task_queue_notify(mrbc_vm *vm, void *queue_ptr, bool *pending)
+{
+  (void)vm;
+  if (!queue_ptr || !pending || *pending) return;
+  mrbc_value event = mrbc_true_value();
+  if (mrbc_task_queue_push((mrbc_value *)queue_ptr, &event) ==
+      MRBC_TASK_QUEUE_PUSH_OK) {
+    *pending = true;
+  }
+}
+
+bool
+picorb_task_queue_attach(mrbc_vm *vm, void *self_ptr, void **queue_ptr)
+{
+  mrbc_value *self = (mrbc_value *)self_ptr;
+  mrbc_value queue = picorb_task_queue_new(vm);
+  mrbc_instance_setiv(self, mrbc_str_to_symid("event_queue"), &queue);
+  *queue_ptr = picorb_alloc(vm, sizeof(mrbc_value));
+  if (!*queue_ptr) {
+    mrbc_decref(&queue);
+    return false;
+  }
+  *(mrbc_value *)*queue_ptr = queue;
+  mrbc_decref(&queue);
+  return true;
+}
+
+bool
+picorb_socket_attach_event_queue(mrbc_vm *vm, void *self_ptr,
+                                  picorb_socket_t *sock)
+{
+  if (!picorb_task_queue_attach(vm, self_ptr, &sock->event_queue)) return false;
+  sock->vm = vm;
+  return true;
+}
+
+void
+picorb_socket_notify_readable(picorb_socket_t *sock)
+{
+  if (!sock) return;
+  picorb_task_queue_notify((mrbc_vm *)sock->vm, sock->event_queue,
+                           &sock->event_pending);
+}
+
 typedef struct {
   mrbc_value queue;
   void *request;
