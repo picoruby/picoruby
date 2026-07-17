@@ -10,7 +10,6 @@ class SSLSocket < BasicSocket
   def connect: () -> self
   private def __connect_poll: () -> self
   private def __connection_state: () -> Integer
-  private def __connection_timeout_ms: () -> Integer
   private def __finish_connect: () -> bool
   private def __error_message: () -> String?
   private def __readpartial_poll: (Integer maxlen) -> String

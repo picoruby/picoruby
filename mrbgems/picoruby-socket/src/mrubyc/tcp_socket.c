@@ -94,15 +94,6 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-#ifdef PICO_CYW43_ARCH_POLL
-  if (!picorb_socket_attach_event_queue(vm, &instance, sock)) {
-    TCPSocket_close(vm, sock);
-    picorb_free(vm, sock);
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate event queue");
-    return;
-  }
-#endif
-
   SET_RETURN(instance);
 #endif
 }
@@ -483,16 +474,6 @@ c_tcp_socket_ready_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
-static void
-c_tcp_socket_connection_timeout_ms(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-#ifdef PICORB_DEBUG
-  SET_INT_RETURN(30000);
-#else
-  SET_INT_RETURN(10000);
-#endif
-}
-
 void
 tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 {
@@ -503,7 +484,6 @@ tcp_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 #ifdef PICO_CYW43_ARCH_POLL
   mrbc_define_method(vm, class_TCPSocket, "__initialize_poll", c_tcp_socket_initialize_poll);
   mrbc_define_method(vm, class_TCPSocket, "__connection_state", c_tcp_socket_connection_state);
-  mrbc_define_method(vm, class_TCPSocket, "__connection_timeout_ms", c_tcp_socket_connection_timeout_ms);
   mrbc_define_method(vm, class_TCPSocket, "__error_message", c_tcp_socket_error_message);
   mrbc_define_method(vm, class_TCPSocket, "__readpartial_poll", c_tcp_socket_readpartial);
 #else

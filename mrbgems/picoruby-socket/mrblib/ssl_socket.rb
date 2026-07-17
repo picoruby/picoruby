@@ -44,10 +44,7 @@ class SSLSocket < BasicSocket
       return self unless event_queue
 
       while __connection_state == 1
-        unless event_queue.pop(timeout_ms: __connection_timeout_ms)
-          close
-          raise SocketError, "SSL handshake timed out"
-        end
+        __wait_for_event(event_queue, "SSL handshake timed out")
       end
 
       if __connection_state == 2
@@ -63,18 +60,7 @@ class SSLSocket < BasicSocket
     end
 
     def readpartial(maxlen)
-      event_queue = @event_queue
-      return __readpartial_poll(maxlen) unless event_queue
-
-      data = read_nonblock(maxlen)
-      until data
-        unless event_queue.pop(timeout_ms: __connection_timeout_ms)
-          close
-          raise SocketError, "SSL read timeout"
-        end
-        data = read_nonblock(maxlen)
-      end
-      data || raise(IOError, "SSL read failed")
+      __readpartial_event_queue(maxlen, "SSL read timeout", "SSL read failed")
     end
   end
 

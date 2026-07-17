@@ -13,12 +13,6 @@ TCPServer_notify_accepted(picorb_tcp_server_t *server)
   picorb_task_queue_notify(TCPServer_vm(server), queue_ptr, &pending);
   TCPServer_set_event_pending(server, pending);
 }
-#else
-void
-TCPServer_notify_accepted(picorb_tcp_server_t *server)
-{
-  (void)server;
-}
 #endif
 
 /* Wrapper structure for storing TCP server pointer in instance->data */

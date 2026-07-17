@@ -599,16 +599,6 @@ c_ssl_socket_ready_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 }
 
-static void
-c_ssl_socket_connection_timeout_ms(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-#ifdef PICORB_DEBUG
-  SET_INT_RETURN(30000);
-#else
-  SET_INT_RETURN(10000);
-#endif
-}
-
 /*
  * SSLContext.new() -> SSLContext
  */
@@ -1057,7 +1047,6 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
   mrbc_define_method(vm, class_SSLSocket, "__open_poll", c_ssl_socket_open);
   mrbc_define_method(vm, class_SSLSocket, "__connect_poll", c_ssl_socket_connect);
   mrbc_define_method(vm, class_SSLSocket, "__connection_state", c_ssl_socket_connection_state);
-  mrbc_define_method(vm, class_SSLSocket, "__connection_timeout_ms", c_ssl_socket_connection_timeout_ms);
   mrbc_define_method(vm, class_SSLSocket, "__finish_connect", c_ssl_socket_finish_connect);
   mrbc_define_method(vm, class_SSLSocket, "__error_message", c_ssl_socket_error_message);
   mrbc_define_method(vm, class_SSLSocket, "__readpartial_poll", c_ssl_socket_readpartial);
