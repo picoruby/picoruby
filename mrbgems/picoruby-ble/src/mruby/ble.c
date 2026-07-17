@@ -110,6 +110,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
 {
   _mrb = mrb;
   event_queue = mrb_iv_get(mrb, self, MRB_IVSYM(event_queue));
+  mrb_gc_register(mrb, event_queue);
   pending_event_count = 0;
   write_values = mrb_hash_new(mrb);
   mrb_gc_register(mrb, write_values);
