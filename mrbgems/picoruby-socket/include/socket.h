@@ -149,12 +149,14 @@ picorb_tcp_server_t* TCPServer_create(picorb_state *vm, int port, int backlog);
 picorb_socket_t* TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server);
 bool TCPServer_close(picorb_state *vm, picorb_tcp_server_t *server);
 int TCPServer_port(picorb_state *vm, picorb_tcp_server_t *server);
+#ifdef PICO_CYW43_ARCH_POLL
 void TCPServer_set_event_queue(picorb_tcp_server_t *server, picorb_state *vm, void *queue);
 void* TCPServer_event_queue(picorb_tcp_server_t *server);
 picorb_state* TCPServer_vm(picorb_tcp_server_t *server);
 bool TCPServer_event_pending(picorb_tcp_server_t *server);
 void TCPServer_set_event_pending(picorb_tcp_server_t *server, bool pending);
 void TCPServer_notify_accepted(picorb_tcp_server_t *server);
+#endif
 bool TCPServer_listening(picorb_state *vm, picorb_tcp_server_t *server);
 
 /* SSL Context API */

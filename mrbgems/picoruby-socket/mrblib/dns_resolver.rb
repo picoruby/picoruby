@@ -7,7 +7,7 @@ if Object.const_defined?(:SocketDNSResolver)
     def resolve(host)
       status = __status
       if status == 1
-        unless @event_queue.pop(timeout_ms: 10_000)
+        unless @event_queue.pop(timeout_ms: BasicSocket::CONNECTION_TIMEOUT_MS)
           __abandon
           raise SocketError, "DNS resolution timed out for #{host}"
         end
