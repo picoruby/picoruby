@@ -254,10 +254,12 @@ class BLE
       @user_block = block
       total_timeout_ms = 0
       @event_queue.clear
+      _event_queue_cleared
       hci_power_control(HCI_POWER_ON)
       while true
         break if timeout_ms && timeout_ms <= total_timeout_ms
         event = @event_queue.pop(timeout_ms: 1)
+        _event_popped if event
         if event.is_a?(String)
           packet_callback(event)
         elsif event
