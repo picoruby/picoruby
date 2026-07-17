@@ -46,7 +46,7 @@ class TCPSocket < BasicSocket
 
   if Object.const_defined?(:SocketDNSResolver)
     def readpartial(maxlen)
-      __readpartial_event_queue(maxlen, "read timeout", "read failed")
+      __readpartial_event_queue(maxlen, "read timeout")
     end
   end
 end
