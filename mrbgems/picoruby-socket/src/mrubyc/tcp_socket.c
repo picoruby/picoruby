@@ -43,6 +43,10 @@ c_tcp_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
 {
 #ifdef PICO_CYW43_ARCH_POLL
   mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(socket_wrapper_t));
+  /* mrbc_instance_new does not clear instance data. Ruby initialize may
+   * raise before __initialize_poll assigns the wrapper fields, so initialize
+   * them before calling Ruby code for the destructor's safety. */
+  memset(instance.instance->data, 0, sizeof(socket_wrapper_t));
   v[0] = instance;
   mrbc_instance_call_initialize(vm, v, argc);
 #else
