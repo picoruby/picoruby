@@ -261,6 +261,24 @@ c_ssl_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
 
 #ifdef PICO_CYW43_ARCH_POLL
 static void
+c_ssl_socket_set_connect_hostname(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 1 || GET_ARG(1).tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "hostname is required");
+    return;
+  }
+
+  ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
+  if (!wrapper->ptr || !SSLSocket_set_connect_hostname(
+        vm, wrapper->ptr, (const char *)GET_ARG(1).string->data)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set connect hostname");
+    return;
+  }
+
+  SET_TRUE_RETURN();
+}
+
+static void
 c_ssl_socket_connection_state(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   ssl_socket_wrapper_t *wrapper = (ssl_socket_wrapper_t *)v[0].instance->data;
@@ -1044,6 +1062,8 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 
   mrbc_define_method(vm, class_SSLSocket, "new", c_ssl_socket_new);
 #ifdef PICO_CYW43_ARCH_POLL
+  mrbc_define_method(vm, class_SSLSocket, "__set_connect_hostname",
+                     c_ssl_socket_set_connect_hostname);
   mrbc_define_method(vm, class_SSLSocket, "__open_poll", c_ssl_socket_open);
   mrbc_define_method(vm, class_SSLSocket, "__connect_poll", c_ssl_socket_connect);
   mrbc_define_method(vm, class_SSLSocket, "__connection_state", c_ssl_socket_connection_state);

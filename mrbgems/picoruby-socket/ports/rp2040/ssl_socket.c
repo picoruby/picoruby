@@ -49,6 +49,7 @@ struct picorb_ssl_socket {
   int state;
   bool connected;
   char *hostname;
+  char *connect_hostname;
   int port;
 };
 
@@ -384,6 +385,7 @@ SSLSocket_create(picorb_state *vm, picorb_ssl_context_t *ssl_ctx)
   ssl_sock->state = SSL_STATE_NONE;
   ssl_sock->connected = false;
   ssl_sock->hostname = NULL;
+  ssl_sock->connect_hostname = NULL;
   ssl_sock->port = 0;
 
   return ssl_sock;
@@ -405,6 +407,27 @@ SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const ch
     return false;
   }
   strcpy(ssl_sock->hostname, hostname);
+
+  return true;
+}
+
+bool
+SSLSocket_set_connect_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock,
+                               const char *hostname)
+{
+  if (!ssl_sock || !hostname) {
+    return false;
+  }
+
+  if (ssl_sock->connect_hostname) {
+    picorb_free(vm, ssl_sock->connect_hostname);
+  }
+
+  ssl_sock->connect_hostname = (char *)picorb_alloc(vm, strlen(hostname) + 1);
+  if (!ssl_sock->connect_hostname) {
+    return false;
+  }
+  strcpy(ssl_sock->connect_hostname, hostname);
 
   return true;
 }
@@ -444,7 +467,10 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   /* Resolve hostname to IP */
   ip_addr_t ip_addr;
   ip4_addr_set_zero(&ip_addr);
-  int dns_result = Net_get_ip(ssl_sock->hostname, &ip_addr);
+  const char *connect_hostname = ssl_sock->connect_hostname
+                                   ? ssl_sock->connect_hostname
+                                   : ssl_sock->hostname;
+  int dns_result = Net_get_ip(connect_hostname, &ip_addr);
   if (dns_result != 0) {
     D("SSL: DNS failed");
     return false;
@@ -743,6 +769,10 @@ SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   if (ssl_sock->hostname) {
     picorb_free(vm, ssl_sock->hostname);
     ssl_sock->hostname = NULL;
+  }
+  if (ssl_sock->connect_hostname) {
+    picorb_free(vm, ssl_sock->connect_hostname);
+    ssl_sock->connect_hostname = NULL;
   }
 
   if (ssl_sock->base_socket) {
