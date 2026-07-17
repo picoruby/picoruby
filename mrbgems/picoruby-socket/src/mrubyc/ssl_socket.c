@@ -4,42 +4,6 @@
 #include "picoruby.h"
 #ifdef PICO_CYW43_ARCH_POLL
 #include "c_task_queue.h"
-
-void
-SSLSocket_notify_readable(picorb_ssl_socket_t *ssl_sock)
-{
-  picorb_socket_t *sock = SSLSocket_event_socket(ssl_sock);
-  if (!sock || !sock->event_queue || sock->event_pending) return;
-  mrbc_value event = mrbc_true_value();
-  if (mrbc_task_queue_push((mrbc_value *)sock->event_queue, &event) ==
-      MRBC_TASK_QUEUE_PUSH_OK) {
-    sock->event_pending = true;
-  }
-}
-
-static bool
-attach_event_queue(mrbc_vm *vm, mrbc_value *self,
-                   picorb_ssl_socket_t *ssl_sock)
-{
-  picorb_socket_t *sock = SSLSocket_event_socket(ssl_sock);
-  mrbc_value queue = picorb_task_queue_new(vm);
-  mrbc_instance_setiv(self, mrbc_str_to_symid("event_queue"), &queue);
-  sock->vm = vm;
-  sock->event_queue = picorb_alloc(vm, sizeof(mrbc_value));
-  if (!sock->event_queue) {
-    mrbc_decref(&queue);
-    return false;
-  }
-  *(mrbc_value *)sock->event_queue = queue;
-  mrbc_decref(&queue);
-  return true;
-}
-#else
-void
-SSLSocket_notify_readable(picorb_ssl_socket_t *ssl_sock)
-{
-  (void)ssl_sock;
-}
 #endif
 
 typedef struct {
@@ -156,7 +120,8 @@ c_ssl_socket_new(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_instance_setiv(&instance, mrbc_str_to_symid("ssl_context"), &ssl_context_obj);
 
 #ifdef PICO_CYW43_ARCH_POLL
-  if (!attach_event_queue(vm, &instance, wrapper->ptr)) {
+  if (!picorb_socket_attach_event_queue(vm, &instance,
+                                        SSLSocket_event_socket(wrapper->ptr))) {
     SSLSocket_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate event queue");
@@ -229,7 +194,8 @@ c_ssl_socket_open(mrbc_vm *vm, mrbc_value *v, int argc)
 
 #ifdef PICO_CYW43_ARCH_POLL
   mrbc_instance_setiv(&instance, mrbc_str_to_symid("ssl_context"), &ssl_context_obj);
-  if (!attach_event_queue(vm, &instance, wrapper->ptr)) {
+  if (!picorb_socket_attach_event_queue(vm, &instance,
+                                        SSLSocket_event_socket(wrapper->ptr))) {
     SSLSocket_close(vm, wrapper->ptr);
     wrapper->ptr = NULL;
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to allocate event queue");

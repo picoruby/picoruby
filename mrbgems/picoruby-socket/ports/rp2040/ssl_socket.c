@@ -120,14 +120,14 @@ ssl_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
     Net_set_last_error("SSL connect callback failed: %s (%d)", lwip_err_name(err), (int)err);
     ssl_sock->state = SSL_STATE_ERROR;
     ssl_sock->connected = false;
-    SSLSocket_notify_readable(ssl_sock);
+    picorb_socket_notify_readable(SSLSocket_event_socket(ssl_sock));
     return err;
   }
 
   D("SSL callback: success");
   ssl_sock->state = SSL_STATE_CONNECTED;
   ssl_sock->connected = true;
-  SSLSocket_notify_readable(ssl_sock);
+  picorb_socket_notify_readable(SSLSocket_event_socket(ssl_sock));
   return ERR_OK;
 }
 
@@ -142,7 +142,7 @@ ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (pbuf) pbuf_free(pbuf);
     ssl_sock->state = SSL_STATE_ERROR;
     ssl_sock->connected = false;
-    SSLSocket_notify_readable(ssl_sock);
+    picorb_socket_notify_readable(SSLSocket_event_socket(ssl_sock));
     return err;
   }
 
@@ -150,7 +150,7 @@ ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   if (!pbuf) {
     ssl_sock->state = SSL_STATE_NONE;
     ssl_sock->connected = false;
-    SSLSocket_notify_readable(ssl_sock);
+    picorb_socket_notify_readable(SSLSocket_event_socket(ssl_sock));
     return ERR_OK;
   }
 
@@ -183,7 +183,7 @@ ssl_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   /* Tell LwIP we processed the data */
   altcp_recved(pcb, total_len);
   pbuf_free(pbuf);
-  SSLSocket_notify_readable(ssl_sock);
+  picorb_socket_notify_readable(SSLSocket_event_socket(ssl_sock));
 
   return ERR_OK;
 }
@@ -207,7 +207,7 @@ ssl_err_callback(void *arg, err_t err)
   ssl_sock->state = SSL_STATE_ERROR;
   ssl_sock->connected = false;
   ssl_sock->tls_pcb = NULL;  /* PCB is already freed by LwIP */
-  SSLSocket_notify_readable(ssl_sock);
+  picorb_socket_notify_readable(SSLSocket_event_socket(ssl_sock));
 }
 
 static err_t
@@ -540,10 +540,6 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   altcp_poll(ssl_sock->tls_pcb, ssl_poll_callback, 10);
   altcp_arg(ssl_sock->tls_pcb, ssl_sock);
 
-  /* Small delay before connecting (like picoruby-net's function boundary) */
-  D("SSL: waiting before connect");
-  Net_busy_wait_ms(100);
-
   ssl_sock->state = SSL_STATE_CONNECTING;
 
   /* Initiate connection */
@@ -747,7 +743,7 @@ SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   }
 
   if (ssl_sock->base_socket) {
-    SSLSocket_notify_readable(ssl_sock);
+  picorb_socket_notify_readable(SSLSocket_event_socket(ssl_sock));
     if (ssl_sock->base_socket->event_queue) {
       picorb_free(vm, ssl_sock->base_socket->event_queue);
       ssl_sock->base_socket->event_queue = NULL;
