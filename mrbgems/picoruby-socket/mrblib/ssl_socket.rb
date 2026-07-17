@@ -68,7 +68,10 @@ class SSLSocket < BasicSocket
 
       data = read_nonblock(maxlen)
       until data
-        event_queue.pop
+        unless event_queue.pop(timeout_ms: __connection_timeout_ms)
+          close
+          raise SocketError, "SSL read timeout"
+        end
         data = read_nonblock(maxlen)
       end
       data || raise(IOError, "SSL read failed")
