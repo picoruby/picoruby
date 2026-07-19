@@ -60,8 +60,6 @@ BLE_central_gap_connect(const uint8_t *addr, uint8_t addr_type)
   peer.type = addr_type;
   for (int i = 0; i < 6; i++) peer.val[i] = addr[5 - i];
 
-  // Connection parameters carried over from the rp2040/BTstack port:
-  // conn interval 10-30 ms, latency 4, supervision timeout 7.2 s.
   struct ble_gap_conn_params params = {
     .scan_itvl = 60000 / 625,
     .scan_window = 30000 / 625,

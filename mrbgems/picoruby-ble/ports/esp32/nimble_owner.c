@@ -125,9 +125,6 @@ picoruby_nimble_heartbeat_enable(bool enable)
 static void
 on_sync(void)
 {
-  // Prefer the factory public address; no RPA rotation. This preserves the
-  // BTstack port's "Phase 1 fix" (random-address rotation made scanners show
-  // duplicate device entries and broke GATT discovery).
   ble_hs_util_ensure_addr(0);
   if (ble_hs_id_infer_auto(0, &own_addr_type) != 0) {
     own_addr_type = 0;
