@@ -82,7 +82,7 @@ rake femtoruby:debug
 
 #### Cross compilation
 
-See an example: [build_config/r2p2-picoruby-pico.rb](build_config/r2p2-picoruby-pico.rb)
+See an example: [build_config/r2p2-picoruby-pico2.rb](build_config/r2p2-picoruby-pico2.rb)
 
 ### Binaries
 
