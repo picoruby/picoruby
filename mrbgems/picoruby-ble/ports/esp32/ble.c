@@ -369,13 +369,14 @@ parse_att_db(const uint8_t *db, size_t db_len)
   return 0;
 }
 
-static void
+static int
 register_services(void)
 {
-  if (!have_services) return;
+  if (!have_services) return 0;
   int rc = ble_gatts_count_cfg(svc_defs);
   if (rc == 0) rc = ble_gatts_add_svcs(svc_defs);
   if (rc != 0) ESP_LOGE(TAG, "GATT service registration failed: %d", rc);
+  return rc;
 }
 
 // ---------------------------------------------------------------------------
