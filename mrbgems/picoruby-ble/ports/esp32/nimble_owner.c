@@ -8,7 +8,6 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_timer.h"
-#include "esp_log.h"
 #include "nvs_flash.h"
 
 #include "nimble/nimble_port.h"
@@ -17,8 +16,6 @@
 #include "host/util/util.h"
 
 #include "../../include/ble.h"
-
-static const char *TAG = "prb_ble";
 
 // ---------------------------------------------------------------------------
 // Synthesized-event queue.
@@ -59,7 +56,6 @@ void
 picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_adv)
 {
   if (len > EVQ_PKT_MAX) {
-    ESP_LOGW(TAG, "event 0x%02x truncated %u -> %u", pkt[0], len, EVQ_PKT_MAX);
     len = EVQ_PKT_MAX;
   }
   taskENTER_CRITICAL(&evq_mux);
@@ -143,7 +139,7 @@ on_sync(void)
 static void
 on_reset(int reason)
 {
-  ESP_LOGW(TAG, "NimBLE host reset, reason=%d", reason);
+  (void)reason;
   synced = false;
 }
 
@@ -185,12 +181,10 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
     err = nvs_flash_init();
   }
   if (err != ESP_OK) {
-    ESP_LOGE(TAG, "nvs_flash_init failed: %d", err);
     return -1;
   }
 
   if (nimble_port_init() != ESP_OK) {
-    ESP_LOGE(TAG, "nimble_port_init failed");
     return -1;
   }
 
@@ -218,7 +212,6 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
   nimble_port_freertos_init(host_task);
 
   if (xSemaphoreTake(sync_sem, SYNC_TIMEOUT_TICKS) != pdTRUE) {
-    ESP_LOGE(TAG, "NimBLE host sync timeout");
     nimble_port_stop();
     nimble_port_deinit();
     return -1;

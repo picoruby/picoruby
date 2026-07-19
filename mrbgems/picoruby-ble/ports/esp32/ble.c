@@ -22,12 +22,9 @@
 #include "host/ble_gatt.h"
 #include "host/ble_uuid.h"
 #include "os/os_mbuf.h"
-#include "esp_log.h"
 
 #include "ble_common.h"
 #include "nimble_owner.h"
-
-static const char *TAG = "prb_ble";
 
 // BTstack event type bytes hardcoded in mrblib (ble_central.rb, examples)
 #define EVT_BTSTACK_STATE 0x60
@@ -275,7 +272,6 @@ parse_att_db(const uint8_t *db, size_t db_len)
     uint16_t handle = get_le16(db + pos + 4);
     uint16_t uuid_len = (flags & BLOB_FLAG_LONG_UUID) ? 16 : 2;
     if (entry_size < 6 + uuid_len || pos + entry_size > db_len) {
-      ESP_LOGE(TAG, "GATT blob: malformed entry at %u", (unsigned)pos);
       return -1;
     }
     const uint8_t *uuid = db + pos + 6;
@@ -351,8 +347,6 @@ parse_att_db(const uint8_t *db, size_t db_len)
       dsc->access_cb = gatt_access_cb;
       dsc->arg = m;
       if (dsc->uuid == NULL) return -1;
-    } else {
-      ESP_LOGW(TAG, "GATT blob: skipping entry handle=%u uuid16=0x%04x", handle, u16);
     }
   }
 
@@ -375,7 +369,6 @@ register_services(void)
   if (!have_services) return 0;
   int rc = ble_gatts_count_cfg(svc_defs);
   if (rc == 0) rc = ble_gatts_add_svcs(svc_defs);
-  if (rc != 0) ESP_LOGE(TAG, "GATT service registration failed: %d", rc);
   return rc;
 }
 

@@ -8,12 +8,9 @@
 
 #include "host/ble_hs.h"
 #include "host/ble_gap.h"
-#include "esp_log.h"
 
 #include "ble_common.h"
 #include "nimble_owner.h"
-
-static const char *TAG = "prb_ble";
 
 static struct ble_gap_disc_params scan_params = {
   .itvl = 0x60,   // 60 ms, Ruby-side defaults (0.625 ms units)
@@ -40,11 +37,8 @@ BLE_central_set_scan_params(uint8_t scan_type, uint16_t scan_interval, uint16_t 
 void
 BLE_central_start_scan(void)
 {
-  int rc = ble_gap_disc(picoruby_nimble_own_addr_type(), BLE_HS_FOREVER,
-                        &scan_params, picoruby_ble_gap_event, NULL);
-  if (rc != 0 && rc != BLE_HS_EALREADY) {
-    ESP_LOGW(TAG, "scan start failed: %d", rc);
-  }
+  ble_gap_disc(picoruby_nimble_own_addr_type(), BLE_HS_FOREVER,
+              &scan_params, picoruby_ble_gap_event, NULL);
 }
 
 void
@@ -82,6 +76,5 @@ BLE_central_gap_connect(const uint8_t *addr, uint8_t addr_type)
   int rc = ble_gap_connect(picoruby_nimble_own_addr_type(), &peer, 30000,
                            &params, picoruby_ble_gap_event, NULL);
   if (rc == 0) return 0;
-  ESP_LOGW(TAG, "gap connect failed: %d", rc);
   return (rc & 0xff) ? (uint8_t)rc : 0xff;
 }

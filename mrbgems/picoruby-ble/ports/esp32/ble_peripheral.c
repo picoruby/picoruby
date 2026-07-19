@@ -10,12 +10,9 @@
 #include "host/ble_gap.h"
 #include "host/ble_gatt.h"
 #include "host/ble_hs_mbuf.h"
-#include "esp_log.h"
 
 #include "ble_common.h"
 #include "nimble_owner.h"
-
-static const char *TAG = "prb_ble";
 
 uint16_t con_handle = 0xffff;
 
@@ -39,9 +36,6 @@ adv_start(void)
   if (rc == 0) {
     rc = ble_gap_adv_start(picoruby_nimble_own_addr_type(), NULL, BLE_HS_FOREVER,
                            &params, picoruby_ble_gap_event, NULL);
-  }
-  if (rc != 0 && rc != BLE_HS_EALREADY) {
-    ESP_LOGW(TAG, "adv start failed: %d", rc);
   }
   return rc;
 }
