@@ -16,7 +16,7 @@
 extern "C" {
 #endif
 
-typedef void (*picoruby_nimble_setup_fn)(void);
+typedef int (*picoruby_nimble_setup_fn)(void);
 
 // Start the NimBLE host once: nvs init, nimble_port_init, ble_hs_cfg wiring,
 // setup() (GATT service registration window), host task spawn, then block

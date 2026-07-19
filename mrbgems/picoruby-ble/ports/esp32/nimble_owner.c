@@ -202,7 +202,10 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
   ble_hs_cfg.sm_mitm = 0;
   ble_hs_cfg.sm_sc = 0;
 
-  if (setup) setup(); // GATT service registration window (pre host start)
+  if (setup && setup() != 0) {
+    nimble_port_deinit();
+    return -1;
+  }
 
   ensure_timers();
   taskENTER_CRITICAL(&evq_mux);
