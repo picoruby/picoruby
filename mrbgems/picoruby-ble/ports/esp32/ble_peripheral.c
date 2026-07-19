@@ -16,7 +16,7 @@
 
 uint16_t con_handle = 0xffff;
 
-#define ADV_INTERVAL_0625MS 800 // 500 ms, matching the rp2040/BTstack port
+#define ADV_INTERVAL_0625MS 800 // 500 ms
 
 static uint8_t adv_data_buf[31];
 static uint8_t adv_data_len = 0;
@@ -59,8 +59,8 @@ BLE_peripheral_stop_advertise(void)
   ble_gap_adv_stop();
 }
 
-// NimBLE stops advertising when a connection forms (BTstack kept it enabled):
-// restart on disconnect / adv-complete so the device stays reachable.
+// NimBLE stops advertising when a connection forms; restart on disconnect
+// / adv-complete so the device stays reachable.
 void
 picoruby_ble_peripheral_rearm_adv(void)
 {

@@ -42,8 +42,7 @@ uint16_t picoruby_ble_handle_r2n(uint16_t ruby_handle);
 void picoruby_ble_synth_state_working(void);
 
 // ble_peripheral.c: restart advertising after a disconnect / failed connect
-// if the app still wants it (BTstack advertising persisted across
-// connections; NimBLE stops on connect).
+// if the app still wants it.
 void picoruby_ble_peripheral_rearm_adv(void);
 
 #ifdef __cplusplus
