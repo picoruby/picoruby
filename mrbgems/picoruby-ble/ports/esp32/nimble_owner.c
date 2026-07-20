@@ -1,4 +1,3 @@
-// ports/esp32/nimble_owner.c
 #include "nimble_owner.h"
 #include "ble_common.h"
 
@@ -17,17 +16,6 @@
 
 #include "../../include/ble.h"
 
-// ---------------------------------------------------------------------------
-// Synthesized-event queue.
-//
-// BLE_push_event (src/mruby/ble.c) is a single-slot last-writer-wins mailbox
-// polled by Ruby every 100 ms; NimBLE discovery callbacks burst results
-// back-to-back, so pushing directly would lose all but the last packet.
-// Dispatch one queued packet per 150 ms (> Ruby's polling period).
-
-// Depth must absorb a whole ATT response worth of discovery callbacks: one
-// read-by-type response at the default 256-byte MTU carries up to ~28
-// 16-bit-uuid characteristic entries, each synthesized as a separate event.
 #define EVQ_DEPTH 32
 #define EVQ_PKT_MAX 100
 #define EVQ_DISPATCH_PERIOD_US (150 * 1000)
@@ -47,7 +35,7 @@ static portMUX_TYPE evq_mux = portMUX_INITIALIZER_UNLOCKED;
 
 static bool started = false;
 static volatile bool synced = false;
-static uint8_t own_addr_type = 0; // BLE_OWN_ADDR_PUBLIC
+static uint8_t own_addr_type = BLE_OWN_ADDR_PUBLIC;
 static SemaphoreHandle_t sync_sem = NULL;
 static esp_timer_handle_t dispatch_timer = NULL;
 static esp_timer_handle_t heartbeat_timer = NULL;
@@ -68,9 +56,9 @@ picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_ad
     if (evq_count == EVQ_DEPTH) {
       if (coalesce_adv) {
         taskEXIT_CRITICAL(&evq_mux);
-        return; // drop incoming advertising report on overflow
+        return;
       }
-      evq_head = (evq_head + 1) % EVQ_DEPTH; // drop oldest
+      evq_head = (evq_head + 1) % EVQ_DEPTH;
       evq_count--;
     }
     slot = (evq_head + evq_count) % EVQ_DEPTH;
@@ -119,9 +107,6 @@ picoruby_nimble_heartbeat_enable(bool enable)
   }
 }
 
-// ---------------------------------------------------------------------------
-// Host lifecycle
-
 static void
 on_sync(void)
 {
@@ -144,7 +129,7 @@ static void
 host_task(void *param)
 {
   (void)param;
-  nimble_port_run(); // returns when nimble_port_stop() completes
+  nimble_port_run();
   nimble_port_freertos_deinit();
 }
 
@@ -172,7 +157,7 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
 {
   if (started) return 0;
 
-  esp_err_t err = nvs_flash_init(); // controller needs NVS (PHY calibration)
+  esp_err_t err = nvs_flash_init();
   if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
     nvs_flash_erase();
     err = nvs_flash_init();
@@ -227,10 +212,10 @@ picoruby_nimble_stop(void)
   if (!started) return 0;
   picoruby_nimble_heartbeat_enable(false);
   if (dispatch_timer) esp_timer_stop(dispatch_timer);
-  ble_gap_adv_stop();     // ignore errors: may not be advertising
-  ble_gap_disc_cancel();  // ignore errors: may not be scanning
-  nimble_port_stop();     // blocks until host task exits nimble_port_run
-  nimble_port_deinit();   // ble_gatts_stop() has zeroed registration counters
+  ble_gap_adv_stop();
+  ble_gap_disc_cancel();
+  nimble_port_stop();
+  nimble_port_deinit();
   synced = false;
   started = false;
   return 0;
