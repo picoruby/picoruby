@@ -1,4 +1,3 @@
-// ports/esp32/ble_central.c
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -13,8 +12,8 @@
 #include "nimble_owner.h"
 
 static struct ble_gap_disc_params scan_params = {
-  .itvl = 0x60,   // 60 ms, Ruby-side defaults (0.625 ms units)
-  .window = 0x30, // 30 ms
+  .itvl = 0x60,
+  .window = 0x30,
   .passive = 1,
 };
 
@@ -44,7 +43,7 @@ BLE_central_start_scan(void)
 void
 BLE_central_stop_scan(void)
 {
-  ble_gap_disc_cancel(); // BLE_HS_EALREADY when not scanning
+  ble_gap_disc_cancel();
 }
 
 uint8_t
@@ -54,8 +53,6 @@ BLE_central_gap_connect(const uint8_t *addr, uint8_t addr_type)
     ble_gap_disc_cancel();
   }
 
-  // Ruby hands the address in printed (big-endian) order; NimBLE wants
-  // little-endian.
   ble_addr_t peer;
   peer.type = addr_type;
   for (int i = 0; i < 6; i++) peer.val[i] = addr[5 - i];

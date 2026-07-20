@@ -1,14 +1,3 @@
-// ports/esp32/ble.c
-//
-// NimBLE-based ESP32 port of picoruby-ble.
-//
-// The Ruby layer speaks BTstack: GattDatabase builds a BTstack att_db_util
-// blob with sequentially numbered handles, and mrblib parses BTstack-format
-// event packets at fixed byte offsets. This file translates in both
-// directions: the blob becomes ble_gatt_svc_def tables (with a blob-handle <->
-// NimBLE-handle map), and NimBLE callbacks become BTstack-wire-format packets
-// queued through nimble_owner.c.
-
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -26,7 +15,6 @@
 #include "ble_common.h"
 #include "nimble_owner.h"
 
-// BTstack event type bytes hardcoded in mrblib (ble_central.rb, examples)
 #define EVT_BTSTACK_STATE 0x60
 #define EVT_DISCONNECTION_COMPLETE 0x05
 #define EVT_LE_META 0x3E
@@ -43,7 +31,6 @@
 
 #define HCI_STATE_WORKING 2
 
-// Blob flag bits written by Ruby GattDatabase (BTstack att_db_util format)
 #define BLOB_FLAG_READ 0x0002
 #define BLOB_FLAG_WRITE_NO_RSP 0x0004
 #define BLOB_FLAG_WRITE 0x0008
@@ -55,16 +42,10 @@
 #define GATT_CHARACTERISTIC_UUID 0x2803
 #define GATT_CCCD_UUID 0x2902
 
-// Longest event payload that survives the queue (nimble_owner EVQ_PKT_MAX
-// minus the 8-byte value-event header).
 #define VALUE_EVENT_DATA_MAX 92
 
 static enum BLE_role_t role = BLE_ROLE_NONE;
 
-// get_le16/put_le16 come from NimBLE's os/endian.h (via ble_hs.h)
-
-// Map a NimBLE uuid to the 16-byte little-endian form BTstack events carry
-// (Ruby reverse_128s it back for display/uuid32 extraction).
 static void
 uuid_to_le128(const ble_uuid_any_t *u, uint8_t out[16])
 {
@@ -91,22 +72,19 @@ uuid_to_le128(const ble_uuid_any_t *u, uint8_t out[16])
   }
 }
 
-// ---------------------------------------------------------------------------
-// GATT server: blob translation + handle map
-
 #define MAX_ATTRS 48
 #define MAX_SVCS 8
-#define MAX_CHR_SLOTS (24 + MAX_SVCS)  // characteristic defs + per-service terminators
-#define MAX_DSC_SLOTS (16 + 24)        // descriptor defs + per-characteristic terminators
+#define MAX_CHR_SLOTS (24 + MAX_SVCS)
+#define MAX_DSC_SLOTS (16 + 24)
 #define MAX_UUIDS (MAX_SVCS + 24 + 16)
 
 typedef struct {
-  uint16_t ruby_handle;      // handle Ruby's GattDatabase assigned in the blob
-  uint16_t nimble_handle;    // filled at registration
+  uint16_t ruby_handle;
+  uint16_t nimble_handle;
   uint16_t blob_flags;
-  const uint8_t *static_value; // points into owned_profile_data
+  const uint8_t *static_value;
   uint16_t static_len;
-  uint16_t cccd_ruby_handle; // characteristic value entries: their CCCD's ruby handle
+  uint16_t cccd_ruby_handle;
 } attr_map_t;
 
 static attr_map_t attr_map[MAX_ATTRS];
@@ -148,8 +126,6 @@ find_map_by_nimble(uint16_t nimble_handle)
   return NULL;
 }
 
-// BTstack att_db_util blob byte length:
-// [version:1][entry: 2B LE self-inclusive size ...][terminator 0x0000]
 static size_t
 att_db_byte_length(const uint8_t *db)
 {
@@ -185,7 +161,7 @@ gatt_access_cb(uint16_t conn, uint16_t attr_handle, struct ble_gatt_access_ctxt 
     }
     case BLE_GATT_ACCESS_OP_WRITE_CHR:
     case BLE_GATT_ACCESS_OP_WRITE_DSC: {
-      static uint8_t buf[256]; // NimBLE host task only; single-threaded access
+      static uint8_t buf[256];
       uint16_t out_len = 0;
       if (OS_MBUF_PKTLEN(ctxt->om) > sizeof(buf)) return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
       if (ble_hs_mbuf_to_flat(ctxt->om, buf, sizeof(buf), &out_len) != 0) {
@@ -205,8 +181,6 @@ void
 picoruby_ble_gatts_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg)
 {
   (void)arg;
-  // Characteristic value handles arrive via chr_def.val_handle out-pointers;
-  // descriptors have no out-pointer, so recover them here through dsc_def.arg.
   if (ctxt->op == BLE_GATT_REGISTER_OP_DSC && ctxt->dsc.dsc_def->arg) {
     ((attr_map_t *)ctxt->dsc.dsc_def->arg)->nimble_handle = ctxt->dsc.handle;
   }
@@ -246,8 +220,6 @@ alloc_map(uint16_t ruby_handle)
   return e;
 }
 
-// Translate the blob into NimBLE service definition tables.
-// Entry layout: [size:2][flags:2][handle:2][uuid:2|16][value...]
 static int
 parse_att_db(const uint8_t *db, size_t db_len)
 {
@@ -281,16 +253,15 @@ parse_att_db(const uint8_t *db, size_t db_len)
     pos += entry_size;
 
     if (u16 == GATT_PRIMARY_SERVICE_UUID || u16 == GATT_SECONDARY_SERVICE_UUID) {
-      // close current characteristic and service
       if (cur_chr && cur_chr->descriptors) {
         if (dsc_slot_count >= MAX_DSC_SLOTS) return -1;
-        dsc_slot_count++; // zeroed terminator
+        dsc_slot_count++;
       }
       cur_chr = NULL;
       cur_chr_map = NULL;
       if (cur_svc) {
         if (chr_slot_count >= MAX_CHR_SLOTS) return -1;
-        chr_slot_count++; // zeroed terminator
+        chr_slot_count++;
       }
       if (svc_count >= MAX_SVCS) return -1;
       cur_svc = &svc_defs[svc_count++];
@@ -302,7 +273,7 @@ parse_att_db(const uint8_t *db, size_t db_len)
     } else if (u16 == GATT_CHARACTERISTIC_UUID && cur_svc) {
       if (cur_chr && cur_chr->descriptors) {
         if (dsc_slot_count >= MAX_DSC_SLOTS) return -1;
-        dsc_slot_count++; // zeroed terminator
+        dsc_slot_count++;
       }
       if (value_len < 3 || chr_slot_count >= MAX_CHR_SLOTS) return -1;
       uint8_t props = value[0];
@@ -319,19 +290,13 @@ parse_att_db(const uint8_t *db, size_t db_len)
       cur_chr->val_handle = &cur_chr_map->nimble_handle;
     } else if (cur_chr_map && handle == expected_value_handle && expected_value_handle != 0
                && uuid_len == cur_chr_uuid_len && memcmp(uuid, cur_chr_uuid, uuid_len) == 0) {
-      // the characteristic's value attribute (same uuid as the declaration —
-      // a descriptor following a value-less characteristic reuses the handle
-      // number but has a different uuid): flags (DYNAMIC) + initial bytes
       cur_chr_map->blob_flags = flags;
       cur_chr_map->static_value = value;
       cur_chr_map->static_len = value_len;
       expected_value_handle = 0;
     } else if (u16 == GATT_CCCD_UUID && cur_chr_map) {
-      // NimBLE auto-creates the CCCD; remember Ruby's handle so SUBSCRIBE
-      // events can be replayed as CCCD writes into write_values.
       cur_chr_map->cccd_ruby_handle = handle;
     } else if (cur_chr) {
-      // ordinary descriptor (0x2901 user description, 0x2900 ext props, ...)
       if (dsc_slot_count >= MAX_DSC_SLOTS) return -1;
       attr_map_t *m = alloc_map(handle);
       if (m == NULL) return -1;
@@ -350,7 +315,6 @@ parse_att_db(const uint8_t *db, size_t db_len)
     }
   }
 
-  // close trailing characteristic/service (terminators are pre-zeroed slots)
   if (cur_chr && cur_chr->descriptors) {
     if (dsc_slot_count >= MAX_DSC_SLOTS) return -1;
     dsc_slot_count++;
@@ -371,9 +335,6 @@ register_services(void)
   if (rc == 0) rc = ble_gatts_add_svcs(svc_defs);
   return rc;
 }
-
-// ---------------------------------------------------------------------------
-// Event synthesis
 
 void
 picoruby_ble_synth_state_working(void)
@@ -405,8 +366,8 @@ synth_le_connection_complete(uint16_t handle)
   memset(p, 0, sizeof(p));
   p[0] = EVT_LE_META;
   p[1] = 19;
-  p[2] = 0x01; // HCI_SUBEVENT_LE_CONNECTION_COMPLETE
-  p[3] = 0;    // status
+  p[2] = 0x01;
+  p[3] = 0;
   put_le16(p + 4, handle);
   if (ble_gap_conn_find(handle, &desc) == 0) {
     p[6] = (desc.role == BLE_GAP_ROLE_MASTER) ? 0 : 1;
@@ -451,9 +412,6 @@ synth_advertising_report(const struct ble_gap_disc_desc *d)
   if (dlen) memcpy(p + 12, d->data, dlen);
   picoruby_nimble_enqueue_event(p, 12 + dlen, true);
 }
-
-// ---------------------------------------------------------------------------
-// Shared GAP event callback
 
 int
 picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
@@ -525,9 +483,6 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
   return 0;
 }
 
-// ---------------------------------------------------------------------------
-// Lifecycle
-
 int
 BLE_init(const uint8_t *profile_data, int ble_role)
 {
@@ -544,8 +499,6 @@ BLE_init(const uint8_t *profile_data, int ble_role)
     owned_profile_data = NULL;
   }
   if (profile_data) {
-    // Own a copy: NimBLE keeps the def tables (which point into this buffer
-    // for static values) and the source Ruby String may be GC'd.
     size_t len = att_db_byte_length(profile_data);
     owned_profile_data = (uint8_t *)malloc(len);
     if (owned_profile_data == NULL) return -1;
@@ -560,14 +513,10 @@ void
 BLE_hci_power_control(uint8_t power_mode)
 {
   if (!picoruby_nimble_started()) return;
-  if (power_mode == 1) { // HCI_POWER_ON
+  if (power_mode == 1) {
     picoruby_nimble_heartbeat_enable(true);
-    // Ruby's BLE#start waits for this event on every power-on cycle.
     picoruby_ble_synth_state_working();
   } else {
-    // Soft off: stop radio activity but keep the host (and connections) up.
-    // Ruby power-cycles per BLE#start session; a full stack restart here
-    // would tear down connections between scan and connect.
     picoruby_nimble_heartbeat_enable(false);
     switch (role) {
       case BLE_ROLE_PERIPHERAL:
@@ -576,7 +525,7 @@ BLE_hci_power_control(uint8_t power_mode)
         break;
       case BLE_ROLE_CENTRAL:
       case BLE_ROLE_OBSERVER:
-        ble_gap_disc_cancel(); // no-op error when not scanning
+        ble_gap_disc_cancel();
         break;
       default:
         break;
@@ -593,11 +542,8 @@ BLE_gap_local_bd_addr(uint8_t *local_addr)
       memset(le, 0, sizeof(le));
     }
   }
-  for (int i = 0; i < 6; i++) local_addr[i] = le[5 - i]; // printed order
+  for (int i = 0; i < 6; i++) local_addr[i] = le[5 - i];
 }
-
-// ---------------------------------------------------------------------------
-// GATT client (central role)
 
 static uint16_t chr_disc_end_handle;
 static bool chr_disc_have_prev;
@@ -643,9 +589,6 @@ disc_chr_cb(uint16_t conn, const struct ble_gatt_error *error,
             const struct ble_gatt_chr *chr, void *arg)
 {
   (void)arg;
-  // NimBLE reports no end handle per characteristic: emit the previous one
-  // bounded by the current def_handle, and flush the last at completion
-  // bounded by the request range.
   if (error->status == 0 && chr) {
     if (chr_disc_have_prev) {
       emit_characteristic(conn, &chr_disc_prev, chr->def_handle - 1);

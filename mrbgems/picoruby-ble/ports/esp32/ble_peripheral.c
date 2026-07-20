@@ -1,4 +1,3 @@
-// ports/esp32/ble_peripheral.c
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -16,7 +15,7 @@
 
 uint16_t con_handle = 0xffff;
 
-#define ADV_INTERVAL_0625MS 800 // 500 ms
+#define ADV_INTERVAL_0625MS 800
 
 static uint8_t adv_data_buf[31];
 static uint8_t adv_data_len = 0;
@@ -48,7 +47,7 @@ BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len_in, bool connec
   adv_data_len = adv_data_len_in;
   adv_connectable = connectable;
   adv_wanted = true;
-  ble_gap_adv_stop(); // restart requires stop; harmless when idle
+  ble_gap_adv_stop();
   adv_start();
 }
 
@@ -59,8 +58,6 @@ BLE_peripheral_stop_advertise(void)
   ble_gap_adv_stop();
 }
 
-// NimBLE stops advertising when a connection forms; restart on disconnect
-// / adv-complete so the device stays reachable.
 void
 picoruby_ble_peripheral_rearm_adv(void)
 {
@@ -77,15 +74,13 @@ BLE_peripheral_notify(uint16_t att_handle)
   if (nimble_handle == 0 || con_handle == 0xffff) return;
   struct os_mbuf *om = ble_hs_mbuf_from_flat(read_value.data, read_value.size);
   if (om == NULL) return;
-  ble_gatts_notify_custom(con_handle, nimble_handle, om); // consumes om
+  ble_gatts_notify_custom(con_handle, nimble_handle, om);
 }
 
 void
 BLE_peripheral_request_can_send_now_event(void)
 {
-  // BTstack flow-control handshake; NimBLE needs no permission to notify,
-  // so grant immediately.
-  uint8_t p[4] = { 0xB7 /* ATT_EVENT_CAN_SEND_NOW */, 2, 0, 0 };
+  uint8_t p[4] = { 0xB7, 2, 0, 0 };
   p[2] = con_handle & 0xff;
   p[3] = con_handle >> 8;
   picoruby_nimble_enqueue_event(p, sizeof(p), false);
