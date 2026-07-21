@@ -89,7 +89,7 @@ class BLE
       end
     end
     _init(profile_data)
-    init_central if @role == :central
+    init_central if @role == :central || @role == :observer
   end
 
   attr_reader :role
