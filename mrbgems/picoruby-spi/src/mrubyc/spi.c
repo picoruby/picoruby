@@ -226,9 +226,19 @@ c_cs_pin(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_s_init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  int unit_num = PICORB_SPI_BITBANG;
-  if (strcmp((const char *)GET_STRING_ARG(1), "BITBANG") != 0) {
-    unit_num = SPI_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
+  int sck_pin  = GET_INT_ARG(3);
+  int cipo_pin = GET_INT_ARG(4);
+  int copi_pin = GET_INT_ARG(5);
+  int unit_num = SPI_resolve_unit_num((const char *)GET_STRING_ARG(1), sck_pin, cipo_pin, copi_pin);
+  if (unit_num == SPI_ERROR_UNIT_MISMATCH) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "SPI: pins conflict with unit or are invalid for SPI");
+    return;
+  } else if (unit_num == SPI_ERROR_UNDETERMINED) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "SPI: cannot determine unit; specify unit or valid pins");
+    return;
+  } else if (unit_num < 0) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "Invalid SPI unit name");
+    return;
   }
   mrbc_value self = mrbc_instance_new(vm, v->cls, sizeof(spi_unit_info_t));
   spi_unit_info_t *unit_info = (spi_unit_info_t *)self.instance->data;

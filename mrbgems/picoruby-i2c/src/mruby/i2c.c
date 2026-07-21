@@ -178,7 +178,14 @@ mrb_i2c__init(mrb_state *mrb, mrb_value self)
   mrb_int frequency, sda_pin, scl_pin;
   mrb_get_args(mrb, "ziii", &unit, &frequency, &sda_pin, &scl_pin);
 
-  int unit_num = I2C_unit_name_to_unit_num(unit);
+  int unit_num = I2C_resolve_unit_num(unit, (int)sda_pin, (int)scl_pin);
+  if (unit_num == I2C_ERROR_UNIT_MISMATCH) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "I2C: pins conflict with unit or are invalid for I2C");
+  } else if (unit_num == I2C_ERROR_UNDETERMINED) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "I2C: cannot determine unit; specify unit or valid pins");
+  } else if (unit_num < 0) {
+    mrb_raise(mrb, IOError, "Invalid I2C unit");
+  }
   i2c_status_t status = I2C_gpio_init(unit_num, (uint32_t)frequency, (uint8_t)sda_pin, (uint8_t)scl_pin);
   if (status < 0) {
     const char *message;

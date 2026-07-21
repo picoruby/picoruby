@@ -17,6 +17,9 @@ uart = UART.new(
 uart.write("Hello, World!\n")
 uart.puts("Hello")  # Adds line ending
 
+# On RP2040 the unit can be omitted; it is inferred from the pins
+uart = UART.new(txd_pin: 4, rxd_pin: 5)  # inferred as :RP2040_UART1
+
 # Read data
 data = uart.read(10)  # Read up to 10 bytes
 data = uart.read      # Read all available data
@@ -49,7 +52,7 @@ uart.clear_tx_buffer
 
 ### Methods
 
-- `UART.new(unit:, txd_pin:, rxd_pin:, baudrate: 115200, data_bits: 8, stop_bits: 1, parity: PARITY_NONE, flow_control: FLOW_CONTROL_NONE, rx_buffer_size: nil)` - Initialize UART
+- `UART.new(unit: nil, txd_pin:, rxd_pin:, baudrate: 115200, data_bits: 8, stop_bits: 1, parity: PARITY_NONE, flow_control: FLOW_CONTROL_NONE, rx_buffer_size: nil)` - Initialize UART. On RP2040 `unit:` is optional and inferred from `txd_pin`/`rxd_pin` (only the pins you pass are considered, so RX-only or TX-only setups work). If a given `unit:` disagrees with the pins, or the pins imply different units, or no unit can be determined, an `ArgumentError` is raised. On ESP32 `unit:` is still required.
 - `write(string)` - Write string to TX
 - `putc(ch)` - Write the low 8 bits of an Integer or the first character of a String
 - `puts(string)` - Write string with line ending

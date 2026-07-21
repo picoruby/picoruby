@@ -37,9 +37,21 @@ c_open_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_open_connection(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  int unit_num = UART_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
+  int txd_pin = GET_INT_ARG(2);
+  int rxd_pin = GET_INT_ARG(3);
+  int unit_num = UART_resolve_unit_num((const char *)GET_STRING_ARG(1), txd_pin, rxd_pin);
+  if (unit_num == UART_ERROR_UNIT_MISMATCH) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "UART: pins conflict with unit or are invalid for UART");
+    return;
+  } else if (unit_num == UART_ERROR_UNDETERMINED) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "UART: cannot determine unit; specify unit or valid pins");
+    return;
+  } else if (unit_num < 0) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "UART: invalid unit name");
+    return;
+  }
   RingBuffer *rx = (RingBuffer *)v[4].instance->data;
-  UART_init(unit_num, GET_INT_ARG(2), GET_INT_ARG(3), rx);
+  UART_init(unit_num, txd_pin, rxd_pin, rx);
   SET_INT_RETURN(unit_num);
 }
 

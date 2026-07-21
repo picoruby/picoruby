@@ -8,7 +8,7 @@ class SPI
 
   attr_accessor :unit, :cs
 
-  def self.new(unit:, frequency: DEFAULT_FREQUENCY, sck_pin: -1, cipo_pin: -1, copi_pin: -1, cs_pin: -1, mode: 0, first_bit: MSB_FIRST)
+  def self.new(unit: nil, frequency: DEFAULT_FREQUENCY, sck_pin: -1, cipo_pin: -1, copi_pin: -1, cs_pin: -1, mode: 0, first_bit: MSB_FIRST)
     spi = self.init(
       unit.to_s,
       frequency,

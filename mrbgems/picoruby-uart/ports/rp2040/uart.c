@@ -48,6 +48,73 @@ UART_unit_name_to_unit_num(const char *name)
   }
 }
 
+/*
+ * RP2040 GPIO function-select table (valid for RP2350 QFN-60 as well).
+ * Each array lists the GPIOs usable as the given UART signal, terminated by -1.
+ */
+static const int8_t uart0_tx_pins[] = {0, 12, 16, 28, -1};
+static const int8_t uart1_tx_pins[] = {4, 8, 20, 24, -1};
+static const int8_t uart0_rx_pins[] = {1, 13, 17, 29, -1};
+static const int8_t uart1_rx_pins[] = {5, 9, 21, 25, -1};
+
+/* Return the unit that owns pin for the given signal, or -1 if none. */
+static int
+pin_to_unit(const int8_t *unit0_pins, const int8_t *unit1_pins, int pin)
+{
+  int i = 0;
+  while (unit0_pins[i] != -1) {
+    if (unit0_pins[i] == pin) {
+      return PICORB_UART_RP2040_UART0;
+    }
+    i++;
+  }
+  i = 0;
+  while (unit1_pins[i] != -1) {
+    if (unit1_pins[i] == pin) {
+      return PICORB_UART_RP2040_UART1;
+    }
+    i++;
+  }
+  return -1;
+}
+
+int
+UART_unit_num_from_pins(const char *unit_name, int txd_pin, int rxd_pin)
+{
+  int candidate = -1;
+  if (0 <= txd_pin) {
+    int u = pin_to_unit(uart0_tx_pins, uart1_tx_pins, txd_pin);
+    if (u < 0) {
+      return UART_ERROR_UNIT_MISMATCH;
+    }
+    candidate = u;
+  }
+  if (0 <= rxd_pin) {
+    int u = pin_to_unit(uart0_rx_pins, uart1_rx_pins, rxd_pin);
+    if (u < 0) {
+      return UART_ERROR_UNIT_MISMATCH;
+    }
+    if (0 <= candidate && candidate != u) {
+      return UART_ERROR_UNIT_MISMATCH;
+    }
+    candidate = u;
+  }
+  if (unit_name && unit_name[0] != '\0') {
+    int name_unit = UART_unit_name_to_unit_num(unit_name);
+    if (name_unit < 0) {
+      return UART_ERROR_INVALID_UNIT;
+    }
+    if (0 <= candidate && candidate != name_unit) {
+      return UART_ERROR_UNIT_MISMATCH;
+    }
+    return name_unit;
+  }
+  if (candidate < 0) {
+    return UART_ERROR_UNDETERMINED;
+  }
+  return candidate;
+}
+
 void
 UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buffer)
 {

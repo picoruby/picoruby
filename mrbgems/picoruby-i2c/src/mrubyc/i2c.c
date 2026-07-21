@@ -180,17 +180,29 @@ c_read(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  int unit_num = I2C_unit_name_to_unit_num((const char *)GET_STRING_ARG(1));
+  int sda_pin = GET_INT_ARG(3);
+  int scl_pin = GET_INT_ARG(4);
+  int unit_num = I2C_resolve_unit_num((const char *)GET_STRING_ARG(1), sda_pin, scl_pin);
+  if (unit_num == I2C_ERROR_UNIT_MISMATCH) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "I2C: pins conflict with unit or are invalid for I2C");
+    return;
+  } else if (unit_num == I2C_ERROR_UNDETERMINED) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "I2C: cannot determine unit; specify unit or valid pins");
+    return;
+  } else if (unit_num < 0) {
+    mrbc_raise(vm, MRBC_CLASS(IOError), "Invalid I2C unit");
+    return;
+  }
   uint32_t frequency = (uint32_t)GET_INT_ARG(2);
-  i2c_status_t status = I2C_gpio_init(unit_num, frequency, (uint8_t)GET_INT_ARG(3), (uint8_t)GET_INT_ARG(4));
+  i2c_status_t status = I2C_gpio_init(unit_num, frequency, (uint8_t)sda_pin, (uint8_t)scl_pin);
   if (status < 0) {
-    char message[30];
+    const char *message;
     switch (status) {
-      case I2C_ERROR_INVALID_UNIT: { strcpy(message, "Invalid I2C unit"); break; }
-      default: { strcpy(message, "Unknows I2C error"); }
-      mrbc_raise(vm, MRBC_CLASS(IOError), message);
-      return;
+      case I2C_ERROR_INVALID_UNIT: { message = "Invalid I2C unit"; break; }
+      default: { message = "Unknown I2C error"; break; }
     }
+    mrbc_raise(vm, MRBC_CLASS(IOError), message);
+    return;
   }
   SET_INT_RETURN(unit_num);
 }
