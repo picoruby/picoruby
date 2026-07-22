@@ -327,14 +327,27 @@ class Shell
     return if @editor.width < LOGO_WIDTH
     margin = " " * ((@editor.width - LOGO_WIDTH) / 2)
 
-    # Add shadow
+    # ASCII byte codes used for comparisons and codepoint appends below.
+    b0 = 48  # '0' background
+    b1 = 49  # '1' lit
+    b2 = 50  # '2' shadow
+    bsp = 32 # ' '
+
+    # Add shadow. Mutates LOGO in place and is idempotent across calls
+    # (after the first run the target cells hold b2, failing the == b0 guard).
+    # getbyte(x-1) is only evaluated when getbyte(x)==b1, and column 0 is never
+    # lit, so the negative index is never reached.
     y = 0
     while y < LOGO.size
-      break if LOGO[y+1].nil?
+      below = LOGO[y + 1]
+      break if below.nil?
+      row = LOGO[y]
+      break if row.nil?
+      w = row.bytesize
       x = 0
-      while x < LOGO[y].bytesize
-        if LOGO[y][x] == '1' && LOGO[y+1][x-1] == '0'
-          LOGO[y+1][x-1] = '2'
+      while x < w
+        if row.getbyte(x) == b1 && below.getbyte(x - 1) == b0
+          below.setbyte(x - 1, b2)
         end
         x += 1
       end
@@ -342,60 +355,78 @@ class Shell
     end
 
     grad_start = 160 + (6 * color_num)
-    grad_end = grad_start + 5
-    grad_slice = LOGO[0].bytesize / 5
+    grad_slice = LOGO_WIDTH / 5
     shadow_offset = 144
-    shadow = "\e[38;5;235m:"
+    n_slices = (LOGO_WIDTH + grad_slice - 1) / grad_slice
 
+    # The only per-cell interpolations depend solely on the slice index, so
+    # build them once here instead of once per cell.
+    lit_esc = []   #: Array[String]
+    shadow_bg = [] #: Array[String]
+    si = 0
+    while si < n_slices
+      color = grad_start + si
+      lit_esc << "\e[48;5;#{color}m\e[38;5;226m:\e[0m"
+      shadow_bg << "\e[48;5;#{color - shadow_offset}m"
+      si += 1
+    end
+    author_fg = "\e[38;5;#{AUTHOR_COLOR}m"
+    shadow = "\e[38;5;235m:"
+    reset = "\e[0m"
+
+    # One reused buffer. On mruby, clear keeps capacity so rows 1.. render
+    # without reallocating; the whole logo emits with a handful of temporaries
+    # instead of ~1500, which also keeps the heap unfragmented.
+    line = ""
+    last = LOGO.size - 1
     y2 = 0
     while y2 < LOGO.size
-      print margin
-      split_line = [] #: Array[String]
-      i = 0
-      while i < LOGO[y2].bytesize
-        split_line << (LOGO[y2][i, grad_slice] || raise("unreachable"))
-        i += grad_slice
-      end
+      row = LOGO[y2]
+      break if row.nil?
+      w = row.bytesize
+      is_last = (y2 == last)
+      line.clear
+      line << margin
+      # steep cannot keep `x` typed as Integer through this loop body (same
+      # limitation the original suppressed on `x += 1`), so ignore the spurious
+      # nil-union errors on the lines that use it.
       x = 0
-      si = 0
-      while si < split_line.size
-        snip = split_line[si]
-        color = grad_start + si
-        ci = 0
-        while ci < snip.bytesize
-          c = snip[ci]
-          if c == '0'
-            if y2 == LOGO.size - 1
-              print "\e[38;5;#{AUTHOR_COLOR}m#{AUTHOR[x]}" # steep:ignore
-            else
-              print " "
-            end
-          elsif c == '1'
-            print "\e[48;5;#{color}m\e[38;5;226m:\e[0m"
-          elsif c == '2'
-            print "\e[48;5;#{color - shadow_offset}m"
-            if y2 == LOGO.size - 1
-              a = AUTHOR[x] # steep:ignore
-              if a == " "
-                print shadow
-              else
-                print "\e[38;5;#{AUTHOR_COLOR}m#{a}"
-              end
-            else
-              print shadow
-            end
-            print "\e[0m"
+      while x < w # steep:ignore
+        c = row.getbyte(x) # steep:ignore
+        si = x / grad_slice # steep:ignore
+        if c == b0
+          if is_last
+            line << author_fg
+            ab = AUTHOR.getbyte(x) # steep:ignore
+            line << ab if ab
+          else
+            line << bsp
           end
-          x += 1 # steep:ignore
-          ci += 1
+        elsif c == b1
+          esc = lit_esc[si] and line << esc
+        elsif c == b2
+          bg = shadow_bg[si] and line << bg
+          if is_last
+            ab = AUTHOR.getbyte(x) # steep:ignore
+            if ab == bsp
+              line << shadow
+            else
+              line << author_fg
+              line << ab if ab
+            end
+          else
+            line << shadow
+          end
+          line << reset
         end
-        si += 1
+        x += 1 # steep:ignore
       end
-      puts
+      line << 10 # trailing newline (replaces the per-row puts)
+      print line
       sleep_ms 3 # For GC.scheduler_driven step
       y2 += 1
     end
-    puts "\e[0m"
+    puts reset
   end
 
   def start(mode = :shell)
