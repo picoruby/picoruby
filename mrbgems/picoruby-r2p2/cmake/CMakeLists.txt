@@ -231,6 +231,11 @@ if(PICORB_VM_MRUBY)
   add_compile_definitions(MRB_NO_BOXING=1)
   add_compile_definitions(MRB_32BIT=1)
   add_compile_definitions(MRB_UTF8_STRING=1)
+  # Match the mruby core build (mruby-task adds this via spec.build.defines) so
+  # this CMake side sees the full mrb_state, including its task member, and can
+  # include <task.h>. The task field is last in mrb_state, so exposing it does
+  # not shift any earlier field offsets.
+  add_compile_definitions(MRB_USE_TASK_SCHEDULER=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
     ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include
     ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/include
