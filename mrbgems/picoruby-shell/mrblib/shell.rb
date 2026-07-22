@@ -392,6 +392,7 @@ class Shell
         si += 1
       end
       puts
+      sleep_ms 3 # For GC.scheduler_driven step
       y2 += 1
     end
     puts "\e[0m"
