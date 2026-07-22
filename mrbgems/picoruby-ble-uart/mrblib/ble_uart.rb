@@ -38,7 +38,7 @@ class BLE
 
     DEFAULT_ATT_MTU = 23 # BLE 4.0 minimum; payload = MTU - 3 for notifications
 
-    USER_BLOCK_CALL_COUNT_PER_POLL = 5
+    USER_BLOCK_INTERVAL_MS = 20
 
     def initialize(role: :peripheral,
                    name: "RubyUART",
@@ -110,14 +110,24 @@ class BLE
 
     def start(timeout_ms = nil, &block)
       @user_block = block
+      started_at = Machine.board_millis
       total_timeout_ms = 0
+      @event_queue.clear
+      _event_queue_cleared
       hci_power_control(HCI_POWER_ON)
       while true
+        total_timeout_ms = Machine.board_millis - started_at
         break if timeout_ms && timeout_ms <= total_timeout_ms
-        while (packet = pop_packet)
-          packet_callback(packet)
+        wait_ms = USER_BLOCK_INTERVAL_MS
+        if timeout_ms
+          remaining_ms = timeout_ms - total_timeout_ms
+          wait_ms = remaining_ms if remaining_ms < wait_ms
         end
-        while pop_heartbeat
+        event = @event_queue.pop(timeout_ms: wait_ms)
+        _event_popped if event
+        if event.is_a?(String)
+          packet_callback(event)
+        elsif event
           heartbeat_callback
         end
         if peripheral?
@@ -126,15 +136,9 @@ class BLE
         else
           _flush_tx_central if @connected
         end
-        sub_sleep_ms = POLLING_UNIT_MS / USER_BLOCK_CALL_COUNT_PER_POLL
-        i = 0
-        while i < USER_BLOCK_CALL_COUNT_PER_POLL do
-          i += 1
-          @user_block&.call
-          sleep_ms sub_sleep_ms
-        end
-        total_timeout_ms += POLLING_UNIT_MS
+        @user_block&.call
       end
+      total_timeout_ms = Machine.board_millis - started_at
       return total_timeout_ms
     ensure
       hci_power_control(HCI_POWER_OFF)

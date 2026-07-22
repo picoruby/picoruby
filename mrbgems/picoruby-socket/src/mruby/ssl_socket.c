@@ -5,6 +5,9 @@
 #include "mruby/data.h"
 #include "mruby/string.h"
 #include "mruby/variable.h"
+#ifdef PICO_CYW43_ARCH_POLL
+#include "task.h"
+#endif
 
 #define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
 #define E_EOF_ERROR    (mrb_class_get_id(mrb, MRB_SYM(EOFError)))
@@ -360,6 +363,11 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
 
   mrb_data_init(self, ssl_sock, &mrb_ssl_socket_type);
 
+#ifdef PICO_CYW43_ARCH_POLL
+  picorb_socket_attach_event_queue(mrb, &self,
+                                   SSLSocket_event_socket(ssl_sock));
+#endif
+
   return self;
 }
 
@@ -395,6 +403,16 @@ mrb_ssl_socket_s_open(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set port");
   }
 
+#ifdef PICO_CYW43_ARCH_POLL
+  /* Create the instance before connecting so Ruby can wait on its Queue. */
+  struct RClass *cls = mrb_class_ptr(klass);
+  struct RData *data = mrb_data_object_alloc(mrb, cls, ssl_sock, &mrb_ssl_socket_type);
+  mrb_value self = mrb_obj_value(data);
+  mrb_iv_set(mrb, self, MRB_IVSYM(ssl_context), ssl_context_obj);
+  picorb_socket_attach_event_queue(mrb, &self,
+                                   SSLSocket_event_socket(ssl_sock));
+  return self;
+#else
   if (!SSLSocket_connect(mrb, ssl_sock)) {
 #if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
     const char *net_error = Net_get_last_error();
@@ -415,6 +433,7 @@ mrb_ssl_socket_s_open(mrb_state *mrb, mrb_value klass)
   mrb_iv_set(mrb, self, MRB_IVSYM(ssl_context), ssl_context_obj);
 
   return self;
+#endif
 }
 
 /* ssl_socket.connect */
@@ -439,6 +458,53 @@ mrb_ssl_socket_connect(mrb_state *mrb, mrb_value self)
   }
 
   return self;
+}
+
+#ifdef PICO_CYW43_ARCH_POLL
+static mrb_value
+mrb_ssl_socket_set_connect_hostname(mrb_state *mrb, mrb_value self)
+{
+  char *hostname;
+  mrb_get_args(mrb, "z", &hostname);
+
+  picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(
+    mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock || !SSLSocket_set_connect_hostname(mrb, ssl_sock, hostname)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set connect hostname");
+  }
+
+  return mrb_true_value();
+}
+#endif
+
+static mrb_value
+mrb_ssl_socket_connection_state(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  if (!ssl_sock) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
+  }
+  return mrb_fixnum_value(SSLSocket_connection_state(mrb, ssl_sock));
+}
+
+static mrb_value
+mrb_ssl_socket_finish_connect(mrb_state *mrb, mrb_value self)
+{
+  picorb_ssl_socket_t *ssl_sock;
+  ssl_sock = (picorb_ssl_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_socket_type);
+  return mrb_bool_value(ssl_sock && SSLSocket_finish_connect(mrb, ssl_sock));
+}
+
+static mrb_value
+mrb_ssl_socket_error_message(mrb_state *mrb, mrb_value self)
+{
+  (void)self;
+#if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
+  const char *message = Net_get_last_error();
+  if (message && message[0]) return mrb_str_new_cstr(mrb, message);
+#endif
+  return mrb_nil_value();
 }
 
 /* ssl_socket.send(data, flags) */
@@ -547,6 +613,10 @@ mrb_ssl_socket_read_nonblock(mrb_state *mrb, mrb_value self)
   ssize_t received = SSLSocket_recv(mrb, ssl_sock, read_buf, maxlen, true);
 
   if (received == PICORB_RECV_WOULD_BLOCK) {
+#ifdef PICO_CYW43_ARCH_POLL
+    picorb_socket_t *sock = SSLSocket_event_socket(ssl_sock);
+    if (sock) sock->event_pending = false;
+#endif
     if (read_buf != stack_buf) mrb_free(mrb, read_buf);
     return mrb_nil_value();
   }
@@ -686,10 +756,26 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   MRB_SET_INSTANCE_TT(ssl_socket_class, MRB_TT_DATA);
 
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(initialize), mrb_ssl_socket_initialize, MRB_ARGS_REQ(2));
+#ifdef PICO_CYW43_ARCH_POLL
+  mrb_define_class_method(mrb, ssl_socket_class, "__open_poll", mrb_ssl_socket_s_open, MRB_ARGS_REQ(3));
+#else
   mrb_define_class_method_id(mrb, ssl_socket_class, MRB_SYM(open), mrb_ssl_socket_s_open, MRB_ARGS_REQ(3));
+#endif
+#ifdef PICO_CYW43_ARCH_POLL
+  mrb_define_private_method_id(mrb, ssl_socket_class,
+                               MRB_SYM(__set_connect_hostname),
+                               mrb_ssl_socket_set_connect_hostname,
+                               MRB_ARGS_REQ(1));
+  mrb_define_private_method_id(mrb, ssl_socket_class, MRB_SYM(__connect_poll), mrb_ssl_socket_connect, MRB_ARGS_NONE());
+  mrb_define_private_method_id(mrb, ssl_socket_class, MRB_SYM(__connection_state), mrb_ssl_socket_connection_state, MRB_ARGS_NONE());
+  mrb_define_private_method_id(mrb, ssl_socket_class, MRB_SYM(__finish_connect), mrb_ssl_socket_finish_connect, MRB_ARGS_NONE());
+  mrb_define_private_method_id(mrb, ssl_socket_class, MRB_SYM(__error_message), mrb_ssl_socket_error_message, MRB_ARGS_NONE());
+  mrb_define_private_method_id(mrb, ssl_socket_class, MRB_SYM(__readpartial_poll), mrb_ssl_socket_readpartial, MRB_ARGS_REQ(1));
+#else
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(connect), mrb_ssl_socket_connect, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(send), mrb_ssl_socket_send, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(readpartial), mrb_ssl_socket_readpartial, MRB_ARGS_REQ(1));
+#endif
+  mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(send), mrb_ssl_socket_send, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(read_nonblock), mrb_ssl_socket_read_nonblock, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM(close), mrb_ssl_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, ssl_socket_class, MRB_SYM_Q(closed), mrb_ssl_socket_closed_p, MRB_ARGS_NONE());

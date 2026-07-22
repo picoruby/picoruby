@@ -75,11 +75,14 @@ tcp_connected_callback(void *arg, struct altcp_pcb *pcb, err_t err)
   if (err != ERR_OK) {
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
+    snprintf(sock->errmsg, sizeof(sock->errmsg), "connect failed: %d", (int)err);
+    picorb_socket_notify_readable(sock);
     return err;
   }
 
   sock->state = SOCKET_STATE_CONNECTED;
   sock->connected = true;
+  picorb_socket_notify_readable(sock);
   return ERR_OK;
 }
 
@@ -102,6 +105,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (pbuf) pbuf_free(pbuf);
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
+    picorb_socket_notify_readable(sock);
     D("tcp_recv_callback: error, state set to ERROR");
     return err;
   }
@@ -111,6 +115,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     sock->state = SOCKET_STATE_CLOSED;
     sock->connected = false;
     sock->closed = true;
+    picorb_socket_notify_readable(sock);
     D("tcp_recv_callback: connection closed");
     return ERR_OK;
   }
@@ -141,6 +146,7 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   /* Tell LwIP we processed the data */
   altcp_recved(pcb, total_len);
   pbuf_free(pbuf);
+  picorb_socket_notify_readable(sock);
 
   return ERR_OK;
 }
@@ -165,6 +171,7 @@ tcp_err_callback(void *arg, err_t err)
   sock->state = SOCKET_STATE_ERROR;
   sock->connected = false;
   sock->pcb = NULL; /* PCB is already freed by LwIP */
+  picorb_socket_notify_readable(sock);
 }
 
 /* Poll callback - called periodically by LwIP */
@@ -218,7 +225,12 @@ TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int
   altcp_poll(sock->pcb, tcp_poll_callback, 4);  /* Poll every 2 seconds (4 * 500ms) */
   altcp_arg(sock->pcb, sock);
 
-  Net_busy_wait_ms(100);
+  /* Set the state before starting the asynchronous connection so callbacks
+   * cannot be overwritten if the backend completes immediately. */
+  strncpy(sock->remote_host, host, sizeof(sock->remote_host) - 1);
+  sock->remote_host[sizeof(sock->remote_host) - 1] = '\0';
+  sock->remote_port = port;
+  sock->state = SOCKET_STATE_CONNECTING;
 
   /* Initiate connection */
   D("TCP: connecting");
@@ -228,14 +240,14 @@ TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int
 
   if (err != ERR_OK) {
     D("TCP: connect err=%d\n", err);
+    sock->state = SOCKET_STATE_ERROR;
+    snprintf(sock->errmsg, sizeof(sock->errmsg), "connect failed: %d", (int)err);
     return false;
   }
 
-  /* Save connection info */
-  strncpy(sock->remote_host, host, sizeof(sock->remote_host) - 1);
-  sock->remote_host[sizeof(sock->remote_host) - 1] = '\0';
-  sock->remote_port = port;
-  sock->state = SOCKET_STATE_CONNECTING;
+  if (sock->event_queue) {
+    return true;
+  }
 
   /* Wait for connection to establish */
   D("TCP: waiting");
@@ -259,6 +271,13 @@ TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int
     sock->state = SOCKET_STATE_ERROR;
     return false;
   }
+}
+
+int
+TCPSocket_connection_state(picorb_state *vm, picorb_socket_t *sock)
+{
+  (void)vm;
+  return sock ? sock->state : SOCKET_STATE_ERROR;
 }
 
 /* Send data */
@@ -391,6 +410,12 @@ TCPSocket_close(picorb_state *vm, picorb_socket_t *sock)
   if (sock->recv_buf) {
     picorb_free(vm, sock->recv_buf);
     sock->recv_buf = NULL;
+  }
+
+  picorb_socket_notify_readable(sock);
+  if (sock->event_queue) {
+    picorb_free(vm, sock->event_queue);
+    sock->event_queue = NULL;
   }
 
   sock->state = SOCKET_STATE_CLOSED;

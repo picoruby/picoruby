@@ -147,15 +147,30 @@ if(NOT R2P2_NO_SHARED_ALLOC)
   )
 endif()
 
-# RP2040: 4KB stack fits in SCRATCH_Y, use SDK default linker script
-# RP2350: 8KB stack needs RAM, use custom linker script
+# RP2040 keeps both stacks in scratch RAM. RP2350 needs more than the combined
+# scratch banks provide for Prism in debug builds, so core 0 uses regular RAM.
 if(PICO_BOARD STREQUAL "pico" OR PICO_BOARD STREQUAL "pico_w")
   set(PICORB_STACK_SIZE 0x1000) # 4KB
   set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB (in SCRATCH_X)
 elseif(PICO_BOARD STREQUAL "pico2" OR PICO_BOARD STREQUAL "pico2_w")
-  set(PICORB_STACK_SIZE 0x2000) # 8KB
-  set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB
-  pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/memmap_rp2350.ld)
+  if(PICORB_DEBUG)
+    set(PICORB_STACK_SIZE 0x6000) # 24KB
+    set(PICORB_RAM_LENGTH_KB 488)
+    set(PICORB_STACK_ORIGIN 0x2007a000)
+    set(PICORB_STACK_LENGTH_KB 24)
+  else()
+    set(PICORB_STACK_SIZE 0x4000) # 16KB
+    set(PICORB_RAM_LENGTH_KB 496)
+    set(PICORB_STACK_ORIGIN 0x2007c000)
+    set(PICORB_STACK_LENGTH_KB 16)
+  endif()
+  set(PICORB_CORE1_STACK_SIZE 0x0800) # 2KB (in SCRATCH_X)
+  configure_file(
+    ${CMAKE_CURRENT_LIST_DIR}/memmap_rp2350.ld.in
+    ${CMAKE_CURRENT_BINARY_DIR}/memmap_rp2350.ld
+    @ONLY
+  )
+  pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_BINARY_DIR}/memmap_rp2350.ld)
 endif()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE

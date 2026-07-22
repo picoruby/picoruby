@@ -1,10 +1,19 @@
 class SSLSocket < BasicSocket
+  @event_queue: Task::Queue?
+
   attr_reader tcp_socket: TCPSocket
   attr_reader ssl_context: SSLContext
 
   def self.new: (TCPSocket tcp_socket, SSLContext ssl_context) -> SSLSocket
   def self.open: (String hostname, Integer port, SSLContext ssl_context) -> SSLSocket
+  private def self.__open_poll: (String hostname, Integer port, SSLContext ssl_context) -> SSLSocket
   def connect: () -> self
+  private def __set_connect_hostname: (String hostname) -> bool
+  private def __connect_poll: () -> self
+  private def __connection_state: () -> Integer
+  private def __finish_connect: () -> bool
+  private def __error_message: () -> String?
+  private def __readpartial_poll: (Integer maxlen) -> String
   def addr: () -> Array[String | Integer]
   def connected?: () -> bool
   def peer_cert: () -> nil

@@ -29,6 +29,42 @@ class SSLSocket < BasicSocket
 
   # Instance methods
 
+  if Object.const_defined?(:SocketDNSResolver)
+    def self.open(host, port, ssl_context)
+      socket = __open_poll(host, port, ssl_context)
+      socket.connect
+      socket
+    end
+
+    def connect
+      host = remote_host
+      resolved_host = SocketDNSResolver.resolve_host(host)
+      __set_connect_hostname(resolved_host)
+      __connect_poll
+      event_queue = @event_queue
+      return self unless event_queue
+
+      while __connection_state == 1
+        __wait_for_event(event_queue, "SSL handshake timed out")
+      end
+
+      if __connection_state == 2
+        return self if __finish_connect
+
+        close
+        raise SocketError, "SSL receive buffer allocation failed"
+      end
+
+      message = __error_message
+      close
+      raise SocketError, message || "SSL handshake failed"
+    end
+
+    def readpartial(maxlen)
+      __readpartial_event_queue(maxlen, "SSL read timeout")
+    end
+  end
+
   def addr
     # Returns [address_family, port, hostname, numeric_address]
     # Delegates to underlying TCP socket

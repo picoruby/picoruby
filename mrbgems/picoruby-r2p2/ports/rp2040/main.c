@@ -50,40 +50,41 @@ heap_exit_critical(void)
 
 #if !defined(HEAP_SIZE)
   #if defined(PICO_RP2040)
-    #define RAM_SIZE_KB             264
+    /*
+     * Both CPU stacks live in scratch RAM. The sizes below leave regular RAM
+     * for static pico-sdk state and, when requested, its separate allocator.
+     */
+    #if defined(USE_WIFI) && defined(R2P2_NO_SHARED_ALLOC)
+      #define HEAP_SIZE_KB 152
+    #elif defined(USE_WIFI)
+      #define HEAP_SIZE_KB 164
+    #else
+      #define HEAP_SIZE_KB 184
+    #endif
   #elif defined(PICO_RP2350)
     /*
-     * RP2350 has 512KB of regular SRAM plus 8KB of scratch SRAM. R2P2's
-     * RP2350 linker script reserves scratch SRAM for core0 stack, so heap_pool
-     * must be sized against regular SRAM only.
+     * The production build uses a 16KB core 0 stack and a larger Estalloc
+     * heap. Debug builds use a 24KB stack for unoptimized Prism frames. A
+     * separate allocator needs its own 64KB reserve.
      */
-    #define RAM_SIZE_KB             512
+    #if defined(USE_WIFI) && defined(R2P2_NO_SHARED_ALLOC)
+      #define HEAP_SIZE_KB 320
+    #elif defined(PICORB_DEBUG)
+      #if defined(PICORB_VM_MRUBYC)
+        #define HEAP_SIZE_KB 376
+      #else
+        #define HEAP_SIZE_KB 384
+      #endif
+    #else
+      #if defined(PICORB_VM_MRUBYC)
+        #define HEAP_SIZE_KB 390
+      #else
+        #define HEAP_SIZE_KB 396
+      #endif
+    #endif
   #else
     #error "PICO_RP2040 or PICO_RP2350 must be defined"
   #endif
-  #if defined(USE_WIFI) && defined(R2P2_NO_SHARED_ALLOC)
-    /*
-     * When libc/newlib allocation is separated from Estalloc, keep room for
-     * CYW43/LwIP/mbedTLS outside heap_pool. In shared mode, libc allocation is
-     * routed to Estalloc too, so reserving this RAM would only shrink the
-     * shared heap.
-     */
-    #if defined(PICO_RP2040)
-      #define WIFI_RESERVED_SIZE_KB  32
-    #else
-      #define WIFI_RESERVED_SIZE_KB  64
-    #endif
-  #else
-    #define WIFI_RESERVED_SIZE_KB    15
-  #endif
-  // Compiling a big Ruby code may need more stack size
-  #define BASIC_STACK_SIZE_KB   80
-  #if defined(USE_WIFI)
-    #define STACK_SIZE_KB (BASIC_STACK_SIZE_KB + WIFI_RESERVED_SIZE_KB)
-  #else
-    #define STACK_SIZE_KB BASIC_STACK_SIZE_KB
-  #endif
-  #define HEAP_SIZE_KB (RAM_SIZE_KB - STACK_SIZE_KB)
   #define HEAP_SIZE (HEAP_SIZE_KB * 1024)
 #endif
 
