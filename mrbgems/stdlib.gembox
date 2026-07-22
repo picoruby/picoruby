@@ -13,9 +13,14 @@ MRuby::GemBox.new do |conf|
   end
   conf.gem core: "picoruby-marshal"
   conf.gem core: 'picoruby-data'
-  conf.gem core: 'picoruby-logger'
-  conf.gem core: 'picoruby-terminus'
-  conf.gem core: 'picoruby-karmatic_arcade'
+  unless wasm?
+    # Not useful on WASM. terminus and karmatic_arcade also pull in
+    # picoruby-bdffont, so excluding them here keeps it out of WASM too.
+    # Microcontroller (mruby/c, mruby) and POSIX builds keep these.
+    conf.gem core: 'picoruby-logger'
+    conf.gem core: 'picoruby-terminus'
+    conf.gem core: 'picoruby-karmatic_arcade'
+  end
   if vm_mrubyc?
     conf.gem core: "picoruby-pack"
     conf.gem core: "picoruby-numeric-ext"
