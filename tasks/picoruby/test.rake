@@ -267,12 +267,55 @@ def conflict_loser(name, other_name, specified_gem)
   other_name
 end
 
+def wasm_build_config_gem_names
+  @wasm_build_config_gem_names ||= begin
+    config_path = File.expand_path("#{MRUBY_ROOT}/build_config/picoruby-wasm.rb")
+    target_name = "picoruby-wasm"
+    # Evaluating the production WASM build config gives the exact set of gems
+    # (gemboxes and transitive dependencies expanded) that end up in the WASM
+    # binary. Stub package.json generation so this discovery step does not
+    # touch the working tree, and drop the temporary target afterwards.
+    MRuby.targets.delete(target_name)
+    MRuby::Build.class_eval do
+      alias_method :__test_orig_generate_package_json, :generate_package_json_from_template
+      def generate_package_json_from_template(*); end
+    end
+    begin
+      load config_path
+      build = MRuby.targets[target_name]
+      if build
+        # After loading the config, build.gems only holds the gems named
+        # directly (explicit conf.gem lines plus gembox contents), and their
+        # specs are not set up yet, so their dependency lists are still empty.
+        # List#setup runs the per-gem setup and dependency resolution to a fixed
+        # point, growing build.gems to the full transitive closure that ships in
+        # the WASM binary.
+        build.gems.setup(build)
+        build.gems.map(&:name)
+      else
+        []
+      end
+    ensure
+      MRuby::Build.class_eval do
+        alias_method :generate_package_json_from_template, :__test_orig_generate_package_json
+        remove_method :__test_orig_generate_package_json
+      end
+      MRuby.targets.delete(target_name)
+    end
+  end
+end
+
 def gem_supported_for_test_target?(spec, vm_type)
   return false if vm_type != 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-wasm')
   return false if vm_type == 'femtoruby' && depends_on_gem?(spec.build, spec, 'picoruby-mruby')
   return false if vm_type == 'femtoruby' && conflicts_with_gem?(spec.build, spec, 'picoruby-mrubyc')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-socket')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-net')
+  # Only test gems that actually ship in the production WASM binary. The set is
+  # derived from build_config/picoruby-wasm.rb (its gemboxes and transitive
+  # dependencies included), so hardware gems (uart, gpio, ...) that never build
+  # for WASM are skipped instead of being compiled into one big emcc binary.
+  return false if vm_type == 'wasm' && !wasm_build_config_gem_names.include?(spec.name)
 
   true
 end
