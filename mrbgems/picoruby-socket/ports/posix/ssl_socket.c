@@ -472,26 +472,6 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   return true;
 }
 
-int
-SSLSocket_connection_state(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
-{
-  (void)vm;
-  return ssl_sock && ssl_sock->connected ? SOCKET_STATE_CONNECTED : SOCKET_STATE_ERROR;
-}
-
-bool
-SSLSocket_finish_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
-{
-  (void)vm;
-  return ssl_sock && ssl_sock->connected;
-}
-
-picorb_socket_t*
-SSLSocket_event_socket(picorb_ssl_socket_t *ssl_sock)
-{
-  return ssl_sock ? ssl_sock->base_socket : NULL;
-}
-
 /*
  * Send data over SSL socket
  */

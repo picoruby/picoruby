@@ -1,16 +1,7 @@
 class TCPSocket < BasicSocket
-  @event_queue: Task::Queue?
-
   def self.new: (String host, Integer port) -> TCPSocket
   def self.open: (String host, Integer port) -> TCPSocket
   def self.gethostbyname: (String host) -> [String, Array[String], Integer, String]
-
-  def initialize: (String host, Integer port) -> void
-  private def __initialize_poll: (String host, Integer port) -> void
-  private def __connection_state: () -> Integer
-  private def __error_message: () -> String?
-  private def __readpartial_poll: (Integer maxlen) -> String
-
   def addr: () -> Array[String | Integer]
   def connected?: () -> bool
 end

@@ -5,21 +5,6 @@
 #include "mruby/class.h"
 #include "mruby/data.h"
 #include "mruby/string.h"
-#include "mruby/variable.h"
-#ifdef PICO_CYW43_ARCH_POLL
-#include "task.h"
-#endif
-
-#ifdef PICO_CYW43_ARCH_POLL
-void
-TCPServer_notify_accepted(picorb_tcp_server_t *server)
-{
-  void *queue_ptr = TCPServer_event_queue(server);
-  bool pending = TCPServer_event_pending(server);
-  picorb_task_queue_notify(TCPServer_vm(server), queue_ptr, &pending);
-  TCPServer_set_event_pending(server, pending);
-}
-#endif
 
 /* Data type for TCPServer */
 static void
@@ -87,16 +72,6 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
 
   mrb_data_init(self, server, &mrb_tcp_server_type);
 
-#ifdef PICO_CYW43_ARCH_POLL
-  void *queue_ptr = NULL;
-  if (!picorb_task_queue_attach(mrb, &self, &queue_ptr)) {
-    TCPServer_close(mrb, server);
-    DATA_PTR(self) = NULL;
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate event queue");
-  }
-  TCPServer_set_event_queue(server, mrb, queue_ptr);
-#endif
-
   return self;
 }
 
@@ -123,12 +98,6 @@ mrb_tcp_server_accept_nonblock(mrb_state *mrb, mrb_value self)
   /* Create TCPSocket object for client */
   tcp_socket_class = mrb_class_get_id(mrb, MRB_SYM(TCPSocket));
   client_obj = mrb_obj_value(mrb_data_object_alloc(mrb, tcp_socket_class, client, &mrb_socket_type));
-
-#ifdef PICO_CYW43_ARCH_POLL
-  if (!picorb_socket_attach_event_queue(mrb, &client_obj, client)) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to allocate event queue");
-  }
-#endif
 
   return client_obj;
 }

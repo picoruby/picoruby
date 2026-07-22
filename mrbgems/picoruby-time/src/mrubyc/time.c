@@ -75,13 +75,13 @@ new_from_unixtime_us(struct VM *vm, mrbc_value v[], mrbc_int_t unixtime_us)
   PICORB_TIME *data = (PICORB_TIME *)value.instance->data;
   data->unixtime_us = unixtime_us + unixtime_offset * USEC;
   time_t unixtime = data->unixtime_us / USEC;
-#if defined(PICORB_PLATFORM_POSIX)
   localtime_r(&unixtime, &data->tm);
+#if defined(PICORB_PLATFORM_POSIX)
   data->timezone = timezone;  /* global variable from time.h of glibc */
 #else
-  data->timezone = ENV_get_timezone_offset();
-  time_t local_unixtime = unixtime - data->timezone;
-  gmtime_r(&local_unixtime, &data->tm);
+  /* For non-POSIX platforms (e.g., RP2040 with newlib),
+   * calculate timezone offset by comparing localtime and gmtime */
+  data->timezone = calculate_timezone_offset(unixtime);
 #endif
   return value;
 }
@@ -92,15 +92,14 @@ new_from_tm(struct VM *vm, mrbc_value v[], struct tm *tm)
   mrbc_value value = mrbc_instance_new(vm, v->cls, sizeof(PICORB_TIME));
   PICORB_TIME *data = (PICORB_TIME *)value.instance->data;
   time_t unixtime = mktime(tm);
-#if !defined(PICORB_PLATFORM_POSIX)
-  unixtime += ENV_get_timezone_offset();
-#endif
   data->unixtime_us = unixtime * USEC;
   memcpy(&data->tm, tm, sizeof(struct tm));
 #if defined(PICORB_PLATFORM_POSIX)
   data->timezone = timezone;
 #else
-  data->timezone = ENV_get_timezone_offset();
+  /* For non-POSIX platforms (e.g., RP2040 with newlib),
+   * calculate timezone offset by comparing localtime and gmtime */
+  data->timezone = calculate_timezone_offset(unixtime);
 #endif
   return value;
 }

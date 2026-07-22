@@ -2,24 +2,6 @@ class TCPSocket < BasicSocket
   # TCPSocket is mostly implemented in C
   # This file provides additional Ruby-level methods
 
-  if Object.const_defined?(:SocketDNSResolver)
-    def initialize(host, port)
-      host = SocketDNSResolver.resolve_host(host)
-      __initialize_poll(host, port)
-      event_queue = @event_queue
-      return unless event_queue
-
-      while __connection_state == 1
-        __wait_for_event(event_queue, "connection timed out")
-      end
-      return if __connection_state == 2
-
-      message = __error_message
-      close
-      raise SocketError, message || "failed to connect"
-    end
-  end
-
   # Class methods
 
   def self.open(host, port)
@@ -42,11 +24,5 @@ class TCPSocket < BasicSocket
 
   def connected?
     !closed?
-  end
-
-  if Object.const_defined?(:SocketDNSResolver)
-    def readpartial(maxlen)
-      __readpartial_event_queue(maxlen, "read timeout")
-    end
   end
 end

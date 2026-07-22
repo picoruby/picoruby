@@ -27,9 +27,3 @@ ENV_setenv(const char *name, const char *value, int override)
   (void)override;
   return 0;
 }
-
-long
-ENV_get_timezone_offset(void)
-{
-  return 0;
-}

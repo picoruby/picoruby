@@ -12,14 +12,6 @@
 
 #define SOCKET_ERROR_MSG_LEN 128
 
-/* Connection states returned by the socket polling API. */
-#define SOCKET_STATE_NONE        0
-#define SOCKET_STATE_CONNECTING  1
-#define SOCKET_STATE_CONNECTED   2
-#define SOCKET_STATE_CLOSING     3
-#define SOCKET_STATE_CLOSED      4
-#define SOCKET_STATE_ERROR       99
-
 /* Socket structure for POSIX */
 #ifdef PICORB_PLATFORM_POSIX
 typedef struct {
@@ -42,6 +34,14 @@ typedef struct {
 struct altcp_pcb;
 struct ip_addr;
 
+/* Socket states */
+#define SOCKET_STATE_NONE        0
+#define SOCKET_STATE_CONNECTING  1
+#define SOCKET_STATE_CONNECTED   2
+#define SOCKET_STATE_CLOSING     3
+#define SOCKET_STATE_CLOSED      4
+#define SOCKET_STATE_ERROR       99
+
 typedef struct {
   struct altcp_pcb *pcb;     /* LwIP control block */
   char *recv_buf;            /* Receive buffer */
@@ -57,9 +57,6 @@ typedef struct {
   char last_sender_host[256];
   int last_sender_port;
   char errmsg[SOCKET_ERROR_MSG_LEN]; /* Last error message from C layer */
-  void *vm;                   /* Owning VM for callback notification */
-  void *event_queue;          /* VM-specific Task::Queue value (RP2040 only) */
-  bool event_pending;         /* A readable notification is already queued */
 } picorb_socket_t;
 
 /* LwIP helper functions - implemented in ports/rp2040/ */
@@ -72,12 +69,6 @@ extern int Net_get_ip(const char *name, void *ip);
 #if !defined(PICORB_PLATFORM_ESP32)
 extern const char* Net_get_last_error(void);
 extern void Net_set_last_error(const char *format, ...);
-typedef void (*picorb_dns_notify_func)(void *arg);
-void* Net_dns_start(const char *name, picorb_dns_notify_func notify, void *arg);
-int Net_dns_status(void *request);
-int Net_dns_get_address(void *request, char *buf, size_t buflen);
-void Net_dns_release(void *request);
-void Net_dns_abandon(void *request);
 #endif
 #endif
 
@@ -92,13 +83,6 @@ void Net_dns_abandon(void *request);
 #define picorb_state mrbc_vm
 #endif
 
-#ifdef PICO_CYW43_ARCH_POLL
-void picorb_task_queue_notify(picorb_state *vm, void *queue, bool *pending);
-bool picorb_task_queue_attach(picorb_state *vm, void *self, void **queue);
-bool picorb_socket_attach_event_queue(picorb_state *vm, void *self, picorb_socket_t *sock);
-void picorb_socket_notify_readable(picorb_socket_t *sock);
-#endif
-
 /* Special return value from read functions: no data available in non-blocking mode */
 #define PICORB_RECV_WOULD_BLOCK (-2)
 /* Special return value from blocking read functions: timed out waiting for data */
@@ -110,7 +94,6 @@ void picorb_socket_notify_readable(picorb_socket_t *sock);
 /* TCP Socket API */
 bool TCPSocket_create(picorb_state *vm, picorb_socket_t *sock);
 bool TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int port);
-int TCPSocket_connection_state(picorb_state *vm, picorb_socket_t *sock);
 ssize_t TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len);
 ssize_t TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, bool nonblock);
 bool TCPSocket_close(picorb_state *vm, picorb_socket_t *sock);
@@ -149,14 +132,6 @@ picorb_tcp_server_t* TCPServer_create(picorb_state *vm, int port, int backlog);
 picorb_socket_t* TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server);
 bool TCPServer_close(picorb_state *vm, picorb_tcp_server_t *server);
 int TCPServer_port(picorb_state *vm, picorb_tcp_server_t *server);
-#ifdef PICO_CYW43_ARCH_POLL
-void TCPServer_set_event_queue(picorb_tcp_server_t *server, picorb_state *vm, void *queue);
-void* TCPServer_event_queue(picorb_tcp_server_t *server);
-picorb_state* TCPServer_vm(picorb_tcp_server_t *server);
-bool TCPServer_event_pending(picorb_tcp_server_t *server);
-void TCPServer_set_event_pending(picorb_tcp_server_t *server, bool pending);
-void TCPServer_notify_accepted(picorb_tcp_server_t *server);
-#endif
 bool TCPServer_listening(picorb_state *vm, picorb_tcp_server_t *server);
 
 /* SSL Context API */
@@ -208,12 +183,8 @@ typedef struct picorb_ssl_socket picorb_ssl_socket_t;
 
 picorb_ssl_socket_t* SSLSocket_create(picorb_state *vm, picorb_ssl_context_t *ssl_ctx);
 bool SSLSocket_set_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname);
-bool SSLSocket_set_connect_hostname(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const char *hostname);
 bool SSLSocket_set_port(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, int port);
 bool SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
-int SSLSocket_connection_state(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
-bool SSLSocket_finish_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
-picorb_socket_t* SSLSocket_event_socket(picorb_ssl_socket_t *ssl_sock);
 ssize_t SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data, size_t len);
 ssize_t SSLSocket_recv(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, void *buf, size_t len, bool nonblock);
 bool SSLSocket_close(picorb_state *vm, picorb_ssl_socket_t *ssl_sock);
@@ -236,7 +207,6 @@ bool resolve_address(const char *host, char *ip, size_t ip_len);
   void ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
   void tcp_server_init(mrbc_vm *vm, mrbc_class *class_BasicSocket);
   void mrbc_socket_free(mrbc_value *self);
-  mrbc_value picorb_task_queue_new(mrbc_vm *vm);
 #elif defined(PICORB_VM_MRUBY)
   #include "mruby.h"
   void mrb_socket_free(mrb_state *mrb, void *ptr);

@@ -98,13 +98,6 @@ TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int
   return true;
 }
 
-int
-TCPSocket_connection_state(picorb_state *vm, picorb_socket_t *sock)
-{
-  (void)vm;
-  return sock && sock->connected ? SOCKET_STATE_CONNECTED : SOCKET_STATE_ERROR;
-}
-
 /* Send data */
 ssize_t
 TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t len)

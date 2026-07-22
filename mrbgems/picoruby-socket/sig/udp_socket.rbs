@@ -3,9 +3,6 @@ class UDPSocket < BasicSocket
   def bind: (String host, Integer port) -> void
   def connect: (String host, Integer port) -> void
   def send: (String data, Integer flags, ?String? host, ?Integer? port) -> Integer
-  private def __bind_resolved: (String host, Integer port) -> void
-  private def __connect_resolved: (String host, Integer port) -> void
-  private def __send_resolved: (String data, Integer flags, ?String? host, ?Integer? port) -> Integer
   def recvfrom: (Integer maxlen, ?Integer flags) -> [String, Array[String | Integer]]
   def recvfrom_nonblock: (Integer maxlen, ?Integer flags) -> ([String, Array[String | Integer]] | nil)
 

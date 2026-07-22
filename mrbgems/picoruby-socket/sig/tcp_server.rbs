@@ -1,6 +1,4 @@
 class TCPServer
-  @event_queue: Task::Queue?
-
   def self.new: (String? host, Integer service, ?Integer backlog) -> TCPServer
   def accept: () -> TCPSocket
   def accept_nonblock: () -> (TCPSocket | nil)

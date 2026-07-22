@@ -292,26 +292,6 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   return true;
 }
 
-int
-SSLSocket_connection_state(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
-{
-  (void)vm;
-  return ssl_sock ? ssl_sock->state : SSL_STATE_ERROR;
-}
-
-bool
-SSLSocket_finish_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
-{
-  (void)vm;
-  return ssl_sock && ssl_sock->state == SSL_STATE_CONNECTED;
-}
-
-picorb_socket_t*
-SSLSocket_event_socket(picorb_ssl_socket_t *ssl_sock)
-{
-  return ssl_sock ? ssl_sock->base_socket : NULL;
-}
-
 ssize_t
 SSLSocket_send(picorb_state *vm, picorb_ssl_socket_t *ssl_sock, const void *data, size_t len)
 {

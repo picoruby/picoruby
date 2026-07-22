@@ -4,10 +4,6 @@
 #include "mruby/string.h"
 #include "mruby/class.h"
 #include "mruby/data.h"
-#include "mruby/variable.h"
-#ifdef PICO_CYW43_ARCH_POLL
-#include "task.h"
-#endif
 
 #define E_SOCKET_ERROR (mrb_class_get_id(mrb, MRB_SYM(SocketError)))
 #define E_EOF_ERROR    (mrb_class_get_id(mrb, MRB_SYM(EOFError)))
@@ -37,40 +33,18 @@ mrb_tcp_socket_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to create socket");
   }
 
+  /* Connect to remote host */
+  if (!TCPSocket_connect(mrb, sock, host, (int)port)) {
+    char errmsg[SOCKET_ERROR_MSG_LEN];
+    strncpy(errmsg, sock->errmsg, sizeof(errmsg) - 1);
+    errmsg[sizeof(errmsg) - 1] = '\0';
+    mrb_free(mrb, sock);
+    mrb_raise(mrb, E_SOCKET_ERROR, errmsg[0] ? errmsg : "failed to connect");
+  }
+
   mrb_data_init(self, sock, &mrb_socket_type);
 
-#ifdef PICO_CYW43_ARCH_POLL
-  picorb_socket_attach_event_queue(mrb, &self, sock);
-#endif
-
-  /* Connect to remote host. RP2040 poll mode returns after starting the
-   * connection; Ruby waits on event_queue and checks __connection_state. */
-  if (!TCPSocket_connect(mrb, sock, host, (int)port)) {
-    mrb_raisef(mrb, E_SOCKET_ERROR, "%s",
-      sock->errmsg[0] ? sock->errmsg : "failed to connect");
-  }
-
   return self;
-}
-
-static mrb_value
-mrb_tcp_socket_connection_state(mrb_state *mrb, mrb_value self)
-{
-  picorb_socket_t *sock;
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
-  if (!sock) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
-  }
-  return mrb_fixnum_value(TCPSocket_connection_state(mrb, sock));
-}
-
-static mrb_value
-mrb_tcp_socket_error_message(mrb_state *mrb, mrb_value self)
-{
-  picorb_socket_t *sock;
-  sock = (picorb_socket_t *)mrb_data_get_ptr(mrb, self, &mrb_socket_type);
-  if (!sock || !sock->errmsg[0]) return mrb_nil_value();
-  return mrb_str_new_cstr(mrb, sock->errmsg);
 }
 
 /* socket.send(data, flags) */
@@ -179,9 +153,6 @@ mrb_tcp_socket_read_nonblock(mrb_state *mrb, mrb_value self)
   ssize_t received = TCPSocket_recv(mrb, sock, read_buf, maxlen, true);
 
   if (received == PICORB_RECV_WOULD_BLOCK) {
-#ifdef PICO_CYW43_ARCH_POLL
-    sock->event_pending = false;
-#endif
     if (read_buf != stack_buf) mrb_free(mrb, read_buf);
     return mrb_nil_value();
   }
@@ -294,16 +265,9 @@ tcp_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   tcp_socket_class = mrb_define_class_id(mrb, MRB_SYM(TCPSocket), basic_socket_class);
   MRB_SET_INSTANCE_TT(tcp_socket_class, MRB_TT_DATA);
 
-#ifdef PICO_CYW43_ARCH_POLL
-  mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__initialize_poll), mrb_tcp_socket_initialize, MRB_ARGS_REQ(2));
-  mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__connection_state), mrb_tcp_socket_connection_state, MRB_ARGS_NONE());
-  mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__error_message), mrb_tcp_socket_error_message, MRB_ARGS_NONE());
-  mrb_define_private_method_id(mrb, tcp_socket_class, MRB_SYM(__readpartial_poll), mrb_tcp_socket_readpartial, MRB_ARGS_REQ(1));
-#else
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(initialize), mrb_tcp_socket_initialize, MRB_ARGS_REQ(2));
-  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(readpartial), mrb_tcp_socket_readpartial, MRB_ARGS_REQ(1));
-#endif
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(send), mrb_tcp_socket_send, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(readpartial), mrb_tcp_socket_readpartial, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(read_nonblock), mrb_tcp_socket_read_nonblock, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM(close), mrb_tcp_socket_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, tcp_socket_class, MRB_SYM_Q(closed), mrb_tcp_socket_closed_p, MRB_ARGS_NONE());

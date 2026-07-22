@@ -103,13 +103,11 @@ new_from_unixtime_us(mrb_state *mrb, mrb_value klass, mrb_int unixtime_us)
 
   data->unixtime_us = unixtime_us + unixtime_offset * USEC;
   time_t unixtime = data->unixtime_us / USEC;
-#if defined(PICORB_PLATFORM_POSIX)
   localtime_r(&unixtime, &data->tm);
+#if defined(PICORB_PLATFORM_POSIX)
   data->timezone = timezone;
 #else
-  data->timezone = ENV_get_timezone_offset();
-  time_t local_unixtime = unixtime - data->timezone;
-  gmtime_r(&local_unixtime, &data->tm);
+  data->timezone = calculate_timezone_offset(unixtime);
 #endif
   return self;
 }
@@ -123,15 +121,12 @@ new_from_tm(mrb_state *mrb, mrb_value klass, struct tm *tm)
   mrb_value self = mrb_obj_value(Data_Wrap_Struct(mrb, cls, &mrb_time_type, data));
 
   time_t unixtime = mktime(tm);
-#if !defined(PICORB_PLATFORM_POSIX)
-  unixtime += ENV_get_timezone_offset();
-#endif
   data->unixtime_us = unixtime * USEC;
   memcpy(&data->tm, tm, sizeof(struct tm));
 #if defined(PICORB_PLATFORM_POSIX)
   data->timezone = timezone;
 #else
-  data->timezone = ENV_get_timezone_offset();
+  data->timezone = calculate_timezone_offset(unixtime);
 #endif
   return self;
 }

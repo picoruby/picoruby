@@ -28,8 +28,6 @@ struct picorb_tcp_server {
   picorb_socket_t *accepted_socket;
   picorb_socket_t *pending_socket; /* pre-allocated, ready for next accept */
   picorb_state *vm;
-  void *event_queue;
-  bool event_pending;
   int port;
   int state;
 };
@@ -57,7 +55,6 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     if (pbuf) pbuf_free(pbuf);
     sock->state = SOCKET_STATE_ERROR;
     sock->connected = false;
-    picorb_socket_notify_readable(sock);
     D("tcp_server.c tcp_recv_callback: error, state set to ERROR");
     return err;
   }
@@ -67,7 +64,6 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
     sock->state = SOCKET_STATE_CLOSED;
     sock->connected = false;
     sock->closed = true;
-    picorb_socket_notify_readable(sock);
     D("tcp_server.c tcp_recv_callback: connection closed");
     return ERR_OK;
   }
@@ -99,7 +95,6 @@ tcp_recv_callback(void *arg, struct altcp_pcb *pcb, struct pbuf *pbuf, err_t err
   altcp_recved(pcb, total_len);
   pbuf_free(pbuf);
 
-  picorb_socket_notify_readable(sock);
   D("tcp_server.c tcp_recv_callback: success, total recv_len=%zu\n", sock->recv_len);
   return ERR_OK;
 }
@@ -122,7 +117,6 @@ tcp_err_callback(void *arg, err_t err)
   sock->state = SOCKET_STATE_ERROR;
   sock->connected = false;
   sock->pcb = NULL; /* PCB is already freed by LwIP */
-  picorb_socket_notify_readable(sock);
 }
 
 /* Accept callback - runs in LwIP callback context (may be IRQ/PendSV).
@@ -167,7 +161,6 @@ tcp_accept_callback(void *arg, struct altcp_pcb *newpcb, err_t err)
   altcp_recv(newpcb, tcp_recv_callback);
   altcp_sent(newpcb, tcp_sent_callback);
   altcp_err(newpcb, tcp_err_callback);
-  TCPServer_notify_accepted(server);
 
   return ERR_OK;
 }
@@ -300,7 +293,6 @@ TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server)
   /* Clear from server */
   server->accepted_socket = NULL;
   server->state = 0;
-  server->event_pending = false;
 
   /* Replenish pending_socket for the next accepted connection. */
   if (!server->pending_socket) {
@@ -361,11 +353,6 @@ TCPServer_close(picorb_state *vm, picorb_tcp_server_t *server)
     Net_busy_wait_ms(50);
   }
 
-  TCPServer_notify_accepted(server);
-  if (server->event_queue) {
-    picorb_free(vm, server->event_queue);
-    server->event_queue = NULL;
-  }
   picorb_free(vm, server);
   return true;
 }
@@ -388,36 +375,4 @@ TCPServer_listening(picorb_state *vm, picorb_tcp_server_t *server)
     return false;
   }
   return server->listen_pcb != NULL;
-}
-
-void
-TCPServer_set_event_queue(picorb_tcp_server_t *server, picorb_state *vm, void *queue)
-{
-  if (!server) return;
-  server->vm = vm;
-  server->event_queue = queue;
-}
-
-void*
-TCPServer_event_queue(picorb_tcp_server_t *server)
-{
-  return server ? server->event_queue : NULL;
-}
-
-picorb_state*
-TCPServer_vm(picorb_tcp_server_t *server)
-{
-  return server ? server->vm : NULL;
-}
-
-bool
-TCPServer_event_pending(picorb_tcp_server_t *server)
-{
-  return server && server->event_pending;
-}
-
-void
-TCPServer_set_event_pending(picorb_tcp_server_t *server, bool pending)
-{
-  if (server) server->event_pending = pending;
 }
