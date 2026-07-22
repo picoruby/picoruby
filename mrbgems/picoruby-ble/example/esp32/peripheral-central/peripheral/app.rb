@@ -11,9 +11,7 @@ class DemoPeripheral < BLE
   HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
   ATT_EVENT_CAN_SEND_NOW = 0xB7
   ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
-  GATT_CHARACTERISTIC_USER_DESCRIPTION = 0x2901
   SERVICE_ENVIRONMENTAL_SENSING = 0x181A
-  CHARACTERISTIC_EXTENDED_PROPERTIES = 0x2900
   CHARACTERISTIC_TEMPERATURE = 0x2A6E
 
   Utils = BLE::Utils
@@ -31,13 +29,6 @@ class DemoPeripheral < BLE
     db = BLE::GattDatabase.new do |db|
       db.add_service(GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
         s.add_characteristic(READ, BLE::GAP_DEVICE_NAME_UUID, READ, "esp32_core_s3")
-      end
-      db.add_service(GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
-        database_hash_key = 0.chr * 16
-        s.add_characteristic(READ, BLE::CHARACTERISTIC_DATABASE_HASH, READ, database_hash_key) do |c|
-          c.add_descriptor(READ, GATT_CHARACTERISTIC_USER_DESCRIPTION, "Database Hash")
-          c.add_descriptor(READ|WRITE, CHARACTERISTIC_EXTENDED_PROPERTIES, "\x00\x01")
-        end
       end
       db.add_service(GATT_PRIMARY_SERVICE_UUID, SERVICE_ENVIRONMENTAL_SENSING) do |s|
         s.add_characteristic(READ|BLE::NOTIFY|BLE::INDICATE|DYNAMIC, CHARACTERISTIC_TEMPERATURE, READ|DYNAMIC, "") do |c|
