@@ -4,7 +4,7 @@ class I2C
   DEFAULT_FREQUENCY = 100_000 # Hz
   DEFAULT_TIMEOUT = 500 # ms
 
-  def initialize(unit:, frequency: DEFAULT_FREQUENCY, sda_pin: -1, scl_pin: -1, timeout: DEFAULT_TIMEOUT)
+  def initialize(unit: nil, frequency: DEFAULT_FREQUENCY, sda_pin: -1, scl_pin: -1, timeout: DEFAULT_TIMEOUT)
     @timeout = timeout
     @unit_num = _init(unit.to_s, frequency, sda_pin, scl_pin)
   end

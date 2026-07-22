@@ -21,7 +21,7 @@ class UART
   attr_reader baudrate: Integer
 
   def initialize: (
-    unit: unit_t,
+    ?unit: unit_t?,
     ?txd_pin: Integer,
     ?rxd_pin: Integer,
     ?baudrate: Integer,

@@ -96,6 +96,89 @@ SPI_unit_name_to_unit_num(const char *unit_name)
   }
 }
 
+/*
+ * RP2040 GPIO function-select table (valid for RP2350 QFN-60 as well).
+ * Each array lists the GPIOs usable as the given SPI signal, terminated by -1.
+ * CS is intentionally omitted: it is driven as a plain GPIO.
+ */
+static const int8_t spi0_sck_pins[]  = {2, 6, 18, 22, -1};
+static const int8_t spi1_sck_pins[]  = {10, 14, 26, -1};
+static const int8_t spi0_cipo_pins[] = {0, 4, 16, 20, -1};
+static const int8_t spi1_cipo_pins[] = {8, 12, 24, 28, -1};
+static const int8_t spi0_copi_pins[] = {3, 7, 19, 23, -1};
+static const int8_t spi1_copi_pins[] = {11, 15, 27, -1};
+
+/* Return the unit that owns pin for the given signal, or -1 if none. */
+static int
+pin_to_unit(const int8_t *spi0_pins, const int8_t *spi1_pins, int pin)
+{
+  int i = 0;
+  while (spi0_pins[i] != -1) {
+    if (spi0_pins[i] == pin) {
+      return PICORB_SPI_RP2040_SPI0;
+    }
+    i++;
+  }
+  i = 0;
+  while (spi1_pins[i] != -1) {
+    if (spi1_pins[i] == pin) {
+      return PICORB_SPI_RP2040_SPI1;
+    }
+    i++;
+  }
+  return -1;
+}
+
+int
+SPI_unit_num_from_pins(const char *unit_name, int sck_pin, int cipo_pin, int copi_pin)
+{
+  if (unit_name && strcmp(unit_name, "BITBANG") == 0) {
+    return PICORB_SPI_BITBANG;
+  }
+  int candidate = -1;
+  if (0 <= sck_pin) {
+    int u = pin_to_unit(spi0_sck_pins, spi1_sck_pins, sck_pin);
+    if (u < 0) {
+      return SPI_ERROR_UNIT_MISMATCH;
+    }
+    candidate = u;
+  }
+  if (0 <= cipo_pin) {
+    int u = pin_to_unit(spi0_cipo_pins, spi1_cipo_pins, cipo_pin);
+    if (u < 0) {
+      return SPI_ERROR_UNIT_MISMATCH;
+    }
+    if (0 <= candidate && candidate != u) {
+      return SPI_ERROR_UNIT_MISMATCH;
+    }
+    candidate = u;
+  }
+  if (0 <= copi_pin) {
+    int u = pin_to_unit(spi0_copi_pins, spi1_copi_pins, copi_pin);
+    if (u < 0) {
+      return SPI_ERROR_UNIT_MISMATCH;
+    }
+    if (0 <= candidate && candidate != u) {
+      return SPI_ERROR_UNIT_MISMATCH;
+    }
+    candidate = u;
+  }
+  if (unit_name && unit_name[0] != '\0') {
+    int name_unit = SPI_unit_name_to_unit_num(unit_name);
+    if (name_unit < 0) {
+      return SPI_ERROR_INVALID_UNIT;
+    }
+    if (0 <= candidate && candidate != name_unit) {
+      return SPI_ERROR_UNIT_MISMATCH;
+    }
+    return name_unit;
+  }
+  if (candidate < 0) {
+    return SPI_ERROR_UNDETERMINED;
+  }
+  return candidate;
+}
+
 spi_status_t
 SPI_gpio_init(spi_unit_info_t *unit_info)
 {

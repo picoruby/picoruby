@@ -158,6 +158,14 @@ def configure_test_collection_build(conf, vm_type)
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
   if vm_type == 'femtoruby'
     conf.cc.defines << "PICORB_VM_MRUBYC"
+    # Real FemtoRuby builds define PICORB_INT64, which lib/picoruby/build.rb
+    # (the #femtoruby helper) translates to MRBC_INT64 (64-bit mrbc_int_t).
+    # This build does not go through that helper, so define MRBC_INT64
+    # directly to keep the test VM's integer width in sync with production.
+    # Without it, mrbc_int_t defaults to 32-bit and microsecond timestamps
+    # (e.g. UART#last_read_timestamp_us) overflow to negative after ~35 min uptime.
+    conf.cc.defines << "PICORB_INT64"
+    conf.cc.defines << "MRBC_INT64"
   else
     conf.cc.defines << "PICORB_VM_MRUBY"
   end

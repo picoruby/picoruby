@@ -138,6 +138,18 @@ UART_rxOverflowCount(RingBuffer *ring_buffer)
   return rx_metadata(ring_buffer)->overflow_count;
 }
 
+int
+UART_resolve_unit_num(const char *unit_name, int txd_pin, int rxd_pin)
+{
+#if defined(PICORB_PLATFORM_RP2)
+  return UART_unit_num_from_pins(unit_name, txd_pin, rxd_pin);
+#else
+  (void)txd_pin;
+  (void)rxd_pin;
+  return UART_unit_name_to_unit_num(unit_name);
+#endif
+}
+
 #if defined(PICORB_VM_MRUBY)
 
 #include "mruby/uart.c"

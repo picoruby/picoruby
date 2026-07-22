@@ -24,6 +24,8 @@ extern "C" {
 typedef enum {
  UART_ERROR_NONE          =  0,
  UART_ERROR_INVALID_UNIT  = -1,
+ UART_ERROR_UNIT_MISMATCH = -2,
+ UART_ERROR_UNDETERMINED  = -3,
 } uart_status_t;
 
 typedef void (*PushBuffer)(RingBuffer *ring_buffer, uint8_t ch);
@@ -38,6 +40,14 @@ bool UART_lastReadTimestamp(RingBuffer *ring_buffer, uint64_t *timestamp_us);
 uint32_t UART_rxOverflowCount(RingBuffer *ring_buffer);
 
 int UART_unit_name_to_unit_num(const char *unit_name);
+/*
+ * Resolve the unit number from the given unit name and pins.
+ * On RP2 the unit can be inferred from the pins when unit_name is empty, and a
+ * mismatch between unit_name and pins (or between pins) yields a negative error
+ * code. On other platforms this falls back to UART_unit_name_to_unit_num().
+ */
+int UART_resolve_unit_num(const char *unit_name, int txd_pin, int rxd_pin);
+int UART_unit_num_from_pins(const char *unit_name, int txd_pin, int rxd_pin);
 void UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buffer);
 uint32_t UART_set_baudrate(int unit_num, uint32_t baudrate);
 void UART_set_flow_control(int unit_num, bool cts, bool rts);

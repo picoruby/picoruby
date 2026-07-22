@@ -9,7 +9,7 @@ class I2C
   @timeout: Integer
 
   def initialize: (
-    unit: Symbol|nil,
+    ?unit: Symbol|nil,
     ?frequency: Integer,
     ?sda_pin: Integer,
     ?scl_pin: Integer,

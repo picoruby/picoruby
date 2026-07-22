@@ -55,7 +55,15 @@ mrb_open_connection(mrb_state *mrb, mrb_value self)
   mrb_value rx_buffer;
   mrb_get_args(mrb, "ziio", &unit_name, &txd_pin, &rxd_pin, &rx_buffer);
   (void)rx_buffer; // for compatibility with mruby/c
-  int unit_num = UART_unit_name_to_unit_num(unit_name);
+  int unit_num = UART_resolve_unit_num(unit_name, (int)txd_pin, (int)rxd_pin);
+  if (unit_num == UART_ERROR_UNIT_MISMATCH) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "UART: pins conflict with unit or are invalid for UART");
+  } else if (unit_num == UART_ERROR_UNDETERMINED) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "UART: cannot determine unit; specify unit or valid pins");
+  } else if (unit_num < 0) {
+    struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
+    mrb_raise(mrb, IOError, "UART: invalid unit name");
+  }
   RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
   UART_init(unit_num, txd_pin, rxd_pin, rx);
   return mrb_fixnum_value(unit_num);

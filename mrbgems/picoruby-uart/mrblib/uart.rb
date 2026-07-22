@@ -2,7 +2,7 @@ require "gpio"
 
 class UART
   def initialize(
-        unit:,
+        unit: nil,
         txd_pin: -1,
         rxd_pin: -1,
         baudrate: 9600,

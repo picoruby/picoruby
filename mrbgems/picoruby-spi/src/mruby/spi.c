@@ -234,14 +234,15 @@ mrb_cs_pin(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_s_init(mrb_state *mrb, mrb_value klass)
 {
-  int unit_num = PICORB_SPI_BITBANG;
   const char *unit_name;
   mrb_int frequency, sck_pin, cipo_pin, copi_pin, cs_pin, mode, first_bit, data_bits;
   mrb_get_args(mrb, "ziiiiiiii", &unit_name, &frequency, &sck_pin, &cipo_pin, &copi_pin, &cs_pin, &mode, &first_bit, &data_bits);
-  if (strcmp(unit_name, "BITBANG") != 0) {
-    unit_num = SPI_unit_name_to_unit_num(unit_name);
-  }
-  if (unit_num < 0) {
+  int unit_num = SPI_resolve_unit_num(unit_name, (int)sck_pin, (int)cipo_pin, (int)copi_pin);
+  if (unit_num == SPI_ERROR_UNIT_MISMATCH) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "SPI: pins conflict with unit or are invalid for SPI");
+  } else if (unit_num == SPI_ERROR_UNDETERMINED) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "SPI: cannot determine unit; specify unit or valid pins");
+  } else if (unit_num < 0) {
     struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
     mrb_raise(mrb, IOError, "Invalid SPI unit name");
   }
