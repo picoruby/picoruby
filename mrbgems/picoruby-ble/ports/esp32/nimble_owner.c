@@ -7,7 +7,14 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 #include "esp_timer.h"
+#include "esp_log.h"
 #include "nvs_flash.h"
+
+/* Diagnostic-only tag for tracing the evq -> dispatch_timer -> BLE_push_event
+ * path while the systemic BTSTACK_EVENT_STATE delivery bug (state never
+ * advances past TC_OFF on Central/Peripheral) is being root-caused. See
+ * stackchan-picoruby/docs/superpowers/handoff/2026-07-22-ble-role-coverage-verification-evidence.md. */
+static const char *TAG = "prb_ble_evq";
 
 #include "nimble/nimble_port.h"
 #include "nimble/nimble_port_freertos.h"
@@ -84,6 +91,7 @@ dispatch_timer_cb(void *arg)
   evq_head = (evq_head + 1) % EVQ_DEPTH;
   evq_count--;
   taskEXIT_CRITICAL(&evq_mux);
+  ESP_LOGI(TAG, "dispatch_timer_cb: popped evt=0x%02x len=%u, calling BLE_push_event", entry.data[0], entry.len);
   BLE_push_event(entry.data, entry.len);
 }
 
@@ -100,7 +108,9 @@ picoruby_nimble_heartbeat_enable(bool enable)
   if (heartbeat_timer == NULL) return;
   if (enable) {
     if (!esp_timer_is_active(heartbeat_timer)) {
-      esp_timer_start_periodic(heartbeat_timer, HEARTBEAT_PERIOD_US);
+      esp_err_t err = esp_timer_start_periodic(heartbeat_timer, HEARTBEAT_PERIOD_US);
+      ESP_LOGI(TAG, "esp_timer_start_periodic(heartbeat) -> %s, is_active=%d",
+               esp_err_to_name(err), esp_timer_is_active(heartbeat_timer));
     }
   } else {
     esp_timer_stop(heartbeat_timer);
@@ -141,14 +151,16 @@ ensure_timers(void)
       .callback = dispatch_timer_cb,
       .name = "prb_ble_evq",
     };
-    esp_timer_create(&dargs, &dispatch_timer);
+    esp_err_t err = esp_timer_create(&dargs, &dispatch_timer);
+    ESP_LOGI(TAG, "esp_timer_create(dispatch) -> %s", esp_err_to_name(err));
   }
   if (heartbeat_timer == NULL) {
     const esp_timer_create_args_t hargs = {
       .callback = heartbeat_timer_cb,
       .name = "prb_ble_hb",
     };
-    esp_timer_create(&hargs, &heartbeat_timer);
+    esp_err_t err = esp_timer_create(&hargs, &heartbeat_timer);
+    ESP_LOGI(TAG, "esp_timer_create(heartbeat) -> %s", esp_err_to_name(err));
   }
 }
 
@@ -200,7 +212,9 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
   }
 
   if (!esp_timer_is_active(dispatch_timer)) {
-    esp_timer_start_periodic(dispatch_timer, EVQ_DISPATCH_PERIOD_US);
+    esp_err_t err = esp_timer_start_periodic(dispatch_timer, EVQ_DISPATCH_PERIOD_US);
+    ESP_LOGI(TAG, "esp_timer_start_periodic(dispatch) -> %s, is_active=%d",
+             esp_err_to_name(err), esp_timer_is_active(dispatch_timer));
   }
   started = true;
   return 0;
