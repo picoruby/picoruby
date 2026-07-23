@@ -10,10 +10,6 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 
-/* Diagnostic-only tag for tracing the evq -> dispatch_timer -> BLE_push_event
- * path while the systemic BTSTACK_EVENT_STATE delivery bug (state never
- * advances past TC_OFF on Central/Peripheral) is being root-caused. See
- * stackchan-picoruby/docs/superpowers/handoff/2026-07-22-ble-role-coverage-verification-evidence.md. */
 static const char *TAG = "prb_ble_evq";
 
 #include "nimble/nimble_port.h"
@@ -25,7 +21,6 @@ static const char *TAG = "prb_ble_evq";
 
 #define EVQ_DEPTH 32
 #define EVQ_PKT_MAX 100
-#define EVQ_DISPATCH_PERIOD_US (150 * 1000)
 #define HEARTBEAT_PERIOD_US (1000 * 1000)
 #define SYNC_TIMEOUT_TICKS pdMS_TO_TICKS(2000)
 
@@ -44,7 +39,6 @@ static bool started = false;
 static volatile bool synced = false;
 static uint8_t own_addr_type = BLE_OWN_ADDR_PUBLIC;
 static SemaphoreHandle_t sync_sem = NULL;
-static esp_timer_handle_t dispatch_timer = NULL;
 static esp_timer_handle_t heartbeat_timer = NULL;
 
 void
@@ -77,22 +71,33 @@ picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_ad
   taskEXIT_CRITICAL(&evq_mux);
 }
 
-static void
-dispatch_timer_cb(void *arg)
+/* Pops one queued event into `out` (capacity `cap`), returns its length or 0
+ * if empty/dropped. Touches only the plain evq ring buffer (critical-section
+ * guarded) — never mruby. Must be called from the VM thread only: darwin's
+ * port (ports/darwin/src/mruby/ble.c, PicoBLECentral.swift) documents that
+ * BLE_push_event (which calls mrb_malloc/mrb_free against the GC-managed
+ * heap) must have exactly one caller, the VM thread itself. This port used to
+ * violate that by calling BLE_push_event directly from dispatch_timer_cb on
+ * the esp_timer service task (tiny dedicated stack) — confirmed via hardware
+ * trace to silently fail there (BLE_push_event's own trace lines never even
+ * printed), which is why BTSTACK_EVENT_STATE never reached Ruby. See
+ * stackchan-picoruby/docs/superpowers/handoff/2026-07-22-ble-role-coverage-verification-evidence.md. */
+uint16_t
+picoruby_nimble_dequeue_event(uint8_t *out, uint16_t cap)
 {
-  (void)arg;
   evq_entry_t entry;
   taskENTER_CRITICAL(&evq_mux);
   if (evq_count == 0) {
     taskEXIT_CRITICAL(&evq_mux);
-    return;
+    return 0;
   }
   entry = evq[evq_head];
   evq_head = (evq_head + 1) % EVQ_DEPTH;
   evq_count--;
   taskEXIT_CRITICAL(&evq_mux);
-  ESP_LOGI(TAG, "dispatch_timer_cb: popped evt=0x%02x len=%u, calling BLE_push_event", entry.data[0], entry.len);
-  BLE_push_event(entry.data, entry.len);
+  if (entry.len > cap) return 0;
+  memcpy(out, entry.data, entry.len);
+  return entry.len;
 }
 
 static void
@@ -146,14 +151,6 @@ host_task(void *param)
 static void
 ensure_timers(void)
 {
-  if (dispatch_timer == NULL) {
-    const esp_timer_create_args_t dargs = {
-      .callback = dispatch_timer_cb,
-      .name = "prb_ble_evq",
-    };
-    esp_err_t err = esp_timer_create(&dargs, &dispatch_timer);
-    ESP_LOGI(TAG, "esp_timer_create(dispatch) -> %s", esp_err_to_name(err));
-  }
   if (heartbeat_timer == NULL) {
     const esp_timer_create_args_t hargs = {
       .callback = heartbeat_timer_cb,
@@ -211,11 +208,6 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
     return -1;
   }
 
-  if (!esp_timer_is_active(dispatch_timer)) {
-    esp_err_t err = esp_timer_start_periodic(dispatch_timer, EVQ_DISPATCH_PERIOD_US);
-    ESP_LOGI(TAG, "esp_timer_start_periodic(dispatch) -> %s, is_active=%d",
-             esp_err_to_name(err), esp_timer_is_active(dispatch_timer));
-  }
   started = true;
   return 0;
 }
@@ -225,7 +217,6 @@ picoruby_nimble_stop(void)
 {
   if (!started) return 0;
   picoruby_nimble_heartbeat_enable(false);
-  if (dispatch_timer) esp_timer_stop(dispatch_timer);
   ble_gap_adv_stop();
   ble_gap_disc_cancel();
   nimble_port_stop();

@@ -5,6 +5,10 @@
 #include "mruby/array.h"
 #include "task.h"
 
+#ifdef ESP32_PLATFORM
+#include "../../ports/esp32/nimble_owner.h"
+#endif
+
 /*
  * GC strategy: only the current BLE instance is pinned with
  * mrb_gc_register (BTstack is a hardware singleton, so there is at
@@ -54,6 +58,18 @@ static mrb_value
 mrb_event_popped(mrb_state *mrb, mrb_value self)
 {
   if (0 < pending_event_count) pending_event_count--;
+#ifdef ESP32_PLATFORM
+  /* NimBLE delivers events on its own FreeRTOS task via a plain (non-mruby)
+   * evq ring buffer (ports/esp32/nimble_owner.c). BLE_push_event calls
+   * mrb_malloc/mrb_free against the GC-managed heap, so draining the ring
+   * buffer must happen here, on the VM thread that owns mrb_state — never
+   * from the NimBLE host task or an esp_timer callback directly. */
+  {
+    uint8_t buf[100];
+    uint16_t n = picoruby_nimble_dequeue_event(buf, sizeof(buf));
+    if (n > 0) BLE_push_event(buf, n);
+  }
+#endif
   return mrb_nil_value();
 }
 
