@@ -60,12 +60,10 @@ if(USE_WIFI)
   list(APPEND SOURCE_FILES ${ADD_WIFI_SOURCE_FILES})
   # WiFi builds use picoruby-socket instead of picoruby-net to avoid function conflicts.
   file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-    ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
   )
 else()
   file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-      ${PICORUBY_ROOT}/mrbgems/picoruby-filesystem-fat/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-cyw43/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-socket/ports/rp2040/*.c

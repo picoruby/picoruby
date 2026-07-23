@@ -116,7 +116,6 @@ Use ROM-based certificates with physical memory addresses:
 
 ```ruby
 require 'socket'
-require 'fat'  # picoruby-filesystem-fat
 
 # Open CA certificate file from flash
 file = FAT::File.new("/flash/ca-bundle.crt", "r")
