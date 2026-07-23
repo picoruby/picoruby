@@ -1,3 +1,5 @@
 class SQLite3
   type sqlite3_var_t = String | Integer | Float | nil | bool
+  # A Hash binds the statement's named parameters instead of a positional one
+  type sqlite3_bind_t = sqlite3_var_t | Hash[Symbol, sqlite3_var_t]
 end

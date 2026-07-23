@@ -11,7 +11,7 @@ class SQLite3
     def eof?: () -> bool
     def close: () -> void
     def closed?: () -> bool
-    def types: () -> Array[String]
+    def types: () -> Array[String?]
     def columns: () -> Array[String]
   end
 end

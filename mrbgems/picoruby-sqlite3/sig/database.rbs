@@ -10,11 +10,11 @@ class SQLite3
 
     def close: () -> void
     def closed?: () -> bool
-    def execute: (String sql, ?Array[sqlite3_var_t] bind_vars) -> Array[Array[sqlite3_var_t] | Hash[String, sqlite3_var_t]]
-               | (String sql, ?Array[sqlite3_var_t] bind_vars) { (Array[sqlite3_var_t])        -> Array[sqlite3_var_t]        } -> nil
-               | (String sql, ?Array[sqlite3_var_t] bind_vars) { (Hash[String, sqlite3_var_t]) -> Hash[String, sqlite3_var_t] } -> nil
+    def execute: (String sql, ?Array[sqlite3_bind_t] bind_vars) -> Array[Array[sqlite3_var_t] | Hash[String, sqlite3_var_t]]
+               | (String sql, ?Array[sqlite3_bind_t] bind_vars) { (Array[sqlite3_var_t])        -> Array[sqlite3_var_t]        } -> nil
+               | (String sql, ?Array[sqlite3_bind_t] bind_vars) { (Hash[String, sqlite3_var_t]) -> Hash[String, sqlite3_var_t] } -> nil
                 # FIXME: this is a hack to work around the fact that we can't
-               | (String sql, ?Array[sqlite3_var_t] bind_vars) { (untyped) -> untyped } -> nil
+               | (String sql, ?Array[sqlite3_bind_t] bind_vars) { (untyped) -> untyped } -> nil
     def prepare: (String sql) { (SQLite3::Statement) -> untyped } -> nil
                | (String sql) -> SQLite3::Statement
   end

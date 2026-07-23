@@ -4,13 +4,13 @@ class SQLite3
     @results: SQLite3::ResultSet
     @remainder: String
     @columns: Array[String]
-    @types: Array[String]
+    @types: Array[String?]
 
     def self.new: (SQLite3::Database db, String sql) -> SQLite3::Statement
-    def bind_params: (*(sqlite3_var_t | Hash[Symbol, sqlite3_var_t]) bind_vars) -> Array[sqlite3_var_t | Hash[Symbol, sqlite3_var_t]]
+    def bind_params: (*sqlite3_bind_t bind_vars) -> Array[sqlite3_bind_t]
     def bind_param: (Integer|Symbol|String key, sqlite3_var_t var) -> self
-    def execute: (*sqlite3_var_t bind_vars) -> SQLite3::ResultSet
-               | (*sqlite3_var_t bind_vars) { (SQLite3::ResultSet) -> nil } -> nil
+    def execute: (*sqlite3_bind_t bind_vars) -> SQLite3::ResultSet
+               | (*sqlite3_bind_t bind_vars) { (SQLite3::ResultSet) -> nil } -> nil
     def closed?: -> bool
     def close: -> self
     def step: -> (Array[sqlite3_var_t] | nil)
@@ -19,9 +19,9 @@ class SQLite3
     def done?: -> bool
     def column_count: -> Integer
     def columns: -> Array[String]
-    def column_name: (Integer index) -> String?
+    def column_name: (Integer index) -> String
     def column_decltype: (Integer index) -> String?
-    def types: -> Array[String]
+    def types: -> Array[String?]
     def must_be_open!: -> nil
     def get_metadata: -> void
 #    def each: () { (Array[sqlite3_var_t] | nil) -> self } -> self
