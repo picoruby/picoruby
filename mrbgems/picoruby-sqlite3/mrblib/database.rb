@@ -6,9 +6,10 @@ class SQLite3
     class << self
       def new(filename, results_as_hash: false)
         volume, path = VFS.sanitize_and_split(filename)
-        SQLite3.vfs_methods = volume[:driver].class.vfs_methods
-        SQLite3.time_methods = Time.time_methods
-        db = _open("#{volume[:driver].prefix}#{path}")
+        # The driver prepends its own prefix, so every path SQLite derives
+        # from this one (journals, temporary files) stays valid too
+        db = _open(volume[:driver], path)
+        db.results_as_hash = results_as_hash
         if block_given?
           begin
             yield db
@@ -16,7 +17,6 @@ class SQLite3
             db.close
           end
         end
-        db.results_as_hash = results_as_hash
         return db
       end
       alias :open :new

@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'SQLite3'
 
-  spec.add_dependency 'picoruby-mrubyc'
+  spec.add_conflict 'picoruby-mrubyc'
   spec.add_dependency 'picoruby-vfs'
   spec.add_dependency 'picoruby-time'
 
