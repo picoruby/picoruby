@@ -14,6 +14,11 @@
 
 #include "ble_common.h"
 #include "nimble_owner.h"
+#include "esp_log.h"
+
+/* See ports/esp32/nimble_owner.c for the companion dispatch-path tracing;
+ * both share the systemic BTSTACK_EVENT_STATE-never-arrives investigation. */
+static const char *BLE_TAG = "prb_ble_evq";
 
 #define EVT_BTSTACK_STATE 0x60
 #define EVT_DISCONNECTION_COMPLETE 0x05
@@ -340,6 +345,7 @@ void
 picoruby_ble_synth_state_working(void)
 {
   uint8_t p[3] = { EVT_BTSTACK_STATE, 1, HCI_STATE_WORKING };
+  ESP_LOGI(BLE_TAG, "picoruby_ble_synth_state_working: enqueueing EVT_BTSTACK_STATE/HCI_STATE_WORKING");
   picoruby_nimble_enqueue_event(p, sizeof(p), false);
 }
 
@@ -512,6 +518,7 @@ BLE_init(const uint8_t *profile_data, int ble_role)
 void
 BLE_hci_power_control(uint8_t power_mode)
 {
+  ESP_LOGI(BLE_TAG, "BLE_hci_power_control(%u): started=%d", power_mode, picoruby_nimble_started());
   if (!picoruby_nimble_started()) return;
   if (power_mode == 1) {
     picoruby_nimble_heartbeat_enable(true);
