@@ -1,9 +1,11 @@
 module YAML
-  def self.load: (String) -> Object
-  def self.load_file: (String) -> Object
+  # The loaded document is a Hash, an Array or a scalar depending on the
+  # source, so the return type cannot be narrowed here.
+  def self.load: (String) -> untyped
+  def self.load_file: (String) -> untyped
   def self.dump: (Object) -> String
 
-  private def self.parse: (String) -> Object
+  private def self.parse: (String) -> untyped
   private def self.parse_value: (String) -> (Integer | Float | bool | nil | String)
   private def self.serialize: (Object, ?Integer) -> String
   private def self.count_leading_spaces: (String) -> Integer

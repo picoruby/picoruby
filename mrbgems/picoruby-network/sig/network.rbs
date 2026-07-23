@@ -4,6 +4,15 @@ module Network
 
   type wifi_t = (::CYW43 | ::ESP32::WiFi)
   class WiFi
+    # Mirrors CYW43::Auth and ESP32::WiFi::Auth. The values differ between
+    # the two backends, so only the constant names are declared here.
+    class Auth
+      OPEN: Integer
+      WPA_TKIP_PSK: Integer
+      WPA2_AES_PSK: Integer
+      WPA2_MIXED_PSK: Integer
+    end
+
     def self.init: (?String country, ?force: bool) -> bool
     def self.initialized?: () -> bool
     def self.connect_timeout: (String ssid, String password, Integer auth, ?Integer timeout) -> bool

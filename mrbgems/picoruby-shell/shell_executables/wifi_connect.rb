@@ -53,15 +53,12 @@ end
 
 # Load the file
 
-# @rbs config: {
-#        "wifi": {
-#          "ssid": String,
-#          "password": String,
-#          "auto_connect": bool,
-#          "retry_if_failed": bool
-#        },
-#        "country_code": String
-#       }
+# The YAML file is expected to have the following shape:
+#   { "wifi" => { "ssid" => String, "encoded_password" => String,
+#                 "auto_connect" => bool, "retry_if_failed" => bool,
+#                 "watchdog" => bool },
+#     "country_code" => String }
+# @type var config: Hash[String, untyped]
 config = File.open(wifi_config_path, "r") do |f|
   YAML.load(f.read.to_s)
 end

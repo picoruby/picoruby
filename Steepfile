@@ -32,8 +32,6 @@ target :mrbgems do
   ignore "build"
   ignore "mrbgems/picoruby-prk-*/mrblib/*.rb"
 
-  # TODO: Fix after removal of picoruby-net
-  ignore "mrbgems/picoruby-shell/shell_executables/wifi_connect.rb"
   # Task class sig is excluded from signature loading (task-ext)
   ignore "mrbgems/picoruby-shell/shell_executables/taskstat.rb"
   # We need to figure out how to manage shell commands
