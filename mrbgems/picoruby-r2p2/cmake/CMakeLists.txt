@@ -58,14 +58,9 @@ if(USE_WIFI)
     ${PICO_SDK_PATH}/src/rp2_common/pico_mbedtls/pico_mbedtls.c
   )
   list(APPEND SOURCE_FILES ${ADD_WIFI_SOURCE_FILES})
-  # WiFi builds use picoruby-socket instead of picoruby-net to avoid function conflicts.
-  file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
-    ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
-  )
 else()
   file(GLOB REMOVE_WIFI_SRCS CONFIGURE_DEPENDS
     ${PICORUBY_ROOT}/mrbgems/picoruby-cyw43/ports/rp2040/*.c
-    ${PICORUBY_ROOT}/mrbgems/picoruby-net/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-socket/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-ble/ports/rp2040/*.c
     ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/ports/**/*.c
@@ -264,7 +259,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-mbedtls/lib/mbedtls/library
-  ${PICORUBY_ROOT}/mrbgems/picoruby-net/include
   ${EXTRA_INCLUDE_DIR}
 )
 

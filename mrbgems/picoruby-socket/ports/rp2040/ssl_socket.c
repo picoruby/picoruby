@@ -1,6 +1,5 @@
 /*
  * SSL Socket implementation for rp2040 using LwIP altcp_tls
- * Similar approach to picoruby-net for stability
  */
 
 #include "../../include/socket.h"
@@ -450,7 +449,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
     (unsigned int)ip4_addr3(&ip_addr),
     (unsigned int)ip4_addr4(&ip_addr));
 
-  /* Create TLS config (always create new one, like picoruby-net) */
+  /* Create TLS config (always create new one) */
   D("SSL: creating TLS config");
   struct altcp_tls_config *tls_config;
 
@@ -526,7 +525,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   }
   mbedtls_ssl_set_hostname(ssl_ctx, ssl_sock->hostname);
 
-  /* Setup callbacks (same order as picoruby-net, with altcp_arg last) */
+  /* Setup callbacks */
   D("SSL: setting callbacks");
   altcp_recv(ssl_sock->tls_pcb, ssl_recv_callback);
   altcp_sent(ssl_sock->tls_pcb, ssl_sent_callback);
@@ -534,7 +533,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   altcp_poll(ssl_sock->tls_pcb, ssl_poll_callback, 10);
   altcp_arg(ssl_sock->tls_pcb, ssl_sock);
 
-  /* Small delay before connecting (like picoruby-net's function boundary) */
+  /* Small delay before connecting */
   D("SSL: waiting before connect");
   Net_busy_wait_ms(100);
 

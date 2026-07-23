@@ -211,7 +211,7 @@ TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int
   }
   D("TCP: DNS ok");
 
-  /* Setup callbacks (same order as picoruby-net, with altcp_arg last) */
+  /* Setup callbacks */
   altcp_recv(sock->pcb, tcp_recv_callback);
   altcp_sent(sock->pcb, tcp_sent_callback);
   altcp_err(sock->pcb, tcp_err_callback);

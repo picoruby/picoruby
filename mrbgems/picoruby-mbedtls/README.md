@@ -91,6 +91,6 @@ pkey = MbedTLS::PKey.new
 ## Notes
 
 - Always call `free()` to release resources when done
-- Used internally by `picoruby-net` for HTTPS/TLS
+- Used internally by `picoruby-socket` for HTTPS/TLS
 - Suitable for secure communications and data protection
 - Memory-efficient implementations for embedded systems

@@ -79,10 +79,6 @@ def run_test_for_gems(vm_type, specified_gem)
   end
 
   puts "Strategy: Full build for"
-  # workaround. TODO: delete this after removal of picoruby-net
-  if gems.any?{|gem| gem[:name] == 'picoruby-net' } && gems.any?{|gem| gem[:name] == 'picoruby-socket' }
-    gems.reject!{|gem| gem[:name] == 'picoruby-net' }
-  end
   gems.each { |gem| puts "  - #{gem[:name]}" }
   config_path = create_temp_build_config("#{vm_type}-test.rb", gems, vm_type)
   puts "Building test binary on #{vm_type}..."
@@ -310,7 +306,6 @@ def gem_supported_for_test_target?(spec, vm_type)
   return false if vm_type == 'femtoruby' && depends_on_gem?(spec.build, spec, 'picoruby-mruby')
   return false if vm_type == 'femtoruby' && conflicts_with_gem?(spec.build, spec, 'picoruby-mrubyc')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-socket')
-  return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-net')
   # Only test gems that actually ship in the production WASM binary. The set is
   # derived from build_config/picoruby-wasm.rb (its gemboxes and transitive
   # dependencies included), so hardware gems (uart, gpio, ...) that never build

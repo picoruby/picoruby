@@ -337,7 +337,6 @@ MIT License - see LICENSE file for details
 
 - `picoruby-net-http` - Net::HTTP implementation (Phase 4)
 - `picoruby-mbedtls` - TLS/SSL support (Phase 5)
-- `picoruby-net` - Legacy network implementation (deprecated)
 
 ## Design Documents
 
