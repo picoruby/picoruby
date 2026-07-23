@@ -3,9 +3,8 @@
 Pure Ruby rotary encoder driver for PicoRuby, built on top of
 [picoruby-irq](../picoruby-irq/README.md).
 
-Unlike [picoruby-prk-rotary_encoder](../picoruby-prk-rotary_encoder/README.md),
-which uses a C-level GPIO IRQ callback, this gem implements the quadrature
-decoding state machine entirely in Ruby using the high-level `IRQ` API.
+This gem implements the quadrature decoding state machine entirely in Ruby
+using the high-level `IRQ` API.
 
 ## Hardware
 
@@ -65,9 +64,8 @@ Sets the block to call when a counterclockwise rotation is detected.
 
 ## Quadrature Decoding
 
-The state machine is a direct port of the C implementation in
-`picoruby-prk-rotary_encoder`.  Both phase-A and phase-B edges are captured
-via IRQ.  The active-low pin state is encoded as:
+Both phase-A and phase-B edges are captured via IRQ.
+The active-low pin state is encoded as:
 
 ```
 current = (pin_a LOW ? 0b10 : 0b00) | (pin_b LOW ? 0b01 : 0b00)
