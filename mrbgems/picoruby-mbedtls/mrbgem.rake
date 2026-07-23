@@ -88,6 +88,12 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   spec.cc.include_paths << "#{mbedtls_dir}/include"
   spec.cc.include_paths << "#{dir}/include"
 
+  # While DTLS is disabled, config_adjust_ssl.h #undefs
+  # MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT, then ssl.h evaluates it with
+  # a bare #if, triggering -Wundef (upstream bug, present up to v3.6.7).
+  # It cannot be fixed from the config file, so suppress the warning.
+  spec.cc.flags << '-Wno-undef'
+
   # For ESP32, use Mbed TLS provided by ESP-IDF
   unless build.platform?(:esp32)
     spec.objs += Dir.glob("#{mbedtls_dir}/library/*.{c,cpp,m,asm,S}").map do |f|

@@ -4,8 +4,12 @@
  */
 #define MBEDTLS_PLATFORM_C
 
-/* R2P2 uses TLS over TCP; keep DTLS disabled to reduce TLS state. */
-#define MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT 0
+/*
+ * R2P2 uses TLS over TCP; DTLS stays disabled to reduce TLS state.
+ * Do not try to define MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT here to
+ * silence the -Wundef warning in ssl.h; config_adjust_ssl.h #undefs it
+ * while MBEDTLS_SSL_PROTO_DTLS is disabled, so the definition is dead.
+ */
 
 // #define MBEDTLS_TIMING_C
 // #define MBEDTLS_TIMING_ALT
