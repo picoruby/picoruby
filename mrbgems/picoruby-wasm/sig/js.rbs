@@ -1,5 +1,5 @@
 module JS
-  class Object
+  class Object < BasicObject
     # Global state (consider refactoring)
     $promise_responses: Hash[Integer, untyped]
     $promise_errors: Hash[Integer, untyped]
@@ -19,6 +19,16 @@ module JS
     # == compares ref_id to another JS::Object; returns false for any Ruby
     # native value, which will never match a composite JS::Object anyway.
     def ==: (untyped other) -> bool
+
+    # Ruby protocol predicates defined in C. Their names end in `?`, which
+    # is illegal in a JS identifier, so they never shadow a JS property.
+    # Any other name ending in `?` or `!` raises NoMethodError instead of
+    # being forwarded to JS.
+    def nil?: () -> false
+    def is_a?: (Module klass) -> bool
+    def kind_of?: (Module klass) -> bool
+    def instance_of?: (Class klass) -> bool
+    def respond_to?: (Symbol | String name, ?bool include_private) -> bool
 
     # Explicit Type Conversion Methods (fallbacks for composite objects)
     def to_s: () -> String

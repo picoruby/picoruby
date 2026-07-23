@@ -1721,6 +1721,56 @@ mrb_object_eq(mrb_state *mrb, mrb_value self)
 }
 
 /*
+ * JS::Object#nil?
+ * A JS value wrapper is never Ruby nil, even when it wraps null/undefined.
+ * Conversion boundaries (property reads etc.) already yield Ruby nil for
+ * null/undefined, so a wrapper instance never claims nil-ness itself.
+ */
+static mrb_value
+mrb_object_nil_p(mrb_state *mrb, mrb_value self)
+{
+  (void)mrb;
+  (void)self;
+  return mrb_false_value();
+}
+
+/*
+ * JS::Object#is_a? / JS::Object#kind_of?
+ */
+static mrb_value
+mrb_object_is_a_p(mrb_state *mrb, mrb_value self)
+{
+  struct RClass *c;
+  mrb_get_args(mrb, "c", &c);
+  return mrb_bool_value(mrb_obj_is_kind_of(mrb, self, c));
+}
+
+/*
+ * JS::Object#instance_of?
+ */
+static mrb_value
+mrb_object_instance_of_p(mrb_state *mrb, mrb_value self)
+{
+  struct RClass *c;
+  mrb_get_args(mrb, "c", &c);
+  return mrb_bool_value(mrb_obj_is_instance_of(mrb, self, c));
+}
+
+/*
+ * JS::Object#respond_to?
+ * Real method-table lookup only. Names that would be forwarded to JS via
+ * method_missing do NOT make respond_to? return true.
+ */
+static mrb_value
+mrb_object_respond_to_p(mrb_state *mrb, mrb_value self)
+{
+  mrb_sym id;
+  mrb_bool priv = FALSE;
+  mrb_get_args(mrb, "n|b", &id, &priv);
+  return mrb_bool_value(mrb_respond_to(mrb, self, id));
+}
+
+/*
  * JS::Object#type for debug
  */
 static mrb_value
@@ -1901,6 +1951,17 @@ mrb_object_method_missing(mrb_state *mrb, mrb_value self)
   if (self_js_type == JS_TYPE_UNDEFINED || self_js_type == JS_TYPE_NULL) {
     return mrb_nil_value();
   }
+
+  // Names ending in '?' or '!' are illegal JS identifiers; never forward
+  // them to JS. Raise NoMethodError with real Ruby semantics instead.
+  {
+    char last_char = method_name[strlen(method_name) - 1];
+    if (last_char == '?' || last_char == '!') {
+      mrb_no_method_error(mrb, method_sym, mrb_ary_new_from_values(mrb, argc, argv),
+                          "undefined method '%n' for %T", method_sym, self);
+    }
+  }
+
   bool has_block = !mrb_nil_p(blk);
   int callback_ref_id = -1;
   if (has_block) {
@@ -2540,12 +2601,24 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_class_method_id(mrb, module_JS, MRB_SYM(global), mrb_js_global, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, module_JS, MRB_SYM(eval), mrb_js_eval, MRB_ARGS_REQ(1));
 
-  class_JS_Object = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Object), mrb->object_class);
+  // JS::Object inherits BasicObject, not Object, so that Kernel methods do
+  // not shadow method_missing forwarding to JavaScript (e.g. hash, send,
+  // open, class). The Ruby-side protocol is restored by a small set of
+  // C-defined methods below; everything else goes to the JS side.
+  struct RClass *basic_object_class = mrb_class_get_id(mrb, MRB_SYM(BasicObject));
+  class_JS_Object = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Object), basic_object_class);
   MRB_SET_INSTANCE_TT(class_JS_Object, MRB_TT_DATA);
 
   mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(aref), mrb_object_get_property, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(aset), mrb_object_set_property, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_OPSYM(eq), mrb_object_eq, MRB_ARGS_REQ(1));
+  // Ruby protocol predicates. Their names end in '?', which is illegal in a
+  // JS identifier, so they can never shadow a JS property or method.
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(nil), mrb_object_nil_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(is_a), mrb_object_is_a_p, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(kind_of), mrb_object_is_a_p, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(instance_of), mrb_object_instance_of_p, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM_Q(respond_to), mrb_object_respond_to_p, MRB_ARGS_REQ(1)|MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(method_missing), mrb_object_method_missing, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_a), mrb_object_to_a, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_s), mrb_object_to_s, MRB_ARGS_NONE());

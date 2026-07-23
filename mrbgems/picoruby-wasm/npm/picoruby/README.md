@@ -65,6 +65,12 @@ nav    = JS.global[:navigator]
 Property access returns a `JS::Object`. Convert with `.to_s`, `.to_i`, `.to_f`, or `.to_a`.
 `null` and `undefined` become `nil` automatically.
 
+`JS::Object` inherits from `BasicObject`, so almost every method name is
+forwarded to JavaScript; only a small Ruby-side set is reserved
+(`to_s`/`to_i`/`to_f`/`to_a`, `inspect`, `==`, `[]`/`[]=`, and the predicates
+`nil?`/`is_a?`/`kind_of?`/`instance_of?`/`respond_to?`). Names like `hash`,
+`send`, and `open` reach the JS side.
+
 ### Writing properties and calling methods
 
 ```ruby

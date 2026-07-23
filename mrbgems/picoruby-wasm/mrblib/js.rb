@@ -82,7 +82,8 @@ module JS
     end
 
     def fetch(url, options = nil, &block)
-      raise ArgumentError, "JS::Object#fetch requires a block: use `fetch(url) { |resp| ... }`" unless block
+      # Kernel.raise: self is a JS object (BasicObject), Kernel#raise is absent
+      Kernel.raise ArgumentError, "JS::Object#fetch requires a block: use `fetch(url) { |resp| ... }`" unless block
       callback_id = block.object_id
       if options
         options_json = JSON.generate(options)
@@ -94,7 +95,7 @@ module JS
         message = $promise_errors[callback_id]
         $promise_errors.delete(callback_id)
         $promise_responses.delete(callback_id)
-        raise message
+        Kernel.raise message
       end
       block.call($promise_responses[callback_id])
       $promise_responses.delete(callback_id)
@@ -151,7 +152,8 @@ module JS
     # Read the response body as a binary String. Suspends the current Ruby
     # task until the underlying ArrayBuffer is materialized.
     def to_binary
-      callback_id = self.object_id
+      # __id__: BasicObject has no object_id
+      callback_id = self.__id__
       _to_binary_and_suspend(callback_id)
       result = $promise_responses[callback_id]
       $promise_responses.delete(callback_id)
@@ -173,13 +175,14 @@ module JS
     # resolves and returns the resolved value (auto-converted to a Ruby
     # native value if it is a primitive, otherwise wrapped as JS::Object).
     def await
-      callback_id = self.object_id
+      # __id__: BasicObject has no object_id
+      callback_id = self.__id__
       _await_and_suspend(callback_id)
       if $promise_errors.key?(callback_id)
         message = $promise_errors[callback_id]
         $promise_errors.delete(callback_id)
         $promise_responses.delete(callback_id)
-        raise message
+        Kernel.raise message
       end
       result = $promise_responses[callback_id]
       $promise_responses.delete(callback_id)

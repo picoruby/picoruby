@@ -36,8 +36,9 @@ module JS
 
     # Open the serial port with given parameters.
     # Yields self to the block when the port is successfully opened.
-    # Uses JS::WebSerial._open_port (C method) because Kernel#open is private
-    # and would shadow method_missing on JS::Object.
+    # Uses JS::WebSerial._open_port (C method). Historically Kernel#open
+    # shadowed method_missing on JS::Object; since JS::Object inherits
+    # BasicObject, @js_port.open(options) would also forward to JS now.
     def open(baud_rate: 115200, data_bits: 8, stop_bits: 1, parity: "none", &block)
       options = JS.global.create_object
       options[:baudRate] = baud_rate

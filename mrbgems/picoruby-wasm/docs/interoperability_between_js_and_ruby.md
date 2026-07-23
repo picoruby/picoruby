@@ -103,6 +103,48 @@ element[:id] == "myElement"         # String == String
 
 Between two `JS::Object` wrappers, `==` compares the underlying ref_id (identity). A `JS::Object` is never `==` to a Ruby primitive.
 
+## Ruby methods on JS::Object
+
+`JS::Object` inherits from `BasicObject`, not `Object`. This keeps the Ruby
+method namespace on JS wrappers as small as possible, so that almost every
+method name is forwarded to JavaScript via `method_missing`. In particular,
+names that used to be shadowed by `Kernel` now reach the JS side:
+
+```ruby
+JS.global[:location].hash       # location.hash (was Kernel#hash)
+websocket.send(data)            # ws.send(...)  (was Kernel#send)
+port.open({ baudRate: 115200 }) # port.open(...) (was Kernel#open, private)
+promise.then { |v| ... }        # JS::Promise#then (defined in Ruby)
+```
+
+The complete set of Ruby-side methods on a `JS::Object` instance is:
+
+- From `BasicObject`: `==`, `!=`, `!`, `__id__`, `__send__`, `equal?`,
+  `instance_eval`, `instance_exec`, `method_missing`
+- Defined in C: `[]`, `[]=`, `==`, `to_s`, `to_i`, `to_f`, `to_a`, `inspect`,
+  `typeof`, `refcount`, `create_object`, `create_array`
+- Ruby protocol predicates defined in C: `nil?` (always `false`), `is_a?`,
+  `kind_of?`, `instance_of?`, `respond_to?`
+- Defined in Ruby: `addEventListener`, `fetch`, `setTimeout`, `clearTimeout`,
+  and subclass methods such as `JS::Promise#await` / `#then`
+
+Every other method name is forwarded to JavaScript as a property read, method
+call, or (for `name=`) property write.
+
+Notes:
+
+- The predicate names end in `?`, which is illegal in a JS identifier, so they
+  can never shadow a JS property. `respond_to?` performs a real method-table
+  lookup only; names that would be forwarded to JS do not count.
+- Any other method name ending in `?` or `!` raises `NoMethodError` instead of
+  being forwarded (it could never be a JS property anyway), so typos like
+  `js_obj.frozen?` fail loudly rather than silently returning `nil`.
+- `case x when JS::Object` and `rescue` matching work as usual (they use
+  `Module#===` on the class, not methods on the instance).
+- Known limitation: `JS::Array` includes `Enumerable` and its `each`-based
+  methods (`map`, `select`, `include?`, ...) work, but `Enumerable#hash`
+  raises `NoMethodError` because it relies on `Kernel#__method_recursive?`.
+
 ## Debugging
 
 `#inspect` returns a readable preview that reflects the JS constructor and key properties:
