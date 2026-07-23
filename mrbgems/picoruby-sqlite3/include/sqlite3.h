@@ -8,7 +8,7 @@
 #endif
 
 #include "sqlite3_vfs_methods.h"
-#include "../lib/sqlite-amalgamation-3410100/sqlite3.h"
+#include "../lib/sqlite-amalgamation-3530300/sqlite3.h"
 
 #ifdef __cplusplus
 extern "C" {

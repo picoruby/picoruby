@@ -2,7 +2,7 @@
 #define SQLITE3_VFS_DEFINED_H_
 
 #include "sqlite3_prb_methods.h"
-#include "../lib/sqlite-amalgamation-3410100/sqlite3.h"
+#include "../lib/sqlite-amalgamation-3530300/sqlite3.h"
 
 #ifdef __cplusplus
 extern "C" {

@@ -13,6 +13,10 @@ begin
 
   db = SQLite3::Database.new "/home/test.db"
 
+  db.execute("SELECT sqlite_version();") do |row|
+    puts "sqlite_version=#{row[0]}"
+  end
+
   db.execute("CREATE TABLE IF NOT EXISTS test
     (
       id INTEGER PRIMARY KEY,
