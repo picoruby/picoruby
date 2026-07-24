@@ -219,6 +219,7 @@ class BLE
     attr_reader services: Array[service_t]
 
     def restrict_central: () -> void
+    def restrict_central_or_observer: () -> void
     def reset_state: () -> Symbol
     def scan: (
       ?scan_type: scan_type_t,
