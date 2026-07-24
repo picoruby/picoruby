@@ -300,44 +300,43 @@ class WebAudioApp < Funicular::Component
     @visualizer.start
   end
 
-  def render(h)
-    @h = h
-    h.div(class: "app-shell") do
-      h.header(class: "hero") do
-        @h.div do
-          @h.p(class: "eyebrow") { "PICORUBY · WEBSERIAL · JS::WEBAUDIO" }
-          @h.h1 { "CDC Synth & Drum Scope" }
-          @h.p(class: "lede") { "Raw MIDI from CDC2, including fixed drums on Channel 10." }
+  def render
+    div(class: "app-shell") do
+      header(class: "hero") do
+        div do
+          p(class: "eyebrow") { "PICORUBY · WEBSERIAL · JS::WEBAUDIO" }
+          h1 { "CDC Synth & Drum Scope" }
+          p(class: "lede") { "Raw MIDI from CDC2, including fixed drums on Channel 10." }
         end
-        @h.div(class: "actions") do
-          @h.button(onclick: :enable_audio, class: "primary") { "Enable audio" }
-          @h.button(onclick: :connect_serial) { "Connect CDC2" }
-          @h.button(onclick: :disconnect_serial) { "Disconnect" }
+        div(class: "actions") do
+          button(onclick: :enable_audio, class: "primary") { "Enable audio" }
+          button(onclick: :connect_serial) { "Connect CDC2" }
+          button(onclick: :disconnect_serial) { "Disconnect" }
         end
       end
 
-      @h.div(class: "status-row") do
-        @h.span(class: "status") { "Audio: #{state[:audio_state]}" }
-        @h.span(class: "status") { "Serial: #{state[:serial_state]}" }
-        @h.span(ref: :voice_status, class: "status") { "Voices: 0" }
-        @h.span(class: "error") { state[:error].to_s }
+      div(class: "status-row") do
+        span(class: "status") { "Audio: #{state[:audio_state]}" }
+        span(class: "status") { "Serial: #{state[:serial_state]}" }
+        span(ref: :voice_status, class: "status") { "Voices: 0" }
+        span(class: "error") { state[:error].to_s }
       end
 
-      @h.section(class: "scope-panel") do
-        @h.canvas(ref: :scope, id: "scope")
+      section(class: "scope-panel") do
+        canvas(ref: :scope, id: "scope")
       end
 
-      @h.div(class: "workspace") do
-        @h.section(class: "panel controls") do
-          @h.h2 { "Channel & tone" }
-          @h.label do
-            @h.span { "Channel" }
-            @h.select(onchange: :select_channel, value: state[:selected_channel].to_s) do
-              16.times { |index| @h.option(value: index.to_s) { (index + 1).to_s } }
+      div(class: "workspace") do
+        section(class: "panel controls") do
+          h2 { "Channel & tone" }
+          label do
+            span { "Channel" }
+            select(onchange: :select_channel, value: state[:selected_channel].to_s) do
+              16.times { |index| option(value: index.to_s) { (index + 1).to_s } }
             end
           end
           if percussion_channel?
-            @h.p(class: "muted") { "Channel 10 · fixed percussion kit" }
+            p(class: "muted") { "Channel 10 · fixed percussion kit" }
           else
             tone_select
             tone_slider("Attack", :attack, 0, 2, 0.005)
@@ -351,34 +350,34 @@ class WebAudioApp < Funicular::Component
           channel_slider("Volume", 7, 0, 127, selected_channel_value(:volume, 100), reset: 100)
           channel_slider("Pan", 10, 0, 127, selected_channel_value(:pan, 64), reset: 64)
           unless percussion_channel?
-            @h.label do
+            label do
               bend = selected_channel_value(:pitch_bend, 8192)
-              @h.div(class: "control-label") do
-                @h.span { "Pitch bend: #{bend}" }
-                @h.button(type: "button", class: "reset-control", onclick: :reset_pitch) { "Reset" }
+              div(class: "control-label") do
+                span { "Pitch bend: #{bend}" }
+                button(type: "button", class: "reset-control", onclick: :reset_pitch) { "Reset" }
               end
-              @h.input(type: "range", min: 0, max: 16_383, step: 1,
+              input(type: "range", min: 0, max: 16_383, step: 1,
                     value: bend, oninput: :pitch_changed)
             end
           end
         end
 
-        @h.section(class: "panel performance") do
-          @h.h2 { "Audition" }
+        section(class: "panel performance") do
+          h2 { "Audition" }
           if percussion_channel?
-            @h.div(class: "keyboard drum-pads") do
+            div(class: "keyboard drum-pads") do
               DRUM_NOTES.each do |note, name|
                 audition_key(note, name, "drum-pad")
               end
             end
           else
-            @h.div(class: "keyboard piano") do
-              @h.div(class: "piano-keys") do
-                @h.div(class: "piano-row black-row") do
+            div(class: "keyboard piano") do
+              div(class: "piano-keys") do
+                div(class: "piano-row black-row") do
                   i = 0
                   while i < BLACK_NOTES.size
                     note = BLACK_NOTES[i]
-                    @h.div(class: "black-slot") do
+                    div(class: "black-slot") do
                       if note
                         audition_key(note, note_name(note), "black")
                       end
@@ -386,7 +385,7 @@ class WebAudioApp < Funicular::Component
                     i += 1
                   end
                 end
-                @h.div(class: "piano-row white-row") do
+                div(class: "piano-row white-row") do
                   i = 0
                   while i < WHITE_NOTES.size
                     note = WHITE_NOTES[i]
@@ -397,42 +396,42 @@ class WebAudioApp < Funicular::Component
               end
             end
           end
-          @h.h2 { "Active voices" }
-          @h.div(ref: :voice_list, class: "voice-list") do
-            @h.span(class: "muted") { "No active notes" }
+          h2 { "Active voices" }
+          div(ref: :voice_list, class: "voice-list") do
+            span(class: "muted") { "No active notes" }
           end
           channel_grid
         end
 
-        @h.section(class: "panel terminal-panel") do
-          @h.div(class: "terminal-heading") do
-            @h.h2 { "R2P2 Console · CDC0" }
-            @h.div(class: "terminal-actions") do
-              @h.span(class: "terminal-status") { state[:terminal_state] }
-              @h.button(onclick: :connect_terminal) { "Connect CDC0" }
-              @h.button(onclick: :disconnect_terminal) { "Disconnect" }
-              @h.button(onclick: :clear_terminal) { "Clear" }
+        section(class: "panel terminal-panel") do
+          div(class: "terminal-heading") do
+            h2 { "R2P2 Console · CDC0" }
+            div(class: "terminal-actions") do
+              span(class: "terminal-status") { state[:terminal_state] }
+              button(onclick: :connect_terminal) { "Connect CDC0" }
+              button(onclick: :disconnect_terminal) { "Disconnect" }
+              button(onclick: :clear_terminal) { "Clear" }
             end
           end
-          @h.div(ref: :terminal, id: "terminal-container")
+          div(ref: :terminal, id: "terminal-container")
         end
       end
     end
   end
 
   def tone_select
-    @h.label do
-      @h.span { "Waveform" }
-      @h.select(name: "waveform", onchange: :tone_changed, value: state[:waveform]) do
+    label do
+      span { "Waveform" }
+      select(name: "waveform", onchange: :tone_changed, value: state[:waveform]) do
         JS::WebAudio::WAVEFORMS.each do |waveform|
-          @h.option(value: waveform) { waveform }
+          option(value: waveform) { waveform }
         end
       end
     end
   end
 
   def audition_key(note, label, key_class)
-    @h.button(
+    button(
       type: "button",
       class: "key #{key_class}",
       "data-note": note.to_s,
@@ -448,29 +447,29 @@ class WebAudioApp < Funicular::Component
   end
 
   def tone_slider(label_text, key, min, max, step, reset: false)
-    @h.label do
-      @h.div(class: "control-label") do
-        @h.span { "#{label_text}: #{state[key]}" }
+    label do
+      div(class: "control-label") do
+        span { "#{label_text}: #{state[key]}" }
         if reset
-          @h.button(type: "button", class: "reset-control", onclick: :reset_tone_control,
+          button(type: "button", class: "reset-control", onclick: :reset_tone_control,
                  "data-key": key.to_s) { "Reset" }
         end
       end
-      @h.input(type: "range", name: key.to_s, min: min, max: max, step: step,
+      input(type: "range", name: key.to_s, min: min, max: max, step: step,
             value: state[key], oninput: :tone_changed)
     end
   end
 
   def channel_slider(label_text, controller, min, max, value, reset: nil)
-    @h.label do
-      @h.div(class: "control-label") do
-        @h.span { "#{label_text}: #{value}" }
+    label do
+      div(class: "control-label") do
+        span { "#{label_text}: #{value}" }
         unless reset.nil?
-          @h.button(type: "button", class: "reset-control", onclick: :reset_channel_control,
+          button(type: "button", class: "reset-control", onclick: :reset_channel_control,
                  "data-controller": controller.to_s, "data-reset": reset.to_s) { "Reset" }
         end
       end
-      @h.input(type: "range", min: min, max: max, value: value,
+      input(type: "range", min: min, max: max, value: value,
             "data-controller": controller.to_s, oninput: :channel_control_changed)
     end
   end
@@ -510,17 +509,17 @@ class WebAudioApp < Funicular::Component
   end
 
   def channel_grid
-    @h.div(class: "channel-grid") do
+    div(class: "channel-grid") do
       state[:channels].each do |channel|
         active = 0
         state[:voices].each { |voice| active += 1 if voice[:channel] == channel[:channel] }
-        @h.div(class: active > 0 ? "channel-card active" : "channel-card") do
-          @h.span(class: "channel-number") { (channel[:channel] + 1).to_s }
-          @h.span do
+        div(class: active > 0 ? "channel-card active" : "channel-card") do
+          span(class: "channel-number") { (channel[:channel] + 1).to_s }
+          span do
             channel[:percussion] ? "drums" : channel[:tone][:waveform]
           end
-          @h.span { "vol #{channel[:volume]}" }
-          @h.span { "#{active} voice" }
+          span { "vol #{channel[:volume]}" }
+          span { "#{active} voice" }
         end
       end
     end
