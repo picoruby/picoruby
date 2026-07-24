@@ -4,6 +4,19 @@
 #include "mruby/hash.h"
 #include "mruby/array.h"
 
+#ifdef ESP32_PLATFORM
+/* ESP32 port: the NimBLE host delivers events on its own FreeRTOS task via a
+ * plain (non-mruby) evq ring buffer (ports/esp32/nimble_owner.c). Draining it
+ * and calling BLE_push_event must happen here, on the VM thread — mirrors
+ * ports/darwin/src/mruby/ble.c's #ifdef PICORB_PLATFORM_DARWIN hook for the
+ * same reason: BLE_push_event calls mrb_malloc/mrb_free against the
+ * GC-managed heap, which is only safe from the single thread that owns the
+ * mrb_state. This port used to violate that by calling BLE_push_event
+ * directly from an esp_timer callback (a foreign FreeRTOS task) — confirmed
+ * via hardware trace to silently fail there. */
+#include "../../ports/esp32/nimble_owner.h"
+#endif
+
 static mrb_state *_mrb = NULL;
 static mrb_value write_values;
 static mrb_value read_values;
@@ -75,6 +88,13 @@ static mrb_value
 mrb_pop_packet(mrb_state *mrb, mrb_value self)
 {
   mrb_value packet_value = mrb_nil_value();
+#ifdef ESP32_PLATFORM
+  {
+    uint8_t buf[100];
+    uint16_t n = picoruby_nimble_dequeue_event(buf, sizeof(buf));
+    if (n > 0) BLE_push_event(buf, n);
+  }
+#endif
   if (packet_mutex || !packet_flag) return packet_value;
   packet_mutex = true;
   packet_flag = false;
