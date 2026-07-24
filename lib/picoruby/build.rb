@@ -102,13 +102,13 @@ module MRuby
       debug_flag
     end
 
-    def femtoruby(alloc_libc: true, alloc_align: 8)
+    def femtoruby(alloc_libc: true, alloc_estalloc: true, alloc_align: 8)
       common
 
       # Override by environment variable
       alloc_libc = false if ENV["PICORB_NO_LIBC_ALLOC"]
 
-      if alloc_libc
+      if alloc_libc && alloc_estalloc
         add_define_once "PICORB_ALLOC_ESTALLOC"
         add_define_once "PICORB_ALLOC_ALIGN=#{alloc_align}"
         no_shared_alloc = ENV.key?("R2P2_NO_SHARED_ALLOC")

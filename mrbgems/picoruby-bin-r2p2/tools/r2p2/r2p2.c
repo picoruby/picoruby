@@ -194,7 +194,7 @@ main(int argc, char **argv)
   init_posix();
 
   int ret = 0;
-#if 1
+#if defined(PICORB_ALLOC_ESTALLOC)
   mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
 #else
   mrb_state *mrb = mrb_open();
