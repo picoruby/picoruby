@@ -28,6 +28,16 @@ db_state(mrb_state *mrb, mrb_value self)
   return (DbState *)mrb_data_get_ptr(mrb, self, &mrb_sqlite3_database_type);
 }
 
+static DbState *
+open_db_state(mrb_state *mrb, mrb_value self)
+{
+  DbState *state = db_state(mrb, self);
+  if (state->closed || state->db == NULL) {
+    mrb_raise(mrb, mrb_sqlite3_exception_class(mrb), "cannot use a closed database");
+  }
+  return state;
+}
+
 /*
  * SQLite3::Database._open(driver, path)
  *
@@ -91,6 +101,59 @@ mrb_Database_closed_p(mrb_state *mrb, mrb_value self)
   return mrb_bool_value(db_state(mrb, self)->closed);
 }
 
+static mrb_value
+mrb_Database_last_insert_row_id(mrb_state *mrb, mrb_value self)
+{
+  sqlite3_int64 id = sqlite3_last_insert_rowid(open_db_state(mrb, self)->db);
+  /* rowid is 64-bit; these builds define MRB_INT64, so mrb_int_value keeps it */
+  return mrb_int_value(mrb, (mrb_int)id);
+}
+
+static mrb_value
+mrb_Database_changes(mrb_state *mrb, mrb_value self)
+{
+  return mrb_fixnum_value(sqlite3_changes(open_db_state(mrb, self)->db));
+}
+
+static mrb_value
+mrb_Database_total_changes(mrb_state *mrb, mrb_value self)
+{
+  return mrb_fixnum_value(sqlite3_total_changes(open_db_state(mrb, self)->db));
+}
+
+static mrb_value
+mrb_Database_transaction_active_p(mrb_state *mrb, mrb_value self)
+{
+  /* Outside a transaction SQLite is in autocommit mode */
+  return mrb_bool_value(sqlite3_get_autocommit(open_db_state(mrb, self)->db) == 0);
+}
+
+/*
+ * execute_batch(sql) -> nil
+ *
+ * Runs a script of one or more semicolon separated statements, discarding any
+ * rows they produce. Handy for schema setup and migrations. Parameter binding
+ * is not supported here (use #execute for that).
+ */
+static mrb_value
+mrb_Database_execute_batch(mrb_state *mrb, mrb_value self)
+{
+  const char *sql;
+  mrb_get_args(mrb, "z", &sql);
+  sqlite3 *db = open_db_state(mrb, self)->db;
+
+  char *errmsg = NULL;
+  int rc = sqlite3_exec(db, sql, NULL, NULL, &errmsg);
+  if (rc != SQLITE_OK) {
+    /* sqlite3_exec owns errmsg; copy it into an exception before freeing */
+    mrb_value message = errmsg ? mrb_str_new_cstr(mrb, errmsg)
+                               : mrb_str_new_lit(mrb, "SQLite3 error");
+    if (errmsg) sqlite3_free(errmsg);
+    mrb_raise(mrb, mrb_sqlite3_exception_class_for(mrb, rc), RSTRING_PTR(message));
+  }
+  return mrb_nil_value();
+}
+
 void
 mrb_init_class_SQLite3_Database(mrb_state *mrb, struct RClass *class_SQLite3)
 {
@@ -101,4 +164,9 @@ mrb_init_class_SQLite3_Database(mrb_state *mrb, struct RClass *class_SQLite3)
   mrb_define_class_method_id(mrb, class_SQLite3_Database, MRB_SYM(_open), mrb_s__open, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(close), mrb_Database_close, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(closed), mrb_Database_closed_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(last_insert_row_id), mrb_Database_last_insert_row_id, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(changes), mrb_Database_changes, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(total_changes), mrb_Database_total_changes, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(transaction_active), mrb_Database_transaction_active_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(execute_batch), mrb_Database_execute_batch, MRB_ARGS_REQ(1));
 }

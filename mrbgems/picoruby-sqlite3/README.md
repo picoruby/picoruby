@@ -57,6 +57,35 @@ end
 db.close
 ```
 
+### Transactions
+
+Wrapping many writes in one transaction turns them into a single commit, which
+is the main way to cut flash write wear on a microcontroller:
+
+```ruby
+db.transaction do |t|
+  1000.times { |i| t.execute("INSERT INTO log (n) VALUES (?)", [i]) }
+end
+# Committed once here; rolled back automatically if the block raises
+```
+
+`commit` / `rollback` / `transaction_active?` are also available for manual
+control.
+
+### Backup
+
+Copy a database into another open database (for example, snapshot a working
+database to a second file on flash):
+
+```ruby
+dst = SQLite3::Database.new("/backup.sqlite3")
+db.backup(dst)   # copies every page in one step
+dst.close
+```
+
+The lower level `SQLite3::Backup` class (`new`, `step`, `finish`, `remaining`,
+`pagecount`) is available when you want to copy incrementally.
+
 ## API
 
 ### Database Methods
@@ -64,7 +93,14 @@ db.close
 - `SQLite3::Database.new(filename, results_as_hash: false)` - Open/create database
 - `execute(sql, bind_vars = [])` - Execute SQL with optional bindings
 - `execute(sql, bind_vars = []) { |row| }` - Execute with block iteration
+- `execute_batch(sql)` - Run a script of several statements (no bindings)
+- `query(sql, bind_vars = [])` - Like `execute` but returns a `ResultSet`
+- `get_first_row(sql, bind_vars = [])` - First row, or `nil`
+- `get_first_value(sql, bind_vars = [])` - First column of the first row, or `nil`
 - `prepare(sql)` - Return a `SQLite3::Statement`
+- `transaction(mode = :deferred) { |db| }` / `commit` / `rollback` / `transaction_active?`
+- `last_insert_row_id`, `changes`, `total_changes`
+- `backup(dst, srcname: "main", dstname: "main")` - Copy into another database
 - `results_as_hash=` - Yield rows as Hash instead of Array
 - `close()` / `closed?()`
 
@@ -76,7 +112,18 @@ db.close
 
 ### Errors
 
-Failures raise `SQLite3::Exception`, a subclass of `StandardError`.
+Failures raise `SQLite3::Exception`, a subclass of `StandardError`. A few common
+result codes raise a dedicated subclass so they can be rescued individually
+(each is still a `SQLite3::Exception`):
+
+| Exception | SQLite result code |
+|--------------------------------|--------------------|
+| `SQLite3::ConstraintException` | `SQLITE_CONSTRAINT` |
+| `SQLite3::BusyException`       | `SQLITE_BUSY`       |
+| `SQLite3::ReadOnlyException`   | `SQLITE_READONLY`   |
+| `SQLite3::FullException`       | `SQLITE_FULL`       |
+| `SQLite3::CorruptException`    | `SQLITE_CORRUPT`    |
+| `SQLite3::IOException`         | `SQLITE_IOERR`      |
 
 ## Supported Types
 

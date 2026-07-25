@@ -49,5 +49,69 @@ class SQLite3
         stmt.close unless stmt.closed?
       end
     end
+
+    # Like #execute but returns a ResultSet you step through yourself. With a
+    # block the ResultSet is yielded and closed for you.
+    def query(sql, bind_vars = [])
+      stmt = prepare(sql)
+      stmt.bind_params(*bind_vars) unless bind_vars.empty?
+      result = SQLite3::ResultSet.new(self, stmt)
+      return result unless block_given?
+      begin
+        yield result
+      ensure
+        result.close
+      end
+    end
+
+    def get_first_row(sql, bind_vars = [])
+      execute(sql, bind_vars).first
+    end
+
+    def get_first_value(sql, bind_vars = [])
+      execute(sql, bind_vars) do |row|
+        return row.is_a?(Array) ? row[0] : row.values.first
+      end
+      nil
+    end
+
+    # Wrap a block in a transaction. Committing on success and rolling back on
+    # an exception. On flash backed storage this is the main lever for cutting
+    # write wear: many INSERTs in one transaction become a single commit.
+    def transaction(mode = :deferred)
+      execute("BEGIN #{mode.to_s.upcase} TRANSACTION")
+      return true unless block_given?
+      aborting = false
+      begin
+        yield self
+      rescue
+        aborting = true
+        raise
+      ensure
+        aborting ? rollback : commit
+      end
+    end
+
+    def commit
+      execute("COMMIT TRANSACTION")
+      true
+    end
+
+    def rollback
+      execute("ROLLBACK TRANSACTION")
+      true
+    end
+
+    # Copy this database into an already open destination database. Passing -1
+    # to Backup#step copies every remaining page, so one step finishes the copy.
+    def backup(dst, srcname: "main", dstname: "main")
+      b = SQLite3::Backup.new(dst, dstname, self, srcname)
+      begin
+        b.step(-1)
+      ensure
+        b.finish
+      end
+      true
+    end
   end
 end

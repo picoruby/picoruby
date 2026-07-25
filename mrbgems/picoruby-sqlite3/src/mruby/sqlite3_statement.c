@@ -46,7 +46,7 @@ prb_sqlite3_raise(mrb_state *mrb, sqlite3 *db, int status)
   if ((status & 0xFF) == SQLITE_OK) return;
   const char *err = db ? sqlite3_errmsg(db) : NULL;
   if (err == NULL) err = "SQLite3 error";
-  mrb_raise(mrb, mrb_sqlite3_exception_class(mrb), err);
+  mrb_raise(mrb, mrb_sqlite3_exception_class_for(mrb, status), err);
 }
 
 static mrb_value

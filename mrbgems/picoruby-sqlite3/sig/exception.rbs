@@ -2,4 +2,24 @@ class SQLite3
   # @sidebar error
   class Exception < StandardError
   end
+
+  # Raised for the SQLite result codes that most often need distinct handling
+  # on a microcontroller. Other result codes raise the base Exception.
+  class ConstraintException < Exception
+  end
+
+  class BusyException < Exception
+  end
+
+  class ReadOnlyException < Exception
+  end
+
+  class FullException < Exception
+  end
+
+  class CorruptException < Exception
+  end
+
+  class IOException < Exception
+  end
 end
