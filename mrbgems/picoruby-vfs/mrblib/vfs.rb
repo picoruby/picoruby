@@ -93,11 +93,16 @@ class VFS
 
     def exist?(path)
       volume, _path = VFS.sanitize_and_split(path)
+      # Nothing is mounted, so no path can exist. Returning false instead of
+      # dereferencing a nil volume keeps File.exist?/File.file? usable (e.g. the
+      # require/load path querying candidates) before any volume is mounted.
+      return false unless volume
       volume[:driver].exist?(_path)
     end
 
     def directory?(path)
       volume, _path = VFS.sanitize_and_split(path)
+      return false unless volume
       volume[:driver].directory?(_path)
     end
 

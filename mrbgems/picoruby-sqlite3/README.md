@@ -107,10 +107,10 @@ Failures raise `SQLite3::Exception`, a subclass of `StandardError`.
 
 ## Testing
 
-`build_config/sqlite3-test.rb` builds a host binary that runs the gem against
-picoruby-littlefs' RAM block device, so no board is needed:
+The gem is tested through the standard Picotest harness. The test mounts a
+picoruby-littlefs RAM block device, so no board is needed (picoruby-littlefs is
+pulled in automatically as a test-only dependency):
 
 ```
-MRUBY_CONFIG=sqlite3-test rake
-./build/sqlite3-test/bin/sqlite3-test
+rake test:gems:picoruby[picoruby-sqlite3]
 ```

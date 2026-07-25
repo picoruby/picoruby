@@ -7,6 +7,13 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.add_dependency 'picoruby-vfs'
   spec.add_dependency 'picoruby-time'
 
+  if ENV['TEST_TASK']
+    # The test suite needs a VFS driver to mount so the SQLite OS-layer bridge
+    # has a real filesystem to talk to. Production builds pick their own driver,
+    # so this dependency is only pulled in for `rake test:gems:*`.
+    spec.add_dependency 'picoruby-littlefs'
+  end
+
   # SQLite build configuration https://sqlite.org/compile.html
   spec.cc.defines << "SQLITE_OS_OTHER=1" # You need to implement sqlite3_os_init() and sqlite3_os_end()
   spec.cc.defines << "SQLITE_OMIT_ANALYZE=1"
