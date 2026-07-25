@@ -52,6 +52,13 @@ prb_vfs_forget_driver(mrb_state *mrb)
   vfs_mrb = NULL;
 }
 
+void
+prb_vfs_set_mrb(mrb_state *mrb)
+{
+  /* Allocator only; no driver is mounted for a memory-backed database */
+  vfs_mrb = mrb;
+}
+
 typedef struct {
   mrb_value recv;
   mrb_sym mid;

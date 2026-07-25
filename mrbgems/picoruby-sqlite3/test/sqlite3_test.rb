@@ -15,6 +15,8 @@ end
 class Sqlite3Test < Picotest::Test
   def setup
     skip "Not supported on FemtoRuby" if femtoruby?
+    # On picoruby.wasm the database is memory backed (no VFS to mount).
+    return if wasm?
     unless VFS::VOLUMES.any? { |v| v[:mountpoint] == "/" }
       # Format the RAM device before mounting. A fresh device is unformatted, so
       # mounting it would make littlefs print a "Corrupted dir pair" trace to
@@ -166,6 +168,9 @@ class Sqlite3Test < Picotest::Test
   end
 
   def test_persistence_across_reopen
+    # On wasm each open is a fresh in-memory DB; cross-open persistence is
+    # exercised by the wasm-specific persist/restore tests instead.
+    skip "wasm persistence is snapshot based" if wasm?
     db = fresh_db("/persist.db")
     db.execute("INSERT INTO users (name) VALUES (?);", ["Daisy"])
     db.close
@@ -364,6 +369,7 @@ class Sqlite3Test < Picotest::Test
     assert_equal(0, db.user_version)
     db.user_version = 3
     assert_equal(3, db.user_version)
+    return db.close if wasm? # no cross-open persistence without snapshotting
     db.close
     # Persists with the database
     SQLite3::Database.new("/uv.db") do |reopened|
@@ -422,8 +428,13 @@ class Sqlite3Test < Picotest::Test
   def test_readonly_and_filename
     db = SQLite3::Database.new("/meta_db.db")
     assert_false(db.readonly?)
-    # sqlite reports the (VFS relative) path it was opened with
-    assert_true(db.filename.include?("meta_db.db"))
+    if wasm?
+      # An in-memory database has no filename
+      assert_nil(db.filename)
+    else
+      # sqlite reports the (VFS relative) path it was opened with
+      assert_true(db.filename.include?("meta_db.db"))
+    end
     db.close
   end
 end

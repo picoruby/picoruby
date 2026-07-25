@@ -2,6 +2,7 @@
 #include <mruby/data.h>
 #include <mruby/presym.h>
 #include <mruby/string.h>
+#include <string.h>
 
 static void
 mrb_sqlite3_database_free(mrb_state *mrb, void *ptr)
@@ -170,6 +171,80 @@ mrb_Database_execute_batch(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+#if defined(PICORB_PLATFORM_WASM)
+/*
+ * On picoruby.wasm the database has no filesystem to live on: SQLite's VFS
+ * callbacks are synchronous, but the runtime can only reach browser storage
+ * asynchronously (task suspend + Promise). So the working database is a native
+ * in-memory SQLite database, and persistence is done in Ruby by snapshotting the
+ * bytes with #serialize / #deserialize to IndexedDB at await points.
+ */
+static mrb_value
+mrb_s__open_memory(mrb_state *mrb, mrb_value klass)
+{
+  /* The SQLite heap (prb_mem_*) is backed by the PicoRuby heap and reaches it
+     through this mrb pointer. No VFS driver is mounted for a memory database. */
+  prb_vfs_set_mrb(mrb);
+  sqlite3_os_init(); /* registers the allocator + prb_vfs as default VFS */
+
+  DbState *state = (DbState *)mrb_malloc(mrb, sizeof(DbState));
+  state->db = NULL;
+  state->closed = false;
+  mrb_value self = mrb_obj_value(
+    Data_Wrap_Struct(mrb, mrb_class_ptr(klass), &mrb_sqlite3_database_type, state));
+
+  sqlite3 *db = NULL;
+  int rc = sqlite3_open_v2(":memory:", &db,
+                           SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE, NULL);
+  state->db = db;
+  if (rc != SQLITE_OK) {
+    prb_sqlite3_raise(mrb, db, rc);
+  }
+  return self;
+}
+
+/* serialize -> String : the whole "main" database as a byte string */
+static mrb_value
+mrb_Database_serialize(mrb_state *mrb, mrb_value self)
+{
+  DbState *state = open_db_state(mrb, self);
+  sqlite3_int64 sz = 0;
+  unsigned char *buf = sqlite3_serialize(state->db, "main", &sz, 0);
+  if (buf == NULL) {
+    mrb_raise(mrb, mrb_sqlite3_exception_class(mrb), "serialize failed");
+  }
+  mrb_value str = mrb_str_new(mrb, (const char *)buf, (mrb_int)sz);
+  sqlite3_free(buf);
+  return str;
+}
+
+/* deserialize(String) : replace the "main" database contents with these bytes */
+static mrb_value
+mrb_Database_deserialize(mrb_state *mrb, mrb_value self)
+{
+  mrb_value data;
+  mrb_get_args(mrb, "S", &data);
+  DbState *state = open_db_state(mrb, self);
+
+  mrb_int sz = RSTRING_LEN(data);
+  /* SQLite takes ownership (FREEONCLOSE), so give it a sqlite3_malloc'd copy */
+  unsigned char *buf = (unsigned char *)sqlite3_malloc64((sqlite3_uint64)sz);
+  if (buf == NULL && sz > 0) {
+    mrb_raise(mrb, mrb_sqlite3_exception_class(mrb), "out of memory for deserialize");
+  }
+  if (sz > 0) {
+    memcpy(buf, RSTRING_PTR(data), (size_t)sz);
+  }
+  int rc = sqlite3_deserialize(state->db, "main", buf, sz, sz,
+                               SQLITE_DESERIALIZE_RESIZEABLE|SQLITE_DESERIALIZE_FREEONCLOSE);
+  if (rc != SQLITE_OK) {
+    sqlite3_free(buf);
+    prb_sqlite3_raise(mrb, state->db, rc);
+  }
+  return self;
+}
+#endif /* PICORB_PLATFORM_WASM */
+
 void
 mrb_init_class_SQLite3_Database(mrb_state *mrb, struct RClass *class_SQLite3)
 {
@@ -187,4 +262,9 @@ mrb_init_class_SQLite3_Database(mrb_state *mrb, struct RClass *class_SQLite3)
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(execute_batch), mrb_Database_execute_batch, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(readonly), mrb_Database_readonly_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(filename), mrb_Database_filename, MRB_ARGS_NONE());
+#if defined(PICORB_PLATFORM_WASM)
+  mrb_define_class_method_id(mrb, class_SQLite3_Database, MRB_SYM(_open_memory), mrb_s__open_memory, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(serialize), mrb_Database_serialize, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(deserialize), mrb_Database_deserialize, MRB_ARGS_REQ(1));
+#endif
 }

@@ -4,14 +4,25 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.summary = 'SQLite3'
 
   spec.add_conflict 'picoruby-mrubyc'
-  spec.add_dependency 'picoruby-vfs'
   spec.add_dependency 'picoruby-time'
 
-  if ENV['TEST_TASK']
-    # The test suite needs a VFS driver to mount so the SQLite OS-layer bridge
-    # has a real filesystem to talk to. Production builds pick their own driver,
-    # so this dependency is only pulled in for `rake test:gems:*`.
-    spec.add_dependency 'picoruby-littlefs'
+  if build.wasm?
+    # On picoruby.wasm there is no filesystem VFS and no way to block on async
+    # storage from a synchronous SQLite VFS callback. The working database lives
+    # in memory (SQLite ":memory:") and is snapshotted to IndexedDB at Ruby-level
+    # await points. Depending on picoruby-vfs would also override the global
+    # File/Dir in the wasm binary, so it is deliberately omitted here.
+    spec.add_dependency 'picoruby-indexeddb'
+    spec.cc.defines << "SQLITE_ENABLE_DESERIALIZE" # sqlite3_serialize/deserialize
+    spec.cc.defines << "SQLITE_TEMP_STORE=3"       # temp b-trees in RAM (no VFS)
+  else
+    spec.add_dependency 'picoruby-vfs'
+    if ENV['TEST_TASK']
+      # The test suite needs a VFS driver to mount so the SQLite OS-layer bridge
+      # has a real filesystem to talk to. Production builds pick their own driver,
+      # so this dependency is only pulled in for `rake test:gems:*`.
+      spec.add_dependency 'picoruby-littlefs'
+    end
   end
 
   # SQLite build configuration https://sqlite.org/compile.html

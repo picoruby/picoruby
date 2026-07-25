@@ -1,14 +1,24 @@
-require "vfs"
 require "time"
+begin
+  require "vfs"
+rescue LoadError
+  # picoruby.wasm ships no filesystem VFS. There the database is memory backed
+  # and persisted to IndexedDB; see the wasm branch in .new / #persist.
+end
 
 class SQLite3
   class Database
     class << self
       def new(filename, results_as_hash: false)
-        volume, path = VFS.sanitize_and_split(filename)
-        # The driver prepends its own prefix, so every path SQLite derives
-        # from this one (journals, temporary files) stays valid too
-        db = _open(volume[:driver], path)
+        db = if defined?(VFS)
+          volume, path = VFS.sanitize_and_split(filename)
+          # The driver prepends its own prefix, so every path SQLite derives
+          # from this one (journals, temporary files) stays valid too
+          _open(volume[:driver], path)
+        else
+          # No VFS (picoruby.wasm): open an in-memory database.
+          _open_memory
+        end
         db.results_as_hash = results_as_hash
         if block_given?
           begin
