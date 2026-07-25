@@ -1,5 +1,7 @@
 class SQLite3
   class Database
+    include SQLite3::Pragmas
+
     type sqlite3_row_t = Hash[String, String] | Array[String]
 
     def initialize: (String filename, ?results_as_hash: bool) ?{ (SQLite3::Database) -> void } -> void
@@ -35,6 +37,9 @@ class SQLite3
     def transaction_active?: () -> bool
 
     def backup: (SQLite3::Database dst, ?srcname: String, ?dstname: String) -> bool
+
+    def readonly?: () -> bool
+    def filename: () -> String?
   end
 end
 

@@ -86,6 +86,28 @@ dst.close
 The lower level `SQLite3::Backup` class (`new`, `step`, `finish`, `remaining`,
 `pagecount`) is available when you want to copy incrementally.
 
+### Pragmas and migrations
+
+`user_version` is the usual lever for on-device schema migrations, and the
+journal/synchronous pragmas trade durability for fewer flash writes:
+
+```ruby
+# Cut flash writes: keep the rollback journal in RAM, sync less aggressively
+db.journal_mode = :memory
+db.synchronous = 0
+
+# Migrate the schema based on a stored version stamp
+if db.user_version < 1
+  db.execute_batch("CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);")
+  db.user_version = 1
+end
+
+db.integrity_check   # => "ok"
+```
+
+Other pragmas are reachable with `db.pragma("name")` / `db.pragma("name", value)`
+or a raw `execute("PRAGMA ...")`.
+
 ## API
 
 ### Database Methods
@@ -101,8 +123,21 @@ The lower level `SQLite3::Backup` class (`new`, `step`, `finish`, `remaining`,
 - `transaction(mode = :deferred) { |db| }` / `commit` / `rollback` / `transaction_active?`
 - `last_insert_row_id`, `changes`, `total_changes`
 - `backup(dst, srcname: "main", dstname: "main")` - Copy into another database
+- `readonly?`, `filename`
 - `results_as_hash=` - Yield rows as Hash instead of Array
 - `close()` / `closed?()`
+
+### Pragma Methods
+
+Convenience accessors for the pragmas most useful on a microcontroller:
+
+- `user_version` / `user_version=` - schema version stamp for migrations
+- `journal_mode` / `journal_mode=` - e.g. `:memory` or `:off` to avoid journal writes
+- `synchronous` / `synchronous=`
+- `cache_size` / `cache_size=`, `page_size` / `page_size=`
+- `foreign_keys` / `foreign_keys=`, `auto_vacuum` / `auto_vacuum=`
+- `freelist_count`, `integrity_check`
+- `pragma(name, value = nil)` - generic query/set for any pragma
 
 ### Statement Methods
 
