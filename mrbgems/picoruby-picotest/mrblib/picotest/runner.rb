@@ -39,6 +39,20 @@ module Picotest
 
     # private
 
+    # Embed a source file's content into the generated runner script instead of
+    # emitting `load '<path>'`. The target VM (PicoRuby/FemtoRuby) evaluates the
+    # generated script, but its own `load` resolves paths through whatever File
+    # implementation is built in. A gem that replaces File with a VFS backed one
+    # (e.g. picoruby-sqlite3 pulling in picoruby-vfs) can no longer reach the
+    # host filesystem, so a runtime `load` of the host side test file fails.
+    # Inlining the content sidesteps that: the code is already in the script the
+    # C level runtime opened, so no host filesystem access is needed to load it.
+    def embed_source(f, path)
+      f.puts "# >>> embedded from #{path}"
+      f.puts File.read(path)
+      f.puts "# <<< embedded from #{path}"
+    end
+
     def run_test(entry)
       test_classes = Object.constants.select{|c| c.to_s.end_with?('Test')}.map{|c| Object.const_get(c)}
       test_classes.reject! do |c|
@@ -76,14 +90,14 @@ module Picotest
           PICOTEST_COMPAT
           f.puts "\n# implementation and mock"
           @load_files.each do |file|
-            f.puts "load '#{file}'"
+            embed_source(f, file)
           end
           if @require_name
             f.puts "\n# library to require"
             f.puts "require '#{@require_name}'"
           end
           f.puts "\n# test file to load"
-          f.puts "load '#{entry}'"
+          embed_source(f, entry)
           f.puts "\nmy_test = #{klass}.new"
           f.puts "puts"
           f.puts "print 'From #{entry}:'"
