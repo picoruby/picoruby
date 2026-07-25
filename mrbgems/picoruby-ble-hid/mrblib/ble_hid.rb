@@ -249,18 +249,22 @@ class BLE
 
     # --- BLE lifecycle ---
 
-    # Override BLE#start with 1ms polling for keyboard responsiveness.
-    # The block is called on every iteration (not just on heartbeat).
+    # Keep the 1ms user-block cadence needed for keyboard responsiveness.
     def start(timeout_ms = nil, &block)
       @user_block = block
       total_timeout_ms = 0
+      @event_queue.clear
+      _event_queue_cleared
       hci_power_control(HCI_POWER_ON)
       while true
         break if timeout_ms && timeout_ms <= total_timeout_ms
-        while (packet = pop_packet)
-          packet_callback(packet)
+        event = @event_queue.pop(timeout_ms: 1)
+        _event_popped if event
+        if event.is_a?(String)
+          packet_callback(event)
+        elsif event
+          heartbeat_callback
         end
-        heartbeat_callback if pop_heartbeat
         @user_block&.call
         sleep_ms(1)
         total_timeout_ms += 1

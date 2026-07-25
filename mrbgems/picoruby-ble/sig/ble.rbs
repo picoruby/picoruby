@@ -64,11 +64,10 @@ class BLE
   ATT_PROPERTY_READ: Integer
   GATT_CHARACTERISTIC_UUID: Integer
 
-  POLLING_UNIT_MS: Integer
-
   @led: CYW43::GPIO | nil
   @led_on: bool
   @ensure_proc: Proc
+  @event_queue: Task::Queue
 
   type role_t = :central | :peripheral | :observer | :broadcaster
   attr_accessor debug: bool
@@ -76,13 +75,13 @@ class BLE
 
   def initialize: (role_t role, ?(String|nil) profile_data) -> void
   def ensure: () { () -> void }-> void
-  def _init: (String | nil) -> void
+  private def _init: (String | nil) -> void
+  private def _event_popped: () -> nil
+  private def _event_queue_cleared: () -> nil
   def debug_puts: (*untyped) -> nil
   def hci_power_control: (Integer power_mode) -> 0
   def start: (?(Integer | nil) timeout_ms, ?(Symbol | nil)) -> Integer
-  def pop_packet: () -> (String | nil)
   def packet_callback: (String) -> void
-  def pop_heartbeat: () -> bool
   def heartbeat_callback: () -> void
   def blink_led: () -> void
   def gap_local_bd_addr: () -> String
