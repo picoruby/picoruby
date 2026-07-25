@@ -1,0 +1,36 @@
+class SQLite3
+  # What the pragma helpers need from their host (Database provides these).
+  # Used as the module self type to avoid a circular include with Database.
+  interface _PragmaExec
+    def execute: (String sql, ?Array[untyped] bind_vars) -> untyped
+    def get_first_value: (String sql, ?Array[untyped] bind_vars) -> untyped
+  end
+
+  # A focused subset of the sqlite3 gem's pragma helpers. Mixed into Database.
+  module Pragmas : _PragmaExec
+    def pragma: (String name, ?untyped value) -> Array[untyped]
+
+    def user_version: () -> Integer
+    def user_version=: (Integer version) -> untyped
+    def journal_mode: () -> String
+    def journal_mode=: (String | Symbol mode) -> untyped
+    def synchronous: () -> Integer
+    def synchronous=: (Integer | String | Symbol mode) -> untyped
+    def cache_size: () -> Integer
+    def cache_size=: (Integer size) -> untyped
+    def page_size: () -> Integer
+    def page_size=: (Integer size) -> untyped
+    def foreign_keys: () -> bool
+    def foreign_keys=: (bool enabled) -> untyped
+    def auto_vacuum: () -> Integer
+    def auto_vacuum=: (Integer | String | Symbol mode) -> untyped
+    def freelist_count: () -> Integer
+    def integrity_check: () -> String
+
+    private
+
+    def int_pragma: (String name) -> Integer
+    def pragma_token: (untyped value) -> String
+    def pragma_value: (untyped value) -> String
+  end
+end

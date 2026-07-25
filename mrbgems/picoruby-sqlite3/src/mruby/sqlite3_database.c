@@ -128,6 +128,22 @@ mrb_Database_transaction_active_p(mrb_state *mrb, mrb_value self)
   return mrb_bool_value(sqlite3_get_autocommit(open_db_state(mrb, self)->db) == 0);
 }
 
+static mrb_value
+mrb_Database_readonly_p(mrb_state *mrb, mrb_value self)
+{
+  /* sqlite3_db_readonly returns 1 (read-only), 0 (read-write) or -1 (no such
+     database name); treat the -1 case as false */
+  return mrb_bool_value(sqlite3_db_readonly(open_db_state(mrb, self)->db, "main") == 1);
+}
+
+static mrb_value
+mrb_Database_filename(mrb_state *mrb, mrb_value self)
+{
+  const char *name = sqlite3_db_filename(open_db_state(mrb, self)->db, "main");
+  /* A temporary or in-memory database reports an empty name */
+  return (name && name[0]) ? mrb_str_new_cstr(mrb, name) : mrb_nil_value();
+}
+
 /*
  * execute_batch(sql) -> nil
  *
@@ -169,4 +185,6 @@ mrb_init_class_SQLite3_Database(mrb_state *mrb, struct RClass *class_SQLite3)
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(total_changes), mrb_Database_total_changes, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(transaction_active), mrb_Database_transaction_active_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(execute_batch), mrb_Database_execute_batch, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(readonly), mrb_Database_readonly_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(filename), mrb_Database_filename, MRB_ARGS_NONE());
 }

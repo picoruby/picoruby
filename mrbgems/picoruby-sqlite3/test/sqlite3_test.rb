@@ -358,4 +358,72 @@ class Sqlite3Test < Picotest::Test
     assert_raise(SQLite3::Exception) { db.changes }
     assert_raise(SQLite3::Exception) { db.execute_batch("SELECT 1") }
   end
+
+  def test_user_version
+    db = SQLite3::Database.new("/uv.db")
+    assert_equal(0, db.user_version)
+    db.user_version = 3
+    assert_equal(3, db.user_version)
+    db.close
+    # Persists with the database
+    SQLite3::Database.new("/uv.db") do |reopened|
+      assert_equal(3, reopened.user_version)
+    end
+  end
+
+  def test_journal_mode
+    db = SQLite3::Database.new("/journal.db")
+    db.journal_mode = :memory
+    assert_equal("memory", db.journal_mode)
+    db.close
+  end
+
+  def test_synchronous
+    db = SQLite3::Database.new("/sync.db")
+    db.synchronous = 0
+    assert_equal(0, db.synchronous)
+    db.synchronous = :full
+    assert_equal(2, db.synchronous)
+    db.close
+  end
+
+  def test_page_and_cache_size
+    db = SQLite3::Database.new("/sizes.db")
+    assert(db.page_size >= 512)
+    db.cache_size = 200
+    assert_equal(200, db.cache_size)
+    db.close
+  end
+
+  def test_foreign_keys
+    db = SQLite3::Database.new("/fk.db")
+    assert_false(db.foreign_keys)
+    db.foreign_keys = true
+    assert_true(db.foreign_keys)
+    db.foreign_keys = false
+    assert_false(db.foreign_keys)
+    db.close
+  end
+
+  def test_integrity_check
+    db = fresh_db("/integrity.db")
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    assert_equal("ok", db.integrity_check)
+    db.close
+  end
+
+  def test_generic_pragma
+    db = SQLite3::Database.new("/generic_pragma.db")
+    db.pragma("user_version", 7)
+    assert_equal([[7]], db.pragma("user_version"))
+    db.close
+  end
+
+  def test_readonly_and_filename
+    db = SQLite3::Database.new("/meta_db.db")
+    assert_false(db.readonly?)
+    # sqlite reports the (VFS relative) path it was opened with
+    assert_true(db.filename.include?("meta_db.db"))
+    db.close
+  end
 end
