@@ -1,0 +1,16 @@
+class SQLite3
+  # Online backup of one database into another, mirroring the sqlite3 gem.
+  # step() returns one of the constants below.
+  class Backup
+    OK: Integer
+    DONE: Integer
+    BUSY: Integer
+    LOCKED: Integer
+
+    def self.new: (SQLite3::Database dst, String dstname, SQLite3::Database src, String srcname) -> SQLite3::Backup
+    def step: (Integer pages) -> Integer
+    def finish: () -> nil
+    def remaining: () -> Integer
+    def pagecount: () -> Integer
+  end
+end

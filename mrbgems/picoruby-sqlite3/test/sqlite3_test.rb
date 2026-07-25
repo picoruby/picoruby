@@ -182,4 +182,180 @@ class Sqlite3Test < Picotest::Test
       end
     end
   end
+
+  def test_constraint_violation_raises_subclass
+    db = fresh_db("/constraint.db")
+    db.execute("INSERT INTO users (id, name) VALUES (1, 'Alice')")
+    # Reusing the primary key violates the UNIQUE constraint
+    assert_raise(SQLite3::ConstraintException) do
+      db.execute("INSERT INTO users (id, name) VALUES (1, 'Bob')")
+    end
+    # The subclass is still a SQLite3::Exception for generic rescues
+    assert_true(SQLite3::ConstraintException.ancestors.include?(SQLite3::Exception))
+    db.close
+  end
+
+  def test_last_insert_row_id
+    db = fresh_db("/rowid.db")
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    assert_equal(1, db.last_insert_row_id)
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Bob"])
+    assert_equal(2, db.last_insert_row_id)
+    db.close
+  end
+
+  def test_changes_and_total_changes
+    db = fresh_db("/changes.db")
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Bob"])
+    db.execute("UPDATE users SET age = 1")
+    assert_equal(2, db.changes)
+    # 1 (Alice) + 1 (Bob) + 2 (UPDATE touches both rows)
+    assert_equal(4, db.total_changes)
+    db.close
+  end
+
+  def test_execute_batch
+    db = SQLite3::Database.new("/batch.db")
+    db.execute_batch(<<~SQL)
+      DROP TABLE IF EXISTS a;
+      CREATE TABLE a (id INTEGER);
+      INSERT INTO a VALUES (1);
+      INSERT INTO a VALUES (2);
+    SQL
+    assert_equal([[1], [2]], db.execute("SELECT id FROM a ORDER BY id"))
+    db.close
+  end
+
+  def test_execute_batch_error_raises
+    db = SQLite3::Database.new("/batch_err.db")
+    assert_raise(SQLite3::Exception) do
+      db.execute_batch("CREATE TABLE ok (id INTEGER); INVALID SQL HERE;")
+    end
+    db.close
+  end
+
+  def test_get_first_row
+    db = fresh_db("/first_row.db")
+    db.execute("INSERT INTO users (name, age) VALUES (?, ?)", ["Alice", 30])
+    db.execute("INSERT INTO users (name, age) VALUES (?, ?)", ["Bob", 25])
+    assert_equal([1, "Alice", 30], db.get_first_row("SELECT id, name, age FROM users ORDER BY id"))
+    assert_nil(db.get_first_row("SELECT * FROM users WHERE name = ?", ["Nobody"]))
+    db.close
+  end
+
+  def test_get_first_value
+    db = fresh_db("/first_value.db")
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Bob"])
+    assert_equal(2, db.get_first_value("SELECT COUNT(*) FROM users"))
+    assert_equal("Alice", db.get_first_value("SELECT name FROM users ORDER BY id"))
+    assert_nil(db.get_first_value("SELECT name FROM users WHERE name = ?", ["Nobody"]))
+    db.close
+  end
+
+  def test_query_without_block
+    db = fresh_db("/query.db")
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    result = db.query("SELECT name FROM users")
+    assert_equal(["Alice"], result.next)
+    assert_nil(result.next)
+    result.close
+    db.close
+  end
+
+  def test_query_with_block_closes
+    db = fresh_db("/query_block.db")
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    captured = nil
+    db.query("SELECT name FROM users") do |result|
+      captured = result
+      assert_equal(["Alice"], result.next)
+    end
+    assert_true(captured.closed?)
+    db.close
+  end
+
+  def test_transaction_active
+    db = fresh_db("/txn_active.db")
+    assert_false(db.transaction_active?)
+    db.transaction
+    assert_true(db.transaction_active?)
+    db.commit
+    assert_false(db.transaction_active?)
+    db.close
+  end
+
+  def test_transaction_block_commits
+    db = fresh_db("/txn_commit.db")
+    db.transaction do |t|
+      t.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+      t.execute("INSERT INTO users (name) VALUES (?)", ["Bob"])
+    end
+    assert_false(db.transaction_active?)
+    assert_equal(2, db.get_first_value("SELECT COUNT(*) FROM users"))
+    db.close
+  end
+
+  def test_transaction_block_rolls_back_on_error
+    db = fresh_db("/txn_rollback.db")
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Seed"])
+    assert_raise(RuntimeError) do
+      db.transaction do |t|
+        t.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+        raise "boom"
+      end
+    end
+    assert_false(db.transaction_active?)
+    # Only the pre-transaction row survives
+    assert_equal(1, db.get_first_value("SELECT COUNT(*) FROM users"))
+    db.close
+  end
+
+  def test_manual_rollback
+    db = fresh_db("/manual_rollback.db")
+    db.transaction
+    db.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    db.rollback
+    assert_equal(0, db.get_first_value("SELECT COUNT(*) FROM users"))
+    db.close
+  end
+
+  def test_backup_copies_database
+    src = fresh_db("/backup_src.db")
+    src.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    src.execute("INSERT INTO users (name) VALUES (?)", ["Bob"])
+
+    dst = SQLite3::Database.new("/backup_dst.db")
+    src.backup(dst)
+    src.close
+
+    assert_equal([[1, "Alice", nil], [2, "Bob", nil]],
+      dst.execute("SELECT id, name, age FROM users ORDER BY id"))
+    dst.close
+  end
+
+  def test_backup_class_step_reports_done
+    src = fresh_db("/backup_step_src.db")
+    src.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
+    dst = SQLite3::Database.new("/backup_step_dst.db")
+
+    b = SQLite3::Backup.new(dst, "main", src, "main")
+    assert_true(b.pagecount >= 0)
+    status = b.step(-1)
+    assert_equal(SQLite3::Backup::DONE, status)
+    assert_equal(0, b.remaining)
+    b.finish
+    assert_equal("Alice", dst.get_first_value("SELECT name FROM users"))
+    src.close
+    dst.close
+  end
+
+  def test_closed_database_guard
+    db = fresh_db("/closed_guard.db")
+    db.close
+    assert_raise(SQLite3::Exception) { db.last_insert_row_id }
+    assert_raise(SQLite3::Exception) { db.changes }
+    assert_raise(SQLite3::Exception) { db.execute_batch("SELECT 1") }
+  end
 end

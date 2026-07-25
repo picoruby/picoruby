@@ -17,6 +17,24 @@ class SQLite3
                | (String sql, ?Array[sqlite3_bind_t] bind_vars) { (untyped) -> untyped } -> nil
     def prepare: (String sql) { (SQLite3::Statement) -> untyped } -> nil
                | (String sql) -> SQLite3::Statement
+
+    def query: (String sql, ?Array[sqlite3_bind_t] bind_vars) -> SQLite3::ResultSet
+             | (String sql, ?Array[sqlite3_bind_t] bind_vars) { (SQLite3::ResultSet) -> untyped } -> untyped
+    def get_first_row: (String sql, ?Array[sqlite3_bind_t] bind_vars) -> (Array[sqlite3_var_t] | Hash[String, sqlite3_var_t])?
+    def get_first_value: (String sql, ?Array[sqlite3_bind_t] bind_vars) -> sqlite3_var_t
+
+    def execute_batch: (String sql) -> nil
+    def last_insert_row_id: () -> Integer
+    def changes: () -> Integer
+    def total_changes: () -> Integer
+
+    def transaction: (?Symbol mode) -> bool
+                   | (?Symbol mode) { (SQLite3::Database) -> untyped } -> untyped
+    def commit: () -> bool
+    def rollback: () -> bool
+    def transaction_active?: () -> bool
+
+    def backup: (SQLite3::Database dst, ?srcname: String, ?dstname: String) -> bool
   end
 end
 
