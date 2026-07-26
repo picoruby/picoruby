@@ -53,3 +53,131 @@ jobs:
           remove-stale-when-updated: true
           operations-per-run: 50
           debug-only: ${{ github.event_name == 'workflow_dispatch' && inputs.debug-only }}
+
+      # actions/stale decides whether to close from `updated_at`, not from the
+      # date the stale label was applied. GitHub bumps `updated_at` on its own
+      # (for example when a push to the base branch turns a pull request into a
+      # conflicting one), which silently pushes the close deadline back every
+      # time and can keep an item labelled stale forever. This step closes based
+      # on the stale label's `labeled` event instead, so the countdown cannot be
+      # reset by activity that nobody actually performed.
+      - name: Close items whose stale grace period has elapsed
+        uses: actions/github-script@v9.0.0
+        env:
+          DEBUG_ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.debug-only }}
+        with:
+          script: |
+            const STALE_LABEL = 'stale'
+            const EXEMPT_ISSUE_LABELS = ['help wanted', 'good first issue']
+            const DAYS_BEFORE_ISSUE_CLOSE = 30
+            const DAYS_BEFORE_PR_CLOSE = 14
+            const STALE_ACTOR = 'github-actions[bot]'
+            const DAY_MS = 24 * 60 * 60 * 1000
+
+            const closeMessage = (isPr, days) => isPr
+              ? `This pull request was automatically closed because it had no activity for ${days} days after being marked stale.`
+              : `This issue was automatically closed because it had no activity for ${days} days after being marked stale.`
+
+            const {owner, repo} = context.repo
+            const debugOnly = process.env.DEBUG_ONLY === 'true'
+            const now = Date.now()
+            let failures = 0
+
+            const items = await github.paginate(github.rest.issues.listForRepo, {
+              owner,
+              repo,
+              state: 'open',
+              labels: STALE_LABEL,
+              per_page: 100
+            })
+            core.info(`Found ${items.length} open item(s) labelled "${STALE_LABEL}"`)
+
+            for (const item of items) {
+              const isPr = Boolean(item.pull_request)
+              const label = `${isPr ? 'PR' : 'issue'} #${item.number}`
+
+              // Mirror exempt-all-*-milestones and exempt-issue-labels, in case
+              // either was set after the stale label had already been applied.
+              if (item.milestone) {
+                core.info(`${label}: skipped, assigned to milestone "${item.milestone.title}"`)
+                continue
+              }
+              const labelNames = (item.labels || []).map(l => (typeof l === 'string' ? l : l.name))
+              if (!isPr && labelNames.some(name => EXEMPT_ISSUE_LABELS.includes(name))) {
+                core.info(`${label}: skipped, carries an exempt label`)
+                continue
+              }
+
+              const events = await github.paginate(github.rest.issues.listEvents, {
+                owner,
+                repo,
+                issue_number: item.number,
+                per_page: 100
+              })
+              const labeledAt = events
+                .filter(e => e.event === 'labeled' && e.label && e.label.name === STALE_LABEL)
+                .map(e => new Date(e.created_at).getTime())
+                .filter(t => !Number.isNaN(t))
+              if (labeledAt.length === 0) {
+                core.info(`${label}: skipped, no "${STALE_LABEL}" labeled event found`)
+                continue
+              }
+
+              // Use the most recent labelling so that an un-stale/re-stale cycle
+              // restarts the countdown.
+              const markedStaleOn = Math.max(...labeledAt)
+              const idleDays = (now - markedStaleOn) / DAY_MS
+              const daysBeforeClose = isPr ? DAYS_BEFORE_PR_CLOSE : DAYS_BEFORE_ISSUE_CLOSE
+              if (idleDays < daysBeforeClose) {
+                core.info(`${label}: skipped, marked stale ${idleDays.toFixed(1)} of ${daysBeforeClose} days ago`)
+                continue
+              }
+
+              // A human comment after the labelling means the item is alive even
+              // if actions/stale has not removed the label yet.
+              const comments = await github.paginate(github.rest.issues.listComments, {
+                owner,
+                repo,
+                issue_number: item.number,
+                since: new Date(markedStaleOn).toISOString(),
+                per_page: 100
+              })
+              const reply = comments.find(c =>
+                c.user &&
+                c.user.login !== STALE_ACTOR &&
+                new Date(c.created_at).getTime() > markedStaleOn
+              )
+              if (reply) {
+                core.info(`${label}: skipped, commented on ${reply.created_at} by ${reply.user.login}`)
+                continue
+              }
+
+              if (debugOnly) {
+                core.info(`${label}: would be closed, marked stale ${idleDays.toFixed(1)} days ago`)
+                continue
+              }
+
+              try {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: item.number,
+                  body: closeMessage(isPr, daysBeforeClose)
+                })
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: item.number,
+                  state: 'closed',
+                  ...(isPr ? {} : {state_reason: 'not_planned'})
+                })
+                core.info(`${label}: closed, marked stale ${idleDays.toFixed(1)} days ago`)
+              } catch (error) {
+                failures += 1
+                core.error(`${label}: failed to close: ${error.message}`)
+              }
+            }
+
+            if (failures > 0) {
+              core.setFailed(`Failed to close ${failures} stale item(s)`)
+            }
