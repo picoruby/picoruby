@@ -21,6 +21,7 @@ jobs:
   test-steep:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
 
@@ -42,6 +43,7 @@ jobs:
   test-picoruby:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
 
@@ -63,6 +65,7 @@ jobs:
   test-femtoruby:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
 
@@ -84,6 +87,7 @@ jobs:
   test-wasm:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
 
