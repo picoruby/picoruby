@@ -14,6 +14,37 @@ picoruby-littlefs is the usual driver.
 Requires the mruby VM (`conf.picoruby`); the gem conflicts with
 picoruby-mrubyc.
 
+## picoruby.wasm (browser)
+
+On picoruby.wasm there is no filesystem, and SQLite's synchronous VFS callbacks
+cannot block on the browser's async storage. So on wasm the working database is
+kept **in memory** and its bytes are **snapshotted to IndexedDB** at await
+points. The `name` passed to `.new` is the IndexedDB key rather than a path, and
+no VFS is mounted.
+
+```ruby
+require 'sqlite3'
+
+# Opens an in-memory database and restores a prior snapshot if one exists
+db = SQLite3::Database.new('my_app')
+db.execute('CREATE TABLE IF NOT EXISTS notes (id INTEGER PRIMARY KEY, body TEXT)')
+db.execute('INSERT INTO notes (body) VALUES (?)', ['hello'])
+
+db.persist   # snapshot the database into IndexedDB under 'my_app'
+db.close     # close also auto-persists
+```
+
+- `persist` and `close` are the only durability points; writes since the last
+  `persist` are lost on a crash or page reload. Persistence happens at Ruby
+  `await` points, never inside a SQLite VFS callback, so it cooperates with the
+  Task scheduler.
+- `serialize` / `deserialize` expose the raw snapshot bytes if you want to store
+  them elsewhere.
+- The database is bounded by available wasm memory.
+
+The rest of the API (execute, transactions, pragmas, backup, ...) is identical
+to the microcontroller build.
+
 ## Usage
 
 ```ruby

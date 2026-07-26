@@ -40,6 +40,19 @@ class SQLite3
 
     def readonly?: () -> bool
     def filename: () -> String?
+
+    # picoruby.wasm only: in-memory database + IndexedDB snapshot persistence.
+    STORE_NAME: String
+    @db_name: String
+    def serialize: () -> String
+    def deserialize: (String bytes) -> SQLite3::Database
+    def persist: () -> bool
+    # Called with an explicit receiver (from .new / instance methods), so these
+    # stay public even though they are internal.
+    def _restore_from_store: (String name) -> SQLite3::Database
+    def self.__store: () -> untyped
+    private def self._open_memory: () -> SQLite3::Database
+    private def __close_without_persist: () -> void
   end
 end
 

@@ -4,6 +4,8 @@ begin
 rescue LoadError
   # picoruby.wasm ships no filesystem VFS. There the database is memory backed
   # and persisted to IndexedDB; see the wasm branch in .new / #persist.
+  require "indexeddb"
+  require "base64"
 end
 
 class SQLite3
@@ -16,8 +18,9 @@ class SQLite3
           # from this one (journals, temporary files) stays valid too
           _open(volume[:driver], path)
         else
-          # No VFS (picoruby.wasm): open an in-memory database.
-          _open_memory
+          # No VFS (picoruby.wasm): open an in-memory database and restore any
+          # snapshot previously persisted under this name.
+          _open_memory._restore_from_store(filename)
         end
         db.results_as_hash = results_as_hash
         if block_given?
@@ -122,6 +125,47 @@ class SQLite3
         b.finish
       end
       true
+    end
+
+    unless defined?(VFS)
+      # --- picoruby.wasm: snapshot persistence to IndexedDB ------------------
+      #
+      # The working database is in memory. Its bytes are snapshotted to
+      # IndexedDB (keyed by the name passed to .new) at await points only:
+      # restored on open, saved by #persist and automatically on #close. The GC
+      # finalizer never persists (it cannot run Ruby / await from a free func).
+      # Bytes are base64 wrapped so they survive the JS bridge and the store
+      # intact. Note: writes since the last persist are lost on a crash/reload.
+      STORE_NAME = "sqlite3".freeze
+
+      def _restore_from_store(name)
+        @db_name = name
+        snapshot = self.class.__store[name]
+        deserialize(Base64.decode64(snapshot)) if snapshot
+        self
+      end
+
+      # Snapshot the current database into IndexedDB under its name.
+      def persist
+        self.class.__store[@db_name] = Base64.encode64(serialize)
+        true
+      end
+
+      alias __close_without_persist close
+      def close
+        begin
+          persist if @db_name && !closed?
+        ensure
+          __close_without_persist
+        end
+      end
+
+      class << self
+        # One IndexedDB KV store shared by every database, keyed by db name.
+        def __store
+          @__store ||= IndexedDB::KVS.open(STORE_NAME)
+        end
+      end
     end
   end
 end
