@@ -15,6 +15,8 @@ end
 class Sqlite3Test < Picotest::Test
   def setup
     skip "Not supported on FemtoRuby" if femtoruby?
+    # On picoruby.wasm the database is memory backed (no VFS to mount).
+    return if wasm?
     unless VFS::VOLUMES.any? { |v| v[:mountpoint] == "/" }
       # Format the RAM device before mounting. A fresh device is unformatted, so
       # mounting it would make littlefs print a "Corrupted dir pair" trace to
@@ -166,6 +168,8 @@ class Sqlite3Test < Picotest::Test
   end
 
   def test_persistence_across_reopen
+    # On wasm this rides the auto-persist-on-close snapshot to IndexedDB; on
+    # MCU/POSIX it is real file persistence. Either way, reopening sees the data.
     db = fresh_db("/persist.db")
     db.execute("INSERT INTO users (name) VALUES (?);", ["Daisy"])
     db.close
@@ -364,8 +368,8 @@ class Sqlite3Test < Picotest::Test
     assert_equal(0, db.user_version)
     db.user_version = 3
     assert_equal(3, db.user_version)
-    db.close
-    # Persists with the database
+    db.close # on wasm, close auto-persists the snapshot
+    # Persists with the database (file on MCU, IndexedDB snapshot on wasm)
     SQLite3::Database.new("/uv.db") do |reopened|
       assert_equal(3, reopened.user_version)
     end
@@ -422,8 +426,55 @@ class Sqlite3Test < Picotest::Test
   def test_readonly_and_filename
     db = SQLite3::Database.new("/meta_db.db")
     assert_false(db.readonly?)
-    # sqlite reports the (VFS relative) path it was opened with
-    assert_true(db.filename.include?("meta_db.db"))
+    if wasm?
+      # An in-memory database has no filename
+      assert_nil(db.filename)
+    else
+      # sqlite reports the (VFS relative) path it was opened with
+      assert_true(db.filename.include?("meta_db.db"))
+    end
+    db.close
+  end
+
+  # ---- wasm-only: in-memory DB + IndexedDB snapshot persistence ----
+
+  def test_wasm_explicit_persist_and_restore
+    skip "wasm only" unless wasm?
+    db = SQLite3::Database.new("explicit_persist")
+    db.execute("CREATE TABLE t (id INTEGER PRIMARY KEY, v TEXT)")
+    db.execute("INSERT INTO t (v) VALUES (?)", ["hello"])
+    db.persist
+    # The live handle is untouched by persist
+    assert_equal([[1, "hello"]], db.execute("SELECT id, v FROM t"))
+    # A second handle by the same name restores what #persist just wrote (the
+    # first handle is still open, so only the explicit persist could have saved)
+    reopened = SQLite3::Database.new("explicit_persist")
+    assert_equal([[1, "hello"]], reopened.execute("SELECT id, v FROM t"))
+    reopened.close
+    db.close
+  end
+
+  def test_wasm_serialize_round_trip
+    skip "wasm only" unless wasm?
+    db = SQLite3::Database.new("serial_rt")
+    db.execute("CREATE TABLE t (v TEXT)")
+    db.execute("INSERT INTO t (v) VALUES (?)", ["roundtrip"])
+    bytes = db.serialize
+    assert(bytes.is_a?(String))
+    assert(bytes.length > 0)
+    db.close
+
+    other = SQLite3::Database.new("serial_rt_other")
+    other.deserialize(bytes)
+    assert_equal([["roundtrip"]], other.execute("SELECT v FROM t"))
+    other.close
+  end
+
+  def test_wasm_fresh_name_starts_empty
+    skip "wasm only" unless wasm?
+    db = SQLite3::Database.new("never_seen_#{object_id}")
+    rows = db.execute("SELECT name FROM sqlite_master WHERE type='table'")
+    assert_equal([], rows)
     db.close
   end
 end

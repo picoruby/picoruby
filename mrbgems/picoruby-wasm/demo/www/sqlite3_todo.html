@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" href="test.css">
+    <title>SQLite3 TODO app</title>
+    <style>
+      #new-todo { width: 60%; }
+      #todo-list { list-style: none; padding: 0; margin: 20px 0; }
+      #todo-list li {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        margin: 6px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #f8f9fa;
+      }
+      #todo-list li .title { flex: 1; }
+      #todo-list li.done .title { text-decoration: line-through; color: #999; }
+      #todo-list .del {
+        background: #dc3545;
+        padding: 3px 10px;
+      }
+      #todo-list .del:hover { background: #c82333; }
+      .persist-bar {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 20px 0;
+        padding: 12px;
+        border-top: 1px solid #eee;
+      }
+      #persist { background: #007bff; }
+      #persist:hover { background: #0069d9; }
+      #dirty-state.dirty { color: #b8860b; font-weight: bold; }
+      #dirty-state.clean { color: #155724; font-weight: bold; }
+      #message { margin: 10px 0; min-height: 1.4em; color: #721c24; }
+    </style>
+  </head>
+  <body>
+    <div><a href="index.html">Back</a></div>
+    <h1>SQLite3 TODO app</h1>
+    <p>
+      A TODO list backed by a real SQLite3 database running inside
+      picoruby.wasm. The working database lives entirely in memory, so every
+      add / toggle / delete is an ordinary SQL statement. Persistence is
+      <strong>explicit</strong>: nothing is written to browser storage until
+      you press <em>Save to IndexedDB</em>. Reload the page to confirm that
+      only saved changes survive.
+    </p>
+
+    <div>
+      <input type="text" id="new-todo" placeholder="What needs to be done?">
+      <button id="add">Add</button>
+    </div>
+
+    <ul id="todo-list"></ul>
+
+    <div class="persist-bar">
+      <button id="persist">Save to IndexedDB</button>
+      <span id="dirty-state" class="clean">saved</span>
+      <button id="reload" style="background:#6c757d;">Reload from storage</button>
+    </div>
+
+    <div id="message"></div>
+
+    <div class="instructions">
+      <h3>How it works</h3>
+      <p>
+        <code>SQLite3::Database.new("todos")</code> opens an in-memory database
+        and restores the last snapshot saved under that name from IndexedDB.
+        SQL runs synchronously against that memory database. Pressing
+        <em>Save to IndexedDB</em> calls <code>db.persist</code>, which
+        serializes the whole database and writes it to IndexedDB at a Ruby
+        <code>await</code> point. The GC never persists, and this demo does not
+        auto-persist on close, so unsaved edits are lost on reload.
+      </p>
+    </div>
+
+    <script type="text/ruby">
+      require 'js'
+      require 'sqlite3'
+
+      DB_NAME = "todos"
+
+      $doc = JS.document
+      $list = $doc.getElementById('todo-list')
+      $message = $doc.getElementById('message')
+      $dirty_state = $doc.getElementById('dirty-state')
+
+      def notify(msg)
+        $message.innerText = msg.to_s
+      end
+
+      # HTML escape so a task title cannot break the markup we build below.
+      def h(str)
+        str.to_s.gsub('&', '&amp;').gsub('<', '&lt;').gsub('>', '&gt;').gsub('"', '&quot;')
+      end
+
+      def set_dirty(dirty)
+        $dirty = dirty
+        if dirty
+          $dirty_state.className = 'dirty'
+          $dirty_state.innerText = 'unsaved changes'
+        else
+          $dirty_state.className = 'clean'
+          $dirty_state.innerText = 'saved'
+        end
+      end
+
+      def render
+        rows = $db.execute("SELECT id, title, done FROM todos ORDER BY id")
+        if rows.empty?
+          $list.innerHTML = '<li><span class="title">No todos yet.</span></li>'
+          return
+        end
+        html = ''
+        rows.each do |row|
+          id = row[0]
+          title = row[1]
+          done = row[2].to_i != 0
+          checked = done ? 'checked' : ''
+          klass = done ? 'done' : ''
+          html = html +
+            "<li class=\"#{klass}\">" +
+            "<input type=\"checkbox\" data-action=\"toggle\" data-id=\"#{id}\" #{checked}>" +
+            "<span class=\"title\">#{h(title)}</span>" +
+            "<button class=\"del\" data-action=\"delete\" data-id=\"#{id}\">Delete</button>" +
+            "</li>"
+        end
+        $list.innerHTML = html
+      end
+
+      def add_todo(title)
+        return if title.nil? || title.empty?
+        $db.execute("INSERT INTO todos (title, done) VALUES (?, 0)", [title])
+        set_dirty(true)
+        render
+      end
+
+      def toggle_todo(id)
+        $db.execute("UPDATE todos SET done = 1 - done WHERE id = ?", [id])
+        set_dirty(true)
+        render
+      end
+
+      def delete_todo(id)
+        $db.execute("DELETE FROM todos WHERE id = ?", [id])
+        set_dirty(true)
+        render
+      end
+
+      begin
+        # Open the in-memory database and restore the last saved snapshot (if
+        # any) from IndexedDB. This await happens once at startup.
+        $db = SQLite3::Database.new(DB_NAME)
+        $db.execute("CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY, title TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0)")
+        set_dirty(false)
+        render
+
+        input = $doc.getElementById('new-todo')
+
+        $doc.getElementById('add').addEventListener('click') do
+          notify('')
+          add_todo(input[:value].to_s.strip)
+          input[:value] = ''
+        end
+
+        input.addEventListener('keydown') do |event|
+          if event[:key].to_s == 'Enter'
+            notify('')
+            add_todo(input[:value].to_s.strip)
+            input[:value] = ''
+          end
+        end
+
+        # One delegated listener handles every row's checkbox and delete button.
+        $list.addEventListener('click') do |event|
+          target = event.target
+          action = target.getAttribute('data-action')
+          next if action.nil?
+          id = target.getAttribute('data-id').to_s.to_i
+          case action.to_s
+          when 'toggle'
+            toggle_todo(id)
+          when 'delete'
+            delete_todo(id)
+          end
+        end
+
+        $doc.getElementById('persist').addEventListener('click') do
+          notify('')
+          $db.persist
+          set_dirty(false)
+          notify('Saved to IndexedDB. Reload the page to verify it survives.')
+        rescue => e
+          notify("Save failed: #{e.class}: #{e.message}")
+        end
+
+        # Drop the in-memory edits and reopen from the last saved snapshot.
+        $doc.getElementById('reload').addEventListener('click') do
+          notify('')
+          $db = SQLite3::Database.new(DB_NAME)
+          $db.execute("CREATE TABLE IF NOT EXISTS todos (id INTEGER PRIMARY KEY, title TEXT NOT NULL, done INTEGER NOT NULL DEFAULT 0)")
+          set_dirty(false)
+          render
+          notify('Reloaded from IndexedDB (unsaved edits discarded).')
+        rescue => e
+          notify("Reload failed: #{e.class}: #{e.message}")
+        end
+      rescue => e
+        notify("Init failed: #{e.class}: #{e.message}")
+      end
+    </script>
+    <script src="init.iife.js"></script>
+  </body>
+</html>

@@ -49,6 +49,12 @@ typedef struct PRBFile
 void prb_vfs_set_driver(mrb_state *mrb, mrb_value driver);
 void prb_vfs_forget_driver(mrb_state *mrb);
 /*
+ * Point the bridge's allocator (prb_mem_*) at the VM without registering a VFS
+ * driver. Needed by the wasm memory-backed database, which never mounts a
+ * driver but still relies on the SQLite heap being backed by the PicoRuby heap.
+ */
+void prb_vfs_set_mrb(mrb_state *mrb);
+/*
  * Stops the bridge from calling into the VM. A GC free function must not run
  * Ruby code, yet sqlite3_close_v2() and sqlite3_finalize() can reach the VFS,
  * so those calls are made with the bridge suspended: SQLite then sees plain
