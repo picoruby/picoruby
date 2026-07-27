@@ -6,20 +6,37 @@ module IndexedDB
   class AwaitInBatchError < Error end
   class SchemaError < Error end
 
+  # DOMException-backed errors from the tagged JS bridge.
+  class RequestError < Error
+    attr_reader name: String
+    def initialize: (String name, String message) -> void
+  end
+  class SecurityError < RequestError end
+  class InvalidStateError < RequestError end
+  class QuotaExceededError < RequestError end
+  class VersionError < RequestError end
+  class AbortError < RequestError end
+
+  DOM_ERROR_CLASSES: Hash[String, singleton(RequestError)]
+  BLOCKED_TIMEOUT_MS: Integer
+
+  def self.error_for: (String name, String message) -> RequestError
+  def self.__unwrap: (untyped tagged) -> untyped
+
   # Either backend (real IDB or in-memory fallback) implements the same
   # observable API. Returned from IndexedDB.open and yielded to upgrade blocks.
   type db_like = Database | InMemoryDatabase
   type store_like = Store | InMemoryStore
 
   def self.available?: () -> bool
-  def self.open: (String name, ?version: Integer, ?fallback: bool) ?{ (db_like, Integer, Integer) -> void } -> db_like
+  def self.open: (String name, ?version: Integer, ?fallback: bool, ?blocked_timeout_ms: Integer) ?{ (db_like, Integer, Integer) -> void } -> db_like
 
-  private def self.open_real: (String name, Integer version) ?{ (db_like, Integer, Integer) -> void } -> Database
+  private def self.open_real: (String name, Integer version, Integer blocked_timeout_ms) ?{ (db_like, Integer, Integer) -> void } -> Database
   private def self.open_fallback: (String name, Integer version) ?{ (db_like, Integer, Integer) -> void } -> InMemoryDatabase
 
   module Helper
     def self.request_to_promise: (untyped js_request) -> untyped
-    def self.open_with_upgrade: (String name, Integer version, Integer callback_id) -> untyped
+    def self.open_with_upgrade: (String name, Integer version, Integer callback_id, Integer blocked_timeout_ms) -> untyped
     def self.transaction_to_promise: (untyped js_transaction) -> untyped
   end
 

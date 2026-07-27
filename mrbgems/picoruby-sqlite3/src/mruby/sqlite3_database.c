@@ -171,13 +171,13 @@ mrb_Database_execute_batch(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
-#if defined(PICORB_PLATFORM_WASM)
 /*
- * On picoruby.wasm the database has no filesystem to live on: SQLite's VFS
- * callbacks are synchronous, but the runtime can only reach browser storage
- * asynchronously (task suspend + Promise). So the working database is a native
- * in-memory SQLite database, and persistence is done in Ruby by snapshotting the
- * bytes with #serialize / #deserialize to IndexedDB at await points.
+ * A private in-memory database (":memory:" in CRuby's sqlite3 gem). On
+ * picoruby.wasm this is also the working database behind the named form:
+ * SQLite's VFS callbacks are synchronous, but the wasm runtime can only reach
+ * browser storage asynchronously (task suspend + Promise), so persistence is
+ * done in Ruby by snapshotting the bytes with #serialize / #deserialize at
+ * await points.
  */
 static mrb_value
 mrb_s__open_memory(mrb_state *mrb, mrb_value klass)
@@ -203,6 +203,7 @@ mrb_s__open_memory(mrb_state *mrb, mrb_value klass)
   return self;
 }
 
+#if defined(PICORB_PLATFORM_WASM)
 /* serialize -> String : the whole "main" database as a byte string */
 static mrb_value
 mrb_Database_serialize(mrb_state *mrb, mrb_value self)
@@ -262,8 +263,8 @@ mrb_init_class_SQLite3_Database(mrb_state *mrb, struct RClass *class_SQLite3)
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(execute_batch), mrb_Database_execute_batch, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(readonly), mrb_Database_readonly_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(filename), mrb_Database_filename, MRB_ARGS_NONE());
-#if defined(PICORB_PLATFORM_WASM)
   mrb_define_class_method_id(mrb, class_SQLite3_Database, MRB_SYM(_open_memory), mrb_s__open_memory, MRB_ARGS_NONE());
+#if defined(PICORB_PLATFORM_WASM)
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(serialize), mrb_Database_serialize, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(deserialize), mrb_Database_deserialize, MRB_ARGS_REQ(1));
 #endif

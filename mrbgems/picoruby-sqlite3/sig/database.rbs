@@ -4,9 +4,13 @@ class SQLite3
 
     type sqlite3_row_t = Hash[String, String] | Array[String]
 
+    # ":memory:" as filename opens a private in-memory database (CRuby
+    # sqlite3 compatible): no file, no snapshot name, nothing restored or
+    # persisted, one independent database per handle.
     def initialize: (String filename, ?results_as_hash: bool) ?{ (SQLite3::Database) -> void } -> void
     def self.open: (String filename) ?{ (SQLite3::Database) -> void } -> SQLite3::Database
     private def self._open: (VFS::driver_t driver, String path) -> SQLite3::Database
+    private def self._open_memory: () -> SQLite3::Database
 
     attr_accessor results_as_hash: bool
 
@@ -43,7 +47,7 @@ class SQLite3
 
     # picoruby.wasm only: in-memory database + IndexedDB snapshot persistence.
     STORE_NAME: String
-    @db_name: String
+    @db_name: String?
     def serialize: () -> String
     def deserialize: (String bytes) -> SQLite3::Database
     def persist: () -> bool
@@ -51,7 +55,6 @@ class SQLite3
     # stay public even though they are internal.
     def _restore_from_store: (String name) -> SQLite3::Database
     def self.__store: () -> untyped
-    private def self._open_memory: () -> SQLite3::Database
     private def __close_without_persist: () -> void
   end
 end

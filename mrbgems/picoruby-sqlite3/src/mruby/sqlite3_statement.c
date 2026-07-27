@@ -176,6 +176,21 @@ mrb_done_p(mrb_state *mrb, mrb_value self)
   return mrb_bool_value(statement(mrb, self)->done_p);
 }
 
+/*
+ * readonly? -> bool
+ *
+ * sqlite3_stmt_readonly(): true iff the statement makes no direct change to
+ * the content of the database file. Statements that only change connection
+ * state (PRAGMA query_only, ATTACH, DETACH, BEGIN/COMMIT) report true as
+ * well; callers building access control on this must reject those
+ * separately.
+ */
+static mrb_value
+mrb_Statement_readonly_p(mrb_state *mrb, mrb_value self)
+{
+  return mrb_bool_value(sqlite3_stmt_readonly(open_statement(mrb, self)->st) != 0);
+}
+
 static mrb_value
 mrb_column_count(mrb_state *mrb, mrb_value self)
 {
@@ -280,6 +295,7 @@ mrb_init_class_SQLite3_Statement(mrb_state *mrb, struct RClass *class_SQLite3)
   mrb_define_method_id(mrb, class_SQLite3_Statement, MRB_SYM(step), mrb_step, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Statement, MRB_SYM_B(reset), mrb_reset_bang, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Statement, MRB_SYM_Q(done), mrb_done_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_SQLite3_Statement, MRB_SYM_Q(readonly), mrb_Statement_readonly_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Statement, MRB_SYM(column_count), mrb_column_count, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Statement, MRB_SYM(bind_param), mrb_bind_param, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_SQLite3_Statement, MRB_SYM(column_name), mrb_column_name, MRB_ARGS_REQ(1));

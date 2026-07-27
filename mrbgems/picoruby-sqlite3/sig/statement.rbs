@@ -17,6 +17,11 @@ class SQLite3
     def reset!: -> self
     def active?: -> bool
     def done?: -> bool
+    # sqlite3_stmt_readonly(): true iff the statement makes no direct change
+    # to database content. PRAGMA query_only / ATTACH / DETACH report true
+    # too (they change connection state, not content) -- reject those
+    # separately when building access control on this.
+    def readonly?: -> bool
     def column_count: -> Integer
     def columns: -> Array[String]
     def column_name: (Integer index) -> String
