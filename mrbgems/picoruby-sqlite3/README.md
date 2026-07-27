@@ -40,7 +40,18 @@ db.close     # close also auto-persists
   Task scheduler.
 - `serialize` / `deserialize` expose the raw snapshot bytes if you want to store
   them elsewhere.
+- `SQLite3::Database.new(":memory:")` works like CRuby's sqlite3 gem on
+  every target: a private in-memory database bound to no file and no
+  snapshot name. Nothing is restored on open, `persist` raises, and `close`
+  persists nothing (a plain close). Use it when your application or
+  framework owns the snapshot lifecycle itself via `serialize` /
+  `deserialize` instead of the built-in store.
 - The database is bounded by available wasm memory.
+- `Statement#readonly?` exposes `sqlite3_stmt_readonly()`. Note SQLite's
+  classification: statements that change connection state but not database
+  content (`PRAGMA query_only`, `ATTACH`, `DETACH`, transaction control)
+  report read-only too -- access control built on this method must reject
+  those separately.
 
 The rest of the API (execute, transactions, pragmas, backup, ...) is identical
 to the microcontroller build.

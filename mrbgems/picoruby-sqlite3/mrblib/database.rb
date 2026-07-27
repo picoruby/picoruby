@@ -12,7 +12,18 @@ class SQLite3
   class Database
     class << self
       def new(filename, results_as_hash: false)
-        db = if defined?(VFS)
+        db = if filename == ":memory:"
+          # CRuby sqlite3 compatible: a private in-memory database bound to
+          # no file and, on wasm, to no snapshot name. Nothing is restored on
+          # open and #close persists nothing. Each ":memory:" handle is its
+          # own independent database.
+          mem = _open_memory
+          # Keep sort/temp structures off the (driverless) VFS. The wasm
+          # build fixes this at compile time (SQLITE_TEMP_STORE=3); other
+          # targets get the runtime equivalent here.
+          mem.execute("PRAGMA temp_store = 2") if defined?(VFS)
+          mem
+        elsif defined?(VFS)
           volume, path = VFS.sanitize_and_split(filename)
           # The driver prepends its own prefix, so every path SQLite derives
           # from this one (journals, temporary files) stays valid too
@@ -147,7 +158,12 @@ class SQLite3
 
       # Snapshot the current database into IndexedDB under its name.
       def persist
-        self.class.__store[@db_name] = Base64.encode64(serialize)
+        name = @db_name
+        unless name
+          raise SQLite3::Exception.new(
+            "cannot persist a database that has no snapshot name (\":memory:\")")
+        end
+        self.class.__store[name] = Base64.encode64(serialize)
         true
       end
 

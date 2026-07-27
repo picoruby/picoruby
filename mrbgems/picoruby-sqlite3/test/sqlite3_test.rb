@@ -436,7 +436,122 @@ class Sqlite3Test < Picotest::Test
     db.close
   end
 
+  def test_statement_readonly_p
+    db = fresh_db("/stmt_ro.db")
+    db.prepare("SELECT id FROM users") do |stmt|
+      assert_true(stmt.readonly?)
+    end
+    db.prepare("INSERT INTO users (name) VALUES (?)") do |stmt|
+      assert_false(stmt.readonly?)
+    end
+    db.prepare("UPDATE users SET name = 'x'") do |stmt|
+      assert_false(stmt.readonly?)
+    end
+    db.prepare("DELETE FROM users") do |stmt|
+      assert_false(stmt.readonly?)
+    end
+    db.prepare("CREATE TABLE stmt_ro_extra (id INTEGER)") do |stmt|
+      assert_false(stmt.readonly?)
+    end
+    db.close
+  end
+
+  def test_statement_readonly_p_connection_state_quirk
+    # Pin the documented SQLite quirk: statements that change connection
+    # state but not database content are classified read-only by
+    # sqlite3_stmt_readonly(). Access control built on #readonly? must
+    # reject these separately.
+    db = fresh_db("/stmt_ro_quirk.db")
+    db.prepare("ATTACH DATABASE ':memory:' AS quirk_aux") do |stmt|
+      assert_true(stmt.readonly?)
+    end
+    db.prepare("PRAGMA query_only = ON") do |stmt|
+      assert_true(stmt.readonly?)
+    end
+    db.close
+  end
+
+  def test_statement_readonly_p_on_closed_statement_raises
+    db = fresh_db("/stmt_ro_closed.db")
+    stmt = db.prepare("SELECT id FROM users")
+    stmt.close
+    assert_raise(SQLite3::Exception) { stmt.readonly? }
+    db.close
+  end
+
+  # ---- ":memory:" databases (CRuby sqlite3 compatible, every target) ----
+
+  def test_memory_database_cruby_compat
+    db = SQLite3::Database.new(":memory:")
+    db.execute("CREATE TABLE t (v TEXT)")
+    db.execute("INSERT INTO t (v) VALUES (?)", ["in memory"])
+    assert_equal([["in memory"]], db.execute("SELECT v FROM t"))
+    assert_nil(db.filename)
+    db.close
+    assert_true(db.closed?)
+  end
+
+  def test_memory_database_block_form_closes
+    captured = SQLite3::Database.new(":memory:") { |db| db }
+    assert_true(captured.closed?)
+  end
+
+  def test_memory_databases_are_independent
+    # Like CRuby/SQLite: every ":memory:" handle is its own private database
+    a = SQLite3::Database.new(":memory:")
+    b = SQLite3::Database.new(":memory:")
+    a.execute("CREATE TABLE only_in_a (v TEXT)")
+    assert_equal([], b.execute("SELECT name FROM sqlite_master WHERE type='table'"))
+    a.close
+    b.close
+  end
+
   # ---- wasm-only: in-memory DB + IndexedDB snapshot persistence ----
+
+  def test_wasm_memory_database_persist_raises
+    skip "wasm only" unless wasm?
+    db = SQLite3::Database.new(":memory:")
+    # No snapshot name: persist has nowhere coherent to write
+    assert_raise(SQLite3::Exception) { db.persist }
+    db.close
+  end
+
+  def test_wasm_memory_database_close_leaves_no_snapshot
+    skip "wasm only" unless wasm?
+    keys_before = SQLite3::Database.__store.keys
+    db = SQLite3::Database.new(":memory:")
+    db.execute("CREATE TABLE t (v TEXT)")
+    db.execute("INSERT INTO t (v) VALUES (?)", ["gone"])
+    db.close
+    assert_equal(keys_before, SQLite3::Database.__store.keys)
+  end
+
+  def test_wasm_memory_database_serialize_round_trip
+    skip "wasm only" unless wasm?
+    bytes = nil
+    SQLite3::Database.new(":memory:") do |db|
+      db.execute("CREATE TABLE t (v TEXT)")
+      db.execute("INSERT INTO t (v) VALUES (?)", ["carried"])
+      bytes = db.serialize
+    end
+    other = SQLite3::Database.new(":memory:")
+    other.deserialize(bytes)
+    assert_equal([["carried"]], other.execute("SELECT v FROM t"))
+    other.close
+  end
+
+  def test_wasm_named_db_behavior_unchanged
+    skip "wasm only" unless wasm?
+    # Regression guard for the named (snapshot-bound) form: auto-persist on
+    # close and restore on reopen keep working alongside ":memory:".
+    db = SQLite3::Database.new("named_regression")
+    db.execute("CREATE TABLE t (v TEXT)")
+    db.execute("INSERT INTO t (v) VALUES (?)", ["still here"])
+    db.close
+    SQLite3::Database.new("named_regression") do |reopened|
+      assert_equal([["still here"]], reopened.execute("SELECT v FROM t"))
+    end
+  end
 
   def test_wasm_explicit_persist_and_restore
     skip "wasm only" unless wasm?
