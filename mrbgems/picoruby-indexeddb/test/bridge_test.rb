@@ -10,6 +10,8 @@ class IndexedDBBridgeTest < Picotest::Test
   FAKE_JS = <<~JS
     globalThis.__fakeIdb = {
       lateClosed: false,
+      lateUpgradeAborted: false,
+      lateUpgradeCallbackRan: false,
       makeSuccessRequest: (value) => {
         const req = { result: value };
         Object.defineProperty(req, 'onsuccess', {
@@ -33,8 +35,15 @@ class IndexedDBBridgeTest < Picotest::Test
       },
       install: (mode, name, message, lateDelay) => {
         globalThis.__fakeIdb.lateClosed = false;
+        globalThis.__fakeIdb.lateUpgradeAborted = false;
+        globalThis.__fakeIdb.lateUpgradeCallbackRan = false;
         globalThis.indexedDB = {
           open: (dbname, version) => {
+            if (mode === 'throw') {
+              const error = new Error(message);
+              error.name = name;
+              throw error;
+            }
             const req = {};
             if (mode === 'error') {
               req.error = { name: name, message: message };
@@ -56,6 +65,22 @@ class IndexedDBBridgeTest < Picotest::Test
               };
               Object.defineProperty(req, 'onsuccess', {
                 set(fn) { setTimeout(fn, lateDelay); }
+              });
+              Object.defineProperty(req, 'onblocked', {
+                set(fn) { setTimeout(fn, 0); }
+              });
+            } else if (mode === 'blocked_late_upgrade') {
+              req.transaction = {
+                abort: () => {
+                  globalThis.__fakeIdb.lateUpgradeAborted = true;
+                }
+              };
+              Object.defineProperty(req, 'onupgradeneeded', {
+                set(fn) {
+                  setTimeout(() => {
+                    fn({ oldVersion: 1, newVersion: 2 });
+                  }, lateDelay);
+                }
               });
               Object.defineProperty(req, 'onblocked', {
                 set(fn) { setTimeout(fn, 0); }
@@ -158,6 +183,27 @@ class IndexedDBBridgeTest < Picotest::Test
     end
   end
 
+  def test_open_synchronous_security_error_falls_back
+    with_fake_idb("throw", "SecurityError", "opaque origin") do
+      db = IndexedDB.open("bridge_sync_sec_fb")
+      assert_true(db.is_a?(IndexedDB::InMemoryDatabase))
+    end
+  end
+
+  def test_open_synchronous_security_error_is_typed_without_fallback
+    with_fake_idb("throw", "SecurityError", "opaque origin") do
+      caught = nil
+      begin
+        IndexedDB.open("bridge_sync_sec_raise", fallback: false)
+      rescue IndexedDB::SecurityError => e
+        caught = e
+      end
+      assert_not_nil(caught)
+      assert_equal("SecurityError", caught.name)
+      assert_true(caught.message.include?("opaque origin"))
+    end
+  end
+
   def test_open_invalid_state_error_falls_back
     with_fake_idb("error", "InvalidStateError", "no storage here") do
       db = IndexedDB.open("bridge_ise_fb")
@@ -207,6 +253,25 @@ class IndexedDBBridgeTest < Picotest::Test
         i += 1
       end
       assert_equal("true", fakes[:lateClosed].to_s)
+    end
+  end
+
+  def test_open_blocked_late_upgrade_is_aborted
+    with_fake_idb("blocked_late_upgrade", "", "", 150) do
+      assert_raise(IndexedDB::BlockedError) do
+        IndexedDB.open("bridge_blocked_late_upgrade", version: 2,
+                       blocked_timeout_ms: 50) do |_db, _old_v, _new_v|
+          fakes[:lateUpgradeCallbackRan] = true
+        end
+      end
+      i = 0
+      while i < 30
+        break if fakes[:lateUpgradeAborted].to_s == "true"
+        fakes.waitTimer(10).await
+        i += 1
+      end
+      assert_equal("true", fakes[:lateUpgradeAborted].to_s)
+      assert_equal("false", fakes[:lateUpgradeCallbackRan].to_s)
     end
   end
 

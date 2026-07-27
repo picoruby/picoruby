@@ -78,9 +78,37 @@ EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int version, uintptr_t 
       console.error('idb_open_with_upgrade: indexedDB unavailable');
       return -1;
     }
-    const req = (version > 0) ? idb.open(name, version) : idb.open(name);
+    let req;
+    try {
+      req = (version > 0) ? idb.open(name, version) : idb.open(name);
+    } catch (e) {
+      /* IDBFactory.open() can throw synchronously (SecurityError for an
+         opaque origin, for example). Preserve that DOMException just like an
+         asynchronous request error so Ruby can apply its fallback policy. */
+      const promise = Promise.resolve({
+        ok: false,
+        name: (e && e.name) || 'UnknownError',
+        message: (e && e.message) || 'IDB open failed'
+      });
+      return globalThis.picorubyRefs.push(promise) - 1;
+    }
+
+    /* These flags also govern onupgradeneeded, which is installed before the
+       Promise handlers below. A timed-out IDBOpenDBRequest cannot be
+       cancelled, so a later versionchange must be explicitly aborted. */
+    let settled = false;
+    let timedOut = false;
+    let blockedTimer = null;
 
     req.onupgradeneeded = (event) => {
+      if (timedOut) {
+        try {
+          if (req.transaction) req.transaction.abort();
+        } catch (e) {
+          console.error('failed to abort late IDB upgrade:', e);
+        }
+        return;
+      }
       if (callback_id === 0) return;
       const db = req.result;
       const oldV = event.oldVersion;
@@ -116,8 +144,6 @@ EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int version, uintptr_t 
          IndexedDB::BlockedError). An open that succeeds AFTER the timeout
          already settled the promise is closed immediately -- nobody can
          receive that connection anymore. */
-      let settled = false;
-      let blockedTimer = null;
       const settle = (result) => {
         if (settled) return;
         settled = true;
@@ -141,6 +167,7 @@ EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int version, uintptr_t 
       req.onblocked = () => {
         if (settled || blockedTimer) return;
         blockedTimer = setTimeout(() => {
+          timedOut = true;
           settle({
             ok: false,
             name: 'PicoRubyBlockedTimeout',
