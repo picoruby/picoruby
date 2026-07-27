@@ -46,6 +46,16 @@ class URITest < Picotest::Test
     assert_raise(ArgumentError) { URI.parse("ftp://example.com") }
   end
 
+  def test_parse_rejects_non_numeric_port
+    assert_raise(ArgumentError) { URI.parse("http://example.com:8x0/") }
+    assert_raise(ArgumentError) { URI.parse("https://example.com:abc/") }
+  end
+
+  def test_parse_empty_port_uses_default
+    assert_equal(80, URI.parse("http://example.com:/").port)
+    assert_equal(443, URI.parse("https://example.com:/").port)
+  end
+
   # ---- URI.encode_www_form_component (CRuby-compatible) ----
 
   def test_encode_component_passes_safe_characters
@@ -86,6 +96,18 @@ class URITest < Picotest::Test
 
   def test_encode_www_form_from_pairs
     assert_equal("a=1&a=2", URI.encode_www_form([["a", 1], ["a", 2]]))
+  end
+
+  def test_encode_www_form_expands_array_values
+    assert_equal("id=1&id=2", URI.encode_www_form({ id: [1, 2] }))
+    assert_equal("id=1&id=2", URI.encode_www_form([["id", [1, 2]]]))
+    assert_equal("&id=1", URI.encode_www_form({ id: [nil, 1] }))
+    assert_equal("&id=1", URI.encode_www_form([["id", [nil, 1]]]))
+  end
+
+  def test_encode_www_form_omits_equals_for_nil
+    assert_equal("q", URI.encode_www_form({ q: nil }))
+    assert_equal("q", URI.encode_www_form([["q", nil]]))
   end
 
   def test_encode_www_form_empty

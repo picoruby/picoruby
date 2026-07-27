@@ -98,8 +98,8 @@ module URI
     if colon_idx && host_port
       host = host_port.byteslice(0..(colon_idx - 1))
       port_str = host_port.byteslice((colon_idx + 1)..-1)
-      port = 0
-      if port_str
+      if port_str && !port_str.empty?
+        port = 0
         port_bytes = port_str.bytes
         port_size = port_bytes.size
         i = 0
@@ -107,9 +107,13 @@ module URI
           b = port_bytes[i]
           if 48 <= b && b <= 57
             port = port * 10 + (b - 48)
+          else
+            raise ArgumentError, "URI port must be numeric"
           end
           i += 1
         end
+      else
+        port = scheme == 'https' ? 443 : 80
       end
     else
       host = host_port
@@ -161,7 +165,25 @@ module URI
       i = 0
       while i < size
         key = keys[i]
-        pairs << "#{encode_www_form_component(key)}=#{encode_www_form_component(params[key])}"
+        value = params[key]
+        encoded_key = encode_www_form_component(key)
+        if value.nil?
+          pairs << encoded_key
+        elsif value.is_a?(Array)
+          value_size = value.size
+          j = 0
+          while j < value_size
+            item = value[j]
+            if item.nil?
+              pairs << ''
+            else
+              pairs << "#{encoded_key}=#{encode_www_form_component(item)}"
+            end
+            j += 1
+          end
+        else
+          pairs << "#{encoded_key}=#{encode_www_form_component(value)}"
+        end
         i += 1
       end
     else
@@ -169,7 +191,25 @@ module URI
       i = 0
       while i < size
         pair = params[i]
-        pairs << "#{encode_www_form_component(pair[0])}=#{encode_www_form_component(pair[1])}"
+        encoded_key = encode_www_form_component(pair[0])
+        value = pair[1]
+        if value.nil?
+          pairs << encoded_key
+        elsif value.is_a?(Array)
+          value_size = value.size
+          j = 0
+          while j < value_size
+            item = value[j]
+            if item.nil?
+              pairs << ''
+            else
+              pairs << "#{encoded_key}=#{encode_www_form_component(item)}"
+            end
+            j += 1
+          end
+        else
+          pairs << "#{encoded_key}=#{encode_www_form_component(value)}"
+        end
         i += 1
       end
     end

@@ -28,4 +28,6 @@ URI.encode_www_form(page: 2, q: "hello world")
 - `encode_www_form_component` follows CRuby: bytes outside `[A-Za-z0-9*-._]`
   are percent-encoded byte-wise (multibyte UTF-8 works), a space becomes
   `+`, and the tilde is encoded (`%7E`).
-- `encode_www_form` accepts a Hash or an Array of `[key, value]` pairs.
+- `encode_www_form` accepts a Hash or an Array of `[key, value]` pairs. Array
+  values are expanded as repeated keys, and a `nil` value is emitted without
+  an equals sign, matching CRuby.
