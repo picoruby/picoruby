@@ -13,7 +13,10 @@ module URI
     def request_uri: () -> String
   end
 
+  FORM_SAFE: String
+  HEX_UPPER: String
+
   def self.parse: (String uri_string) -> URIClass
   def self.encode_www_form_component: (untyped str) -> String
-  def self.encode_www_form: (Hash[untyped, untyped] params) -> String
+  def self.encode_www_form: (Hash[untyped, untyped] | Array[Array[untyped]] params) -> String
 end
