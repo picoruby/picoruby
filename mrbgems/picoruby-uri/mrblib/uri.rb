@@ -1,5 +1,11 @@
 # ============================================================================
-# URI Module - Simplified URI parsing for HTTP/HTTPS URLs
+# URI Module - Simplified URI parsing and form encoding for HTTP/HTTPS URLs
+#
+# Extracted from picoruby-net-http so that microcontroller targets and
+# picoruby.wasm share one implementation. The encoding side follows CRuby's
+# URI.encode_www_form_component: bytes outside [A-Za-z0-9*-._] are
+# percent-encoded byte-wise (so multibyte UTF-8 works), and a space becomes
+# "+".
 # ============================================================================
 module URI
   class URIClass
@@ -92,11 +98,17 @@ module URI
     if colon_idx && host_port
       host = host_port.byteslice(0..(colon_idx - 1))
       port_str = host_port.byteslice((colon_idx + 1)..-1)
-      # Convert port string to integer manually
       port = 0
-      port_str&.each_char do |c|
-        if c >= '0' && c <= '9'
-          port = port * 10 + (c.ord - '0'.ord)
+      if port_str
+        port_bytes = port_str.bytes
+        port_size = port_bytes.size
+        i = 0
+        while i < port_size
+          b = port_bytes[i]
+          if 48 <= b && b <= 57
+            port = port * 10 + (b - 48)
+          end
+          i += 1
         end
       end
     else
@@ -107,31 +119,60 @@ module URI
     URIClass.new(scheme, host || '', port, path || '', query, fragment)
   end
 
-  # Encode URI component (simple version)
+  # Characters CRuby's encode_www_form_component leaves untouched. Note the
+  # tilde IS encoded (%7E) by CRuby's form encoding, unlike RFC 3986
+  # unreserved.
+  # No .freeze here: mruby/c (FemtoRuby) has no String#freeze, and a raise
+  # in the module body would silently skip every definition below it.
+  FORM_SAFE = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789*-._"
+  HEX_UPPER = "0123456789ABCDEF"
+
+  # Encode one form component the way CRuby does: byte-wise %XX for
+  # anything outside FORM_SAFE, space as "+". Non-strings are to_s'd first.
   def self.encode_www_form_component(str)
+    s = str.to_s
     result = ''
-    str.each_char do |char|
-      # Check if char is alphanumeric or in safe set: - _ . ~
-      if (char >= 'a' && char <= 'z') ||
-         (char >= 'A' && char <= 'Z') ||
-         (char >= '0' && char <= '9') ||
-         char == '-' || char == '_' || char == '.' || char == '~'
-        result += char
+    bytes = s.bytes
+    size = bytes.size
+    i = 0
+    while i < size
+      b = bytes[i]
+      if b == 32
+        result << '+'
       else
-        # Percent-encode the character
-        byte = char.ord
-        hex = byte.to_s(16).upcase
-        hex = '0' + hex if hex.bytesize == 1
-        result += '%' + hex
+        c = b.chr
+        if FORM_SAFE.include?(c)
+          result << c
+        else
+          result << '%' << HEX_UPPER[b >> 4].to_s << HEX_UPPER[b & 15].to_s
+        end
       end
+      i += 1
     end
     result
   end
 
-  # Encode form data
+  # Encode form data. Accepts a Hash or an Array of [key, value] pairs.
   def self.encode_www_form(params)
-    params.map { |k, v|
-      "#{encode_www_form_component(k)}=#{encode_www_form_component(v)}"
-    }.join('&')
+    pairs = [] #: Array[String]
+    if params.is_a?(Hash)
+      keys = params.keys
+      size = keys.size
+      i = 0
+      while i < size
+        key = keys[i]
+        pairs << "#{encode_www_form_component(key)}=#{encode_www_form_component(params[key])}"
+        i += 1
+      end
+    else
+      size = params.size
+      i = 0
+      while i < size
+        pair = params[i]
+        pairs << "#{encode_www_form_component(pair[0])}=#{encode_www_form_component(pair[1])}"
+        i += 1
+      end
+    end
+    pairs.join('&')
   end
 end

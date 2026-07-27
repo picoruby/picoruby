@@ -8,6 +8,8 @@ MRuby::Gem::Specification.new('picoruby-net-http') do |spec|
 
   # Dependency on picoruby-socket for TCP/SSL socket support
   spec.add_dependency 'picoruby-socket'
+  # URI parsing / form encoding (extracted from this gem)
+  spec.add_dependency 'picoruby-uri'
   if build.femtoruby?
     spec.add_dependency 'picoruby-metaprog'
   end
