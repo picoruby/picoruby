@@ -316,6 +316,26 @@ class Sqlite3Test < Picotest::Test
     db.close
   end
 
+  def test_transaction_reraises_the_original_exception
+    db = fresh_db("/txn_reraise.db")
+    # Regression: transaction's rescue used a bare `raise`, which on the
+    # mruby VM raises a fresh empty RuntimeError instead of re-raising,
+    # hiding the exception class from the caller.
+    raised = false
+    begin
+      db.transaction do |t|
+        t.execute("THIS IS NOT SQL")
+      end
+    rescue => e
+      raised = true
+      assert_equal("SQLite3::Exception", e.class.to_s)
+      assert_true(e.message.include?("syntax error"))
+    end
+    assert_true(raised)
+    assert_false(db.transaction_active?)
+    db.close
+  end
+
   def test_manual_rollback
     db = fresh_db("/manual_rollback.db")
     db.transaction

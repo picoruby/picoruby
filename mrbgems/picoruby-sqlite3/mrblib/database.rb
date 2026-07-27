@@ -108,9 +108,12 @@ class SQLite3
       aborting = false
       begin
         yield self
-      rescue
+      rescue => e
         aborting = true
-        raise
+        # Not a bare `raise`: on the mruby VM that would not re-raise but
+        # raise a fresh empty RuntimeError, hiding the exception class
+        # (e.g. SQLite3::Exception) from the caller.
+        raise e
       ensure
         aborting ? rollback : commit
       end
