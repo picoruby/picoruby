@@ -8,6 +8,18 @@ PicoRuby contains many submodules such as `mrbgems/mruby-compiler` and `mrbgems/
 
 Generally, you should not modify submodules. If modifying a submodule is technically justifiable, you must report it and ask for instructions, regardless of the coding mode or setting.
 
+## WebAssembly builds and tests
+
+Run commands that build or test WebAssembly outside the filesystem sandbox
+from the first attempt. This includes commands such as
+`rake test:gems:wasm[...]`. Emscripten writes cache and lock files under its
+SDK directory, which is outside the repository workspace; do not first try
+these commands inside the sandbox.
+
+Wasm build and test tasks share `build/host` with other PicoRuby build tasks.
+Do not run them concurrently with another build or test task that can clean or
+rewrite `build/host`.
+
 ## Implementing a library (gem)
 
 ### Iteration
@@ -49,4 +61,3 @@ end
 ```
 
 Note that if there is a possibility of modifying `@ary` in another context, memoization could introduce a bug.
-
