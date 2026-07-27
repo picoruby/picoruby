@@ -179,7 +179,7 @@ module IndexedDB
 
     def await_request(req)
       promise = Helper.request_to_promise(req)
-      promise.await
+      IndexedDB.__unwrap(promise.await)
     end
 
     def to_js_key(key)

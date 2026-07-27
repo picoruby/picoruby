@@ -39,7 +39,7 @@ module IndexedDB
 
     def await_complete
       promise = Helper.transaction_to_promise(@tx)
-      promise.await
+      IndexedDB.__unwrap(promise.await)
       nil
     end
 

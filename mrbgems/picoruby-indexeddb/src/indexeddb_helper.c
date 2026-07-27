@@ -27,7 +27,7 @@ extern mrb_value wrap_ref_as_js_object(mrb_state *mrb, int ref_id);
  * Three entry points:
  *   1. idb_request_to_promise(req_ref_id)
  *      Wraps an IDBRequest in a Promise so Ruby can use JS::Promise#await.
- *   2. idb_open_with_upgrade(name, version, upgrade_callback_id)
+ *   2. idb_open_with_upgrade(name, version, upgrade_callback_id, blocked_ms)
  *      Opens a database. Inside onupgradeneeded the registered Ruby callback
  *      is invoked synchronously via call_ruby_callback_sync_generic so that
  *      schema mutations (createObjectStore / createIndex) run on the JS
@@ -36,6 +36,14 @@ extern mrb_value wrap_ref_as_js_object(mrb_state *mrb, int ref_id);
  *      Wraps an IDBTransaction's oncomplete/onerror/onabort events as a
  *      single Promise. Used by Database#batch to atomically commit a group
  *      of write operations.
+ *
+ * All three RESOLVE a tagged result instead of rejecting:
+ *   success: { ok: true,  value: <result> }
+ *   failure: { ok: false, name: <DOMException name>, message: <message> }
+ * The generic JS Promise bridge preserves only error messages on rejection,
+ * so a rejected DOMException would reach Ruby as a bare string and error
+ * CLASSES would be indistinguishable. Ruby (IndexedDB.__unwrap) converts the
+ * failure tag into a typed exception.
  *****************************************************/
 
 EM_JS(int, idb_request_to_promise, (int req_ref_id), {
@@ -45,11 +53,14 @@ EM_JS(int, idb_request_to_promise, (int req_ref_id), {
       console.error('idb_request_to_promise: invalid ref_id', req_ref_id);
       return -1;
     }
-    const promise = new Promise((resolve, reject) => {
-      req.onsuccess = () => { resolve(req.result); };
+    const promise = new Promise((resolve) => {
+      req.onsuccess = () => { resolve({ ok: true, value: req.result }); };
       req.onerror = () => {
-        const msg = (req.error && req.error.message) || 'IDB request failed';
-        reject(new Error(msg));
+        resolve({
+          ok: false,
+          name: (req.error && req.error.name) || 'UnknownError',
+          message: (req.error && req.error.message) || 'IDB request failed'
+        });
       };
     });
     return globalThis.picorubyRefs.push(promise) - 1;
@@ -59,7 +70,7 @@ EM_JS(int, idb_request_to_promise, (int req_ref_id), {
   }
 });
 
-EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int version, uintptr_t callback_id), {
+EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int version, uintptr_t callback_id, int blocked_timeout_ms), {
   try {
     const name = UTF8ToString(name_ptr);
     const idb = globalThis.indexedDB;
@@ -98,14 +109,44 @@ EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int version, uintptr_t 
       }
     };
 
-    const promise = new Promise((resolve, reject) => {
-      req.onsuccess = () => { resolve(req.result); };
+    const promise = new Promise((resolve) => {
+      /* onblocked is not a failure by itself: the blocking connection may
+         close at any moment and let the open finish. Wait for it with a
+         bounded timer; only its expiry is reported (as a tag Ruby maps to
+         IndexedDB::BlockedError). An open that succeeds AFTER the timeout
+         already settled the promise is closed immediately -- nobody can
+         receive that connection anymore. */
+      let settled = false;
+      let blockedTimer = null;
+      const settle = (result) => {
+        if (settled) return;
+        settled = true;
+        if (blockedTimer) { clearTimeout(blockedTimer); blockedTimer = null; }
+        resolve(result);
+      };
+      req.onsuccess = () => {
+        if (settled) {
+          try { req.result.close(); } catch (e) {}
+          return;
+        }
+        settle({ ok: true, value: req.result });
+      };
       req.onerror = () => {
-        const msg = (req.error && req.error.message) || 'IDB open failed';
-        reject(new Error(msg));
+        settle({
+          ok: false,
+          name: (req.error && req.error.name) || 'UnknownError',
+          message: (req.error && req.error.message) || 'IDB open failed'
+        });
       };
       req.onblocked = () => {
-        reject(new Error('IDB open blocked: another connection holds an older version'));
+        if (settled || blockedTimer) return;
+        blockedTimer = setTimeout(() => {
+          settle({
+            ok: false,
+            name: 'PicoRubyBlockedTimeout',
+            message: 'IDB open blocked: another connection held an older version past the timeout'
+          });
+        }, blocked_timeout_ms);
       };
     });
     return globalThis.picorubyRefs.push(promise) - 1;
@@ -122,15 +163,21 @@ EM_JS(int, idb_transaction_to_promise, (int tx_ref_id), {
       console.error('idb_transaction_to_promise: invalid ref_id', tx_ref_id);
       return -1;
     }
-    const promise = new Promise((resolve, reject) => {
-      tx.oncomplete = () => { resolve(true); };
+    const promise = new Promise((resolve) => {
+      tx.oncomplete = () => { resolve({ ok: true, value: true }); };
       tx.onerror = () => {
-        const msg = (tx.error && tx.error.message) || 'IDB transaction error';
-        reject(new Error(msg));
+        resolve({
+          ok: false,
+          name: (tx.error && tx.error.name) || 'UnknownError',
+          message: (tx.error && tx.error.message) || 'IDB transaction error'
+        });
       };
       tx.onabort = () => {
-        const msg = (tx.error && tx.error.message) || 'IDB transaction aborted';
-        reject(new Error(msg));
+        resolve({
+          ok: false,
+          name: (tx.error && tx.error.name) || 'AbortError',
+          message: (tx.error && tx.error.message) || 'IDB transaction aborted'
+        });
       };
     });
     return globalThis.picorubyRefs.push(promise) - 1;
@@ -191,10 +238,12 @@ mrb_idb_helper_transaction_to_promise(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * IndexedDB::Helper.open_with_upgrade(name, version, callback_id) -> JS::Promise
+ * IndexedDB::Helper.open_with_upgrade(name, version, callback_id, blocked_timeout_ms)
+ *   -> JS::Promise
  *
  * callback_id may be 0 to skip the upgrade hook (e.g. when opening at the
- * current version with no schema work to do).
+ * current version with no schema work to do). blocked_timeout_ms bounds how
+ * long an onblocked open may wait before it settles as a BlockedError tag.
  */
 static mrb_value
 mrb_idb_helper_open_with_upgrade(mrb_state *mrb, mrb_value self)
@@ -202,9 +251,11 @@ mrb_idb_helper_open_with_upgrade(mrb_state *mrb, mrb_value self)
   const char *name;
   mrb_int version;
   mrb_int callback_id;
-  mrb_get_args(mrb, "zii", &name, &version, &callback_id);
+  mrb_int blocked_timeout_ms;
+  mrb_get_args(mrb, "ziii", &name, &version, &callback_id, &blocked_timeout_ms);
 
-  int promise_id = idb_open_with_upgrade(name, (int)version, (uintptr_t)callback_id);
+  int promise_id = idb_open_with_upgrade(name, (int)version, (uintptr_t)callback_id,
+                                         (int)blocked_timeout_ms);
   if (promise_id < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "idb_open_with_upgrade failed");
   }
@@ -224,7 +275,7 @@ mrb_picoruby_indexeddb_gem_init(mrb_state *mrb)
   mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(request_to_promise),
     mrb_idb_helper_request_to_promise, MRB_ARGS_REQ(1));
   mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(open_with_upgrade),
-    mrb_idb_helper_open_with_upgrade, MRB_ARGS_REQ(3));
+    mrb_idb_helper_open_with_upgrade, MRB_ARGS_REQ(4));
   mrb_define_module_function_id(mrb, module_Helper, MRB_SYM(transaction_to_promise),
     mrb_idb_helper_transaction_to_promise, MRB_ARGS_REQ(1));
 }

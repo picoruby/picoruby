@@ -5,9 +5,27 @@ rescue LoadError
 end
 
 module IndexedDB
+  # How long an onblocked open may wait before it fails with BlockedError.
+  BLOCKED_TIMEOUT_MS = 5000
+
   # True when the browser exposes globalThis.indexedDB.
   def self.available?
     !JS.global[:indexedDB].nil?
+  end
+
+  # Unwrap a tagged bridge result ({ ok: true, value: } | { ok: false,
+  # name:, message: }) into the value or a typed exception. The EM_JS
+  # helpers always RESOLVE tags -- a rejection would reach Ruby as a bare
+  # message string with the error class lost.
+  def self.__unwrap(tagged)
+    err_name = tagged[:name]
+    return tagged[:value] if err_name.nil?
+    name = err_name.to_s
+    message = tagged[:message].to_s
+    if name == "PicoRubyBlockedTimeout"
+      raise BlockedError.new(message)
+    end
+    raise error_for(name, message)
   end
 
   # Open (and upgrade) a database.
@@ -21,11 +39,21 @@ module IndexedDB
   # a schema upgrade is triggered. Schema mutations are valid only there.
   # `await` MUST NOT be used inside the upgrade block.
   #
-  # When `IndexedDB.available?` is false, the call falls back to an
+  # When IndexedDB is unusable in this environment, the fallback is an
   # in-memory implementation with the same API surface (no persistence).
-  def self.open(name, version: 1, fallback: true, &block)
+  # `fallback: true` applies ONLY to availability: a missing
+  # globalThis.indexedDB, or an open failing with SecurityError /
+  # InvalidStateError (private modes). Quota, version, and data errors
+  # always raise typed -- silently substituting an empty in-memory store
+  # would masquerade as losing previously persisted data.
+  def self.open(name, version: 1, fallback: true, blocked_timeout_ms: BLOCKED_TIMEOUT_MS, &block)
     if available?
-      open_real(name, version, &block)
+      begin
+        open_real(name, version, blocked_timeout_ms, &block)
+      rescue SecurityError, InvalidStateError => e
+        raise e unless fallback
+        open_fallback(name, version, &block)
+      end
     elsif fallback
       open_fallback(name, version, &block)
     else
@@ -36,7 +64,7 @@ module IndexedDB
   class << self
     private
 
-    def open_real(name, version, &block)
+    def open_real(name, version, blocked_timeout_ms, &block)
       callback_id = 0
       if block
         user_block = block
@@ -51,9 +79,16 @@ module IndexedDB
         JS::Object::CALLBACKS[callback_id] = proc_obj
       end
 
-      promise = Helper.open_with_upgrade(name.to_s, version.to_i, callback_id)
-      raw_db = promise.await
-      JS::Object::CALLBACKS.delete(callback_id) if callback_id != 0
+      raw_db = nil
+      begin
+        promise = Helper.open_with_upgrade(name.to_s, version.to_i, callback_id,
+                                           blocked_timeout_ms.to_i)
+        raw_db = IndexedDB.__unwrap(promise.await)
+      ensure
+        # Without the ensure, a raise out of await/unwrap would leak the
+        # registration forever.
+        JS::Object::CALLBACKS.delete(callback_id) if callback_id != 0
+      end
       Database.new(raw_db, name: name, upgrading: false)
     end
 
