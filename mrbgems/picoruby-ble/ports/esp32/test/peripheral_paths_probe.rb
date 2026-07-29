@@ -49,7 +49,7 @@ class PeripheralPathsProbe < BLE
     @counter = 0
     @notify_on = false
     @connected = false
-    @stop_requested = false
+    @disconnects = 0
     puts "[probe] handles notify=#{@notify_handle} cccd=#{@cccd_handle} write=#{@write_handle}"
   end
 
@@ -70,7 +70,18 @@ class PeripheralPathsProbe < BLE
       puts "[probe] P6 DISCONNECTION_COMPLETE"
       @notify_on = false
       @connected = false
-      if @stop_requested
+      @disconnects += 1
+      # The trigger for P7 is the probe's own disconnect count, not a value
+      # written by the peer. Waiting on a peer write would make P7 depend on the
+      # port delivering that write to Ruby, which it does not (P2/P5), and P7 is
+      # a different code path -- BLE_peripheral_stop_advertise, reached by
+      # advertise(nil) via src/mruby/ble_peripheral.c:10-11. Driving it from
+      # Ruby is exactly the external invocation this verification is for.
+      #
+      # The count lines up with test_central.swift's passes: it disconnects once
+      # after subscribing and reading notifications, and again after its second
+      # connect, then watches for silence.
+      if @disconnects >= 2
         advertise(nil)
         puts "[probe] P7 stop_advertise called"
       else
@@ -90,7 +101,6 @@ class PeripheralPathsProbe < BLE
     end
     if (v = pop_write_value(@write_handle))
       puts "[probe] P5 WRITE_CHR received value=#{v.inspect}"
-      @stop_requested = true if v.include?("STOPADV")
     end
     # Driven off the connection, NOT off @notify_on. The port does not deliver
     # the CCCD write to Ruby (see below), so gating notify on @notify_on would
