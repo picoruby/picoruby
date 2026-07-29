@@ -5,7 +5,8 @@
 #include <mruby/presym.h>
 #include <mruby/string.h>
 
-#define SEEK_SET 0
+/* picoruby-vfs File::SEEK_SET protocol value; avoid libc's SEEK_SET macro. */
+#define PRB_SEEK_SET 0
 
 /* Used when the driver does not report a sector size */
 #define DEFAULT_SECTOR_SIZE 512
@@ -237,7 +238,7 @@ prb_file_seek(PRBFile *prbfile, sqlite3_int64 offset)
   int ai = mrb_gc_arena_save(mrb);
   mrb_value argv[2];
   argv[0] = mrb_int_value(mrb, (mrb_int)offset);
-  argv[1] = mrb_fixnum_value(SEEK_SET);
+  argv[1] = mrb_fixnum_value(PRB_SEEK_SET);
   mrb_int ret = prb_call_int(prbfile->file, MRB_SYM(seek), 2, argv);
   mrb_gc_arena_restore(mrb, ai);
   return (ret < 0) ? -1 : 0;

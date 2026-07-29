@@ -59,6 +59,11 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
 
   obj = "#{build_dir}/src/#{objfile("sqlite3")}"
   file obj => "#{dir}/lib/sqlite-amalgamation-3530300/sqlite3.c" do |t|
+    qualifier_warning_flag = if build.wasm?
+      "-Wno-incompatible-pointer-types-discards-qualifiers" # Clang (emcc)
+    else
+      "-Wno-discarded-qualifiers" # GCC
+    end
     spec.cc.run(
       t.name,
       t.prerequisites[0],
@@ -66,15 +71,15 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
       [], # _include_paths
       [   # _flags
         "-Wno-undef",
-        "-Wno-discarded-qualifiers",
         "-Wno-unused-function",
         "-Wno-unused-variable",
         "-Wno-unused-value",
-        "-Wno-unused-but-set-variable"
+        "-Wno-unused-but-set-variable",
+        "-Wno-undefined-internal",
+        qualifier_warning_flag
       ]
     )
   end
   spec.objs << obj
 
 end
-
