@@ -69,7 +69,7 @@ Use it when the handler needs any of:
 - `event.currentTarget` / `event.composedPath()`, which the DOM invalidates once
   dispatch ends
 
-**Constraints.** The block cannot suspend, so anything that would raises
+**Constraints.** The block cannot suspend, so anything that would suspend raises
 `RuntimeError` inside it:
 
 - `fetch`, `Promise#await` / `#then`, `JS::Response#to_binary`
