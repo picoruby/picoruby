@@ -41,13 +41,37 @@ class CentralPathsProbe < BLE
            "handle=#{Utils.little_endian_to_int16(event_packet.byteslice(4, 2))} count=#{@notify_seen}"
     end
     super
+    # drive is called from here, not only from heartbeat_callback: on ESP32 the
+    # heartbeat stops after connect(). ble_central.rb's connect runs a nested
+    # start(10, :TC_IDLE), whose ensure block calls
+    # hci_power_control(HCI_POWER_OFF) -- visible on the serial log as
+    # "BLE_hci_power_control(0)" -- and that stops the port's heartbeat timer.
+    # The outer scan loop keeps pumping pop_packet, so packet_callback still
+    # fires and is the only hook left that runs after discovery settles.
+    drive
   end
 
-  # Array#find / Enumerable#detect are not in the base picoruby VM, so these
-  # walk with each and keep the last match.
-  def pick(list, uuid32)
+  # Bluetooth Base UUID tail shared by every 16-bit UUID promoted to 128 bits.
+  BT_BASE_SUFFIX = "\x00\x00\x10\x00\x80\x00\x00\x80\x5F\x9B\x34\xFB"
+
+  # Builds the canonical big-endian 128-bit form of a 16-bit UUID, e.g. 0x181A
+  # -> 0000181A-0000-1000-8000-00805F9B34FB.
+  def uuid128_for(uuid16)
+    "\x00\x00" + [(uuid16 >> 8) & 0xff, uuid16 & 0xff].pack("CC") + BT_BASE_SUFFIX
+  end
+
+  # Matches on :uuid128, not :uuid32. Utils.uuid128_to_uuid32 (ble_utils.rb:52)
+  # reads the leading 4 bytes little-endian, but the canonical 128-bit form
+  # holds them big-endian, so service 0x181A comes back as 0x0A180000 and no
+  # uuid32 comparison can ever match. Measured on hardware. Matching the
+  # uuid128 bytes sidesteps that helper entirely.
+  #
+  # Array#find / Enumerable#detect are not in the base picoruby VM, so this
+  # walks with each and keeps the last match.
+  def pick(list, uuid16)
+    want = uuid128_for(uuid16)
     found = nil
-    list.each { |e| found = e if e[:uuid32] == uuid32 }
+    list.each { |e| found = e if e[:uuid128] == want }
     found
   end
 
@@ -59,7 +83,16 @@ class CentralPathsProbe < BLE
     return if state != :TC_IDLE
     svc = pick(services, SERVICE)
     unless svc
+      return if @dumped
+      @dumped = true
       puts "[probe] service 0x#{SERVICE.to_s(16)} not discovered; services=#{services.size}"
+      services.each do |s|
+        puts "[probe]   svc uuid32=0x#{s[:uuid32].to_s(16)} uuid128=#{s[:uuid128].inspect} " \
+             "handles=#{s[:start_handle]}..#{s[:end_handle]} chars=#{s[:characteristics].size}"
+        s[:characteristics].each do |c|
+          puts "[probe]     chr uuid32=0x#{c[:uuid32].to_s(16)} vh=#{c[:value_handle]} props=#{c[:properties]}"
+        end
+      end
       return
     end
     wr = pick(svc[:characteristics], CHAR_WRITE)

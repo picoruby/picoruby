@@ -48,7 +48,9 @@ class PeripheralPathsProbe < BLE
     super(:peripheral, db.profile_data)
     @counter = 0
     @notify_on = false
+    @connected = false
     @stop_requested = false
+    puts "[probe] handles notify=#{@notify_handle} cccd=#{@cccd_handle} write=#{@write_handle}"
   end
 
   def packet_callback(event_packet)
@@ -59,6 +61,7 @@ class PeripheralPathsProbe < BLE
       advertise(@adv_data)
     when EVT_MTU
       puts "[probe] P1 MTU_EXCHANGE_COMPLETE raw=#{event_packet.bytesize}"
+      @connected = true
     when EVT_CAN_SEND_NOW
       puts "[probe] P3 CAN_SEND_NOW"
       notify @notify_handle
@@ -66,6 +69,7 @@ class PeripheralPathsProbe < BLE
     when EVT_DISCONNECT
       puts "[probe] P6 DISCONNECTION_COMPLETE"
       @notify_on = false
+      @connected = false
       if @stop_requested
         advertise(nil)
         puts "[probe] P7 stop_advertise called"
@@ -88,7 +92,15 @@ class PeripheralPathsProbe < BLE
       puts "[probe] P5 WRITE_CHR received value=#{v.inspect}"
       @stop_requested = true if v.include?("STOPADV")
     end
-    request_can_send_now_event if @notify_on && @counter % 3 == 0
+    # Driven off the connection, NOT off @notify_on. The port does not deliver
+    # the CCCD write to Ruby (see below), so gating notify on @notify_on would
+    # hide P3 through P7 behind that one defect. ble_gatts_notify is a no-op
+    # when the peer has not subscribed, so this is safe either way.
+    #
+    # P2 is still witnessed here if it ever arrives: BLE_GAP_EVENT_SUBSCRIBE in
+    # ports/esp32/ble.c:469-479 calls BLE_write_data(cccd_ruby_handle, ...) and
+    # that is what pop_write_value below would read.
+    request_can_send_now_event if @connected && @counter % 3 == 0
   end
 end
 
