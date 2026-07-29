@@ -188,7 +188,33 @@ mrb->c = &tcb->c;  // Switch context
 // Never share mrb_context between tasks
 ```
 
-### 5. Test Exception Handling After Changes
+### 5. Never Suspend Inside a Synchronous Listener
+
+`addEventListener(..., sync: true)` runs the Ruby block from
+`call_ruby_callback_sync_event()` (`src/mruby/js.c`), on the JavaScript event
+dispatch stack. There is no task to suspend there, so the dispatch takes
+`mrb->task.scheduler_lock` for its duration, turning every asynchronous Task API
+(`mrb_suspend_task`, blocking `Task::Queue#pop`, ...) into a clean `RuntimeError`.
+
+```c
+// CORRECT - call the block on the current context, catching any longjmp
+mrb->task.scheduler_lock++;
+mrb_value r = mrb_protect_error(mrb, sync_dispatch_body, &args, &error);
+mrb->task.scheduler_lock--;
+
+// WRONG - DO NOT DO THIS
+mrb_funcall(mrb, block, "call", 1, event);  // an exception longjmps into the JS frame
+```
+
+Two entry situations, both handled by the above:
+
+- **Between host loop steps**: `execute_task()` has restored `mrb->c` to the root
+  context and `mrb->jmp` is `NULL`. `mrb_protect_error` installs the jmpbuf.
+- **Re-entrant** (Ruby called `element.click` / `dispatchEvent`): `mrb->c` is the
+  running task's context with a `cci > 0` frame below, which is the ordinary
+  `mrb_yield` re-entrancy the VM already handles.
+
+### 6. Test Exception Handling After Changes
 
 After any modification to task scheduling, async operations, or exception handling:
 
@@ -225,6 +251,7 @@ picoruby-wasm/
   - `js_add_event_listener()`: DOM event handling
   - `js_set_timeout()`: Timer scheduling
   - `call_ruby_callback()`: Generic callback invocation
+  - `call_ruby_callback_sync_event()`: Synchronous listener dispatch (`sync: true`)
 
 - **`../../picoruby-mruby/src/task.c`**
   - `mrb_suspend_task()`: Suspends task, exits setjmp scope
@@ -301,7 +328,7 @@ JavaScript object references are stored in `globalThis.picorubyRefs` array:
 const newRefId = globalThis.picorubyRefs.push(element) - 1;
 ```
 
-**Current Limitation**: References are never removed, leading to potential memory leaks in long-running applications. See Future Considerations section in main README.
+**Current Limitation**: References are never removed, leading to potential memory leaks in long-running applications. The one exception is synchronous listener dispatch: the event's reference has a bounded lifetime (the DOM makes the event inert once dispatch returns), so `js_add_event_listener` releases it right after the handler returns.
 
 ### Task Contexts
 

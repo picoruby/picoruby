@@ -118,6 +118,24 @@ end
 
 Ruby exceptions raised inside callbacks are caught correctly by `rescue`/`ensure`.
 
+### Synchronous listeners
+
+An event handler normally runs as a task, after the browser has finished dispatching
+the event. Pass `sync: true` to run it during dispatch instead — required for
+`preventDefault` / `stopPropagation` and for APIs gated on transient user activation
+(Web Serial, Web Bluetooth, `AudioContext#resume`, fullscreen, clipboard):
+
+```ruby
+form.addEventListener('submit', sync: true) do |event|
+  event.preventDefault
+end
+```
+
+`capture:`, `once:` and `passive:` are accepted too. A synchronous handler cannot
+suspend: `fetch`, `await` and blocking queue reads raise inside it, and it blocks the
+browser's main thread while it runs. Scheduling work for later (`Task.new`,
+`setTimeout`, registering an async listener) is fine.
+
 ## Debugging
 
 Use the **PicoRuby Debugger** Chrome extension to inspect running applications

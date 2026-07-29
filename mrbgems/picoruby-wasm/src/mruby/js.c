@@ -13,8 +13,6 @@
 #include "mruby/variable.h"
 #include "mruby/proc.h"
 
-#include "mruby_compiler.h"
-#include "mrc_utils.h"
 #include "task.h"
 
 #include <stdbool.h>
@@ -85,7 +83,9 @@ EM_JS(void, init_js_refs, (), {
       if (!globalThis.picorubyEventHandlers) return false;
       const info = globalThis.picorubyEventHandlers[callback_id];
       if (!info) return false;
-      info.target.removeEventListener(info.type, info.handler);
+      // The capture flag must match the one used at registration time,
+      // otherwise the listener is not removed.
+      info.target.removeEventListener(info.type, info.handler, !!info.capture);
       delete globalThis.picorubyEventHandlers[callback_id];
       return true;
     };
@@ -747,32 +747,84 @@ EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintp
   );
 });
 
-EM_JS(void, js_add_event_listener, (int ref_id, uintptr_t callback_id, const char* event_type), {
+/*
+ * Register a DOM event listener.
+ *
+ * sync    : run the Ruby block on the JS dispatch stack (see
+ *           call_ruby_callback_sync_event) instead of queueing it for the
+ *           scheduler. Only a synchronous listener can preventDefault or use
+ *           APIs gated on transient user activation.
+ * capture / once : DOM listener options.
+ * passive : -1 leaves it to the browser default, 0 / 1 set it explicitly.
+ */
+EM_JS(void, js_add_event_listener,
+      (int ref_id, uintptr_t callback_id, const char* event_type,
+       int sync, int capture, int once, int passive), {
   const target = globalThis.picorubyRefs[ref_id];
   const type = UTF8ToString(event_type);
+  const isSync = !!sync;
+  const isOnce = !!once;
+  const isCapture = !!capture;
+
+  // Pass an options object only when something differs from the DOM default:
+  // an explicit {passive: false} would change the behaviour of touch / wheel
+  // listeners that the browser otherwise makes passive.
+  let options = undefined;
+  if (isCapture || isOnce || passive >= 0) {
+    options = { capture: isCapture, once: isOnce };
+    if (passive >= 0) options.passive = (passive === 1);
+  }
+
   const handler = (event) => {
     // Check if handler still exists before calling
     if (!globalThis.picorubyEventHandlers || !globalThis.picorubyEventHandlers[callback_id]) {
       return;
     }
+    // The DOM already dropped a once-listener by the time it runs; drop our
+    // bookkeeping too, before any re-entrant dispatch can observe it.
+    if (isOnce) {
+      delete globalThis.picorubyEventHandlers[callback_id];
+    }
     // Prevent default for submit events and click events on <a> tags
-    // This allows Ruby event handlers to work as SPA navigation handlers
-    if (type === 'submit' || (type === 'click' && target.tagName === 'A')) {
+    // This allows Ruby event handlers to work as SPA navigation handlers.
+    // Asynchronous listeners only: a synchronous one calls preventDefault
+    // itself, and a passive listener is not allowed to.
+    if (!isSync && passive !== 1 &&
+        (type === 'submit' || (type === 'click' && target.tagName === 'A'))) {
       event.preventDefault();
     }
     const eventRefId = globalThis.picorubyRefs.push(event) - 1;
-    ccall(
-      'call_ruby_callback',
-      'void',
-      ['number', 'number'],
-      [callback_id, eventRefId]
-    );
+    if (isSync) {
+      try {
+        ccall(
+          'call_ruby_callback_sync_event',
+          'void',
+          ['number', 'number', 'number'],
+          [callback_id, eventRefId, isOnce ? 1 : 0]
+        );
+      } finally {
+        // The event is inert once dispatch returns, so its ref has a bounded
+        // lifetime - unlike the queued path, which leaks one slot per event.
+        delete globalThis.picorubyRefs[eventRefId];
+      }
+    } else {
+      ccall(
+        isOnce ? 'call_ruby_callback_oneshot' : 'call_ruby_callback',
+        'void',
+        ['number', 'number'],
+        [callback_id, eventRefId]
+      );
+    }
   };
-  target.addEventListener(type, handler);
+  if (options) {
+    target.addEventListener(type, handler, options);
+  } else {
+    target.addEventListener(type, handler);
+  }
   if (!globalThis.picorubyEventHandlers) {
     globalThis.picorubyEventHandlers = {};
   }
-  globalThis.picorubyEventHandlers[callback_id] = { target, type, handler };
+  globalThis.picorubyEventHandlers[callback_id] = { target, type, handler, capture: isCapture };
 });
 
 EM_JS(void, js_register_generic_callback, (uintptr_t callback_id, const char* callback_name), {
@@ -886,7 +938,7 @@ EM_JS(bool, js_remove_event_listener, (uintptr_t callback_id), {
     if (!globalThis.picorubyEventHandlers) return false;
     const info = globalThis.picorubyEventHandlers[callback_id];
     if (!info) return false;
-    info.target.removeEventListener(info.type, info.handler);
+    info.target.removeEventListener(info.type, info.handler, !!info.capture);
     delete globalThis.picorubyEventHandlers[callback_id];
     return true;
   } catch(e) {
@@ -1410,6 +1462,91 @@ call_ruby_callback_oneshot(uintptr_t callback_id, int event_ref_id)
   close_event_queue(global_mrb, callback_id);
 }
 
+/*
+ * Synchronous listener dispatch (addEventListener with sync: true).
+ *
+ * Unlike the queued path above, the Ruby block runs right here, on the JS
+ * event dispatch stack, so preventDefault / stopPropagation and APIs gated on
+ * transient user activation still work.
+ *
+ * Two entry situations, both fine:
+ *   - between host loop steps: execute_task() has restored mrb->c to root_c
+ *     and mrb->jmp is NULL. mrb_protect_error installs the jmpbuf.
+ *   - re-entrant (Ruby called el.click / dispatchEvent): mrb->c is the running
+ *     task's context with a cci > 0 frame below us, which is the ordinary
+ *     mrb_yield re-entrancy the VM already handles.
+ */
+typedef struct sync_dispatch_args {
+  mrb_int  callback_id;
+  mrb_value event;
+  mrb_bool once;
+} sync_dispatch_args;
+
+static mrb_value
+sync_inspect_body(mrb_state *mrb, void *ud)
+{
+  return mrb_inspect(mrb, *(mrb_value *)ud);
+}
+
+static mrb_value
+sync_dispatch_body(mrb_state *mrb, void *ud)
+{
+  sync_dispatch_args *a = (sync_dispatch_args *)ud;
+  mrb_value argv[3];
+  argv[0] = mrb_fixnum_value(a->callback_id);
+  argv[1] = a->event;
+  argv[2] = mrb_bool_value(a->once);
+  return mrb_funcall_argv(mrb, mrb_obj_value(class_JS_Object),
+                          MRB_SYM(_dispatch_sync), 3, argv);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void
+call_ruby_callback_sync_event(uintptr_t callback_id, int event_ref_id, int once)
+{
+  mrb_state *mrb = global_mrb;
+  if (!mrb) return;
+
+  /* scheduler_lock is a uint8_t counter; task_check_scheduler_lock() turns
+     every asynchronous Task API (await, fetch, blocking Queue#pop, ...) into a
+     clean RuntimeError while it is held. Bail out rather than wrap around. */
+  if (mrb->task.scheduler_lock == UINT8_MAX) {
+    fprintf(stderr, "Callback %lu: synchronous dispatch nested too deeply\n",
+            (unsigned long)callback_id);
+    return;
+  }
+
+  int ai = mrb_gc_arena_save(mrb);
+
+  sync_dispatch_args args;
+  args.callback_id = (mrb_int)callback_id;
+  args.event       = event_ref_to_ruby(mrb, event_ref_id);
+  args.once        = once ? TRUE : FALSE;
+
+  mrb_bool error = FALSE;
+  mrb->task.scheduler_lock++;
+  /* mrb_protect_error() catches any longjmp, so the decrement always runs. */
+  mrb_value result = mrb_protect_error(mrb, sync_dispatch_body, &args, &error);
+  mrb->task.scheduler_lock--;
+
+  /* JS::Object._dispatch_sync rescues StandardError itself; anything reaching
+     here is a non-StandardError or a failure of the rescue clause. */
+  if (error) {
+    mrb_bool inspect_error = FALSE;
+    mrb_value msg = mrb_protect_error(mrb, sync_inspect_body, &result, &inspect_error);
+    if (inspect_error || !mrb_string_p(msg)) {
+      fprintf(stderr, "Callback %lu: (failed to inspect exception)\n",
+              (unsigned long)callback_id);
+    }
+    else {
+      fprintf(stderr, "Callback %lu: %s\n", (unsigned long)callback_id, RSTRING_PTR(msg));
+    }
+  }
+  if (mrb->exc) mrb->exc = NULL;
+
+  mrb_gc_arena_restore(mrb, ai);
+}
+
 
 EMSCRIPTEN_KEEPALIVE
 void
@@ -1482,77 +1619,77 @@ resume_binary_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id,
   mrb_resume_task(mrb, task);
 }
 
+/*
+ * Generic callback dispatch: JS::Object.register_callback, and any Ruby block
+ * handed to a JS method (js_create_callback_function).
+ *
+ * Same synchronous model as call_ruby_callback_sync_event above - call the
+ * block on the current context under scheduler_lock, catching any longjmp -
+ * with the block's return value converted back for JavaScript.
+ */
+typedef struct generic_dispatch_args {
+  mrb_int   callback_id;
+  mrb_value args;  /* Array of already-converted arguments */
+} generic_dispatch_args;
+
+static mrb_value
+generic_dispatch_body(mrb_state *mrb, void *ud)
+{
+  generic_dispatch_args *a = (generic_dispatch_args *)ud;
+  mrb_value callbacks = mrb_const_get(mrb, mrb_obj_value(class_JS_Object),
+                                      mrb_intern_lit(mrb, "CALLBACKS"));
+  if (!mrb_hash_p(callbacks)) return mrb_nil_value();
+  mrb_value block = mrb_hash_get(mrb, callbacks, mrb_fixnum_value(a->callback_id));
+  if (mrb_nil_p(block)) return mrb_nil_value();
+  return mrb_funcall_argv(mrb, block, MRB_SYM(call),
+                          RARRAY_LEN(a->args), RARRAY_PTR(a->args));
+}
+
 EMSCRIPTEN_KEEPALIVE
 int
 call_ruby_callback_sync_generic(uintptr_t callback_id, int *arg_ref_ids, int argc)
 {
-  if (!global_mrb) {
+  mrb_state *mrb = global_mrb;
+  if (!mrb) return -1;
+
+  if (mrb->task.scheduler_lock == UINT8_MAX) {
+    fprintf(stderr, "Generic callback %lu: synchronous dispatch nested too deeply\n",
+            (unsigned long)callback_id);
     return -1;
   }
 
-  // Convert JavaScript arguments to Ruby array
-  mrb_value args_array = mrb_ary_new_capa(global_mrb, argc);
+  int ai = mrb_gc_arena_save(mrb);
+
+  generic_dispatch_args args;
+  args.callback_id = (mrb_int)callback_id;
+  args.args = mrb_ary_new_capa(mrb, argc);
   for (int i = 0; i < argc; i++) {
-    mrb_value arg_value = js_ref_to_ruby_value(global_mrb, arg_ref_ids[i]);
-    mrb_ary_push(global_mrb, args_array, arg_value);
+    mrb_ary_push(mrb, args.args, js_ref_to_ruby_value(mrb, arg_ref_ids[i]));
   }
 
-  // Store arguments in global variable $js_callback_args
-  mrb_value callback_args = mrb_gv_get(global_mrb, MRB_GVSYM(js_callback_args));
-  if (mrb_nil_p(callback_args)) {
-    callback_args = mrb_hash_new(global_mrb);
-    mrb_gv_set(global_mrb, MRB_GVSYM(js_callback_args), callback_args);
-  }
-  int args_id = (int)callback_id;
-  mrb_hash_set(global_mrb, callback_args, mrb_fixnum_value(args_id), args_array);
+  mrb_bool error = FALSE;
+  mrb->task.scheduler_lock++;
+  mrb_value result = mrb_protect_error(mrb, generic_dispatch_body, &args, &error);
+  mrb->task.scheduler_lock--;
 
-  // Generate script to call the callback
-  static char script[512];
-  snprintf(script, sizeof(script),
-    "JS::Object::CALLBACKS[%lu]&.call(*$js_callback_args[%d])",
-    callback_id, args_id);
-
-  // Compile the script
-  mrc_ccontext *cc = mrc_ccontext_new(global_mrb);
-  const uint8_t *script_ptr = (const uint8_t *)script;
-  size_t size = strlen(script);
-  mrc_irep *irep = mrc_load_string_cxt(cc, &script_ptr, size);
-
-  if (!irep) {
-    mrc_ccontext_free(cc);
-    return -1;
-  }
-
-  // Create a Proc from the compiled irep
-  mrc_resolve_intern(cc, irep);
-  struct RProc *proc = mrb_proc_new(global_mrb, (const mrb_irep *)irep);
-  proc->c = NULL;
-  mrb_value proc_val = mrb_obj_value(proc);
-
-  // Execute the proc synchronously (no additional arguments needed)
-  mrb_value result = mrb_execute_proc_synchronously(global_mrb, proc_val, 0, NULL);
-
-  // Clean up
-  mrb_hash_delete_key(global_mrb, callback_args, mrb_fixnum_value(args_id));
-  mrc_irep_free(cc, irep);
-  mrc_ccontext_free(cc);
-
-  // Handle exception
-  if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
-    global_mrb->exc = NULL;
-    mrb_value exc_str = mrb_inspect(global_mrb, exc);
-    if (global_mrb->exc) {
+  int result_ref_id;
+  if (error) {
+    mrb_bool inspect_error = FALSE;
+    mrb_value msg = mrb_protect_error(mrb, sync_inspect_body, &result, &inspect_error);
+    if (inspect_error || !mrb_string_p(msg)) {
       fprintf(stderr, "Generic callback exception (failed to inspect exception)\n");
-      global_mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "Generic callback exception: %s\n", RSTRING_PTR(exc_str));
     }
-    return -1;
+    else {
+      fprintf(stderr, "Generic callback exception: %s\n", RSTRING_PTR(msg));
+    }
+    result_ref_id = -1;
   }
+  else {
+    result_ref_id = ruby_value_to_js_ref(mrb, result);
+  }
+  if (mrb->exc) mrb->exc = NULL;
 
-  // Convert result to JavaScript ref_id
-  int result_ref_id = ruby_value_to_js_ref(global_mrb, result);
+  mrb_gc_arena_restore(mrb, ai);
   return result_ref_id;
 }
 
@@ -2151,8 +2288,12 @@ mrb_object__add_event_listener(mrb_state *mrb, mrb_value self)
   picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
   mrb_int callback_id;
   char* event_type;
-  mrb_get_args(mrb, "iz", &callback_id, &event_type);
-  js_add_event_listener(obj->ref_id, (uintptr_t)callback_id, event_type);
+  mrb_bool sync, capture, once;
+  mrb_int passive;  /* -1: browser default, 0 / 1: explicit */
+  mrb_get_args(mrb, "izbbbi", &callback_id, &event_type,
+               &sync, &capture, &once, &passive);
+  js_add_event_listener(obj->ref_id, (uintptr_t)callback_id, event_type,
+                        sync ? 1 : 0, capture ? 1 : 0, once ? 1 : 0, (int)passive);
   return mrb_nil_value();
 }
 
@@ -2625,7 +2766,7 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(inspect), mrb_object_inspect, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_f), mrb_object_to_f, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(to_i), mrb_object_to_i, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_add_event_listener), mrb_object__add_event_listener, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_add_event_listener), mrb_object__add_event_listener, MRB_ARGS_REQ(6));
   mrb_define_class_method_id(mrb, class_JS_Object, MRB_SYM(_register_callback), mrb_object_s__register_callback, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_with_options_and_suspend), mrb_object__fetch_with_options_and_suspend, MRB_ARGS_REQ(3));

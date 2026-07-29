@@ -36,6 +36,13 @@
       results.appendChild(div)
     end
 
+    # cancelable is required for preventDefault to be observable
+    def mouse_event_options
+      options = JS.global.create_object
+      options[:cancelable] = true
+      options
+    end
+
     test_case("createElement") do
       elem = doc.createElement('div')
       raise "createElement failed" unless elem
@@ -122,6 +129,32 @@
 
       raise "addEventListener failed" unless callback_id
       JS::Object.removeEventListener(callback_id)
+    end
+
+    test_case("addEventListener sync: true runs during dispatch") do
+      btn = doc.createElement('button')
+      order = []
+
+      callback_id = btn.addEventListener('click', sync: true) do |event|
+        order << :handler
+        event.preventDefault
+      end
+
+      order << :before
+      cancelled = !btn.dispatchEvent(JS.global[:MouseEvent].new('click', mouse_event_options))
+      order << :after
+
+      raise "handler did not run inline (got #{order.inspect})" unless order == [:before, :handler, :after]
+      raise "preventDefault had no effect" unless cancelled
+      JS::Object.removeEventListener(callback_id)
+    end
+
+    test_case("addEventListener once: true fires once") do
+      btn = doc.createElement('button')
+      count = 0
+      btn.addEventListener('click', sync: true, once: true) { |event| count += 1 }
+      2.times { btn.dispatchEvent(JS.global[:MouseEvent].new('click', mouse_event_options)) }
+      raise "expected 1 call, got #{count}" unless count == 1
     end
 
     test_case("removeAttribute") do
