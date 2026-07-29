@@ -12,6 +12,18 @@ class JSSyncEventTest < Picotest::Test
     JS.global[:Event].new(type, options)
   end
 
+  # Hand the scheduler a chance to run the consumer task, without an arbitrary
+  # wall-clock delay: awaiting an already-resolved Promise suspends this task
+  # until the host loop has pumped the scheduler again. Retrying until the
+  # block is satisfied keeps the test independent of how many steps that takes.
+  def wait_until(limit = 200, &block)
+    limit.times do
+      return true if block.call
+      JS.eval('Promise.resolve()').await
+    end
+    false
+  end
+
   def test_sync_handler_runs_on_the_dispatch_stack
     target = new_target
     log = []
@@ -29,6 +41,8 @@ class JSSyncEventTest < Picotest::Test
     id = target.addEventListener('async-order') { |_ev| log << :handler }
     target.dispatchEvent(new_event('async-order'))
     assert_equal([], log)
+    # ... but it does run, once the scheduler gets to the consumer task.
+    assert_equal(true, wait_until { log.include?(:handler) })
     JS::Object.removeEventListener(id)
   end
 
@@ -142,8 +156,7 @@ class JSSyncEventTest < Picotest::Test
     assert_equal([:sync], log)
 
     inner.dispatchEvent(new_event('registered-later'))
-    assert_equal([:sync], log)
-    sleep 0.05
+    assert_equal(true, wait_until { log.include?(:async) })
     assert_equal([:sync, :async], log)
     JS::Object.removeEventListener(outer_id)
   end
