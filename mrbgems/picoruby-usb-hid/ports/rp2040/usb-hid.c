@@ -75,9 +75,26 @@ usb_hid_keyboard_get_led_state(void)
   return keyboard_led_state;
 }
 
+// When the host is suspended, request remote wakeup instead of sending a
+// report. tud_remote_wakeup() is a no-op unless the host has enabled
+// remote wakeup via SET_FEATURE(DEVICE_REMOTE_WAKEUP).
+// Returns true if the host was suspended (i.e. the report must not be sent).
+static bool
+wakeup_if_suspended(void)
+{
+  if (tud_suspended()) {
+    tud_remote_wakeup();
+    return true;
+  }
+  return false;
+}
+
 bool
 usb_hid_keyboard_send(uint8_t modifier, const uint8_t* keycode, uint8_t keycode_count)
 {
+  if (wakeup_if_suspended()) {
+    return false;
+  }
   if (!tud_hid_n_ready(ITF_HID_KEYBOARD)) {
     return false;
   }
@@ -112,6 +129,9 @@ usb_hid_keyboard_release_all(void)
 bool
 usb_hid_mouse_send(int8_t x, int8_t y, int8_t wheel, uint8_t buttons)
 {
+  if (wakeup_if_suspended()) {
+    return false;
+  }
   if (!tud_hid_n_ready(ITF_HID_MOUSE)) {
     return false;
   }
@@ -128,6 +148,9 @@ usb_hid_mouse_ready(void)
 bool
 usb_hid_consumer_send(uint16_t usage_code)
 {
+  if (wakeup_if_suspended()) {
+    return false;
+  }
   if (!tud_hid_n_ready(ITF_HID_CONSUMER)) {
     return false;
   }
