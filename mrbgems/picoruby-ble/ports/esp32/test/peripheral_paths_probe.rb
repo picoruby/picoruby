@@ -46,11 +46,25 @@ class PeripheralPathsProbe < BLE
     @cccd_handle   = db.handle_table[SERVICE][CHAR_NOTIFY][CLIENT_CHARACTERISTIC_CONFIGURATION]
     @write_handle  = db.handle_table[SERVICE][CHAR_WRITE][:value_handle]
     super(:peripheral, db.profile_data)
+    @src = nil
     @counter = 0
     @notify_on = false
     @connected = false
     @disconnects = 0
-    puts "[probe] handles notify=#{@notify_handle} cccd=#{@cccd_handle} write=#{@write_handle}"
+    # This firmware may link with -Wl,--wrap=BLE_write_data (picoruby-ble-bridge,
+    # wired in by R2P2-ESP32's CMakeLists.txt). When it does, the port's
+    # BLE_write_data calls in ports/esp32/ble.c are redirected at link time into
+    # the bridge's C FIFO and picoruby-ble's own write_values hash is never
+    # populated, so pop_write_value can never see a peer write. BLE_push_event is
+    # wrapped too but is called from within its own translation unit, where
+    # --wrap does not apply, which is why events still arrive normally.
+    #
+    # take_write below therefore reads whichever sink this build routes to. Both
+    # observe the same thing: that the port handed the peer's bytes to
+    # BLE_write_data against the right Ruby handle.
+    @bridge = Object.const_defined?(:BLEBridge)
+    BLEBridge.init if @bridge
+    puts "[probe] handles notify=#{@notify_handle} cccd=#{@cccd_handle} write=#{@write_handle} bridge=#{@bridge}"
   end
 
   def packet_callback(event_packet)
@@ -91,16 +105,30 @@ class PeripheralPathsProbe < BLE
     end
   end
 
+  # Reads the peer's write from whichever sink this build routes BLE_write_data
+  # to, and records which one answered so the evidence names it.
+  def take_write(handle)
+    if (v = pop_write_value(handle))
+      @src = "pop_write_value"
+      return v
+    end
+    if @bridge && (v = BLEBridge.pop_write(handle))
+      @src = "BLEBridge.pop_write"
+      return v
+    end
+    nil
+  end
+
   def heartbeat_callback
     @counter += 1
     push_read_value(@notify_handle, Utils.int16_to_little_endian(@counter))
 
-    if (v = pop_write_value(@cccd_handle))
+    if (v = take_write(@cccd_handle))
       @notify_on = (v == "\x01\x00")
-      puts "[probe] P2 CCCD written value=#{v.inspect} notify_on=#{@notify_on}"
+      puts "[probe] P2 CCCD written value=#{v.inspect} notify_on=#{@notify_on} via=#{@src}"
     end
-    if (v = pop_write_value(@write_handle))
-      puts "[probe] P5 WRITE_CHR received value=#{v.inspect}"
+    if (v = take_write(@write_handle))
+      puts "[probe] P5 WRITE_CHR received value=#{v.inspect} via=#{@src}"
     end
     # Driven off the connection, NOT off @notify_on. The port does not deliver
     # the CCCD write to Ruby (see below), so gating notify on @notify_on would
