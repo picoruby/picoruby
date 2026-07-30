@@ -177,10 +177,14 @@
       end
 
       def bind_input_events(inp)
+        # do_eval waits on the BLE UART, so it needs an asynchronous listener.
         inp.addEventListener('keydown') do |ev|
+          do_eval if ev[:key].to_s == "Enter"
+        end
+        # History navigation has to suppress the caret-moving default action,
+        # which only works from a listener that runs during dispatch.
+        inp.addEventListener('keydown', sync: true) do |ev|
           case ev[:key].to_s
-          when "Enter"
-            do_eval
           when "ArrowUp"
             ev.preventDefault
             navigate_history(-1)

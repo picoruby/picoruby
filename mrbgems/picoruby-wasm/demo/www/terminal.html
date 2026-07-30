@@ -472,7 +472,11 @@
         move_callback_id = nil
         up_callback_id   = nil
 
-        resizer.addEventListener('mousedown') do
+        # The whole drag is synchronous: separate listeners get separate queues,
+        # so an asynchronous mousemove and mouseup have no guaranteed order
+        # relative to each other, and the listeners registered here would only
+        # take effect a scheduler tick after the button went down.
+        resizer.addEventListener('mousedown', sync: true) do
           if move_callback_id
             JS::Object.removeEventListener(move_callback_id)
             move_callback_id = nil
@@ -484,7 +488,7 @@
           body.style.userSelect = 'none'
           body.style.cursor = 'col-resize'
 
-          move_callback_id = @doc.addEventListener('mousemove') do |e|
+          move_callback_id = @doc.addEventListener('mousemove', sync: true) do |e|
             rect        = editor_container.getBoundingClientRect()
             new_left_x  = e.clientX.to_f - rect.left.to_f
             max_x       = rect.width.to_f - 20.0
@@ -495,7 +499,7 @@
             dfu_log_el.style.flex = right_ratio.to_s
           end
 
-          up_callback_id = @doc.addEventListener('mouseup') do
+          up_callback_id = @doc.addEventListener('mouseup', sync: true) do
             body.style.userSelect = ''
             body.style.cursor = ''
             if move_callback_id

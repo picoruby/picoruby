@@ -34,7 +34,7 @@ module JS
       EVENT_QUEUES[callback_id] = q
       CALLBACKS[callback_id]    = block
       EVENT_TASKS[callback_id]  = Task.new(name: "js-cb-#{callback_id}") do
-        loop do
+        while true
           ev = q.pop
           break if ev.nil?
           begin
@@ -55,11 +55,35 @@ module JS
       q&.close
     end
 
-    def addEventListener(event_type, &block)
+    # sync: true runs the block on the JS event dispatch stack, so
+    # preventDefault / stopPropagation and APIs gated on transient user
+    # activation work. In exchange the block must not suspend: fetch, await and
+    # blocking Task::Queue#pop raise inside it. Spawning is still fine
+    # (Task.new, setTimeout, registering an async listener).
+    # capture / once / passive map to the DOM listener options; passive is
+    # left to the browser default unless given explicitly.
+    def addEventListener(event_type, sync: false, capture: false, once: false, passive: nil, &block)
       callback_id = block.object_id
-      _add_event_listener(callback_id, event_type)
-      JS::Object._spawn_event_consumer(callback_id, block)
+      if sync
+        JS::Object::CALLBACKS[callback_id] = block
+      else
+        JS::Object._spawn_event_consumer(callback_id, block)
+      end
+      _add_event_listener(callback_id, event_type, sync, capture, once,
+                          passive.nil? ? -1 : (passive ? 1 : 0))
       callback_id
+    end
+
+    # Called from C (call_ruby_callback_sync_event) for sync: true listeners.
+    def self._dispatch_sync(callback_id, event, once)
+      block = CALLBACKS[callback_id]
+      CALLBACKS.delete(callback_id) if once
+      return unless block
+      begin
+        block.call(event)
+      rescue => e
+        $stderr.puts "Callback #{callback_id}: #{e.class}: #{e.message}"
+      end
     end
 
     def self.register_callback(name, &block)
@@ -71,8 +95,14 @@ module JS
 
     def self.removeEventListener(callback_id)
       return false unless callback_id
+      # A sync listener has no consumer task to clean up after it, and a
+      # once-listener that already fired makes the JS call return false, so
+      # drop the block unconditionally.
+      CALLBACKS.delete(callback_id)
       begin
-        result = JS.global._js_remove_event_listener_wrapper(callback_id)
+        # _removeEventListener is the C path; it works in Node too, unlike
+        # the window-only _js_remove_event_listener_wrapper helper.
+        result = JS.global._removeEventListener(callback_id)
         _close_event_queue(callback_id) if result
         result
       rescue

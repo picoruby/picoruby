@@ -14,6 +14,9 @@ PicoRuby.wasm uses a task suspension model instead of Emscripten's ASYNCIFY:
 - Scheduler-driven GC is enabled by default so GC work is driven from scheduler
   idle points rather than latency-sensitive allocation paths
 - Async operations (setTimeout, fetch, addEventListener) suspend the current task, cleanly exiting the `setjmp` scope
+- `addEventListener(..., sync: true)` opts out of that: the block runs on the JavaScript
+  dispatch stack so `preventDefault` and user-activation-gated APIs work, at the cost of
+  not being able to suspend
 - When the Promise resolves, the task resumes on a fresh C stack with a new `setjmp`
 - Ruby exceptions therefore work correctly across async boundaries without ASYNCIFY overhead
 

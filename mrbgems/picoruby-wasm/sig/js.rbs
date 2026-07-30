@@ -37,8 +37,9 @@ module JS
     def to_a: () -> ::Array[untyped]
 
     # Event Handling
-    def addEventListener: (String event_type) { (JS::Event event) -> void } -> Integer
+    def addEventListener: (String event_type, ?sync: bool, ?capture: bool, ?once: bool, ?passive: bool?) { (JS::Event event) -> void } -> Integer
     def self.removeEventListener: (Integer callback_id) -> bool
+    def self._dispatch_sync: (Integer callback_id, JS::Event event, bool once) -> void
     def self.register_callback: (String name) { (*untyped args) -> untyped } -> Integer
     def self._spawn_event_consumer: (Integer callback_id, Proc block) -> Integer
     def self._close_event_queue: (Integer callback_id) -> (Task::Queue | nil)
@@ -100,11 +101,11 @@ module JS
     def removeItem: (String key) -> void
 
     def _js_remove_event_listener_wrapper: (Integer callback_id) -> bool
+    def _removeEventListener: (Integer callback_id) -> bool
 
     private def method_missing: (Symbol method_name, *untyped args) -> untyped
-    private def _add_event_listener: (Integer callback_id, String event_type) -> nil
+    private def _add_event_listener: (Integer callback_id, String event_type, bool sync, bool capture, bool once, Integer passive) -> nil
     private def self._register_callback: (Integer callback_id, String name) -> nil
-    private def _removeEventListener: (Integer callback_id) -> bool
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
     private def _fetch_with_options_and_suspend: (String url, String options_json, Integer callback_id) -> nil
     private def _await_and_suspend: (Integer callback_id) -> nil

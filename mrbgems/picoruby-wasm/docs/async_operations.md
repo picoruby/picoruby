@@ -3,6 +3,7 @@
 | Pattern | Use Case | Blocks Task? | Repeatable? | Cancelable? |
 |---------|----------|-------------|-------------|-------------|
 | `addEventListener` | DOM events | No | Yes | Yes |
+| `addEventListener(sync: true)` | DOM events needing `preventDefault` or user activation | Runs inline | Yes | Yes |
 | `setTimeout` | Delayed execution | No | No | Yes |
 | `await` / `then` | Any JS Promise | Yes | No | No |
 
@@ -18,6 +19,14 @@ end
 # Remove when done
 JS::Object.removeEventListener(callback_id)
 ```
+
+The block runs as a separate task, after the browser has finished dispatching the
+event. When the handler must run *during* dispatch — to call `preventDefault`, or to
+reach an API gated on transient user activation — pass `sync: true`; see
+[callback.md](callback.md#synchronous-listeners) for the constraints that come with it.
+
+`capture:`, `once:` and `passive:` are also accepted and map to the DOM listener
+options.
 
 ## Timers
 
