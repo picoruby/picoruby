@@ -8,6 +8,7 @@ module IRQ
   type irq_source_t = Integer
 
   MAX_PROCESS_COUNT: Integer
+  MAX_SOURCES: Integer
   HANDLER: Hash[irq_id_t, IRQInstance]
 
   private def self.peek_event: () -> [(irq_id_t | nil), irq_event_type_t]
@@ -20,6 +21,7 @@ module IRQ
 
   # ISR-to-task event bridge. Defined in C, and only in builds that have
   # the task scheduler.
+  def self.gpio_source: () -> irq_source_t
   def self.bind: (irq_source_t source, Task::Queue queue) -> Task::Queue
   def self.unbind: (irq_source_t source) -> bool
   def self.take: (irq_source_t source) -> Integer

@@ -8,7 +8,7 @@
 
 #include "../../include/irq.h"
 
-#if defined(MRB_USE_TASK_SCHEDULER)
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
 #include "task.h"
 /* Spelled out: picoruby-mruby/include/hal.h shadows this one on the
    include path. */
@@ -77,7 +77,7 @@ mrb_s_peek_event(mrb_state *mrb, mrb_value self)
   return result;
 }
 
-#if defined(MRB_USE_TASK_SCHEDULER)
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
 
 /*
  * ISR-to-task event bridge (VM side)
@@ -123,7 +123,7 @@ irq_lowest_bit(uint32_t v)
  *
  * Runs in thread context at every scheduler entry, right before the
  * ready-queue read, so a task woken here runs in the same iteration.
- * Kept cheap: with no pending event this is one atomic exchange.
+ * Kept cheap: with no pending event this is one atomic load.
  *
  * A push can allocate, so it can raise, and the exception escapes into
  * the scheduler. That is deliberate -- a silently dropped interrupt is
@@ -264,6 +264,19 @@ mrb_s_simulate(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/*
+ * IRQ.gpio_source -> the source id shared by every GPIO interrupt
+ *
+ * One source for the whole subsystem, not one per pin: the token only
+ * says "the GPIO event queue is worth looking at", and IRQ.process is
+ * what sorts events out to their handlers.
+ */
+static mrb_value
+mrb_s_gpio_source(mrb_state *mrb, mrb_value self)
+{
+  return mrb_fixnum_value(IRQ_SRC_GPIO);
+}
+
 static void
 irq_bridge_init(mrb_state *mrb, struct RClass *module_IRQ)
 {
@@ -290,6 +303,10 @@ irq_bridge_init(mrb_state *mrb, struct RClass *module_IRQ)
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(unbind), mrb_s_unbind, MRB_ARGS_REQ(1));
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(take), mrb_s_take, MRB_ARGS_REQ(1));
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(simulate), mrb_s_simulate, MRB_ARGS_REQ(2));
+  /* Not MRB_SYM(): "gpio_source" appears in no Ruby source, so it is
+     not in the generated presym table. */
+  mrb_define_module_function(mrb, module_IRQ, "gpio_source", mrb_s_gpio_source, MRB_ARGS_NONE());
+  mrb_define_const(mrb, module_IRQ, "MAX_SOURCES", mrb_fixnum_value(IRQ_MAX_SOURCES));
 
   irq_bindings_ = bindings;
   IRQ_reset();
@@ -317,7 +334,7 @@ irq_bridge_final(mrb_state *mrb)
   irq_owner_ = NULL;
 }
 
-#endif /* MRB_USE_TASK_SCHEDULER */
+#endif /* PICORB_IRQ_EVENT_BRIDGE */
 
 void
 mrb_picoruby_irq_gem_init(mrb_state *mrb)
@@ -329,7 +346,7 @@ mrb_picoruby_irq_gem_init(mrb_state *mrb)
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(unregister_gpio), mrb_s_unregister_gpio, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, module_IRQ, MRB_SYM(peek_event), mrb_s_peek_event, MRB_ARGS_NONE());
 
-#if defined(MRB_USE_TASK_SCHEDULER)
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
   irq_bridge_init(mrb, module_IRQ);
 #endif
 
@@ -339,7 +356,7 @@ mrb_picoruby_irq_gem_init(mrb_state *mrb)
 void
 mrb_picoruby_irq_gem_final(mrb_state *mrb)
 {
-#if defined(MRB_USE_TASK_SCHEDULER)
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
   irq_bridge_final(mrb);
 #endif
 }

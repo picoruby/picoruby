@@ -58,6 +58,12 @@ gpio_irq_callback(uint gpio, uint32_t events)
         event_queue[queue_tail].irq_id = i + 1;  /* IRQ ID is 1-based */
         event_queue[queue_tail].event_type = events;
         queue_tail = next_tail;
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
+        /* Publish after the event is visible in the queue, so a task
+           woken by the token always finds it. Dropped events (queue
+           full) do not signal: there is nothing new to drain. */
+        IRQ_signal_from_isr(IRQ_SRC_GPIO, 1);
+#endif
       }
       break;
     }
@@ -180,6 +186,8 @@ picorb_irq_gpio_resume(void)
   }
 }
 
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
+
 /*
  * Atomic primitives for the event bridge.
  *
@@ -232,3 +240,5 @@ IRQ_hal_atomic_exchange_u32(volatile uint32_t *p, uint32_t v)
   restore_interrupts(state);
   return old;
 }
+
+#endif /* PICORB_IRQ_EVENT_BRIDGE */

@@ -12,6 +12,8 @@
 
 #include "../../include/irq.h"
 
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
+
 uint32_t
 IRQ_hal_atomic_load_u32(const volatile uint32_t *p)
 {
@@ -35,6 +37,8 @@ IRQ_hal_atomic_exchange_u32(volatile uint32_t *p, uint32_t v)
 {
   return __atomic_exchange_n(p, v, __ATOMIC_SEQ_CST);
 }
+
+#endif /* PICORB_IRQ_EVENT_BRIDGE */
 
 int
 IRQ_register_gpio(int pin, int event_type, uint32_t debounce_ms)

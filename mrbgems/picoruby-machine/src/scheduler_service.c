@@ -1,5 +1,5 @@
 /*
- * Multiplexer for mruby's single scheduler-hook slot.
+ * Multiplexer for the single scheduler-hook slot each VM provides.
  *
  * See the contract in include/hal.h. The table is plain static state
  * written only at gem init/final time and read only from the VM thread,
@@ -85,4 +85,70 @@ picorb_scheduler_service_remove(mrb_state *mrb, void (*fn)(mrb_state *mrb, void 
   }
 }
 
-#endif /* PICORB_VM_MRUBY && MRB_USE_TASK_SCHEDULER */
+#elif defined(PICORB_VM_MRUBYC) && defined(MRBC_TASK_SCHEDULER_HOOK)
+
+#include <mrubyc.h>
+
+typedef struct {
+  void (*fn)(void *ud);
+  void *ud;
+} scheduler_service_t;
+
+static scheduler_service_t services_[PICORB_SCHEDULER_SERVICE_MAX];
+static int service_count_;
+
+static void
+scheduler_dispatch(void *ud)
+{
+  int i = 0;
+
+  (void)ud;
+  while (i < service_count_) {
+    services_[i].fn(services_[i].ud);
+    i++;
+  }
+}
+
+void
+picorb_scheduler_service_add(void (*fn)(void *ud), void *ud)
+{
+  int i = 0;
+
+  if (fn == NULL) return;
+  while (i < service_count_) {
+    if (services_[i].fn == fn && services_[i].ud == ud) return;
+    i++;
+  }
+  if (PICORB_SCHEDULER_SERVICE_MAX <= service_count_) {
+    /* No VM context to raise into here, and a dropped service would be
+       a silent hang later. */
+    mrbc_printf("[FATAL] too many scheduler services\n");
+    return;
+  }
+  services_[service_count_].fn = fn;
+  services_[service_count_].ud = ud;
+  service_count_++;
+  mrbc_task_set_scheduler_hook(scheduler_dispatch, NULL);
+}
+
+void
+picorb_scheduler_service_remove(void (*fn)(void *ud), void *ud)
+{
+  int i = 0;
+
+  while (i < service_count_) {
+    if (services_[i].fn == fn && services_[i].ud == ud) {
+      /* Services are independent, so filling the hole with the last
+         entry is fine and keeps removal O(1). */
+      service_count_--;
+      services_[i] = services_[service_count_];
+      break;
+    }
+    i++;
+  }
+  if (service_count_ == 0) {
+    mrbc_task_set_scheduler_hook(NULL, NULL);
+  }
+}
+
+#endif /* scheduler hook available */

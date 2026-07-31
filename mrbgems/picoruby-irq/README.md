@@ -104,23 +104,24 @@ ready source into one token in the queue you bound to it. A task blocked
 on that queue becomes runnable in the same scheduler iteration.
 
 ```ruby
-SRC = 0    # a source id; see below
-
 q = Task::Queue.new
-IRQ.bind(SRC, q)
+IRQ.bind(IRQ.gpio_source, q)
 
 Task.new do
   while source = q.pop
-    bits = IRQ.take(source)
-    next if bits == 0    # spurious token; note that 0 is truthy in Ruby
-    puts "event bits: #{bits}"
+    IRQ.take(source)   # required: this is what allows the next token
+    # One token can stand for any number of interrupts, so drain rather
+    # than assume it means exactly one event.
+    while 0 < IRQ.process
+    end
   end
 end
 ```
 
 Source ids are compile-time constants, never allocated and never reused.
-No peripheral publishes to the bridge yet -- GPIO is the first one being
-wired up -- so for now the only producer is `IRQ.simulate`.
+GPIO uses one source for the whole subsystem: the token only says "the
+GPIO event queue is worth looking at", and `IRQ.process` is still what
+dispatches events to their handlers.
 
 ### Contract
 
@@ -140,9 +141,11 @@ wired up -- so for now the only producer is `IRQ.simulate`.
 
 `IRQ.simulate(source, bits)` drives the bridge exactly as an interrupt
 handler would, for tests and for bringing a consumer up on a host build.
+Note that on a host build there are no GPIO interrupts to bind to.
 
-The bridge needs the task scheduler; on builds without it (mruby/c
-today) these methods are not defined.
+The bridge is available on both runtimes. A build configured without a
+task scheduler does not define these methods, and pays nothing for
+them.
 
 ## Constants
 

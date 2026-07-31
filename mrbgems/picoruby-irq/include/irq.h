@@ -15,6 +15,20 @@ bool IRQ_peek_event(int *irq_id, int *event_type);
 void IRQ_init(void);
 
 /*
+ * The event bridge needs Task::Queue and a scheduler hook. Both VMs
+ * have them, but a build can be configured without: everything below --
+ * including the source table an ISR would publish to -- compiles out,
+ * so a build that has no consumer pays nothing.
+ */
+#if defined(PICORB_VM_MRUBY) && defined(MRB_USE_TASK_SCHEDULER)
+#define PICORB_IRQ_EVENT_BRIDGE 1
+#elif defined(PICORB_VM_MRUBYC) && defined(MRBC_TASK_SCHEDULER_HOOK)
+#define PICORB_IRQ_EVENT_BRIDGE 1
+#endif
+
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
+
+/*
  * ISR-to-task event bridge
  *
  * An interrupt handler only stages work: it ORs event bits into a
@@ -25,7 +39,13 @@ void IRQ_init(void);
  * Source ids are compile-time constants -- fixed, process-lifetime,
  * never reused -- so no registration or generation counter is needed.
  */
-#define IRQ_MAX_SOURCES 32
+/* Every source costs a pending word plus a binding slot, permanently,
+ * on parts where RAM is the binding constraint -- a full 32 does not fit
+ * on pico2_w. Raise it from a build config when a build really has that
+ * many event producers; the bit arithmetic is written for up to 32. */
+#ifndef IRQ_MAX_SOURCES
+#define IRQ_MAX_SOURCES 8
+#endif
 
 enum {
   IRQ_SRC_GPIO = 0,   /* shared by the whole GPIO subsystem */
@@ -56,6 +76,8 @@ uint32_t IRQ_hal_atomic_load_u32(const volatile uint32_t *p);
 uint32_t IRQ_hal_atomic_or_u32(volatile uint32_t *p, uint32_t bits);
 uint32_t IRQ_hal_atomic_and_u32(volatile uint32_t *p, uint32_t mask);
 uint32_t IRQ_hal_atomic_exchange_u32(volatile uint32_t *p, uint32_t v);
+
+#endif /* PICORB_IRQ_EVENT_BRIDGE */
 
 typedef enum picorb_gpio_irq_event_t {
   PICORB_GPIO_IRQ_EVENT_LEVEL_LOW  = 1,

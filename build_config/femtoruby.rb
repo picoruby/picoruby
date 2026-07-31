@@ -5,6 +5,7 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
   conf.cc.defines << "PICORB_INT64"
   conf.cc.defines << "MRBC_TICK_UNIT=4"
+  conf.cc.defines << "MRBC_TASK_SCHEDULER_HOOK"  # picoruby-irq event bridge
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=3"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 

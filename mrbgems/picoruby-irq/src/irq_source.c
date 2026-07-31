@@ -10,13 +10,14 @@
 #include <stddef.h>
 #include "../include/irq.h"
 
-typedef struct {
-  volatile uint32_t pending;  /* event bits, OR-ed by the ISR */
-  bool enqueued;              /* a token is outstanding; VM context only */
-} irq_source_t;
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
 
-static irq_source_t sources_[IRQ_MAX_SOURCES];
+/* Parallel arrays rather than a struct: `enqueued` is one bit of state
+   and a bool field would cost four bytes per source after padding, on a
+   part where RAM is the binding constraint. */
+static volatile uint32_t pending_[IRQ_MAX_SOURCES];  /* OR-ed by the ISR */
 static volatile uint32_t ready_mask_;
+static uint32_t enqueued_mask_;   /* a token is out; VM context only */
 
 /* `1 << id` would be undefined at id 31 (signed shift overflow). */
 #define IRQ_BIT(id) (UINT32_C(1) << (id))
@@ -33,7 +34,7 @@ IRQ_signal_from_isr(int id, uint32_t bits)
   if (!valid_id(id)) return;
   /* Publish the bits before the ready flag: a consumer that sees the
      ready bit must also see everything the handler staged. */
-  IRQ_hal_atomic_or_u32(&sources_[id].pending, bits);
+  IRQ_hal_atomic_or_u32(&pending_[id], bits);
   IRQ_hal_atomic_or_u32(&ready_mask_, IRQ_BIT(id));
 }
 
@@ -64,15 +65,15 @@ IRQ_any_pending(void)
 bool
 IRQ_mark_enqueued(int id)
 {
-  if (!valid_id(id) || sources_[id].enqueued) return false;
-  sources_[id].enqueued = true;
+  if (!valid_id(id) || (enqueued_mask_ & IRQ_BIT(id))) return false;
+  enqueued_mask_ |= IRQ_BIT(id);
   return true;
 }
 
 bool
 IRQ_is_enqueued(int id)
 {
-  return valid_id(id) && sources_[id].enqueued;
+  return valid_id(id) && (enqueued_mask_ & IRQ_BIT(id)) != 0;
 }
 
 uint32_t
@@ -81,12 +82,12 @@ IRQ_take_bits(int id)
   uint32_t bits;
 
   if (!valid_id(id)) return 0;
-  bits = IRQ_hal_atomic_exchange_u32(&sources_[id].pending, 0);
+  bits = IRQ_hal_atomic_exchange_u32(&pending_[id], 0);
   /* Releasing the token after claiming the bits is enough: a signal
      that lands before the exchange is in `bits`, and one that lands
      after it re-asserts the ready bit itself. Worst case the consumer
      sees one spurious token, which the contract allows. */
-  sources_[id].enqueued = false;
+  enqueued_mask_ &= ~IRQ_BIT(id);
   return bits;
 }
 
@@ -101,7 +102,7 @@ uint32_t
 IRQ_peek_pending(int id)
 {
   if (!valid_id(id)) return 0;
-  return IRQ_hal_atomic_load_u32(&sources_[id].pending);
+  return IRQ_hal_atomic_load_u32(&pending_[id]);
 }
 
 void
@@ -112,8 +113,10 @@ IRQ_reset(void)
   /* Interrupts may still be firing, so clear atomically. Events racing
      a VM boundary are dropped by design. */
   for (i = 0; i < IRQ_MAX_SOURCES; i++) {
-    IRQ_hal_atomic_exchange_u32(&sources_[i].pending, 0);
-    sources_[i].enqueued = false;
+    IRQ_hal_atomic_exchange_u32(&pending_[i], 0);
   }
+  enqueued_mask_ = 0;
   IRQ_hal_atomic_exchange_u32(&ready_mask_, 0);
 }
+
+#endif /* PICORB_IRQ_EVENT_BRIDGE */

@@ -68,6 +68,16 @@ void picorb_scheduler_service_remove(mrb_state *mrb, void (*fn)(mrb_state *mrb, 
 void picorb_tick();
 void picorb_hal_init(void);
 void picorb_hal_idle_cpu(void);
+
+#if defined(MRBC_TASK_SCHEDULER_HOOK)
+/* Same contract as the mruby side above. mruby/c's hook is process-
+ * global rather than per-VM, so there is no owner to track and the
+ * callback takes no VM argument. */
+#define PICORB_SCHEDULER_SERVICE_MAX 4
+void picorb_scheduler_service_add(void (*fn)(void *ud), void *ud);
+void picorb_scheduler_service_remove(void (*fn)(void *ud), void *ud);
+#endif
+
 #ifndef picorb_SCHEDULER_EXIT
 #define picorb_SCHEDULER_EXIT 1
 #endif
