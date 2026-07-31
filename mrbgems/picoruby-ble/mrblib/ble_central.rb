@@ -48,17 +48,8 @@ class BLE
     end
   end
 
-  # Observer shares the scan/advertising-report path with Central (it just
-  # never calls connect), since the C layer synthesizes advertising reports
-  # identically for both roles.
-  def restrict_central_or_observer
-    unless @role == :central || @role == :observer
-      raise "This method is only available for central or observer role."
-    end
-  end
-
   def scan(scan_type: :passive, scan_interval: 0x60, scan_window: 0x30, timeout_ms: nil, stop_state: :TC_IDLE, debug: false)
-    restrict_central_or_observer
+    restrict_central
     set_scan_params(scan_type, scan_interval, scan_window)
     @debug = debug
     reset_state
@@ -67,7 +58,7 @@ class BLE
   end
 
   def reset_state
-    restrict_central_or_observer
+    restrict_central
     @state = :TC_OFF
   end
 
@@ -86,12 +77,12 @@ class BLE
   end
 
   def advertising_report_callback(adv_report)
-    restrict_central_or_observer
+    restrict_central
     # You have to override this method
   end
 
   def packet_callback(event_packet)
-    restrict_central_or_observer
+    restrict_central
     event_type = event_packet.getbyte(0)
     case event_type
     when BTSTACK_EVENT_STATE

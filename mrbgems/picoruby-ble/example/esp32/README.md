@@ -24,7 +24,7 @@ peripheral-central/
   central/app.rb      # BLE::Central, scan -> connect -> discover -> read
 broadcaster-observer/
   broadcaster/home/app.rb   # BLE::Broadcaster, non-connectable adv only
-  observer/home/app.rb      # BLE::Observer, scan-only, no connect
+  observer/home/app.rb      # scan-only, no connect
 ```
 
 `central` and `observer` both need a peer to find. Pair them with:
@@ -36,9 +36,15 @@ broadcaster-observer/
   visually confirm the broadcaster's advertisement or simulate a peripheral
   for the central demo to connect to.
 
-## Prerequisite
+## On the observer demo's role
 
-`BLE::Observer` requires the `mrblib/ble.rb` / `mrblib/ble_central.rb` fix
-that lets `:observer` share the scan/advertising-report path with `:central`
-(only `connect` stays central-only). Without it `observer/home/app.rb` raises
-immediately on `scan`.
+`observer/home/app.rb` does what the BLE observer role describes — it scans
+and never connects — but it initializes the stack as `:central`. `mrblib`
+gates `scan` and `advertising_report_callback` on `:central` alone, so
+`:observer` raises immediately on `scan`.
+
+That gate is shared code reaching every PicoRuby platform, so relaxing it is
+not this port's business; it belongs to a separate `mrblib/` change. The port
+needs nothing from it: `ports/esp32/ble.c:482` already puts `BLE_ROLE_OBSERVER`
+and `BLE_ROLE_CENTRAL` on the same advertising-report path, so the demo
+exercises the identical port code either way.

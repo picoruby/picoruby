@@ -19,7 +19,11 @@ class AdvProbe < BLE
   GAP_ADV = 0xda
 
   def initialize
-    super(:observer)
+    # :central, not :observer. The port synthesizes advertising reports on the
+    # same path for both (ble.c:482), but mrblib gates scan and
+    # packet_callback on :central alone, so :central is the role that reaches
+    # the port code under test.
+    super(:central)
     @total = 0
     @d0 = 0
     @d1 = 0
