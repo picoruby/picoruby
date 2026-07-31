@@ -308,7 +308,7 @@ picorb_hal_init(void)
 #if defined(PICORB_VM_MRUBY)
   mrb_ = (mrb_state *)mrb;
 #if defined(PICO_CYW43_ARCH_POLL)
-  mrb_task_set_scheduler_hook(mrb, rp2_scheduler_service, NULL);
+  picorb_scheduler_service_add(mrb, rp2_scheduler_service, NULL);
 #endif
 #endif
   RingBuffer_init(stdin_rb, PICORB_STDIN_BUFFER_SIZE);

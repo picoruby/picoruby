@@ -37,6 +37,33 @@ extern "C" {
 void picorb_tick(mrb_state *mrb);
 void picorb_hal_init(mrb_state *mrb);
 void picorb_hal_idle_cpu(mrb_state *mrb);
+
+#if defined(MRB_USE_TASK_SCHEDULER)
+/*
+ * Scheduler services
+ *
+ * mruby's scheduler hook is a single slot per mrb_state and setting it
+ * replaces whatever was there -- upstream leaves composition to the
+ * embedder on purpose. PicoRuby has more than one thing to service at a
+ * scheduler entry (the cyw43_arch poll pump, the IRQ event bridge), so
+ * the slot belongs to the dispatcher below and gems register here
+ * instead of calling mrb_task_set_scheduler_hook themselves.
+ *
+ * Same rules as the hook itself: runs in thread context before the
+ * ready-queue read, must be cheap, must never sleep or re-enter the
+ * scheduler. Registration order carries no meaning -- services must be
+ * independent. Registering the same fn/ud twice is a no-op.
+ *
+ * The table belongs to one mrb_state at a time, matching the slot it
+ * feeds. Registering from a different VM discards the previous VM's
+ * entries, so a service that outlives an mrb_close (one registered from
+ * a HAL init, say) is re-registered rather than duplicated.
+ */
+#define PICORB_SCHEDULER_SERVICE_MAX 4
+void picorb_scheduler_service_add(mrb_state *mrb, void (*fn)(mrb_state *mrb, void *ud), void *ud);
+void picorb_scheduler_service_remove(mrb_state *mrb, void (*fn)(mrb_state *mrb, void *ud), void *ud);
+#endif
+
 #elif defined(PICORB_VM_MRUBYC)
 void picorb_tick();
 void picorb_hal_init(void);
