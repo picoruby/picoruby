@@ -29,11 +29,15 @@ module IRQ
       return id
     end
 
+    # Returns the number of events dispatched. The limit is checked
+    # before peek_event, not after: peek_event removes the event from
+    # the queue, so testing the limit afterwards threw one event away
+    # on every call that hit the limit.
     def process(max_count = MAX_PROCESS_COUNT)
       count = 0
-      while true
+      while count < max_count
         id, event_type = peek_event
-        break if id.nil? || max_count <= count
+        break if id.nil?
         if irq = HANDLER[id]
           irq.call(event_type)
           count += 1
