@@ -584,6 +584,7 @@ module MRuby
 
         @ary = tsort_dependencies gem_table.keys, gem_table, true
 
+        each(&:setup_build)
         each(&:setup_compilers)
 
         each do |g|
