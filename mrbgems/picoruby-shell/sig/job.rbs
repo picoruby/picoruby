@@ -12,5 +12,7 @@ class Shell
     def state: () -> Symbol
     def close: () -> void
     private def trap: () -> void
+    private def reap: (Array[Integer] before) -> void
+    private def task_ids: () -> Array[Integer]
   end
 end

@@ -99,6 +99,7 @@ class Shell
     end
 
     def task_ids
+      # @type var ids: Array[Integer]
       ids = []
       Task.list.each { |t| ids << t.object_id }
       ids
