@@ -1,6 +1,9 @@
 #include "../../include/hal.h"
 #include "../../include/machine.h"
 #include "../../include/ringbuffer.h"
+#if defined(PICORB_VM_MRUBY)
+#include "task.h"
+#endif
 #include "../../../picoruby-io-console/include/io-console.h"
 
 #if defined(PICO_RP2040)
@@ -278,6 +281,25 @@ usb_irq_handler(void)
   usb_pump_request();
 }
 
+#if defined(PICORB_VM_MRUBY) && defined(PICO_CYW43_ARCH_POLL)
+/* cyw43_arch POLL mode: cyw43_driver, lwIP and btstack share one
+ * async_context that is only serviced from thread context. Pump it at
+ * every scheduler entry so a compute-bound task or a long GC drain
+ * cannot starve the network/BLE stack. Guarded by
+ * cyw43_is_initialized() so this is a no-op until Wi-Fi/BLE has been
+ * brought up. Must stay cheap and never sleep -- idling belongs to
+ * picorb_hal_idle_cpu(). */
+static void
+rp2_scheduler_service(mrb_state *mrb, void *ud)
+{
+  (void)mrb;
+  (void)ud;
+  if (cyw43_is_initialized(&cyw43_state)) {
+    cyw43_arch_poll();
+  }
+}
+#endif
+
 void
 #if defined(PICORB_VM_MRUBY)
 picorb_hal_init(mrb_state *mrb)
@@ -287,6 +309,9 @@ picorb_hal_init(void)
 {
 #if defined(PICORB_VM_MRUBY)
   mrb_ = (mrb_state *)mrb;
+#if defined(PICO_CYW43_ARCH_POLL)
+  mrb_task_set_scheduler_hook(mrb, rp2_scheduler_service, NULL);
+#endif
 #endif
   RingBuffer_init(stdin_rb, PICORB_STDIN_BUFFER_SIZE);
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
