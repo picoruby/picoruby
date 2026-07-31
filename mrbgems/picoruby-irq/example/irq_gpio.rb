@@ -16,11 +16,12 @@ loop do
 end
 
 # Note:
-# For mruby/c's technical reasons, local variables outside
-# the irq block are not accessible from the callback.
-# `capture` is a way to pass local variables into the block.
+# On FemtoRuby (the mruby/c-based runtime), local variables outside
+# the irq block are not accessible from the callback, for technical
+# reasons of that VM. `capture` is a way to pass local variables into
+# the block.
 #
-# If you can use mruby-based PicoRuby, you can
+# On PicoRuby (the mruby-based runtime) you can
 # write the code simply like below:
 # ```mruby
 # led = GPIO.new(16, GPIO::OUT)

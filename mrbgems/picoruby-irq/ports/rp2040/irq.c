@@ -4,6 +4,7 @@
 #include "hardware/gpio.h"
 #include "hardware/irq.h"
 #include "pico/time.h"
+#include "hardware/sync.h"
 
 #include "../../include/irq.h"
 
@@ -177,4 +178,57 @@ picorb_irq_gpio_resume(void)
           irq_handlers[i].event_mask, true, &gpio_irq_callback);
     }
   }
+}
+
+/*
+ * Atomic primitives for the event bridge.
+ *
+ * Cortex-M0+ has no LDREX/STREX, so C11 atomics would lower to
+ * libatomic calls; a short interrupt-save critical section is both
+ * cheaper and valid in ISR and task context alike. This masks
+ * interrupts on the CURRENT core only: producers (ISRs) and the VM
+ * are expected to live on core 0, as PicoRuby runs today.
+ */
+
+uint32_t
+IRQ_hal_atomic_load_u32(const volatile uint32_t *p)
+{
+  uint32_t v;
+  uint32_t state = save_and_disable_interrupts();
+  v = *p;
+  restore_interrupts(state);
+  return v;
+}
+
+uint32_t
+IRQ_hal_atomic_or_u32(volatile uint32_t *p, uint32_t bits)
+{
+  uint32_t old;
+  uint32_t state = save_and_disable_interrupts();
+  old = *p;
+  *p = old | bits;
+  restore_interrupts(state);
+  return old;
+}
+
+uint32_t
+IRQ_hal_atomic_and_u32(volatile uint32_t *p, uint32_t mask)
+{
+  uint32_t old;
+  uint32_t state = save_and_disable_interrupts();
+  old = *p;
+  *p = old & mask;
+  restore_interrupts(state);
+  return old;
+}
+
+uint32_t
+IRQ_hal_atomic_exchange_u32(volatile uint32_t *p, uint32_t v)
+{
+  uint32_t old;
+  uint32_t state = save_and_disable_interrupts();
+  old = *p;
+  *p = v;
+  restore_interrupts(state);
+  return old;
 }

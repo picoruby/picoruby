@@ -4,8 +4,16 @@
 #include <mruby/string.h>
 #include <mruby/hash.h>
 #include <mruby/array.h>
+#include <mruby/class.h>
 
 #include "../../include/irq.h"
+
+#if defined(MRB_USE_TASK_SCHEDULER)
+#include "task.h"
+/* Spelled out: picoruby-mruby/include/hal.h shadows this one on the
+   include path. */
+#include "../../../picoruby-machine/include/hal.h"
+#endif
 
 /*
  * IRQ.register_gpio(pin, event_type, opts)
@@ -69,6 +77,248 @@ mrb_s_peek_event(mrb_state *mrb, mrb_value self)
   return result;
 }
 
+#if defined(MRB_USE_TASK_SCHEDULER)
+
+/*
+ * ISR-to-task event bridge (VM side)
+ *
+ * The C core (src/irq_source.c) only latches bits. This is where a
+ * ready source becomes a token in a Task::Queue, which is why it runs
+ * in VM context: pushing allocates.
+ *
+ * Exactly one mrb_state owns the bridge, because the source table is a
+ * process-global that ISRs write to -- a second owner could not tell
+ * whose queue an event belongs to. The owner is claimed at gem init and
+ * released at gem final; other VMs get no bridge methods at all.
+ */
+
+static mrb_state *irq_owner_;
+static mrb_value irq_bindings_;   /* Array(IRQ_MAX_SOURCES) of queue-or-nil */
+
+static void
+irq_check_id(mrb_state *mrb, mrb_int id)
+{
+  if (id < 0 || IRQ_MAX_SOURCES <= id) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "IRQ source id out of range: %i", id);
+  }
+}
+
+static int
+irq_lowest_bit(uint32_t v)
+{
+#if defined(__GNUC__) || defined(__clang__)
+  return __builtin_ctz(v);
+#else
+  int n = 0;
+  while ((v & UINT32_C(1)) == 0) {
+    v >>= 1;
+    n++;
+  }
+  return n;
+#endif
+}
+
+/*
+ * Scheduler hook: turn every ready source into at most one token.
+ *
+ * Runs in thread context at every scheduler entry, right before the
+ * ready-queue read, so a task woken here runs in the same iteration.
+ * Kept cheap: with no pending event this is one atomic exchange.
+ *
+ * A push can allocate, so it can raise, and the exception escapes into
+ * the scheduler. That is deliberate -- a silently dropped interrupt is
+ * worse than a visible failure -- but it must not cost the event. Hence
+ * a source is cleared from the ready set only after it has been dealt
+ * with, and the token is recorded only after the push actually
+ * happened: an interrupted drain retries that source at the next
+ * scheduler entry instead of leaving it claimed forever.
+ */
+static void
+irq_drain(mrb_state *mrb, void *ud)
+{
+  uint32_t ready;
+
+  (void)ud;
+  ready = IRQ_peek_ready();
+  while (ready) {
+    int id = irq_lowest_bit(ready);
+    ready &= ready - 1;
+
+    mrb_value queue = mrb_ary_entry(irq_bindings_, id);
+    if (mrb_nil_p(queue)) {
+      /* Nobody is listening yet. The bits stay latched; IRQ.bind
+         re-asserts the ready bit, so a late consumer still sees them. */
+      IRQ_clear_ready(id);
+      continue;
+    }
+    if (IRQ_is_enqueued(id)) {
+      /* A token is already outstanding; it covers these bits. */
+      IRQ_clear_ready(id);
+      continue;
+    }
+    switch (mrb_task_queue_push(mrb, queue, mrb_fixnum_value(id))) {
+      case MRB_TASK_QUEUE_PUSH_OK:
+        IRQ_mark_enqueued(id);
+        break;
+      case MRB_TASK_QUEUE_PUSH_CLOSED:
+      case MRB_TASK_QUEUE_PUSH_INVALID:
+        /* The consumer is gone. Drop the binding rather than retry at
+           every scheduler entry for the rest of the process. The bits
+           stay latched for whoever binds next. */
+        mrb_ary_set(mrb, irq_bindings_, id, mrb_nil_value());
+        break;
+    }
+    IRQ_clear_ready(id);
+  }
+}
+
+/*
+ * IRQ.bind(id, queue) -> queue
+ *
+ * Tokens are edge-latched and coalesced: the queue receives the source
+ * id once per "something happened since you last took the bits", not
+ * once per interrupt. Binding a source that already has pending bits
+ * delivers them on the next scheduler entry.
+ */
+static mrb_value
+mrb_s_bind(mrb_state *mrb, mrb_value self)
+{
+  mrb_int id;
+  mrb_value queue, current;
+  struct RClass *queue_class;
+
+  mrb_get_args(mrb, "io", &id, &queue);
+  irq_check_id(mrb, id);
+
+  queue_class = mrb_class_get_under_id(mrb, mrb_class_get_id(mrb, MRB_SYM(Task)), MRB_SYM(Queue));
+  if (!mrb_obj_is_kind_of(mrb, queue, queue_class)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "IRQ.bind expects a Task::Queue");
+  }
+
+  current = mrb_ary_entry(irq_bindings_, id);
+  if (mrb_obj_eq(mrb, current, queue)) {
+    return queue;  /* rebinding the same queue changes nothing */
+  }
+  if (IRQ_is_enqueued(id)) {
+    /* The outstanding token names this source, and the new consumer has
+       no way to know the old queue still holds it. Make the caller take
+       the bits first. */
+    mrb_raise(mrb, E_RUNTIME_ERROR, "IRQ source has an undelivered token");
+  }
+  mrb_ary_set(mrb, irq_bindings_, id, queue);
+  if (IRQ_peek_pending((int)id) != 0) {
+    IRQ_mark_ready((int)id);
+  }
+  return queue;
+}
+
+/*
+ * IRQ.unbind(id) -> true if a binding was removed
+ */
+static mrb_value
+mrb_s_unbind(mrb_state *mrb, mrb_value self)
+{
+  mrb_int id;
+
+  mrb_get_args(mrb, "i", &id);
+  irq_check_id(mrb, id);
+
+  if (mrb_nil_p(mrb_ary_entry(irq_bindings_, id))) {
+    return mrb_false_value();
+  }
+  if (IRQ_is_enqueued(id)) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "IRQ source has an undelivered token");
+  }
+  mrb_ary_set(mrb, irq_bindings_, id, mrb_nil_value());
+  return mrb_true_value();
+}
+
+/*
+ * IRQ.take(id) -> event bits (0 is possible: tokens may be spurious)
+ */
+static mrb_value
+mrb_s_take(mrb_state *mrb, mrb_value self)
+{
+  mrb_int id;
+
+  mrb_get_args(mrb, "i", &id);
+  irq_check_id(mrb, id);
+  return mrb_fixnum_value((mrb_int)IRQ_take_bits((int)id));
+}
+
+/*
+ * IRQ.simulate(id, bits) -> nil
+ *
+ * Drives the bridge from VM context exactly as an interrupt handler
+ * would. For tests and for bringing up a consumer on a host build,
+ * where there is no interrupt to fire.
+ */
+static mrb_value
+mrb_s_simulate(mrb_state *mrb, mrb_value self)
+{
+  mrb_int id, bits;
+
+  mrb_get_args(mrb, "ii", &id, &bits);
+  irq_check_id(mrb, id);
+  IRQ_signal_from_isr((int)id, (uint32_t)bits);
+  return mrb_nil_value();
+}
+
+static void
+irq_bridge_init(mrb_state *mrb, struct RClass *module_IRQ)
+{
+  mrb_value bindings;
+  int i;
+
+  if (irq_owner_ != NULL) {
+    /* Nothing has been touched yet, so the first owner keeps working. */
+    mrb_raise(mrb, E_RUNTIME_ERROR, "IRQ event bridge is owned by another VM");
+  }
+
+  bindings = mrb_ary_new_capa(mrb, IRQ_MAX_SOURCES);
+  i = 0;
+  while (i < IRQ_MAX_SOURCES) {
+    mrb_ary_push(mrb, bindings, mrb_nil_value());
+    i++;
+  }
+  /* Rooted once for the lifetime of the gem. Registering per binding
+     would be wrong: mrb_gc_unregister removes ALL occurrences of an
+     object, so two bindings to one queue would unroot it too early. */
+  mrb_gc_register(mrb, bindings);
+
+  mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(bind), mrb_s_bind, MRB_ARGS_REQ(2));
+  mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(unbind), mrb_s_unbind, MRB_ARGS_REQ(1));
+  mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(take), mrb_s_take, MRB_ARGS_REQ(1));
+  mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(simulate), mrb_s_simulate, MRB_ARGS_REQ(2));
+
+  irq_bindings_ = bindings;
+  IRQ_reset();
+  /* Not mrb_task_set_scheduler_hook: the hook slot is shared with the
+     platform's own servicing (cyw43_arch poll on pico_w/pico2_w), and
+     setting it directly would silently disable whichever registered
+     first. See include/hal.h in picoruby-machine. */
+  picorb_scheduler_service_add(mrb, irq_drain, NULL);
+
+  /* Claim ownership only once nothing above can still raise. Otherwise
+     a failed init would leave the bridge owned by a VM that does not
+     exist, and every later mrb_open would be refused. */
+  irq_owner_ = mrb;
+}
+
+static void
+irq_bridge_final(mrb_state *mrb)
+{
+  if (irq_owner_ != mrb) return;
+
+  picorb_scheduler_service_remove(mrb, irq_drain, NULL);
+  IRQ_reset();
+  mrb_gc_unregister(mrb, irq_bindings_);
+  irq_bindings_ = mrb_nil_value();
+  irq_owner_ = NULL;
+}
+
+#endif /* MRB_USE_TASK_SCHEDULER */
+
 void
 mrb_picoruby_irq_gem_init(mrb_state *mrb)
 {
@@ -79,11 +329,17 @@ mrb_picoruby_irq_gem_init(mrb_state *mrb)
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(unregister_gpio), mrb_s_unregister_gpio, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, module_IRQ, MRB_SYM(peek_event), mrb_s_peek_event, MRB_ARGS_NONE());
 
+#if defined(MRB_USE_TASK_SCHEDULER)
+  irq_bridge_init(mrb, module_IRQ);
+#endif
+
   IRQ_init(); // Initialize the IRQ system
 }
 
 void
 mrb_picoruby_irq_gem_final(mrb_state *mrb)
 {
-  /* Cleanup if needed */
+#if defined(MRB_USE_TASK_SCHEDULER)
+  irq_bridge_final(mrb);
+#endif
 }
