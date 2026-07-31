@@ -8,7 +8,7 @@ Verifies the short-advertising-report padding in `ports/esp32/ble.c`'s
 `mrblib/ble_advertising_report.rb` requires `bytesize >= 14` (a contract
 inherited from BTstack's `GAP_EVENT_ADVERTISING_REPORT` wire format).
 
-The probe runs as `:observer` and overrides `packet_callback`, which receives
+The probe scans as `:central` and overrides `packet_callback`, which receives
 the raw synthesized packet String *before* `AdvertisingReport` parses it. That
 makes the C output directly observable from Ruby:
 
