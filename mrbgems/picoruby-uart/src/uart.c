@@ -21,6 +21,16 @@
 typedef struct {
   uint32_t last_read_timestamp_us;
   uint32_t overflow_count;    /* producer writes, consumer reads */
+  /*
+   * One byte of pushback for ungetbyte, owned by the consumer alone.
+   * It cannot live in the ring: unshifting there moves head backwards
+   * into a slot the producer may already have taken back, and no
+   * ordering of the indices prevents the two writes from colliding.
+   * Depth one is all ungetbyte needs for a single token of lookahead.
+   */
+  uint32_t pushback_timestamp_us;
+  uint8_t pushback_byte;
+  bool pushback_valid;
   bool last_read_timestamp_valid;
 } uart_rx_metadata;
 
@@ -239,32 +249,34 @@ pop_buffer(RingBuffer *ring_buffer, uint8_t *ch)
   return true;
 }
 
-static bool
-unshift_buffer(RingBuffer *ring_buffer, uint8_t ch)
-{
-  int head;
-  if (ring_buffer->size - RingBuffer_data_size_at(ring_buffer, ring_buffer->head) <= 1) {
-    return false;
-  }
-  head = (ring_buffer->head - 1) & ring_buffer->mask;
-  ring_buffer->data[head] = ch;
-  rx_timestamps(ring_buffer)[head] = (uint32_t)Machine_uptime_us();
-  RingBuffer_store_index(&ring_buffer->head, head);
-  return true;
-}
-
 size_t
 UART_bytes_available(int unit_num)
 {
   RingBuffer *rx = unit_rx(unit_num);
-  return rx ? RingBuffer_data_size(rx) : 0;
+  if (rx == NULL) {
+    return 0;
+  }
+  return RingBuffer_data_size(rx) + (rx_metadata(rx)->pushback_valid ? 1 : 0);
 }
 
 bool
 UART_getbyte(int unit_num, uint8_t *ch)
 {
   RingBuffer *rx = unit_rx(unit_num);
-  return rx ? pop_buffer(rx, ch) : false;
+  uart_rx_metadata *metadata;
+
+  if (rx == NULL) {
+    return false;
+  }
+  metadata = rx_metadata(rx);
+  if (metadata->pushback_valid) {
+    *ch = metadata->pushback_byte;
+    metadata->pushback_valid = false;
+    metadata->last_read_timestamp_us = metadata->pushback_timestamp_us;
+    metadata->last_read_timestamp_valid = true;
+    return true;
+  }
+  return pop_buffer(rx, ch);
 }
 
 /*
@@ -277,41 +289,79 @@ size_t
 UART_read(int unit_num, uint8_t *dst, size_t len)
 {
   RingBuffer *rx = unit_rx(unit_num);
+  uart_rx_metadata *metadata;
+  size_t taken = 0;
   size_t available;
 
   if (rx == NULL || len == 0) {
     return 0;
   }
+  metadata = rx_metadata(rx);
+  if (metadata->pushback_valid) {
+    dst[0] = metadata->pushback_byte;
+    metadata->pushback_valid = false;
+    dst++;
+    len--;
+    taken = 1;
+  }
+  if (len == 0) {
+    return taken;
+  }
   available = RingBuffer_data_size(rx);
   if (available < len) {
     len = available;
   }
-  if (len == 0) {
-    return 0;
+  if (0 < len) {
+    RingBuffer_pop_n(rx, dst, len);
+    taken += len;
   }
-  RingBuffer_pop_n(rx, dst, len);
-  return len;
+  return taken;
 }
 
-/* Observes only: gets() searches first and consumes afterwards. */
+/*
+ * Observes only: gets() searches first and consumes afterwards, so a
+ * consuming search would lose the line it just found. The length counts
+ * the pushback byte when there is one.
+ */
 int
 UART_line_length(int unit_num)
 {
   RingBuffer *rx = unit_rx(unit_num);
+  uart_rx_metadata *metadata;
+  int offset = 0;
   int pos;
 
   if (rx == NULL) {
     return -1;
   }
+  metadata = rx_metadata(rx);
+  if (metadata->pushback_valid) {
+    if (metadata->pushback_byte == (uint8_t)'\n') {
+      return 1;
+    }
+    offset = 1;
+  }
   pos = RingBuffer_search_char(rx, (uint8_t)'\n');
-  return pos < 0 ? -1 : pos + 1;
+  return pos < 0 ? -1 : pos + 1 + offset;
 }
 
 bool
 UART_ungetbyte(int unit_num, uint8_t ch)
 {
   RingBuffer *rx = unit_rx(unit_num);
-  return rx ? unshift_buffer(rx, ch) : false;
+  uart_rx_metadata *metadata;
+
+  if (rx == NULL) {
+    return false;
+  }
+  metadata = rx_metadata(rx);
+  if (metadata->pushback_valid) {
+    return false;   /* one byte of lookahead, and it is taken */
+  }
+  metadata->pushback_byte = ch;
+  metadata->pushback_timestamp_us = (uint32_t)Machine_uptime_us();
+  metadata->pushback_valid = true;
+  return true;
 }
 
 /*
@@ -329,6 +379,7 @@ UART_clear_rx(int unit_num)
     return;
   }
   RingBuffer_clear(rx);
+  rx_metadata(rx)->pushback_valid = false;
   rx_metadata(rx)->last_read_timestamp_valid = false;
   UART_clear_rx_buffer(unit_num);
 }

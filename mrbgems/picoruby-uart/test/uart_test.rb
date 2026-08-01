@@ -41,6 +41,56 @@ class UARTTest < Picotest::Test
     assert_raise(TypeError) { @uart.putc(nil) }
   end
 
+  def test_ungetbyte_holds_one_byte_only
+    assert_nil @uart.ungetbyte(0x41)
+    assert_raise(IOError) { @uart.ungetbyte(0x42) }
+    # The first byte is still the one that comes back.
+    assert_equal 0x41, @uart.getbyte
+    assert_nil @uart.ungetbyte(0x42)
+    assert_equal 0x42, @uart.getbyte
+  end
+
+  def test_ungetbyte_counts_towards_bytes_available
+    assert_equal 0, @uart.bytes_available
+    @uart.ungetbyte(0x41)
+    assert_equal 1, @uart.bytes_available
+    @uart.getbyte
+    assert_equal 0, @uart.bytes_available
+  end
+
+  def test_read_returns_the_pushed_back_byte_first
+    @uart.ungetbyte(0x41)
+    assert_equal "A", @uart.read
+    assert_nil @uart.read
+  end
+
+  def test_read_does_not_update_the_last_read_timestamp
+    @uart.ungetbyte(0x41)
+    assert_equal "A", @uart.read
+    # Only getbyte updates it, and clear_rx_buffer in setup cleared it.
+    assert_nil @uart.last_read_timestamp_us
+  end
+
+  def test_gets_returns_a_pushed_back_newline
+    @uart.ungetbyte(0x0a)
+    assert_equal "\n", @uart.gets
+    assert_equal 0, @uart.bytes_available
+  end
+
+  def test_gets_is_nil_while_no_newline_has_been_pushed_back
+    @uart.ungetbyte(0x41)
+    assert_nil @uart.gets
+    # Observing must not have consumed it.
+    assert_equal 1, @uart.bytes_available
+  end
+
+  def test_clear_rx_buffer_drops_the_pushed_back_byte
+    @uart.ungetbyte(0x41)
+    @uart.clear_rx_buffer
+    assert_equal 0, @uart.bytes_available
+    assert_nil @uart.getbyte
+  end
+
   def test_clear_rx_buffer_forgets_the_last_read_timestamp
     @uart.ungetbyte(0x41)
     assert_equal 0x41, @uart.getbyte

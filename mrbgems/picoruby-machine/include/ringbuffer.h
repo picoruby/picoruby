@@ -143,7 +143,7 @@ RingBuffer_pop(RingBuffer *rb, uint8_t *out)
  * `head` backwards hands a slot the producer may already have taken back
  * to the consumer, and no ordering of the indices prevents that. A
  * consumer that needs pushback while the producer runs must keep it in
- * storage of its own.
+ * storage of its own, as picoruby-uart's ungetbyte does.
  */
 static inline bool
 RingBuffer_unshift(RingBuffer *rb, uint8_t ch)
