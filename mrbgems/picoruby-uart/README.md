@@ -55,6 +55,51 @@ Two consequences:
   raises `ArgumentError`, rather than freeing a buffer the interrupt
   handler may be writing into.
 
+## Waiting for input without polling
+
+Every read method above returns `nil` when nothing has arrived, so a
+loop that wants a line has to keep asking and sleeping between tries.
+The RX interrupt also publishes to the event bridge, which lets a task
+sleep until there is something to read instead.
+
+```ruby
+require 'irq'
+
+uart = UART.new(txd_pin: 0, rxd_pin: 1, baudrate: 115200)
+
+q = Task::Queue.new
+IRQ.bind(uart.event_source_id, q)
+
+while source = q.pop
+  # Taking the bits is required: it is what allows the next token.
+  IRQ.take(source)
+  # One token can stand for any number of interrupts, so drain rather
+  # than assume it means one line.
+  while line = uart.gets
+    print "received: #{line}"
+  end
+end
+```
+
+Note that writing the reply back to the same UART is only safe with a
+peer on the other end. Under a TX-to-RX loopback it feeds itself: every
+line written comes back, is answered again, and grows without bound.
+
+Each unit has its own source, so a task waiting on `RP2040_UART0` does
+not wake for traffic on `RP2040_UART1`.
+
+The contract is the bridge's, described in full in
+[picoruby-irq](../picoruby-irq/README.md): tokens are edge-latched and
+coalesced, so one token means "something arrived since you last took
+the bits", never "one byte" and never "one line". A consumer that reads
+once per token will fall behind; drain until the read returns `nil`.
+
+`event_source_id` is only defined where the build has the bridge. It is
+absent on ESP32, whose receive path has not been brought onto it, and
+in any build configured without a task scheduler.
+
+See [example/uart_event.rb](example/uart_event.rb).
+
 ## API
 
 ### Constants
@@ -79,6 +124,7 @@ Two consequences:
 - `gets()` - Read line (until line ending)
 - `readpartial(maxlen)` - Read available data up to maxlen
 - `bytes_available()` - Return number of bytes in RX buffer
+- `event_source_id()` - Return the event-bridge source for this unit, to pass to `IRQ.bind`. Only defined where the build has the bridge; see "Waiting for input without polling"
 - `line_ending=(ending)` - Set line ending ("\n", "\r\n", or "\r")
 - `setmode(...)` - Change UART settings
 - `clear_rx_buffer()` - Discard buffered input, and forget the last read timestamp with it
