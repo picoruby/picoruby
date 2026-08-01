@@ -8,7 +8,7 @@ UART_unit_name_to_unit_num(const char *name)
 }
 
 void
-UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buffer)
+UART_open(int unit_num, uint32_t txd_pin, uint32_t rxd_pin)
 {
 }
 

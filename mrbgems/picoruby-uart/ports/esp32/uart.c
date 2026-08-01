@@ -21,7 +21,7 @@
 typedef struct uart_context {
   int unit_num;
   QueueHandle_t queue;
-  RingBuffer* buff;
+  bool producer_started;
 } uart_context_t;
 static uart_context_t contexts[UART_NUM_MAX];
 
@@ -34,12 +34,16 @@ static void uart_event_task(void* pvParameters)
   for(;;) {
     if(xQueueReceive(context->queue, (void*)&event, (TickType_t)portMAX_DELAY)) {
       switch (event.type) {
-      case UART_DATA:
+      case UART_DATA: {
+        RingBuffer* rx = UART_unit_rx(context->unit_num);
         uart_read_bytes(context->unit_num, buff, event.size > RECEIVE_BUFF_SIZE ? RECEIVE_BUFF_SIZE : event.size, portMAX_DELAY);
         for(size_t i = 0; i < event.size; i++) {
-          UART_pushBuffer(context->buff, buff[i]);
+          if (rx) {
+            UART_pushBuffer(rx, buff[i]);
+          }
         }
         break;
+      }
       default:
         break;
       }
@@ -68,7 +72,7 @@ UART_unit_name_to_unit_num(const char *name)
 
 
 void
-UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buffer)
+UART_open(int unit_num, uint32_t txd_pin, uint32_t rxd_pin)
 {
   uart_config_t uart_config = {
     .baud_rate = 9600,
@@ -79,16 +83,44 @@ UART_init(int unit_num, uint32_t txd_pin, uint32_t rxd_pin, RingBuffer *ring_buf
     .source_clk = UART_SCLK_DEFAULT,
   };
 
-  ESP_ERROR_CHECK(uart_driver_install(unit_num, ring_buffer->size, 0, QUEUE_LENGTH, &contexts[unit_num].queue, 0));
+  /* UART_UNIT_MAX only sizes the shared table; this chip is the
+     authority on how many units actually exist. */
+  if (unit_num < 0 || UART_NUM_MAX <= unit_num) {
+    return;
+  }
+
+  /* The driver and its RX task are per unit, not per UART.new: installing
+     them again would leak one driver and one task per object. The order
+     within a first open is unchanged -- install, configure, then start
+     the task, so it cannot receive before the pins are set. */
+  bool first_open = !contexts[unit_num].producer_started;
+
+  if (first_open) {
+    RingBuffer* rx = UART_unit_rx(unit_num);
+    if (rx == NULL) {
+      return;
+    }
+    ESP_ERROR_CHECK(uart_driver_install(unit_num, rx->size, 0, QUEUE_LENGTH, &contexts[unit_num].queue, 0));
+    contexts[unit_num].unit_num = unit_num;
+  }
+
   ESP_ERROR_CHECK(uart_param_config(unit_num, &uart_config));
   ESP_ERROR_CHECK(uart_set_pin(unit_num, txd_pin, rxd_pin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE));
 
-  contexts[unit_num].unit_num = unit_num;
-  contexts[unit_num].buff = ring_buffer;
-
-  char task_name[32];
-  sprintf(task_name, "uart_event_task_%d", unit_num);
-  xTaskCreate(uart_event_task, task_name, STACK_SIZE, (void*)&contexts[unit_num], PRIORITY, NULL);
+  if (first_open) {
+    char task_name[32];
+    sprintf(task_name, "uart_event_task_%d", unit_num);
+    /* Only mark the producer started once it actually is. Setting the
+       flag first would leave a unit whose driver is installed but whose
+       RX task never ran, and no later open would retry it. */
+    if (xTaskCreate(uart_event_task, task_name, STACK_SIZE,
+                    (void*)&contexts[unit_num], PRIORITY, NULL) != pdPASS) {
+      uart_driver_delete(unit_num);
+      ESP_ERROR_CHECK(ESP_ERR_NO_MEM);
+      return;
+    }
+    contexts[unit_num].producer_started = true;
+  }
 }
 
 uint32_t

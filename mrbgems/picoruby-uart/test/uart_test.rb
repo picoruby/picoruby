@@ -1,6 +1,9 @@
 class UARTTest < Picotest::Test
   def setup
     @uart = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 115200)
+    # The RX buffer belongs to the unit, not to this object, so it
+    # carries whatever an earlier test left in it.
+    @uart.clear_rx_buffer
   end
 
   def test_initialize
@@ -36,5 +39,42 @@ class UARTTest < Picotest::Test
 
   def test_putc_rejects_other_types
     assert_raise(TypeError) { @uart.putc(nil) }
+  end
+
+  def test_clear_rx_buffer_forgets_the_last_read_timestamp
+    @uart.ungetbyte(0x41)
+    assert_equal 0x41, @uart.getbyte
+    assert @uart.last_read_timestamp_us.is_a?(Integer)
+    @uart.clear_rx_buffer
+    assert_nil @uart.last_read_timestamp_us
+  end
+
+  def test_reopening_a_unit_keeps_what_it_has_buffered
+    @uart.ungetbyte(0x41)
+    other = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 9600)
+    assert_equal 1, other.bytes_available
+    assert_equal 0x41, other.getbyte
+  end
+
+  def test_two_objects_on_one_unit_read_one_stream
+    other = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 115200)
+    @uart.ungetbyte(0x42)
+    assert_equal 1, other.bytes_available
+    assert_equal 0x42, other.getbyte
+    # The byte is gone for both of them; there is only one stream.
+    assert_equal 0, @uart.bytes_available
+    assert_nil @uart.getbyte
+  end
+
+  def test_reopening_a_unit_with_another_buffer_size_raises
+    assert_raise(ArgumentError) do
+      UART.new(unit: :PICORB_UART_RP2040_UART0, rx_buffer_size: 512)
+    end
+  end
+
+  def test_rx_buffer_size_must_be_a_power_of_two
+    assert_raise(IOError) do
+      UART.new(unit: :PICORB_UART_RP2040_UART0, rx_buffer_size: 100)
+    end
   end
 end

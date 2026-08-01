@@ -1,8 +1,13 @@
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 #include "../include/uart.h"
 #include "machine.h"
+
+#if defined(PICORB_ALLOC_ESTALLOC)
+#include "picorb_heap.h"
+#endif
 
 #ifndef PICORB_UART_RX_BUFFER_SIZE
 #define PICORB_UART_RX_BUFFER_SIZE (1 << 8)
@@ -15,9 +20,80 @@
 
 typedef struct {
   uint32_t last_read_timestamp_us;
-  uint32_t overflow_count;
+  uint32_t overflow_count;    /* producer writes, consumer reads */
   bool last_read_timestamp_valid;
 } uart_rx_metadata;
+
+/*
+ * overflow_count crosses the same boundary as the ring indices: the
+ * producer is an ISR or, on ESP32, a task on another core. There is
+ * only one writer, so it needs no read-modify-write -- the producer
+ * reads its own value plainly and republishes it. Relaxed is enough
+ * because the counter orders nothing else, and __atomic_fetch_add would
+ * be an out-of-line call to __atomic_fetch_add_4 on Cortex-M0+.
+ */
+static inline void
+overflow_count_bump(uart_rx_metadata *metadata)
+{
+  __atomic_store_n(&metadata->overflow_count,
+                   metadata->overflow_count + 1, __ATOMIC_RELAXED);
+}
+
+static inline uint32_t
+overflow_count_read(const uart_rx_metadata *metadata)
+{
+  return __atomic_load_n(&metadata->overflow_count, __ATOMIC_RELAXED);
+}
+
+/*
+ * The RX ring belongs to the unit, not to any Ruby object. The port's
+ * ISR holds a raw pointer to it, so a ring owned by a Ruby object would
+ * be freed under the ISR the moment that object was collected.
+ *
+ * Lifetime: a ring lives exactly as long as the allocator it came from.
+ * mrb_open_with_custom_alloc() re-initialises the heap on every open
+ * (picoruby-machine/src/mruby/alloc.c), so this table is only valid for
+ * the lifetime of a single allocator. PicoRuby brings its allocator up
+ * once at boot, never re-initialises it, and never opens a second VM
+ * after closing the first, which is why nothing here is ever freed.
+ * Anything that changes that MUST stop the producers and zero this
+ * table first.
+ *
+ * Concurrency: `rx` is published before the port starts the producer
+ * and never changes afterwards, so the ISR needs no synchronisation to
+ * read it. Every consumer-side accessor below runs in VM context, where
+ * C method bodies are serialized -- two Ruby UART objects on one unit
+ * are therefore still one consumer, and the ring stays SPSC.
+ */
+typedef struct {
+  RingBuffer *rx;
+  size_t capacity;
+} uart_unit_t;
+
+static uart_unit_t units_[UART_UNIT_MAX];
+
+static void *
+uart_alloc(size_t size)
+{
+#if defined(PICORB_ALLOC_ESTALLOC)
+  if (picorb_heap_ready()) {
+    return picorb_heap_malloc(size);
+  }
+#endif
+  return malloc(size);
+}
+
+static void
+uart_free(void *ptr)
+{
+#if defined(PICORB_ALLOC_ESTALLOC)
+  if (picorb_heap_ready()) {
+    picorb_heap_free(ptr);
+    return;
+  }
+#endif
+  free(ptr);
+}
 
 static size_t
 timestamp_offset(size_t capacity)
@@ -69,18 +145,73 @@ UART_rx_buffer_init(RingBuffer *ring_buffer, size_t capacity)
   return true;
 }
 
+static bool
+valid_unit(int unit_num)
+{
+  return 0 <= unit_num && unit_num < UART_UNIT_MAX;
+}
+
+static RingBuffer *
+unit_rx(int unit_num)
+{
+  return valid_unit(unit_num) ? units_[unit_num].rx : NULL;
+}
+
+RingBuffer *
+UART_unit_rx(int unit_num)
+{
+  return unit_rx(unit_num);
+}
+
+int
+UART_unit_open(int unit_num, size_t capacity)
+{
+  RingBuffer *rx;
+  size_t allocation_size;
+
+  if (!valid_unit(unit_num)) {
+    return UART_ERROR_INVALID_UNIT;
+  }
+  if (capacity == 0) {
+    capacity = PICORB_UART_RX_BUFFER_SIZE;
+  }
+  allocation_size = UART_rx_buffer_allocation_size(capacity);
+  if (allocation_size == 0) {
+    return UART_ERROR_BUFFER_SIZE;
+  }
+  if (units_[unit_num].rx) {
+    /* Reopening reuses the ring, so bytes that already arrived are
+       still there. Resizing would mean freeing a buffer the producer
+       may be writing into, and on ESP32 that producer is a task on
+       another core with no point at which it is provably idle. */
+    return units_[unit_num].capacity == capacity
+             ? UART_ERROR_NONE : UART_ERROR_BUFFER_INUSE;
+  }
+  rx = (RingBuffer *)uart_alloc(allocation_size);
+  if (rx == NULL) {
+    return UART_ERROR_NOMEM;
+  }
+  if (!UART_rx_buffer_init(rx, capacity)) {
+    uart_free(rx);
+    return UART_ERROR_BUFFER_SIZE;
+  }
+  units_[unit_num].capacity = capacity;
+  units_[unit_num].rx = rx;
+  return UART_ERROR_NONE;
+}
+
 bool
 UART_pushBufferAt(RingBuffer *ring_buffer, uint8_t ch, uint32_t timestamp_us)
 {
   uart_rx_metadata *metadata = rx_metadata(ring_buffer);
-  if (RingBuffer_free_size(ring_buffer) <= 1) {
-    metadata->overflow_count++;
+  int tail = ring_buffer->tail;
+  if (RingBuffer_free_size_at(ring_buffer, tail) <= 1) {
+    overflow_count_bump(metadata);
     return false;
   }
-  int tail = ring_buffer->tail;
   ring_buffer->data[tail] = ch;
   rx_timestamps(ring_buffer)[tail] = timestamp_us;
-  ring_buffer->tail = (tail + 1) & ring_buffer->mask;
+  RingBuffer_store_index(&ring_buffer->tail, (tail + 1) & ring_buffer->mask);
   return true;
 }
 
@@ -91,51 +222,143 @@ UART_pushBuffer(RingBuffer *ring_buffer, uint8_t ch)
   return UART_pushBufferAt(ring_buffer, ch, (uint32_t)Machine_uptime_us());
 }
 
-bool
-UART_popBuffer(RingBuffer *ring_buffer, uint8_t *ch)
+static bool
+pop_buffer(RingBuffer *ring_buffer, uint8_t *ch)
 {
   int head = ring_buffer->head;
-  if (ring_buffer->tail == head) {
+  uart_rx_metadata *metadata;
+
+  if (RingBuffer_data_size_at(ring_buffer, head) == 0) {
     return false;
   }
   *ch = ring_buffer->data[head];
-  uart_rx_metadata *metadata = rx_metadata(ring_buffer);
+  metadata = rx_metadata(ring_buffer);
   metadata->last_read_timestamp_us = rx_timestamps(ring_buffer)[head];
   metadata->last_read_timestamp_valid = true;
-  ring_buffer->head = (head + 1) & ring_buffer->mask;
+  RingBuffer_store_index(&ring_buffer->head, (head + 1) & ring_buffer->mask);
   return true;
 }
 
-bool
-UART_unshiftBuffer(RingBuffer *ring_buffer, uint8_t ch)
+static bool
+unshift_buffer(RingBuffer *ring_buffer, uint8_t ch)
 {
-  if (RingBuffer_free_size(ring_buffer) <= 1) {
+  int head;
+  if (ring_buffer->size - RingBuffer_data_size_at(ring_buffer, ring_buffer->head) <= 1) {
     return false;
   }
-  int head = (ring_buffer->head - 1) & ring_buffer->mask;
+  head = (ring_buffer->head - 1) & ring_buffer->mask;
   ring_buffer->data[head] = ch;
   rx_timestamps(ring_buffer)[head] = (uint32_t)Machine_uptime_us();
-  ring_buffer->head = head;
+  RingBuffer_store_index(&ring_buffer->head, head);
   return true;
 }
 
-bool
-UART_lastReadTimestamp(RingBuffer *ring_buffer, uint64_t *timestamp_us)
+size_t
+UART_bytes_available(int unit_num)
 {
-  uart_rx_metadata *metadata = rx_metadata(ring_buffer);
+  RingBuffer *rx = unit_rx(unit_num);
+  return rx ? RingBuffer_data_size(rx) : 0;
+}
+
+bool
+UART_getbyte(int unit_num, uint8_t *ch)
+{
+  RingBuffer *rx = unit_rx(unit_num);
+  return rx ? pop_buffer(rx, ch) : false;
+}
+
+/*
+ * Consumes up to len bytes and returns how many were taken. It does NOT
+ * touch last_read_timestamp_us, which is documented as the timestamp of
+ * the byte most recently returned by getbyte; implementing this as a
+ * loop over UART_getbyte would silently widen that contract.
+ */
+size_t
+UART_read(int unit_num, uint8_t *dst, size_t len)
+{
+  RingBuffer *rx = unit_rx(unit_num);
+  size_t available;
+
+  if (rx == NULL || len == 0) {
+    return 0;
+  }
+  available = RingBuffer_data_size(rx);
+  if (available < len) {
+    len = available;
+  }
+  if (len == 0) {
+    return 0;
+  }
+  RingBuffer_pop_n(rx, dst, len);
+  return len;
+}
+
+/* Observes only: gets() searches first and consumes afterwards. */
+int
+UART_line_length(int unit_num)
+{
+  RingBuffer *rx = unit_rx(unit_num);
+  int pos;
+
+  if (rx == NULL) {
+    return -1;
+  }
+  pos = RingBuffer_search_char(rx, (uint8_t)'\n');
+  return pos < 0 ? -1 : pos + 1;
+}
+
+bool
+UART_ungetbyte(int unit_num, uint8_t ch)
+{
+  RingBuffer *rx = unit_rx(unit_num);
+  return rx ? unshift_buffer(rx, ch) : false;
+}
+
+/*
+ * Discards buffered input and the bookkeeping that describes it. The
+ * last-read timestamp goes too: the ring now outlives the Ruby objects
+ * that read from it, so this is the only way back to a known state, and
+ * after a clear there is no longer a "byte most recently read from this
+ * buffer" that the caller can reason about.
+ */
+void
+UART_clear_rx(int unit_num)
+{
+  RingBuffer *rx = unit_rx(unit_num);
+  if (rx == NULL) {
+    return;
+  }
+  RingBuffer_clear(rx);
+  rx_metadata(rx)->last_read_timestamp_valid = false;
+  UART_clear_rx_buffer(unit_num);
+}
+
+bool
+UART_lastReadTimestamp(int unit_num, uint64_t *timestamp_us)
+{
+  RingBuffer *rx = unit_rx(unit_num);
+  uart_rx_metadata *metadata;
+  uint64_t now;
+  uint32_t age;
+
+  if (rx == NULL) {
+    return false;
+  }
+  metadata = rx_metadata(rx);
   if (!metadata->last_read_timestamp_valid) {
     return false;
   }
-  uint64_t now = Machine_uptime_us();
-  uint32_t age = (uint32_t)now - metadata->last_read_timestamp_us;
+  now = Machine_uptime_us();
+  age = (uint32_t)now - metadata->last_read_timestamp_us;
   *timestamp_us = now - age;
   return true;
 }
 
 uint32_t
-UART_rxOverflowCount(RingBuffer *ring_buffer)
+UART_rxOverflowCount(int unit_num)
 {
-  return rx_metadata(ring_buffer)->overflow_count;
+  RingBuffer *rx = unit_rx(unit_num);
+  return rx ? overflow_count_read(rx_metadata(rx)) : 0;
 }
 
 int

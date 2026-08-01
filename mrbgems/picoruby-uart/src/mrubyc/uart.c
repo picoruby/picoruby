@@ -1,42 +1,29 @@
 #include <mrubyc.h>
 
 static mrbc_class *mrbc_class_UART;
-static mrbc_class *mrbc_class_UART_RxBuffer;
 
 #define GETIV(str)  mrbc_instance_getiv(&v[0], mrbc_str_to_symid(#str))
 #define SETIV(str, val) mrbc_instance_setiv(&v[0], mrbc_str_to_symid(#str), val)
 
-static void
-c_open_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
-{
-  int rx_buffer_size;
-  if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
-    return;
-  } else
-  if (v[1].tt == MRBC_TT_NIL) {
-    rx_buffer_size = PICORB_UART_RX_BUFFER_SIZE;
-  } else {
-    rx_buffer_size = GET_INT_ARG(1);
-  }
-  size_t allocation_size = UART_rx_buffer_allocation_size((size_t)rx_buffer_size);
-  if (allocation_size == 0) {
-    mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx_buffer_size is not power of two");
-    return;
-  }
-  mrbc_value rx_buffer_value = mrbc_instance_new(vm, mrbc_class_UART_RxBuffer, allocation_size);
-
-  RingBuffer *rx = (RingBuffer *)rx_buffer_value.instance->data;
-  if (!UART_rx_buffer_init(rx, (size_t)rx_buffer_size)) {
-    mrbc_raise(vm, MRBC_CLASS(IOError), "UART: failed to initialize rx buffer");
-    return;
-  }
-  SET_RETURN(rx_buffer_value);
-}
+#define UART_UNIT_NUM() (GETIV(unit_num).i)
 
 static void
 c_open_connection(mrbc_vm *vm, mrbc_value v[], int argc)
 {
+  size_t rx_buffer_size;
+  if (v[4].tt == MRBC_TT_NIL) {
+    rx_buffer_size = 0; // let the unit table pick the default
+  } else if (v[4].tt == MRBC_TT_INTEGER) {
+    mrbc_int_t requested = GET_INT_ARG(4);
+    if (requested <= 0) {
+      mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx_buffer_size is not power of two");
+      return;
+    }
+    rx_buffer_size = (size_t)requested;
+  } else {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected Integer or nil)");
+    return;
+  }
   int txd_pin = GET_INT_ARG(2);
   int rxd_pin = GET_INT_ARG(3);
   int unit_num = UART_resolve_unit_num((const char *)GET_STRING_ARG(1), txd_pin, rxd_pin);
@@ -50,8 +37,24 @@ c_open_connection(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(IOError), "UART: invalid unit name");
     return;
   }
-  RingBuffer *rx = (RingBuffer *)v[4].instance->data;
-  UART_init(unit_num, txd_pin, rxd_pin, rx);
+  switch (UART_unit_open(unit_num, rx_buffer_size)) {
+    case UART_ERROR_NONE:
+      break;
+    case UART_ERROR_BUFFER_INUSE:
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError),
+                 "UART: unit is already open with a different rx_buffer_size");
+      return;
+    case UART_ERROR_NOMEM:
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "UART: failed to allocate rx buffer");
+      return;
+    case UART_ERROR_INVALID_UNIT:
+      mrbc_raise(vm, MRBC_CLASS(IOError), "UART: invalid unit name");
+      return;
+    default:
+      mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx_buffer_size is not power of two");
+      return;
+  }
+  UART_open(unit_num, txd_pin, rxd_pin);
   SET_INT_RETURN(unit_num);
 }
 
@@ -91,8 +94,8 @@ c__set_function(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_read(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  size_t available_len = RingBuffer_data_size(rx);
+  int unit_num = UART_UNIT_NUM();
+  size_t available_len = UART_bytes_available(unit_num);
   if (available_len == 0) {
     SET_NIL_RETURN();
     return;
@@ -107,7 +110,7 @@ c_read(mrbc_vm *vm, mrbc_value v[], int argc)
     }
   }
   uint8_t buf[available_len];
-  RingBuffer_pop_n(rx, buf,available_len);
+  available_len = UART_read(unit_num, buf, available_len);
   mrbc_value str = mrbc_string_new(vm, buf, available_len);
   SET_RETURN(str);
 }
@@ -119,8 +122,8 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 1");
     return;
   }
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  size_t available_len = RingBuffer_data_size(rx);
+  int unit_num = UART_UNIT_NUM();
+  size_t available_len = UART_bytes_available(unit_num);
   if (available_len == 0) {
     SET_NIL_RETURN();
     return;
@@ -130,8 +133,8 @@ c_readpartial(mrbc_vm *vm, mrbc_value v[], int argc)
     maxlen = available_len;
   }
   uint8_t buf[maxlen];
-  RingBuffer_pop_n(rx, buf,maxlen);
-  mrbc_value str = mrbc_string_new(vm, buf, maxlen);
+  size_t len = UART_read(unit_num, buf, maxlen);
+  mrbc_value str = mrbc_string_new(vm, buf, len);
   SET_RETURN(str);
 }
 
@@ -142,9 +145,8 @@ c_getbyte(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 0");
     return;
   }
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   uint8_t byte;
-  if (!UART_popBuffer(rx, &byte)) {
+  if (!UART_getbyte(UART_UNIT_NUM(), &byte)) {
     SET_NIL_RETURN();
     return;
   }
@@ -162,8 +164,7 @@ c_ungetbyte(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected Integer)");
     return;
   }
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  if (!UART_unshiftBuffer(rx, (uint8_t)(GET_INT_ARG(1) & 0xff))) {
+  if (!UART_ungetbyte(UART_UNIT_NUM(), (uint8_t)(GET_INT_ARG(1) & 0xff))) {
     mrbc_raise(vm, MRBC_CLASS(IOError), "UART: rx buffer is full");
     return;
   }
@@ -173,16 +174,14 @@ c_ungetbyte(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_bytes_available(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  SET_INT_RETURN(RingBuffer_data_size(rx));
+  SET_INT_RETURN(UART_bytes_available(UART_UNIT_NUM()));
 }
 
 static void
 c_last_read_timestamp_us(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
   uint64_t timestamp_us;
-  if (!UART_lastReadTimestamp(rx, &timestamp_us)) {
+  if (!UART_lastReadTimestamp(UART_UNIT_NUM(), &timestamp_us)) {
     SET_NIL_RETURN();
     return;
   }
@@ -192,8 +191,7 @@ c_last_read_timestamp_us(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_rx_overflow_count(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  SET_INT_RETURN((mrbc_int_t)UART_rxOverflowCount(rx));
+  SET_INT_RETURN((mrbc_int_t)UART_rxOverflowCount(UART_UNIT_NUM()));
 }
 
 static void
@@ -271,16 +269,15 @@ c_gets(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 0");
     return;
   }
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  int pos = RingBuffer_search_char(rx,(uint8_t)'\n');
+  int unit_num = UART_UNIT_NUM();
+  int pos = UART_line_length(unit_num);
   if (pos < 0) {
     SET_NIL_RETURN();
     return;
   }
-  pos++;
   uint8_t buf[pos];
-  RingBuffer_pop_n(rx, buf,pos);
-  mrbc_value str = mrbc_string_new(vm, buf, pos);
+  size_t len = UART_read(unit_num, buf, (size_t)pos);
+  mrbc_value str = mrbc_string_new(vm, buf, len);
   SET_RETURN(str);
 }
 
@@ -301,10 +298,7 @@ c_clear_tx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_clear_rx_buffer(mrbc_vm *vm, mrbc_value v[], int argc)
 {
-  RingBuffer *rx = (RingBuffer *)GETIV(rx_buffer).instance->data;
-  RingBuffer_clear(rx);
-  int unit_num = GETIV(unit_num).i;
-  UART_clear_rx_buffer(unit_num);
+  UART_clear_rx(UART_UNIT_NUM());
 }
 
 static void
@@ -337,7 +331,6 @@ void
 mrbc_uart_init(mrbc_vm *vm)
 {
   mrbc_class_UART = mrbc_define_class(vm, "UART", mrbc_class_object);
-  mrbc_class_UART_RxBuffer = mrbc_define_class(vm, "RxBuffer", mrbc_class_UART);
 
   SET_CLASS_CONST_INT(UART, PARITY_NONE);
   SET_CLASS_CONST_INT(UART, PARITY_EVEN);
@@ -345,7 +338,6 @@ mrbc_uart_init(mrbc_vm *vm)
   SET_CLASS_CONST_INT(UART, FLOW_CONTROL_NONE);
   SET_CLASS_CONST_INT(UART, FLOW_CONTROL_RTS_CTS);
 
-  mrbc_define_method(vm, mrbc_class_UART, "open_rx_buffer", c_open_rx_buffer);
   mrbc_define_method(vm, mrbc_class_UART, "open_connection", c_open_connection);
   mrbc_define_method(vm, mrbc_class_UART, "_set_baudrate", c__set_baudrate);
   mrbc_define_method(vm, mrbc_class_UART, "_set_flow_control", c__set_flow_control);

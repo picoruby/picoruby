@@ -1,10 +1,6 @@
 # @sidebar io_peripheral
 class UART
 
-  # @sidebar io_peripheral
-  class RxBuffer
-  end
-
   type unit_t = Symbol|String
 
   PARITY_NONE: 0
@@ -15,7 +11,6 @@ class UART
   FLOW_CONTROL_XON_XOFF: 2
 
   @unit_num: Integer
-  @rx_buffer: UART::RxBuffer
   @line_ending: ("\n"|"\r\n"|"\r")
 
   attr_reader baudrate: Integer
@@ -33,12 +28,11 @@ class UART
     ?cts_pin: Integer,
     ?rx_buffer_size: Integer?
   ) -> void
-  private def open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
   private def open_connection: (
     String unit,
     Integer txd_pin,
     Integer rxd_pin,
-    UART::RxBuffer rx_buffer
+    Integer|nil rx_buffer_size
   ) -> Integer
   def setmode: (
     ?baudrate: Integer?,
