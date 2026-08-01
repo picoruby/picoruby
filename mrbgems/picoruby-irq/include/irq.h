@@ -47,8 +47,14 @@ void IRQ_init(void);
 #define IRQ_MAX_SOURCES 8
 #endif
 
+/*
+ * The one registry of source ids. Keeping them here rather than in each
+ * driver's header is what makes a collision impossible to write.
+ */
 enum {
-  IRQ_SRC_GPIO = 0,   /* shared by the whole GPIO subsystem */
+  IRQ_SRC_GPIO  = 0,  /* shared by the whole GPIO subsystem */
+  IRQ_SRC_UART0 = 1,  /* one per unit: a reader of UART0 should not */
+  IRQ_SRC_UART1 = 2,  /* wake for traffic on UART1 */
 };
 
 /* ISR side. Invalid ids are a no-op. Order is load-bearing: the bits

@@ -4,6 +4,21 @@
 #include <string.h>
 #include "../include/uart.h"
 #include "machine.h"
+#include "irq.h"
+
+/*
+ * Whether RX publishes to the event bridge. This has to stay exactly
+ * the condition mrbgem.rake uses to depend on picoruby-irq, or the two
+ * disagree and the build breaks one way or the other.
+ *
+ * PICORB_IRQ_EVENT_BRIDGE alone is not that condition. Every mruby
+ * build defines MRB_USE_TASK_SCHEDULER (lib/picoruby/build.rb), so the
+ * bridge macro is on for ESP32 too -- where the gem is deliberately not
+ * a dependency and IRQ_signal_from_isr would simply fail to link.
+ */
+#if defined(PICORB_IRQ_EVENT_BRIDGE) && !defined(PICORB_PLATFORM_ESP32)
+#define PICORB_UART_EVENT_BRIDGE 1
+#endif
 
 #if defined(PICORB_ALLOC_ESTALLOC)
 #include "picorb_heap.h"
@@ -231,6 +246,58 @@ UART_pushBuffer(RingBuffer *ring_buffer, uint8_t ch)
 {
   return UART_pushBufferAt(ring_buffer, ch, (uint32_t)Machine_uptime_us());
 }
+
+int
+UART_event_source(int unit_num)
+{
+#if defined(PICORB_UART_EVENT_BRIDGE)
+  switch (unit_num) {
+    case 0:  return IRQ_SRC_UART0;
+    case 1:  return IRQ_SRC_UART1;
+    default: return -1;   /* a chip with more units than we have ids */
+  }
+#else
+  (void)unit_num;
+  return -1;
+#endif
+}
+
+void
+UART_signal_rx(int unit_num)
+{
+#if defined(PICORB_UART_EVENT_BRIDGE)
+  /* An invalid id is a no-op on the ISR side, so an unmapped unit needs
+     no check of its own here. */
+  IRQ_signal_from_isr(UART_event_source(unit_num), 1);
+#else
+  (void)unit_num;
+#endif
+}
+
+#if defined(PICORB_PLATFORM_POSIX)
+size_t
+UART_inject_rx(int unit_num, const uint8_t *src, size_t len)
+{
+  RingBuffer *rx = unit_rx(unit_num);
+  size_t stored = 0;
+
+  if (rx == NULL) {
+    return 0;
+  }
+  while (stored < len) {
+    if (!UART_pushBufferAt(rx, src[stored], (uint32_t)Machine_uptime_us())) {
+      break;   /* ring full; the overflow counter has been bumped */
+    }
+    stored++;
+  }
+  /* Same rule as the real producer: bytes that were dropped are not
+     something new to drain, so they do not signal. */
+  if (0 < stored) {
+    UART_signal_rx(unit_num);
+  }
+  return stored;
+}
+#endif /* PICORB_PLATFORM_POSIX */
 
 static bool
 pop_buffer(RingBuffer *ring_buffer, uint8_t *ch)

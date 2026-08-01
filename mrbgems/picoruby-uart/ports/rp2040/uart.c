@@ -20,28 +20,35 @@
 static bool producer_started[2];
 
 static void
-on_uart0_rx(void)
+drain_rx_fifo(uart_inst_t *hw, int unit_num)
 {
-  RingBuffer *rx = UART_unit_rx(PICORB_UART_RP2040_UART0);
-  while (uart_is_readable(uart0)) {
-    uint8_t ch = uart_getc(uart0);
+  RingBuffer *rx = UART_unit_rx(unit_num);
+  bool stored = false;
+
+  while (uart_is_readable(hw)) {
+    uint8_t ch = uart_getc(hw);
     /* Drain the FIFO even with no ring, or the IRQ never deasserts. */
-    if (rx) {
-      UART_pushBufferAt(rx, ch, time_us_32());
+    if (rx && UART_pushBufferAt(rx, ch, time_us_32())) {
+      stored = true;
     }
   }
+  /* Signal once for the whole burst, and only once something is
+     actually there to read: a dropped byte is nothing new to drain. */
+  if (stored) {
+    UART_signal_rx(unit_num);
+  }
+}
+
+static void
+on_uart0_rx(void)
+{
+  drain_rx_fifo(uart0, PICORB_UART_RP2040_UART0);
 }
 
 static void
 on_uart1_rx(void)
 {
-  RingBuffer *rx = UART_unit_rx(PICORB_UART_RP2040_UART1);
-  while (uart_is_readable(uart1)) {
-    uint8_t ch = uart_getc(uart1);
-    if (rx) {
-      UART_pushBufferAt(rx, ch, time_us_32());
-    }
-  }
+  drain_rx_fifo(uart1, PICORB_UART_RP2040_UART1);
 }
 
 int

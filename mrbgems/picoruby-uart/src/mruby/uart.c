@@ -266,6 +266,37 @@ mrb_clear_rx_buffer(mrb_state *mrb, mrb_value self)
   return self;
 }
 
+#if defined(PICORB_UART_EVENT_BRIDGE)
+/*
+ * The bridge source for this unit, to hand to IRQ.bind. Undefined in a
+ * build without the event bridge, exactly like IRQ.gpio_source.
+ */
+static mrb_value
+mrb_event_source_id(mrb_state *mrb, mrb_value self)
+{
+  int source = UART_event_source(mrb_uart_unit_num(mrb, self));
+  if (source < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "UART: this unit has no event source");
+  }
+  return mrb_fixnum_value(source);
+}
+
+#endif /* PICORB_UART_EVENT_BRIDGE */
+
+#if defined(PICORB_PLATFORM_POSIX)
+/* Test-only, host builds only: on a real port the interrupt handler is
+   already the producer, and this would be a second one. */
+static mrb_value
+mrb_inject_rx(mrb_state *mrb, mrb_value self)
+{
+  mrb_value str;
+  mrb_get_args(mrb, "S", &str);
+  return mrb_fixnum_value(UART_inject_rx(mrb_uart_unit_num(mrb, self),
+                                         (const uint8_t *)RSTRING_PTR(str),
+                                         (size_t)RSTRING_LEN(str)));
+}
+#endif
+
 static mrb_value
 mrb_break(mrb_state *mrb, mrb_value self)
 {
@@ -321,6 +352,14 @@ mrb_picoruby_uart_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_UART, MRB_SYM(clear_tx_buffer), mrb_clear_tx_buffer, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(clear_rx_buffer), mrb_clear_rx_buffer, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(break), mrb_break, MRB_ARGS_OPT(1));
+#if defined(PICORB_UART_EVENT_BRIDGE)
+  /* Not MRB_SYM(): neither name appears in any Ruby source, so neither
+     is in the presym table. */
+  mrb_define_method(mrb, class_UART, "event_source_id", mrb_event_source_id, MRB_ARGS_NONE());
+#endif
+#if defined(PICORB_PLATFORM_POSIX)
+  mrb_define_method(mrb, class_UART, "inject_rx", mrb_inject_rx, MRB_ARGS_REQ(1));
+#endif
 }
 
 void

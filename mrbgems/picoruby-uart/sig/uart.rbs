@@ -49,6 +49,11 @@ class UART
   private def _set_function: (Integer pin) -> void
   def set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
   private def _set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
+  # Only defined when the build has the ISR-to-task event bridge.
+  def event_source_id: () -> Integer
+  # Test-only, and host builds only: drives the RX path as the interrupt
+  # handler would, which on a real port would be a second producer.
+  def inject_rx: (String bytes) -> Integer
   def read: (?Integer len) -> (String | nil)
   def readpartial: (Integer maxlen) -> String
   def getbyte: () -> (Integer | nil)

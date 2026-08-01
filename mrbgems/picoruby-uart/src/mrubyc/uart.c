@@ -324,6 +324,40 @@ c_break(mrbc_vm *vm, mrbc_value v[], int argc)
   UART_break(unit_num, break_ms);
 }
 
+#if defined(PICORB_UART_EVENT_BRIDGE)
+/*
+ * The bridge source for this unit, to hand to IRQ.bind. Undefined in a
+ * build without the event bridge, exactly like IRQ.gpio_source.
+ */
+static void
+c_event_source_id(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  int source = UART_event_source(UART_UNIT_NUM());
+  if (source < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "UART: this unit has no event source");
+    return;
+  }
+  SET_INT_RETURN(source);
+}
+
+#endif /* PICORB_UART_EVENT_BRIDGE */
+
+#if defined(PICORB_PLATFORM_POSIX)
+/* Test-only, host builds only: on a real port the interrupt handler is
+   already the producer, and this would be a second one. */
+static void
+c_inject_rx(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc != 1 || v[1].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "UART#inject_rx(String)");
+    return;
+  }
+  SET_INT_RETURN(UART_inject_rx(UART_UNIT_NUM(),
+                                (const uint8_t *)v[1].string->data,
+                                (size_t)v[1].string->size));
+}
+#endif
+
 #define SET_CLASS_CONST_INT(cls, cst) \
   mrbc_set_class_const(mrbc_class_##cls, mrbc_str_to_symid(#cst), &mrbc_integer_value(cst))
 
@@ -357,4 +391,10 @@ mrbc_uart_init(mrbc_vm *vm)
   mrbc_define_method(vm, mrbc_class_UART, "clear_tx_buffer", c_clear_tx_buffer);
   mrbc_define_method(vm, mrbc_class_UART, "clear_rx_buffer", c_clear_rx_buffer);
   mrbc_define_method(vm, mrbc_class_UART, "break", c_break);
+#if defined(PICORB_UART_EVENT_BRIDGE)
+  mrbc_define_method(vm, mrbc_class_UART, "event_source_id", c_event_source_id);
+#endif
+#if defined(PICORB_PLATFORM_POSIX)
+  mrbc_define_method(vm, mrbc_class_UART, "inject_rx", c_inject_rx);
+#endif
 }

@@ -50,6 +50,7 @@ static void uart_event_task(void* pvParameters)
            upper bound and stop as soon as the driver has no more. */
         RingBuffer* rx = UART_unit_rx(context->unit_num);
         size_t remaining = event.size;
+        bool stored = false;
         while(0 < remaining) {
           size_t want = remaining < RECEIVE_BUFF_SIZE ? remaining : RECEIVE_BUFF_SIZE;
           int len = uart_read_bytes(context->unit_num, buff, want, 0);
@@ -59,10 +60,19 @@ static void uart_event_task(void* pvParameters)
           /* Drain the driver even with no ring; only the push is skipped. */
           if(rx) {
             for(int i = 0; i < len; i++) {
-              UART_pushBuffer(rx, buff[i]);
+              if(UART_pushBuffer(rx, buff[i])) {
+                stored = true;
+              }
             }
           }
           remaining -= (size_t)len;
+        }
+        /* A no-op on this port today: PICORB_UART_EVENT_BRIDGE in
+           src/uart.c deliberately excludes ESP32, so the call compiles
+           to nothing. It is written anyway, so that bringing this
+           producer onto the bridge is a change to that one guard. */
+        if(stored) {
+          UART_signal_rx(context->unit_num);
         }
         break;
       }

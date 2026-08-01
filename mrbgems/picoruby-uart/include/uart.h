@@ -11,6 +11,14 @@
 extern "C" {
 #endif
 
+/*
+ * This header is included by the ports, which are compiled outside the
+ * rake build -- the r2p2 CMakeLists for RP2, an esp-idf component for
+ * ESP32 -- and neither carries picoruby-irq's include path. So irq.h is
+ * included by src/uart.c alone, and the ports reach the event bridge
+ * through UART_signal_rx() below, which needs no ids and no macros.
+ */
+
 #define PARITY_NONE   0
 #define PARITY_EVEN   1
 #define PARITY_ODD    2
@@ -65,6 +73,32 @@ RingBuffer *UART_unit_rx(int unit_num);
 /* Producer side: the port's ISR or RX task. */
 bool UART_pushBuffer(RingBuffer *ring_buffer, uint8_t ch);
 bool UART_pushBufferAt(RingBuffer *ring_buffer, uint8_t ch, uint32_t timestamp_us);
+
+/*
+ * Publish to the event bridge, so a task blocked on the unit's queue
+ * wakes. Called from the producer once it has stored at least one byte;
+ * a build without the bridge compiles this to nothing. The ports go
+ * through here rather than including irq.h themselves, which keeps the
+ * source ids in one place and the ports free of that include path.
+ */
+void UART_signal_rx(int unit_num);
+
+/* The bridge source for a unit, or -1 if it has none. */
+int UART_event_source(int unit_num);
+
+#if defined(PICORB_PLATFORM_POSIX)
+/*
+ * Drive the RX path exactly as a producer would, for tests and for
+ * bringing a consumer up on a host build. Returns the number of bytes
+ * stored, and signals only if that is non-zero.
+ *
+ * Host builds only, and not merely because it is a test helper: on a
+ * real port the interrupt handler is already the producer, so injecting
+ * from VM context would put a second writer on the ring's tail and data
+ * slots -- the one thing the SPSC design does not survive.
+ */
+size_t UART_inject_rx(int unit_num, const uint8_t *src, size_t len);
+#endif
 
 /* Consumer side: VM context only. */
 size_t UART_bytes_available(int unit_num);

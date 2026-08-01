@@ -1,5 +1,8 @@
 class UARTTest < Picotest::Test
   def setup
+    # Inside setup, not at the top of the file: this file is also loaded
+    # by host Ruby to enumerate the tests, where `irq` does not exist.
+    require 'irq'
     @uart = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 115200)
     # The RX buffer belongs to the unit, not to this object, so it
     # carries whatever an earlier test left in it.
@@ -39,6 +42,53 @@ class UARTTest < Picotest::Test
 
   def test_putc_rejects_other_types
     assert_raise(TypeError) { @uart.putc(nil) }
+  end
+
+  def test_inject_rx_arrives_as_ordinary_input
+    assert_equal 3, @uart.inject_rx("abc")
+    assert_equal 3, @uart.bytes_available
+    assert_equal "abc", @uart.read
+  end
+
+  def test_event_source_id_does_not_collide_with_gpio
+    assert @uart.event_source_id.is_a?(Integer)
+    assert IRQ.gpio_source < @uart.event_source_id
+    assert @uart.event_source_id < IRQ::MAX_SOURCES
+  end
+
+  # The v2 hypothesis: arriving bytes wake a task parked on the queue.
+  def test_incoming_bytes_deliver_a_token
+    source = @uart.event_source_id
+    q = Task::Queue.new
+    IRQ.take(source)
+    IRQ.unbind(source)
+    IRQ.bind(source, q)
+    @uart.inject_rx("hi")
+    Task.pass
+    assert_equal source, q.pop
+    assert_equal 1, IRQ.take(source)
+    assert_equal "hi", @uart.read
+    IRQ.unbind(source)
+  end
+
+  def test_a_burst_of_input_produces_one_token
+    source = @uart.event_source_id
+    q = Task::Queue.new
+    IRQ.take(source)
+    IRQ.unbind(source)
+    IRQ.bind(source, q)
+    @uart.inject_rx("a")
+    Task.pass
+    @uart.inject_rx("b")
+    Task.pass
+    @uart.inject_rx("c")
+    Task.pass
+    # Coalesced: one outstanding token stands for the whole burst.
+    assert_equal 1, q.size
+    assert_equal source, q.pop
+    assert_equal 1, IRQ.take(source)
+    assert_equal "abc", @uart.read
+    IRQ.unbind(source)
   end
 
   def test_ungetbyte_holds_one_byte_only
