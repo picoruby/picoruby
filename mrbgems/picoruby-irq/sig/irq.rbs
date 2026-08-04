@@ -1,8 +1,18 @@
 # @sidebar io_peripheral
 module IRQ
+  # The extension protocol for event delivery: a peripheral that
+  # exposes its bridge source id gets callback delivery through
+  # peripheral#irq. respond_to? is part of the protocol because the
+  # runtime may omit event_source_id in builds without the bridge.
+  interface _BridgePeripheral
+    def event_source_id: () -> Integer
+    def respond_to?: (Symbol name) -> bool
+    def class: () -> untyped
+  end
+
   type irq_id_t = Integer
   type irq_event_type_t = Integer
-  type irq_peri_t = GPIO
+  type irq_peri_t = GPIO | _BridgePeripheral
   # Compile-time constant slot in the ISR-to-task event bridge; unrelated
   # to irq_id_t, which is handed out by IRQ.register_gpio.
   type irq_source_t = Integer
@@ -17,15 +27,53 @@ module IRQ
   def self.unregister: (irq_id_t id) -> bool
   private def self.register_gpio: (gpio_pin_t pin, irq_event_type_t event_type, Hash[Symbol, untyped] opts) -> irq_id_t
   private def self.unregister_gpio: (irq_id_t id) -> bool
-  def irq: (irq_event_type_t event_type, **untyped opts) { (irq_peri_t peri, irq_event_type_t event_type, Object capture) -> void } -> void
+  def irq: (irq_event_type_t event_type, **untyped opts) { (irq_peri_t peri, irq_event_type_t event_type, Object capture) -> void } -> IRQInstance
 
   # ISR-to-task event bridge. Defined in C, and only in builds that have
   # the task scheduler.
-  def self.gpio_source: () -> irq_source_t
+  # The source shared by every GPIO interrupt. Platform sources (UART
+  # units and friends) are not exported: they are port-specific, and
+  # peripheral objects hand out their own via #event_source_id.
+  module SOURCE
+    GPIO: Integer
+  end
   def self.bind: (irq_source_t source, Task::Queue queue) -> Task::Queue
   def self.unbind: (irq_source_t source) -> bool
   def self.take: (irq_source_t source) -> Integer
   def self.simulate: (irq_source_t source, Integer bits) -> nil
+
+  # Event delivery. PicoRuby (mruby) only: FemtoRuby cannot create the
+  # dispatcher task from a block.
+  self.@started: bool?
+  self.@bridge_instances: Hash[Integer, Array[IRQInstance]]?
+  self.@bridge_ids: Hash[Integer, Integer]?
+  self.@bridge_next_id: Integer?
+  self.@api_lock: Task::Queue?
+  self.@on_handlers: Hash[Integer, Proc]?
+  self.@on_queue: Task::Queue?
+  self.@on_task: Task?
+  self.@on_retired: Array[Task]?
+  self.@on_retire_pending: bool?
+  self.@on_lock: Task::Queue?
+
+  def self.start: () -> bool
+  def self.stop: () -> bool
+
+  # Internal from here down; may change without notice.
+  private def self.on: (irq_source_t source) { (Integer bits) -> void } -> irq_source_t
+  private def self.off: (irq_source_t source) -> bool
+  private def self._stop_locked: () -> bool
+  private def self._register_bridge: (IRQInstance irq) -> irq_id_t
+  private def self._unregister_bridge: (irq_id_t id, IRQInstance irq) -> bool
+  private def self._bridge_activate: (irq_source_t source) -> void
+  private def self._deliver_bridge: (irq_source_t source, Integer bits) -> void
+  private def self._bind_if_unbound: (irq_source_t source, Task::Queue queue) -> bool
+  private def self._unbind_if_bound: (irq_source_t source, Task::Queue queue) -> bool
+  private def self._with_api_lock: () { () -> void } -> void
+  private def self._with_dispatch_lock: () { () -> void } -> void
+  # Not private: the dispatcher task calls it with an explicit receiver,
+  # because a Task block runs with self == main, not the lexical self.
+  def self._dispatch_loop: (Task::Queue queue, Hash[Integer, Proc] handlers) -> void
 
   class IRQInstance
     @id: irq_id_t

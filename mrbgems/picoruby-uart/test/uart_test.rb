@@ -52,7 +52,7 @@ class UARTTest < Picotest::Test
 
   def test_event_source_id_does_not_collide_with_gpio
     assert @uart.event_source_id.is_a?(Integer)
-    assert IRQ.gpio_source < @uart.event_source_id
+    assert IRQ::SOURCE::GPIO < @uart.event_source_id
     assert @uart.event_source_id < IRQ::MAX_SOURCES
   end
 

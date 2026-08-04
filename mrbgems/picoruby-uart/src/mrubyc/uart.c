@@ -327,7 +327,7 @@ c_break(mrbc_vm *vm, mrbc_value v[], int argc)
 #if defined(PICORB_UART_EVENT_BRIDGE)
 /*
  * The bridge source for this unit, to hand to IRQ.bind. Undefined in a
- * build without the event bridge, exactly like IRQ.gpio_source.
+ * build without the event bridge, exactly like IRQ::SOURCE.
  */
 static void
 c_event_source_id(mrbc_vm *vm, mrbc_value v[], int argc)

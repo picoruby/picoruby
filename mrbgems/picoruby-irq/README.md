@@ -23,15 +23,28 @@ gpio = GPIO.new(17, GPIO::IN|GPIO::PULL_UP)  # GPIO pin
 irq_instance = gpio.irq(GPIO::EDGE_FALL, capture: "My IRQ") do |peripheral, event_type, capture|
   puts "#{capture} -- Button pressed! Event: #{event_type}"
 end
+```
 
-# Process IRQ events in main loop
+On PicoRuby (the mruby runtime), one call then delivers events to
+every registered handler, with no polling. Delivery through
+`IRQ.start` runs in a hidden dispatcher task; do not also poll with
+`IRQ.process`, which runs handlers on whichever task calls it:
+
+```ruby
+IRQ.start
+```
+
+On FemtoRuby (mruby/c), `IRQ.start` is not available yet; poll
+instead:
+
+```ruby
 loop do
   count = IRQ.process  # Process up to 5 events
   sleep_ms(10)
 end
 ```
 
-For `capture`, see [example/irq_gpio.rb](example/irq_gpio.rb)
+For `capture`, see [example/irq_gpio_femtoruby.rb](example/irq_gpio_femtoruby.rb)
 
 ### IRQ with Debouncing
 
@@ -91,11 +104,71 @@ processed_count = IRQ.process(10)  # Process up to 10 events
 puts "Processed #{processed_count} events"
 ```
 
-## Event bridge (ISR to task)
+## Event delivery: IRQ.start / IRQ.stop
 
-`IRQ.process` above is polling: something has to keep asking. The event
-bridge is the other direction -- a task parks in `Task::Queue#pop` and
-the interrupt wakes it.
+`IRQ.process` above is polling: something has to keep asking. On
+PicoRuby (the mruby runtime), `IRQ.start` inverts that -- register
+handlers on the peripherals you care about, flip the one switch, and
+they are called when their events arrive:
+
+```ruby
+gpio.irq(GPIO::EDGE_FALL) { |peri, ev| puts "pressed" }
+
+uart.irq(UART::RX_RECEIVE) do |u, ev|
+  while line = u.gets
+    handle(line)
+  end
+end
+
+IRQ.start   # from here on, both handlers fire without any loop
+```
+
+`IRQ.stop` releases everything and lets a finished program exit: the
+scheduler runs until no task is left waiting, so while delivery is
+started the VM stays alive to serve interrupts, and after `IRQ.stop`
+nothing lingers to hold the program open. Registrations survive a
+stop; the next `IRQ.start` picks them up again, and events that
+arrived in between are delivered then, coalesced. Both calls are
+idempotent.
+
+Three rules:
+
+1. **Handlers run in a hidden dispatcher task**, not in the task that
+   registered them. Anything they touch is shared state.
+2. **A raising handler does not stop delivery.** The exception is
+   reported and delivery continues, for every peripheral.
+3. **One call may stand for a burst.** Events are coalesced at the
+   interrupt level, so a handler drains its peripheral -- reads until
+   empty -- rather than assuming one call means one event.
+
+`IRQ.start` refuses (with `ArgumentError`) a source that is already
+bound by hand through the queue-level API below -- it will not steal
+it. FemtoRuby (mruby/c) raises `NotImplementedError` for now: it
+cannot create the dispatcher task from a block. There, poll with
+`IRQ.process`, or use the queue-level API.
+
+### For driver authors
+
+Any peripheral gem can plug into this without touching IRQ internals.
+The protocol is one method and one include:
+
+```ruby
+class MySensor
+  include IRQ                 # provides #irq registration
+
+  def event_source_id         # the bridge source this device signals
+    IRQ_SRC_MYSENSOR
+  end
+end
+```
+
+The gem's interrupt handler signals event bits through
+`IRQ_signal_from_isr(source, bits)`; the bits ARE the event-type mask
+that `MySensor#irq(mask) { |peri, event_type, capture| }` filters on,
+so new event kinds are new bits, with no API change. See picoruby-uart
+(`UART::RX_RECEIVE`) for a worked example.
+
+### The queue-level API
 
 An interrupt handler cannot enter the VM, so it only stages work: it ORs
 event bits into a *source* and marks that source ready. At every
@@ -105,7 +178,7 @@ on that queue becomes runnable in the same scheduler iteration.
 
 ```ruby
 q = Task::Queue.new
-IRQ.bind(IRQ.gpio_source, q)
+IRQ.bind(IRQ::SOURCE::GPIO, q)
 
 Task.new do
   while source = q.pop
@@ -163,7 +236,8 @@ gpio.irq(GPIO::EDGE_FALL | GPIO::EDGE_RISE) { |gpio, event| ... }
 
 ## Example: Button with LED
 
-See [example/irq_gpio.rb](example/irq_gpio.rb)
+- PicoRuby (IRQ.start): [example/irq_gpio_picoruby.rb](example/irq_gpio_picoruby.rb)
+- FemtoRuby (IRQ.process polling): [example/irq_gpio_femtoruby.rb](example/irq_gpio_femtoruby.rb)
 
 ## License
 

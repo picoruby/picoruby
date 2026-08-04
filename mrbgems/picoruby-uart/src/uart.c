@@ -251,11 +251,12 @@ int
 UART_event_source(int unit_num)
 {
 #if defined(PICORB_UART_EVENT_BRIDGE)
-  switch (unit_num) {
-    case 0:  return IRQ_SRC_UART0;
-    case 1:  return IRQ_SRC_UART1;
-    default: return -1;   /* a chip with more units than we have ids */
+  /* Per-unit ids are adjacent from IRQ_SRC_UART0, and the registry
+     (irq.h) hands each platform exactly as many as it wired up. */
+  if (unit_num < 0 || IRQ_SRC_UART_END_ - IRQ_SRC_UART0 <= unit_num) {
+    return -1;   /* a chip with more units than this platform has ids */
   }
+  return IRQ_SRC_UART0 + unit_num;
 #else
   (void)unit_num;
   return -1;

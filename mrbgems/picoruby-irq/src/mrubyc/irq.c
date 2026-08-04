@@ -283,15 +283,6 @@ c_simulate(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_NIL_RETURN();
 }
 
-/*
- * IRQ.gpio_source -> the source id shared by every GPIO interrupt
- */
-static void
-c_gpio_source(mrbc_vm *vm, mrbc_value *v, int argc)
-{
-  SET_INT_RETURN(IRQ_SRC_GPIO);
-}
-
 static void
 irq_bridge_init(mrbc_vm *vm, mrbc_class *module_IRQ)
 {
@@ -307,9 +298,16 @@ irq_bridge_init(mrbc_vm *vm, mrbc_class *module_IRQ)
   mrbc_define_method(vm, module_IRQ, "unbind", c_unbind);
   mrbc_define_method(vm, module_IRQ, "take", c_take);
   mrbc_define_method(vm, module_IRQ, "simulate", c_simulate);
-  mrbc_define_method(vm, module_IRQ, "gpio_source", c_gpio_source);
   mrbc_set_class_const(module_IRQ, mrbc_str_to_symid("MAX_SOURCES"),
                        &mrbc_integer_value(IRQ_MAX_SOURCES));
+  /* IRQ::SOURCE::GPIO -- the source shared by every GPIO interrupt.
+     A constant, not a method, mirroring the mruby glue; platform
+     sources are deliberately not exported. */
+  {
+    mrbc_class *source_mod = mrbc_define_module_under(vm, module_IRQ, "SOURCE");
+    mrbc_set_class_const(source_mod, mrbc_str_to_symid("GPIO"),
+                         &mrbc_integer_value(IRQ_SRC_GPIO));
+  }
 
   /* Not mrbc_task_set_scheduler_hook: the hook slot is shared with the
      platform's own servicing. See include/hal.h in picoruby-machine. */
