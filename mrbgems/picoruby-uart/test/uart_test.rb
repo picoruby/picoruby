@@ -91,6 +91,79 @@ class UARTTest < Picotest::Test
     IRQ.unbind(source)
   end
 
+  # --- UART#irq, the callback API over the bridge ---
+
+  # Spin the scheduler until the condition holds; delivery runs in the
+  # hidden dispatcher task, so it needs the scheduler to advance.
+  def wait_for(limit_ms = 100)
+    i = 0
+    while i < limit_ms
+      return true if yield
+      sleep_ms 1
+      i += 1
+    end
+    false
+  end
+
+  def test_irq_is_picoruby_only
+    skip "the guard fires only on FemtoRuby" unless femtoruby?
+    assert_raise(NotImplementedError) do
+      @uart.irq(UART::RX_RECEIVE) { |u, ev| }
+    end
+  end
+
+  def test_irq_delivers_received_data_to_the_handler
+    skip "FemtoRuby cannot spawn the dispatcher task" if femtoruby?
+    lines = []
+    instance = @uart.irq(UART::RX_RECEIVE) do |u, ev|
+      # One call may stand for a burst, so drain rather than count.
+      while line = u.gets
+        lines << line
+      end
+    end
+    IRQ.start
+    @uart.inject_rx("hello\nworld\n")
+    assert_true wait_for { lines.size == 2 }
+    assert_equal ["hello\n", "world\n"], lines
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_irq_handler_receives_the_uart_and_the_event
+    skip "FemtoRuby cannot spawn the dispatcher task" if femtoruby?
+    seen = nil
+    instance = @uart.irq(UART::RX_RECEIVE) do |u, ev|
+      seen = [u.equal?(@uart), ev, u.read]
+    end
+    IRQ.start
+    @uart.inject_rx("x")
+    assert_true wait_for { !seen.nil? }
+    assert_equal [true, UART::RX_RECEIVE, "x"], seen
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_unregister_stops_delivery
+    skip "FemtoRuby cannot spawn the dispatcher task" if femtoruby?
+    calls = 0
+    instance = @uart.irq(UART::RX_RECEIVE) do |u, ev|
+      calls += 1
+      u.clear_rx_buffer
+    end
+    IRQ.start
+    @uart.inject_rx("a")
+    assert_true wait_for { calls == 1 }
+    instance.unregister
+    @uart.inject_rx("b")
+    sleep_ms 30                     # long enough for a wrong delivery
+    assert_equal 1, calls
+    assert_equal "b", @uart.read    # the data itself is still there
+  ensure
+    IRQ.stop
+  end
+
   def test_ungetbyte_holds_one_byte_only
     assert_nil @uart.ungetbyte(0x41)
     assert_raise(IOError) { @uart.ungetbyte(0x42) }

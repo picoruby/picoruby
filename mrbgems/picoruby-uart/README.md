@@ -59,46 +59,48 @@ Two consequences:
 
 Every read method above returns `nil` when nothing has arrived, so a
 loop that wants a line has to keep asking and sleeping between tries.
-The RX interrupt also publishes to the event bridge, which lets a task
-sleep until there is something to read instead.
+On PicoRuby (the mruby runtime), register a handler instead and let
+the receive interrupt drive it:
 
 ```ruby
-require 'irq'
+require 'uart'
 
 uart = UART.new(txd_pin: 0, rxd_pin: 1, baudrate: 115200)
 
-q = Task::Queue.new
-IRQ.bind(uart.event_source_id, q)
-
-while source = q.pop
-  # Taking the bits is required: it is what allows the next token.
-  IRQ.take(source)
-  # One token can stand for any number of interrupts, so drain rather
-  # than assume it means one line.
-  while line = uart.gets
+uart.irq(UART::RX_RECEIVE) do |u, event_type|
+  # One call may stand for a burst -- several bytes, several lines, or
+  # a leftover already read -- so drain rather than count.
+  while line = u.gets
     print "received: #{line}"
   end
 end
+
+IRQ.start   # from here on, the handler fires; no polling loop
 ```
+
+The handler runs in a hidden dispatcher task (see
+[picoruby-irq](../picoruby-irq/README.md)), so whatever it touches is
+shared state. `uart.irq` returns an instance with `disable` /
+`enable` / `unregister`; `IRQ.stop` releases everything and lets a
+finished program exit. `UART::RX_RECEIVE` is the only event today --
+further conditions such as break detection become further bits, and a
+handler registered for several receives the mask of what happened in
+`event_type`.
 
 Note that writing the reply back to the same UART is only safe with a
 peer on the other end. Under a TX-to-RX loopback it feeds itself: every
 line written comes back, is answered again, and grows without bound.
 
-Each unit has its own source, so a task waiting on `RP2040_UART0` does
-not wake for traffic on `RP2040_UART1`.
+Each unit has its own event source, so a handler on `RP2040_UART0`
+does not fire for traffic on `RP2040_UART1`.
 
-The contract is the bridge's, described in full in
-[picoruby-irq](../picoruby-irq/README.md): tokens are edge-latched and
-coalesced, so one token means "something arrived since you last took
-the bits", never "one byte" and never "one line". A consumer that reads
-once per token will fall behind; drain until the read returns `nil`.
+`UART#irq` raises `NotImplementedError` on FemtoRuby (mruby/c), which
+cannot spawn the dispatcher task, and on builds without the bridge
+(ESP32). There, poll as above -- or on FemtoRuby use the queue-level
+bridge API directly: `IRQ.bind(uart.event_source_id, queue)` delivers
+a token per coalesced burst, as described in picoruby-irq's README.
 
-`event_source_id` is only defined where the build has the bridge. It is
-absent on ESP32, whose receive path has not been brought onto it, and
-in any build configured without a task scheduler.
-
-See [example/uart_event.rb](example/uart_event.rb).
+See [example/uart_event_picoruby.rb](example/uart_event_picoruby.rb).
 
 ## API
 
@@ -124,7 +126,8 @@ See [example/uart_event.rb](example/uart_event.rb).
 - `gets()` - Read line (until line ending)
 - `readpartial(maxlen)` - Read available data up to maxlen
 - `bytes_available()` - Return number of bytes in RX buffer
-- `event_source_id()` - Return the event-bridge source for this unit, to pass to `IRQ.bind`. Only defined where the build has the bridge; see "Waiting for input without polling"
+- `irq(event_mask, capture: nil) { |uart, event_type, capture| }` - Register a handler for RX events, delivered after `IRQ.start`; see "Waiting for input without polling"
+- `event_source_id()` - Return the event-bridge source for this unit, to pass to `IRQ.bind` (queue-level use). Only defined where the build has the bridge
 - `line_ending=(ending)` - Set line ending ("\n", "\r\n", or "\r")
 - `setmode(...)` - Change UART settings
 - `clear_rx_buffer()` - Discard buffered input, and forget the last read timestamp with it

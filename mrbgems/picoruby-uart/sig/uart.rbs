@@ -1,8 +1,10 @@
 # @sidebar io_peripheral
 class UART
+  include IRQ
 
   type unit_t = Symbol|String
 
+  RX_RECEIVE: Integer
   PARITY_NONE: 0
   PARITY_ODD: 1
   PARITY_EVEN: 2
