@@ -40,17 +40,17 @@ See [docs/architecture.md](docs/architecture.md) for the full design including i
 
 ```bash
 # Debug build
-rake wasm:debug
+rake wasm:build_debug
 
 # Production build
-rake wasm:prod
+rake wasm:build_prod
 
 # Clean build artifacts
 rake wasm:clean
 
 # Start local dev server
 rake wasm:server
-# Open http://localhost:8080/www/
+# Open http://localhost:8080
 ```
 
 ## Testing
@@ -58,9 +58,9 @@ rake wasm:server
 Run the exception-handling test suite after any change to async/task/exception code:
 
 ```bash
-rake wasm:debug
+rake wasm:build_debug
 rake wasm:server
-# Open http://localhost:8080/www/test_index.html
+# Open http://localhost:8080/longjmp/index.html
 ```
 
 All tests must pass. If any test fails, an async/exception boundary invariant has been broken.

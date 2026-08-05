@@ -111,7 +111,7 @@ This design ensures that **ASYNCIFY=1 is not required**, avoiding the 50%+ code 
 
 - **Cost**: 50%+ increase in WASM file size, runtime performance overhead
 - **Unnecessary**: Our task suspension model already handles async boundaries correctly
-- **Verified**: Comprehensive test suite (see `demo/www/test_*.html`) validates exception safety in:
+- **Verified**: Comprehensive test suite (see `demo/www/longjmp/`) validates exception safety in:
   - Nested async operations (3 levels deep)
   - Multiple concurrent tasks
   - ensure clauses
@@ -218,9 +218,9 @@ Two entry situations, both handled by the above:
 
 After any modification to task scheduling, async operations, or exception handling:
 
-1. Build: `rake wasm:clean && rake wasm:debug`
+1. Build: `rake wasm:clean && rake wasm:build_debug`
 2. Run test server: `rake wasm:server`
-3. Open: http://localhost:8080/test_index.html
+3. Open: http://localhost:8080/longjmp/index.html
 4. **Run ALL tests** and verify each one passes
 5. Check browser console for errors
 
@@ -237,8 +237,7 @@ picoruby-wasm/
 │       └── wasm.c           # WASM initialization, main loop
 ├── demo/
 │   └── www/
-│       ├── test_index.html  # Exception handling test suite
-│       ├── test_*.html      # Individual test cases
+│       ├── longjmp/         # Exception handling test suite (index.html + cases)
 │       └── *.html           # Usage examples
 └── npm/                     # NPM package for distribution
 ```
@@ -265,19 +264,19 @@ picoruby-wasm/
 
 ### Exception Handling Test Suite
 
-Located in `demo/www/`, the test suite validates async exception safety:
+Located in `demo/www/longjmp/`, the test suite validates async exception safety.
+`longjmp/index.html` links to every case below:
 
 | Test | Purpose |
 |------|---------|
-| `raise_rescue.html` | Basic async exception handling |
-| `test_nested_async.html` | 3-level nested async with exception |
-| `test_multi_task.html` | Multiple independent tasks |
-| `test_ensure.html` | ensure clause execution |
-| `test_reraise.html` | Exception re-raising |
-| `test_deep_recursion.html` | Deep call stack + async |
-| `test_custom_exception.html` | Custom exception classes |
-| `test_promise_chain.html` | Chained Promise callbacks |
-| `test_stress.html` | 100 parallel tasks |
+| `nested_async.html` | 3-level nested async with exception |
+| `multi_task.html` | Multiple independent tasks |
+| `ensure.html` | ensure clause execution |
+| `reraise.html` | Exception re-raising |
+| `deep_recursion.html` | Deep call stack + async |
+| `custom_exception.html` | Custom exception classes |
+| `promise_chain.html` | Chained Promise callbacks |
+| `stress.html` | 100 parallel tasks |
 
 **All tests must pass** to ensure async boundary safety.
 
@@ -288,7 +287,7 @@ cd lib/picoruby/mrbgems/picoruby-wasm
 rake
 cd demo
 python3 -m http.server 8080
-# Open http://localhost:8080/www/test_index.html
+# Open http://localhost:8080/www/longjmp/index.html
 ```
 
 ## Build Configuration
