@@ -218,7 +218,7 @@ Two entry situations, both handled by the above:
 
 After any modification to task scheduling, async operations, or exception handling:
 
-1. Build: `rake wasm:clean && rake wasm:debug`
+1. Build: `rake wasm:clean && rake wasm:build_debug`
 2. Run test server: `rake wasm:server`
 3. Open: http://localhost:8080/test_index.html
 4. **Run ALL tests** and verify each one passes
