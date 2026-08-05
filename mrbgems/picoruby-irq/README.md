@@ -128,13 +128,18 @@ scheduler runs until no task is left waiting, so while delivery is
 started the VM stays alive to serve interrupts, and after `IRQ.stop`
 nothing lingers to hold the program open. Registrations survive a
 stop; the next `IRQ.start` picks them up again, and events that
-arrived in between are delivered then, coalesced. Both calls are
-idempotent.
+arrived in between are delivered then, coalesced. Registration order
+does not matter either: a handler registered after `IRQ.start` joins
+delivery immediately. Both calls are idempotent.
 
 Three rules:
 
 1. **Handlers run in a hidden dispatcher task**, not in the task that
-   registered them. Anything they touch is shared state.
+   registered them. Anything they touch is shared state against the
+   rest of the program. It is one task for every source, though, so no
+   two handlers ever run at the same time, and state shared between
+   handlers needs no locking. The flip side: a slow handler delays
+   every other handler's delivery -- delays, not loses; see rule 3.
 2. **A raising handler does not stop delivery.** The exception is
    reported and delivery continues, for every peripheral.
 3. **One call may stand for a burst.** Events are coalesced at the
@@ -234,10 +239,11 @@ Event types can be combined using bitwise OR:
 gpio.irq(GPIO::EDGE_FALL | GPIO::EDGE_RISE) { |gpio, event| ... }
 ```
 
-## Example: Button with LED
+## Examples
 
-- PicoRuby (IRQ.start): [example/irq_gpio_picoruby.rb](example/irq_gpio_picoruby.rb)
-- FemtoRuby (IRQ.process polling): [example/irq_gpio_femtoruby.rb](example/irq_gpio_femtoruby.rb)
+- PicoRuby, button with LED (IRQ.start): [example/irq_gpio_picoruby.rb](example/irq_gpio_picoruby.rb)
+- PicoRuby, GPIO and UART on one dispatcher: [example/irq_combined_picoruby.rb](example/irq_combined_picoruby.rb)
+- FemtoRuby, button with LED (IRQ.process polling): [example/irq_gpio_femtoruby.rb](example/irq_gpio_femtoruby.rb)
 
 ## License
 
