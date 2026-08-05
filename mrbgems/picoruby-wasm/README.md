@@ -50,7 +50,7 @@ rake wasm:clean
 
 # Start local dev server
 rake wasm:server
-# Open http://localhost:8080/www/
+# Open http://localhost:8080
 ```
 
 ## Testing
@@ -60,7 +60,7 @@ Run the exception-handling test suite after any change to async/task/exception c
 ```bash
 rake wasm:debug
 rake wasm:server
-# Open http://localhost:8080/www/test_index.html
+# Open http://localhost:8080/longjmp/index.html
 ```
 
 All tests must pass. If any test fails, an async/exception boundary invariant has been broken.
