@@ -49,7 +49,8 @@ module Machine
     unless true == deep || false == deep
       raise TypeError, "deep: must be true or false"
     end
-    if source == :timer
+    case source
+    when :timer
       ms = opt.delete(:ms)
       unless opt.size == 0
         raise ArgumentError, "unknown option for source: :timer"
@@ -62,9 +63,12 @@ module Machine
         raise ArgumentError, "ms: out of range (1..4294967295)"
       end
       _sleep_timer(deep, ms)
-    elsif source.respond_to?(:pin)
+    else
       # Duck typing on purpose: this gem must not depend on the gpio
       # gem, and any object that knows its pin can be a wake source.
+      unless source.respond_to?(:pin)
+        raise ArgumentError, "source: must be :timer or respond to #pin"
+      end
       level = opt.delete(:level)
       unless opt.size == 0
         raise ArgumentError, "unknown option for a GPIO source"
@@ -85,8 +89,6 @@ module Machine
       else
         raise ArgumentError, "level: must be one of GPIO::LEVEL_LOW, LEVEL_HIGH, EDGE_FALL, EDGE_RISE"
       end
-    else
-      raise ArgumentError, "source: must be :timer or respond to #pin"
     end
     nil
   end

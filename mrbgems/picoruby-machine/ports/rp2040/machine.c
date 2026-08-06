@@ -716,13 +716,16 @@ sleep_result_from_sdk(int rc)
   return MACHINE_SLEEP_ESTATE;
 }
 
-/* timespec -> signed 64-bit microseconds, failing closed. */
+/* timespec -> signed 64-bit microseconds, failing closed. The
+ * multiplication guard leaves room for the microseconds added from
+ * tv_nsec (at most 999999), so the addition cannot overflow either. */
 static bool
 timespec_to_us64(const struct timespec *ts, int64_t *us)
 {
   if (ts->tv_sec < 0) return false;
+  if (ts->tv_nsec < 0 || 999999999L < ts->tv_nsec) return false;
   int64_t v = (int64_t)ts->tv_sec;
-  if (INT64_MAX / 1000000 < v) return false;
+  if ((INT64_MAX - 999999) / 1000000 < v) return false;
   *us = v * 1000000 + ts->tv_nsec / 1000;
   return true;
 }
