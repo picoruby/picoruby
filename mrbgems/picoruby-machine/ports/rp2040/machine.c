@@ -891,6 +891,20 @@ machine_sleep_run(bool deep, bool use_timer, uint32_t ms, int pin, bool edge, bo
   result = sleep_result_from_sdk(rc);
 
   /* Single cleanup: unwind in reverse order of acquisition. */
+  if (use_timer && deep) {
+    /* The SDK's dormant path leaves the AON wakeup alarm armed after
+     * it fires (its SLEEP path disables it, the dormant one does
+     * not). Once the target time has passed the wake condition stays
+     * true forever, so a later GPIO dormant would wake spuriously.
+     * Disarm it here, success and failure alike. On RP2350
+     * aon_timer_disable_alarm() only reaches the timer-IRQ side
+     * (powman_timer_disable_alarm); the PWRUP_ON_ALARM wakeup enable
+     * survives it and needs powman_disable_alarm_wakeup(). */
+    aon_timer_disable_alarm();
+#if defined(PICO_RP2350)
+    powman_disable_alarm_wakeup();
+#endif
+  }
 #if defined(PICO_RP2350)
   if (lposc_switched) {
     powman_timer_set_1khz_tick_source_xosc();
