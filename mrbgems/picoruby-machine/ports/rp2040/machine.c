@@ -337,6 +337,13 @@ picorb_hal_init(void)
   clocks_hw->sleep_en1 =
   CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_TIMER1_BITS
+  /* The TICKS block feeds the system timers their 1MHz tick. Without
+   * these two bits it stops whenever a core sleeps, the timers stop
+   * counting, no alarm ever fires, and WFI/WFE never wake -- the
+   * long-standing "__wfi does not wake up on RP2350" mystery. RP2040
+   * has no TICKS block (its timer tick comes from the watchdog). */
+  | CLOCKS_SLEEP_EN1_CLK_REF_TICKS_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_TICKS_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
   | CLOCKS_SLEEP_EN1_CLK_USB_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
@@ -407,20 +414,13 @@ picorb_hal_idle_cpu(mrb_state *mrb)
     return;
   }
 #endif
-#if defined(PICO_RP2040)
+  /* Plain WFI on both chips. This historically hung on RP2350 -- not
+   * because of WFI itself, but because the sleep_en1 mask set in
+   * picorb_hal_init gated the TICKS block while the core slept: the
+   * timers stopped counting, so the 1ms alarm could never fire and
+   * nothing woke the core. With CLK_*_TICKS kept enabled during
+   * sleep, the tick IRQ wakes WFI normally. */
   __wfi();
-#elif defined(PICO_RP2350)
-  /*
-   * TODO: Fix this for RP2350
-   *       Why does `__wfi` not wake up?
-   */
-  asm volatile (
-    "wfe\n"           // Wait for Event
-    "nop\n"           // No Operation
-    "sev\n"           // Set Event
-    : : : "memory"    // clobber
-  );
-#endif
 }
 
 #if defined(PICORB_VM_MRUBY)
