@@ -38,9 +38,9 @@ mrb_value mrb_load_irep_file(mrb_state *vm, FILE* fp);
 #endif /* PICORB_VM_MRUBYC */
 
 #ifndef HEAP_SIZE
-#define HEAP_SIZE (1024 * 6400 - 1)
+#define HEAP_SIZE (1024 * 6400)
 #endif
-static uint8_t vm_heap[HEAP_SIZE];
+static uint8_t vm_heap[HEAP_SIZE] __attribute__((aligned(8)));
 
 #if defined(_WIN32) || defined(_WIN64)
 # include <io.h> /* for setmode */
