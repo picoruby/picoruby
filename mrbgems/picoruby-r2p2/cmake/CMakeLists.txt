@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.22)
 #set(CMAKE_VERBOSE_MAKEFILE ON)
 
 include(pico_sdk_import.cmake)
-include(pico_extras_import.cmake)
 
 # Initialize the SDK
 pico_sdk_init()
@@ -206,9 +205,9 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   mruby
 )
 
-# Sleep functionality for both RP2040 and RP2350
+# Sleep functionality for both RP2040 and RP2350 (Machine.sleep).
 target_link_libraries(${PROJECT_NAME} PRIVATE
-  hardware_sleep
+  pico_low_power
 )
 
 # RTC only for RP2040

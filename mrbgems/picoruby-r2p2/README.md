@@ -87,11 +87,7 @@ From the picoruby root directory:
 bundle install
 rake r2p2:setup
 cd mrbgems/picoruby-r2p2/lib/pico-sdk && \
-  git checkout 2.2.0 && \
-  git submodule update --init --recursive && \
-  cd -
-cd mrbgems/picoruby-r2p2/lib/pico-extras && \
-  git checkout sdk-2.2.0 && \
+  git checkout 2.3.0 && \
   git submodule update --init --recursive && \
   cd -
 ```
@@ -138,11 +134,10 @@ rake r2p2:picoruby:pico2:clean
 
 ### Using an external pico-sdk
 
-If you already have pico-sdk and pico-extras installed elsewhere, set the environment variables before building:
+If you already have pico-sdk installed elsewhere, set the environment variable before building:
 
 ```sh
 export PICO_SDK_PATH=/path/to/pico-sdk
-export PICO_EXTRAS_PATH=/path/to/pico-extras
 rake r2p2:femtoruby:pico:debug
 ```
 
@@ -165,10 +160,8 @@ picoruby-r2p2/
   cmake/
     CMakeLists.txt         # CMake build configuration
     pico_sdk_import.cmake
-    pico_extras_import.cmake
   lib/
     pico-sdk/              # git submodule
-    pico-extras/           # git submodule
     rp2040js/              # git submodule (emulator)
 ```
 

@@ -145,3 +145,36 @@ IRQ_init(void)
   queue_tail = 0;
   next_irq_id = 1;
 }
+
+/* Machine.sleep with a GPIO wake source hands the shared IO_BANK0 IRQ
+ * and the per-core GPIO callback to pico_low_power for the duration.
+ * These hooks, called by picoruby-machine's rp2040 port (declared
+ * weak there, so a build without this gem still links), take this
+ * gem's registrations offline and rebuild them afterwards. The SDK
+ * NULLs the callback and disables the wake pin's events on its way
+ * out, so resume must re-register both. gpio_set_irq_enabled() acks
+ * stale latched events on enable: EDGE events that fired during the
+ * sleep are deliberately discarded, while a LEVEL condition still
+ * asserted at resume fires again immediately -- level is condition,
+ * not history. */
+
+void
+picorb_irq_gpio_suspend(void)
+{
+  for (int i = 0; i < MAX_IRQ_HANDLERS; i++) {
+    if (irq_handlers[i].enabled) {
+      gpio_set_irq_enabled(irq_handlers[i].pin, irq_handlers[i].event_mask, false);
+    }
+  }
+}
+
+void
+picorb_irq_gpio_resume(void)
+{
+  for (int i = 0; i < MAX_IRQ_HANDLERS; i++) {
+    if (irq_handlers[i].enabled) {
+      gpio_set_irq_enabled_with_callback(irq_handlers[i].pin,
+          irq_handlers[i].event_mask, true, &gpio_irq_callback);
+    }
+  }
+}

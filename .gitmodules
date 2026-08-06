@@ -17,9 +17,6 @@
 	path = mrbgems/picoruby-r2p2/lib/pico-sdk
 	url = https://github.com/raspberrypi/pico-sdk.git
 	ignore = dirty
-[submodule "mrbgems/picoruby-r2p2/lib/pico-extras"]
-	path = mrbgems/picoruby-r2p2/lib/pico-extras
-	url = https://github.com/raspberrypi/pico-extras.git
 [submodule "mrbgems/picoruby-r2p2/lib/rp2040js"]
 	path = mrbgems/picoruby-r2p2/lib/rp2040js
 	url = https://github.com/wokwi/rp2040js.git

@@ -3,8 +3,16 @@ $_signal_self_manage: bool
 module Machine
   def self.delay_ms: (Integer ms) -> Integer
   def self.busy_wait_ms: (Integer ms) -> Integer
-  def self.sleep: (Integer | Float sec) -> Integer
-  def self.deep_sleep: (Integer gpio_pin, bool edge, bool high) -> 0
+  # Any object that knows its pin number can be a wake source; GPIO
+  # satisfies this structurally. respond_to? is declared because RBS
+  # interfaces do not inherit Object's methods and the wrapper
+  # feature-tests its source argument.
+  interface _SleepGpioSource
+    def pin: () -> Integer
+    def respond_to?: (Symbol) -> bool
+  end
+
+  def self.sleep: (deep: bool, source: _SleepGpioSource | :timer, **untyped opt) -> void
   def self.unique_id: () -> String
   def self.read_memory: (Integer address, Integer size) -> String
   def self.tud_task: () -> void
@@ -28,4 +36,6 @@ module Machine
   def self._stdin_getc: () -> (String | nil)
   def self._stdin_gets: () -> (String | nil)
   private def self._reboot: () -> nil
+  private def self._sleep_timer: (bool deep, Integer ms) -> void
+  private def self._sleep_gpio: (bool deep, Integer pin, bool edge, bool high) -> void
 end

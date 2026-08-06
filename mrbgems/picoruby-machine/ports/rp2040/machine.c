@@ -6,21 +6,19 @@
 #endif
 #include "../../../picoruby-io-console/include/io-console.h"
 
-#if defined(PICO_RP2040)
-  #include "hardware/rosc.h"
-  #include "hardware/rtc.h"
-#endif
-#include "hardware/vreg.h"
 #include "hardware/timer.h"
-#include "pico/sleep.h"
+#include "pico/low_power.h"
 #include "pico/stdlib.h"
 #include "pico/mutex.h"
 #include "hardware/irq.h"
 #include "pico/unique_id.h"
 #include "hardware/clocks.h"
-#include "hardware/structs/scb.h"
 #include "hardware/sync.h"
 #include "pico/aon_timer.h"
+#if defined(PICO_RP2350)
+#include "hardware/powman.h"
+#endif
+#include <sys/time.h>
 #if defined(PICO_CYW43_ARCH_POLL)
 #include "pico/cyw43_arch.h"
 #endif
@@ -314,6 +312,11 @@ picorb_hal_init(void)
 #endif
 #endif
   RingBuffer_init(stdin_rb, PICORB_STDIN_BUFFER_SIZE);
+  /* Own alarm 0 in the SDK's claim registry, permanently. Disabling
+   * the NVIC IRQ is not ownership: pico_low_power claims an unused
+   * alarm internally and would otherwise be free to pick this one
+   * and overwrite the tick. */
+  hardware_alarm_claim(ALARM_NUM);
   hw_set_bits(&timer_hw->inte, 1u << ALARM_NUM);
   irq_set_exclusive_handler(ALARM_IRQ, alarm_handler);
   irq_set_enabled(ALARM_IRQ, true);
@@ -334,6 +337,13 @@ picorb_hal_init(void)
   clocks_hw->sleep_en1 =
   CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_TIMER1_BITS
+  /* The TICKS block feeds the system timers their 1MHz tick. Without
+   * these two bits it stops whenever a core sleeps, the timers stop
+   * counting, no alarm ever fires, and WFI/WFE never wake -- the
+   * long-standing "__wfi does not wake up on RP2350" mystery. RP2040
+   * has no TICKS block (its timer tick comes from the watchdog). */
+  | CLOCKS_SLEEP_EN1_CLK_REF_TICKS_BITS
+  | CLOCKS_SLEEP_EN1_CLK_SYS_TICKS_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
   | CLOCKS_SLEEP_EN1_CLK_USB_BITS
   | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
@@ -404,20 +414,13 @@ picorb_hal_idle_cpu(mrb_state *mrb)
     return;
   }
 #endif
-#if defined(PICO_RP2040)
+  /* Plain WFI on both chips. This historically hung on RP2350 -- not
+   * because of WFI itself, but because the sleep_en1 mask set in
+   * picorb_hal_init gated the TICKS block while the core slept: the
+   * timers stopped counting, so the 1ms alarm could never fire and
+   * nothing woke the core. With CLK_*_TICKS kept enabled during
+   * sleep, the tick IRQ wakes WFI normally. */
   __wfi();
-#elif defined(PICO_RP2350)
-  /*
-   * TODO: Fix this for RP2350
-   *       Why does `__wfi` not wake up?
-   */
-  asm volatile (
-    "wfe\n"           // Wait for Event
-    "nop\n"           // No Operation
-    "sev\n"           // Set Event
-    : : : "memory"    // clobber
-  );
-#endif
 }
 
 #if defined(PICORB_VM_MRUBY)
@@ -689,198 +692,264 @@ Machine_bootsel_pressed_q(void)
 
 /*-------------------------------------
  *
- * Sleep in low power mode
+ * Sleep in low power mode (pico_low_power, SDK >= 2.3.0)
  *
  *------------------------------------*/
 
-#if defined(PICO_RP2040)
+/* GPIO suspend/resume hooks. The strong definitions live in
+ * picoruby-irq's rp2040 port; a build without that gem gets these
+ * empty defaults. The SDK's GPIO wake path steals the per-core GPIO
+ * callback and disables the wake pin's events afterwards, so the irq
+ * gem must take its registrations offline before the SDK call and
+ * rebuild them after. */
+__attribute__((weak)) void picorb_irq_gpio_suspend(void) {}
+__attribute__((weak)) void picorb_irq_gpio_resume(void) {}
 
-static const uint32_t PIN_DCDC_PSM_CTRL = 23;
-static uint32_t _scr;
-static uint32_t _sleep_en0;
-static uint32_t _sleep_en1;
-static volatile bool sleep_wakeup_flag = false;
-
-/*
- * deep_sleep doesn't work yet
- */
-void
-Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
+static machine_sleep_result_t
+sleep_result_from_sdk(int rc)
 {
-  bool psm = gpio_get(PIN_DCDC_PSM_CTRL);
-  gpio_put(PIN_DCDC_PSM_CTRL, 0); // PFM mode for better efficiency
-  uint32_t ints = save_and_disable_interrupts();
-  {
-    // preserve_clock_before_sleep
-    _scr = scb_hw->scr;
-    _sleep_en0 = clocks_hw->sleep_en0;
-    _sleep_en1 = clocks_hw->sleep_en1;
+  if (rc == 0) return MACHINE_SLEEP_OK;
+  if (rc == PICO_ERROR_INSUFFICIENT_RESOURCES) return MACHINE_SLEEP_ERESOURCE;
+  /* PRECONDITION_NOT_MET, INVALID_DATA, and the near-minimum
+   * INVALID_ARG race are machine-state problems by the time we get
+   * here: the caller's arguments were already validated. */
+  return MACHINE_SLEEP_ESTATE;
+}
+
+/* timespec -> signed 64-bit microseconds, failing closed. The
+ * multiplication guard leaves room for the microseconds added from
+ * tv_nsec (at most 999999), so the addition cannot overflow either. */
+static bool
+timespec_to_us64(const struct timespec *ts, int64_t *us)
+{
+  if (ts->tv_sec < 0) return false;
+  if (ts->tv_nsec < 0 || 999999999L < ts->tv_nsec) return false;
+  int64_t v = (int64_t)ts->tv_sec;
+  if ((INT64_MAX - 999999) / 1000000 < v) return false;
+  *us = v * 1000000 + ts->tv_nsec / 1000;
+  return true;
+}
+
+/* Sync the AON timer to libc realtime, remembering both sides.
+ * "Running" does not mean "correct": ordinary WFI idle and timer
+ * SLEEP both leave the AON clock unclocked, so it lags realtime.
+ * Called before each DORMANT cell -- the only AON consumers. */
+static bool
+aon_presync(int64_t *libc_before_us, int64_t *aon_before_us)
+{
+  struct timeval tv;
+  if (gettimeofday(&tv, NULL) != 0) return false;
+  struct timespec ts;
+  ts.tv_sec = tv.tv_sec;
+  ts.tv_nsec = (long)tv.tv_usec * 1000;
+  if (aon_timer_is_running()) {
+    if (!aon_timer_set_time(&ts)) return false;
+  } else {
+    if (!aon_timer_start(&ts)) return false;
   }
-  sleep_run_from_xosc();
-  sleep_goto_dormant_until_pin(gpio_pin, edge, high);
-  {
-    // recover_clock_after_sleep
-    rosc_write(&rosc_hw->ctrl, ROSC_CTRL_ENABLE_BITS); //Re-enable ring Oscillator control
-    scb_hw->scr = _scr;
-    clocks_hw->sleep_en0 = _sleep_en0;
-    clocks_hw->sleep_en1 = _sleep_en1;
-    //clocks_init();
-    set_sys_clock_khz(125000, true);
-  }
-  restore_interrupts(ints);
-  gpio_put(PIN_DCDC_PSM_CTRL, psm); // recover PWM mode
+  /* Read BACK what the AON actually stored: the RP2040 RTC keeps
+   * whole seconds only, and the delta must be computed against the
+   * stored value, not the requested one. */
+  struct timespec aon_ts;
+  if (!aon_timer_get_time(&aon_ts)) return false;
+  int64_t libc_us, aon_us;
+  if (!timespec_to_us64(&ts, &libc_us)) return false;
+  if (!timespec_to_us64(&aon_ts, &aon_us)) return false;
+  *libc_before_us = libc_us;
+  *aon_before_us = aon_us;
+  return true;
 }
 
-static void
-sleep_callback(uint alarm_num)
+/* Apply libc_before + (aon_after - aon_before) to libc realtime.
+ * Delta-based, not absolute: setting libc to the AON's absolute value
+ * would drop sub-seconds on RP2040 (1s resolution) and could step
+ * time backwards after a short sleep. */
+static bool
+aon_postsync(int64_t libc_before_us, int64_t aon_before_us)
 {
-  // This callback is called when the hardware alarm expires and wakes up the system
-  (void)alarm_num; // Suppress unused parameter warning
-  sleep_wakeup_flag = true;
+  struct timespec aon_ts;
+  if (!aon_timer_get_time(&aon_ts)) return false;
+  int64_t aon_after_us;
+  if (!timespec_to_us64(&aon_ts, &aon_after_us)) return false;
+  if (aon_after_us < aon_before_us) return false;
+  int64_t delta = aon_after_us - aon_before_us;
+  if (INT64_MAX - delta < libc_before_us) return false;
+  int64_t now_us = libc_before_us + delta;
+  struct timeval tv;
+  tv.tv_sec = (time_t)(now_us / 1000000);
+  tv.tv_usec = (suseconds_t)(now_us % 1000000);
+  return settimeofday(&tv, NULL) == 0;
 }
 
-static void
-recover_from_sleep(uint scb_orig, uint clock0_orig, uint clock1_orig)
+/* One worker for all four cells of the mode x wake-source matrix.
+ * Straight-line with acquisition flags; the single cleanup at the
+ * bottom unwinds whatever was taken, in reverse order, on success
+ * and error alike. */
+static machine_sleep_result_t
+machine_sleep_run(bool deep, bool use_timer, uint32_t ms, int pin, bool edge, bool high)
 {
-  //Re-enable ring Oscillator control
-  rosc_write(&rosc_hw->ctrl, ROSC_CTRL_ENABLE_BITS);
-  //reset procs back to default
-  scb_hw->scr = scb_orig;
-  clocks_hw->sleep_en0 = clock0_orig;
-  clocks_hw->sleep_en1 = clock1_orig;
-  //reset clocks
-  set_sys_clock_khz(125000, true);
-  // Re-initialize peripherals
-  stdio_init_all();
-}
-
-#elif defined(PICO_RP2350)
-void
-Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
-{
-}
+  machine_sleep_result_t result;
+  bool alarm_stopped = false;
+  bool mask_saved = false;
+  bool usb_locked = false;
+  bool gpio_suspended = false;
+#if defined(PICO_RP2350)
+  bool lposc_switched = false;
 #endif
+  bool aon_synced = false;
+  uint32_t saved_en0 = 0, saved_en1 = 0;
+  int64_t libc_before_us = 0, aon_before_us = 0;
 
-void
-Machine_sleep(uint32_t seconds)
-{
+  /* Early validation: nothing acquired yet, plain returns. */
+  if (!use_timer) {
+    if (pin < 0 || NUM_BANK0_GPIOS <= pin) return MACHINE_SLEEP_EINVAL;
+  }
+  if (use_timer && deep && ms < PICO_LOW_POWER_MIN_DORMANT_TIME_MS) {
+    return MACHINE_SLEEP_EINVAL;
+  }
+
+  /* Both DORMANT cells stop the system timer, so the wall clock must
+   * survive via the AON timer: sync it to realtime now, delta-correct
+   * realtime after wake. The SLEEP cells keep the system timer
+   * clocked and need none of this. */
+  if (deep) {
+    if (!aon_presync(&libc_before_us, &aon_before_us)) {
+      return MACHINE_SLEEP_ESTATE;
+    }
+    aon_synced = true;
+  }
+
+  /* The 1 ms tick must not run while the SDK owns clocks and IRQs. */
+  irq_set_enabled(ALARM_IRQ, false);
+  alarm_stopped = true;
+
+  /* The SDK's wake path sets sleep_en0/1 to all-ones; the HAL's
+   * boot-time mask is ours to put back. */
+  saved_en0 = clocks_hw->sleep_en0;
+  saved_en1 = clocks_hw->sleep_en1;
+  mask_saved = true;
+
+  if (deep) {
+    /* Dormant tears TinyUSB down (tud_deinit/tud_init) from thread
+     * context BEFORE it disables interrupts; holding usb_mutex keeps
+     * the pump worker and the CDC write path out of that window. */
+    mutex_enter_blocking(&usb_mutex);
+    usb_locked = true;
+  }
+
+  if (!use_timer) {
+    /* Take the irq gem's GPIO registrations offline: the SDK owns
+     * the shared IO_BANK0 IRQ and the global callback for the
+     * duration. Consequence, documented in the README: EDGE events
+     * on other pins during the sleep are discarded; LEVEL conditions
+     * still asserted at resume fire normally. */
+    picorb_irq_gpio_suspend();
+    gpio_suspended = true;
+  }
+
+  int rc;
+  if (use_timer) {
+    if (deep) {
+      /* RTC source on RP2040 (XOSC kept only for clk_rtc), LPOSC on
+       * RP2350; the SDK handles the powman tick source itself on
+       * this path. */
+      rc = low_power_dormant_for_ms(ms, DORMANT_CLOCK_SOURCE_DEFAULT, NULL);
+    } else {
+      /* exclusive=false: a foreign IRQ (USB) is serviced and the SDK
+       * returns to WFI until its own alarm fires, so the console
+       * stays alive through the sleep. */
+      rc = low_power_sleep_for_ms(ms, NULL, false);
+    }
+  } else {
+    clock_dest_bitset_t keep = clock_dest_bitset_none();
+    if (deep) {
+      /* The SDK adds the AON clock destination only on its timer
+       * paths; without this the wall clock stops. */
 #if defined(PICO_RP2040)
-  // RP2040 implementation with deep power saving
-  // Reset wakeup flag
-  sleep_wakeup_flag = false;
-
-  // Stop system alarm_handler (ALARM_NUM 0) during deep sleep
-  irq_set_enabled(ALARM_IRQ, false);
-
-  // Save current system state for recovery
-  uint scb_orig = scb_hw->scr;
-  uint clock0_orig = clocks_hw->sleep_en0;
-  uint clock1_orig = clocks_hw->sleep_en1;
-
-  // Use a fixed alarm number (1) to avoid conflict with hal_init's alarm 0
-  int alarm_num = 1;
-
-  // Try to claim alarm 1
-  hardware_alarm_claim(alarm_num);
-
-  // Set up the alarm callback
-  hardware_alarm_set_callback(alarm_num, sleep_callback);
-
-  // Set target time
-  absolute_time_t target = make_timeout_time_ms(seconds * 1000);
-  if (hardware_alarm_set_target(alarm_num, target)) {
-    // Failed to set target, clean up and fallback
-    hardware_alarm_set_callback(alarm_num, NULL);
-    hardware_alarm_unclaim(alarm_num);
-    sleep_ms(seconds * 1000);
-    return;
-  }
-
-  // Prepare for deep sleep - switch to low-power clock source
-  sleep_run_from_xosc();
-
-  // Configure clocks for maximum power saving
-  // Disable all non-essential clocks for deep power saving
-  clocks_hw->sleep_en0 = 0x0; // Disable all clocks in sleep_en0
-
-  // Keep only the absolute minimum for wakeup functionality
-  clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS; // Timer for wakeup alarm
-
-  // Flush any pending output before sleep
-  stdio_flush();
-
-  // Save current VREG setting and switch to power-saving mode
-  uint32_t vreg_orig = vreg_get_voltage();
-  vreg_set_voltage(VREG_VOLTAGE_1_10); // Reduce voltage for power saving
-
-  // Enable deep sleep mode at the processor level
-  scb_hw->scr |= M0PLUS_SCR_SLEEPDEEP_BITS;
-
-  // Enter deep sleep - wait for alarm interrupt
-  while (!sleep_wakeup_flag) {
-    __wfi();
-  }
-
-  // Wakeup - restore system clocks and peripherals
-  sleep_power_up();
-
-  // Restore VREG voltage to normal operating level
-  vreg_set_voltage(vreg_orig);
-
-  // Wait for voltage to stabilize before continuing
-  busy_wait_us(100);
-
-  recover_from_sleep(scb_orig, clock0_orig, clock1_orig);
-
-  // Clean up alarm
-  hardware_alarm_set_callback(alarm_num, NULL);
-  hardware_alarm_unclaim(alarm_num);
-
-  // Restart system alarm_handler (ALARM_NUM 0) after deep sleep
-  irq_set_enabled(ALARM_IRQ, true);
+      clock_dest_bitset_add(&keep, CLK_DEST_RTC_RTC);
 #elif defined(PICO_RP2350)
-  // RP2350 implementation using dormant mode with AON timer
-  stdio_flush();
+      clock_dest_bitset_add(&keep, CLK_DEST_REF_POWMAN);
+      /* And on RP2350 the AON tick is XOSC-driven: the SDK re-sources
+       * it to LPOSC only on its timer-DORMANT path, so bracket the
+       * GPIO one ourselves (the 2.3.0 setters preserve the current
+       * time across the switch). */
+      powman_timer_set_1khz_tick_source_lposc();
+      lposc_switched = true;
+#endif
+      rc = low_power_dormant_until_gpio_pin_state((uint)pin, edge, high,
+                                                  DORMANT_CLOCK_SOURCE_DEFAULT, &keep);
+    } else {
+      /* Keep the system timer: newlib realtime is
+       * get_absolute_time()-based, so Time.now just keeps flowing
+       * and no AON involvement is needed on this cell. */
+#if defined(PICO_RP2040)
+      clock_dest_bitset_add(&keep, CLK_DEST_SYS_TIMER);
+#elif defined(PICO_RP2350)
+      clock_dest_bitset_add(&keep, CLK_DEST_SYS_TIMER0);
+      clock_dest_bitset_add(&keep, CLK_DEST_REF_TICKS);
+#endif
+      rc = low_power_sleep_until_gpio_pin_state((uint)pin, edge, high, &keep, false);
+    }
+  }
+  result = sleep_result_from_sdk(rc);
 
-  // Stop system alarm_handler (ALARM_NUM 0) during deep sleep
-  irq_set_enabled(ALARM_IRQ, false);
-
-  // Get current time from AON timer
-  struct timespec current_time;
-  if (!aon_timer_get_time(&current_time)) {
-    // Fallback to simple sleep if AON timer not available
-    sleep_ms(seconds * 1000);
+  /* Single cleanup: unwind in reverse order of acquisition. */
+  if (use_timer && deep) {
+    /* The SDK's dormant path leaves the AON wakeup alarm armed after
+     * it fires (its SLEEP path disables it, the dormant one does
+     * not). Once the target time has passed the wake condition stays
+     * true forever, so a later GPIO dormant would wake spuriously.
+     * Disarm it here, success and failure alike. On RP2350
+     * aon_timer_disable_alarm() only reaches the timer-IRQ side
+     * (powman_timer_disable_alarm); the PWRUP_ON_ALARM wakeup enable
+     * survives it and needs powman_disable_alarm_wakeup(). */
+    aon_timer_disable_alarm();
+#if defined(PICO_RP2350)
+    powman_disable_alarm_wakeup();
+#endif
+  }
+#if defined(PICO_RP2350)
+  if (lposc_switched) {
+    powman_timer_set_1khz_tick_source_xosc();
+  }
+#endif
+  if (gpio_suspended) {
+    picorb_irq_gpio_resume();
+  }
+  if (usb_locked) {
+    mutex_exit(&usb_mutex);
+  }
+  if (aon_synced && result == MACHINE_SLEEP_OK) {
+    if (!aon_postsync(libc_before_us, aon_before_us)) {
+      result = MACHINE_SLEEP_ESTATE;
+    }
+  }
+  if (mask_saved) {
+    clocks_hw->sleep_en0 = saved_en0;
+    clocks_hw->sleep_en1 = saved_en1;
+  }
+  if (alarm_stopped) {
+    /* Deterministic re-arm, identical for all four cells: in the
+     * SLEEP cells the timer ran on with the IRQ masked (stale
+     * pending), in the DORMANT cells the timer itself stopped (stale
+     * target). Fresh target, cleared pending, then enable. */
+    timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
+    hw_clear_bits(&timer_hw->intr, 1u << ALARM_NUM);
     irq_set_enabled(ALARM_IRQ, true);
-    return;
   }
+  return result;
+}
 
-  // Calculate wake time
-  struct timespec wake_time;
-  wake_time.tv_sec = current_time.tv_sec + seconds;
-  wake_time.tv_nsec = current_time.tv_nsec;
+machine_sleep_result_t
+Machine_sleep_timer(bool deep, uint32_t ms)
+{
+  return machine_sleep_run(deep, true, ms, 0, false, false);
+}
 
-  // Save current VREG setting and switch to power-saving mode
-  uint32_t vreg_orig = vreg_get_voltage();
-  vreg_set_voltage(VREG_VOLTAGE_1_10); // Same voltage as RP2040 for stability
-
-  // Switch to low-power clock source for dormant mode
-  sleep_run_from_lposc();
-
-  // Enter dormant mode until specified wake time (with NULL callback)
-  sleep_goto_dormant_until(&wake_time, NULL);
-
-  // Restore clocks after wake up
-  sleep_power_up();
-
-  // Restore VREG voltage to normal operating level
-  vreg_set_voltage(vreg_orig);
-
-  // Wait for voltage to stabilize before continuing
-  busy_wait_us(100);
-
-  // Restart system alarm_handler (ALARM_NUM 0) after deep sleep
-  irq_set_enabled(ALARM_IRQ, true);
-#endif
+machine_sleep_result_t
+Machine_sleep_gpio(bool deep, int pin, bool edge, bool high)
+{
+  return machine_sleep_run(deep, false, 0, pin, edge, high);
 }
 
 void
