@@ -1,2 +1,1 @@
 PICO_SDK_TAG = "2.3.0"
-PICO_EXTRAS_TAG = "sdk-#{PICO_SDK_TAG}"

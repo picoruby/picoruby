@@ -24,7 +24,6 @@ namespace :rbenv do
     # Submodules not needed for POSIX build (r2p2-specific)
     exclude_submodules = %w[
       mrbgems/picoruby-r2p2/lib/pico-sdk
-      mrbgems/picoruby-r2p2/lib/pico-extras
       mrbgems/picoruby-r2p2/lib/rp2040js
     ]
 

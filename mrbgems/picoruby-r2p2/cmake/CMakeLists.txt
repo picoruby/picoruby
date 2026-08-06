@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.22)
 #set(CMAKE_VERBOSE_MAKEFILE ON)
 
 include(pico_sdk_import.cmake)
-include(pico_extras_import.cmake)
 
 # Initialize the SDK
 pico_sdk_init()
