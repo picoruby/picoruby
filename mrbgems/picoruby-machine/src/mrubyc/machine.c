@@ -66,48 +66,90 @@ c_Machine_busy_wait_ms(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(ms);
 }
 
-static void
-c_Machine_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
+/* The Ruby-visible Machine.sleep lives in mrblib; these two entry
+ * points are its C halves, symmetric with the mruby glue. The result
+ * enum keeps the exception class honest: an SDK resource failure is
+ * not an ArgumentError. */
+static bool
+machine_sleep_raised(mrbc_vm *vm, machine_sleep_result_t res)
 {
-  if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
-    return;
+  switch (res) {
+    case MACHINE_SLEEP_OK:
+      return false;
+    case MACHINE_SLEEP_EINVAL:
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "invalid sleep argument");
+      return true;
+    case MACHINE_SLEEP_EUNSUPPORTED:
+      mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "this sleep mode is not supported on this platform");
+      return true;
+    case MACHINE_SLEEP_ERESOURCE:
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sleep: hardware resource unavailable");
+      return true;
+    case MACHINE_SLEEP_ESTATE:
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "sleep: machine state does not allow sleeping");
+      return true;
   }
-  if (GET_TT_ARG(1) != MRBC_TT_FIXNUM) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong type of arguments");
-    return;
-  }
-  uint32_t sec = GET_INT_ARG(1);
-  if (24 * 60 * 60 <= sec) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "sleep length must be less than 24 hours (86400 sec)");
-    return;
-  } else if (sec < 2) {
-    // Hangs if you attempt to sleep for 1 second.
-    console_printf("Cannot sleep less than 2 sec\n");
-  } else {
-    console_printf("Going to sleep %d sec\n", sec);
-    Machine_sleep(sec);
-  }
-  SET_INT_RETURN(sec);
+  return true;
+}
+
+static bool
+machine_sleep_bool_arg(mrbc_vm *vm, mrbc_value *v, int i, bool *out)
+{
+  if (v[i].tt == MRBC_TT_TRUE) { *out = true; return true; }
+  if (v[i].tt == MRBC_TT_FALSE) { *out = false; return true; }
+  mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong type of arguments");
+  return false;
 }
 
 static void
-c_Machine_deep_sleep(mrbc_vm *vm, mrbc_value *v, int argc)
+c_Machine__sleep_timer(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  mrbc_raise(vm, MRBC_CLASS(NotImplementedError), "Not implemented");
-  return;
-  // TODO: Implement
-  if (argc != 3) {
+  if (argc != 2) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
     return;
   }
-  if (GET_TT_ARG(1) != MRBC_TT_FIXNUM) {
+  bool deep;
+  if (!machine_sleep_bool_arg(vm, v, 1, &deep)) return;
+  if (GET_TT_ARG(2) != MRBC_TT_FIXNUM) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong type of arguments");
     return;
   }
-  console_printf("Going to deep sleep\n");
-  Machine_deep_sleep(GET_INT_ARG(1), v[2].tt == MRBC_TT_TRUE, v[3].tt == MRBC_TT_TRUE);
-  SET_INT_RETURN(0);
+  mrbc_int_t ms = GET_INT_ARG(2);
+  /* The port takes uint32_t: reject rather than wrap. mrbc_int_t is
+   * 64-bit here (PICORB_INT64). */
+  if (ms < 1 || 4294967295LL < (int64_t)ms) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "ms out of range");
+    return;
+  }
+  if (machine_sleep_raised(vm, Machine_sleep_timer(deep, (uint32_t)ms))) return;
+  SET_NIL_RETURN();
+}
+
+static void
+c_Machine__sleep_gpio(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (argc != 4) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
+    return;
+  }
+  bool deep, edge, high;
+  if (!machine_sleep_bool_arg(vm, v, 1, &deep)) return;
+  if (GET_TT_ARG(2) != MRBC_TT_FIXNUM) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong type of arguments");
+    return;
+  }
+  if (!machine_sleep_bool_arg(vm, v, 3, &edge)) return;
+  if (!machine_sleep_bool_arg(vm, v, 4, &high)) return;
+  mrbc_int_t pin = GET_INT_ARG(2);
+  /* Range-check BEFORE narrowing to int: a 64-bit 2**32 would
+   * otherwise truncate to 0 and sleep on the wrong pin. The port
+   * checks the platform pin count. */
+  if (pin < 0 || 2147483647LL < (int64_t)pin) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "pin out of range");
+    return;
+  }
+  if (machine_sleep_raised(vm, Machine_sleep_gpio(deep, (int)pin, edge, high))) return;
+  SET_NIL_RETURN();
 }
 
 static void
@@ -476,8 +518,11 @@ mrbc_machine_init(mrbc_vm *vm)
 
   mrbc_define_method(vm, module_Machine, "delay_ms", c_Machine_delay_ms);
   mrbc_define_method(vm, module_Machine, "busy_wait_ms", c_Machine_busy_wait_ms);
-  mrbc_define_method(vm, module_Machine, "sleep", c_Machine_sleep);
-  mrbc_define_method(vm, module_Machine, "deep_sleep", c_Machine_deep_sleep);
+  /* The C halves of Machine.sleep (the Ruby method lives in mrblib).
+   * mruby/c has no runtime method privacy; the underscore is the
+   * convention. */
+  mrbc_define_method(vm, module_Machine, "_sleep_timer", c_Machine__sleep_timer);
+  mrbc_define_method(vm, module_Machine, "_sleep_gpio", c_Machine__sleep_gpio);
   mrbc_define_method(vm, module_Machine, "unique_id", c_Machine_unique_id);
   mrbc_define_method(vm, module_Machine, "read_memory", c_Machine_read_memory);
   mrbc_define_method(vm, module_Machine, "stack_usage", c_Machine_stack_usage);

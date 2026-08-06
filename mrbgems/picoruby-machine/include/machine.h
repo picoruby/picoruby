@@ -33,8 +33,28 @@ __attribute__((weak)) int exit_status;
 extern volatile int sigint_status;
 #endif
 
-void Machine_sleep(uint32_t seconds);
-void Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high);
+/*
+ * Low-power sleep. Machine.sleep(deep:, source:, ...) in mrblib maps
+ * onto these two entry points; the mode x wake-source matrix is
+ * documented in README.md. Wake always continues execution.
+ *
+ * The result tells the glue which exception to raise. A single
+ * ArgumentError cannot represent what actually happens down here:
+ * the SDK failing to claim a hardware alarm is not a caller mistake.
+ */
+typedef enum {
+  MACHINE_SLEEP_OK = 0,
+  MACHINE_SLEEP_EINVAL,        /* bad argument             -> ArgumentError */
+  MACHINE_SLEEP_EUNSUPPORTED,  /* no support on this port  -> NotImplementedError */
+  MACHINE_SLEEP_ERESOURCE,     /* SDK could not claim h/w  -> RuntimeError */
+  MACHINE_SLEEP_ESTATE,        /* machine state forbids it -> RuntimeError */
+} machine_sleep_result_t;
+
+/* pin is int, not uint8_t: a uint8_t would wrap 256 to GPIO 0 and
+ * sleep on the wrong pin. The glue rejects values outside
+ * [0, INT32_MAX]; the port checks the platform range. */
+machine_sleep_result_t Machine_sleep_timer(bool deep, uint32_t ms);
+machine_sleep_result_t Machine_sleep_gpio(bool deep, int pin, bool edge, bool high);
 void Machine_delay_ms(uint32_t ms);
 void Machine_busy_wait_ms(uint32_t ms);
 void Machine_busy_wait_us(uint32_t us);

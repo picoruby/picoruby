@@ -293,19 +293,27 @@ Machine_tud_mounted_q(void)
  *
  *------------------------------------*/
 
-/*
- * deep_sleep doesn't work yet
- */
-void
-Machine_deep_sleep(uint8_t gpio_pin, bool edge, bool high)
+machine_sleep_result_t
+Machine_sleep_timer(bool deep, uint32_t ms)
 {
+  if (deep) {
+    /* esp_deep_sleep_start() resets on wake; that breaks the
+     * continue-from-here contract, so only light sleep is offered. */
+    return MACHINE_SLEEP_EUNSUPPORTED;
+  }
+  if (ms < 1) return MACHINE_SLEEP_EINVAL;
+  /* 64-bit on purpose: the API ceiling (~49.7 days of ms) overflows
+   * 32-bit microsecond arithmetic. */
+  esp_sleep_enable_timer_wakeup((uint64_t)ms * 1000u);
+  esp_light_sleep_start();
+  return MACHINE_SLEEP_OK;
 }
 
-void
-Machine_sleep(uint32_t seconds)
+machine_sleep_result_t
+Machine_sleep_gpio(bool deep, int pin, bool edge, bool high)
 {
-  esp_sleep_enable_timer_wakeup(seconds * ESP32_TIMER_UNIT_PER_SEC);
-  esp_light_sleep_start();
+  (void)deep; (void)pin; (void)edge; (void)high;
+  return MACHINE_SLEEP_EUNSUPPORTED;
 }
 
 void

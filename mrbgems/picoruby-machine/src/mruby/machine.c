@@ -72,36 +72,70 @@ mrb_s_busy_wait_ms(mrb_state *mrb, mrb_value klass)
   return mrb_fixnum_value(ms);
 }
 
-static mrb_value
-mrb_s_sleep(mrb_state *mrb, mrb_value klass)
+/* The Ruby-visible Machine.sleep lives in mrblib; these two private
+ * entry points are its C halves. The result enum keeps the exception
+ * class honest: an SDK resource failure is not an ArgumentError. */
+static void
+machine_sleep_raise_unless_ok(mrb_state *mrb, machine_sleep_result_t res)
 {
-  mrb_int sec;
-  mrb_get_args(mrb, "i", &sec);
-  if (sec < 0) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "delay time must be positive");
+  switch (res) {
+    case MACHINE_SLEEP_OK:
+      break;
+    case MACHINE_SLEEP_EINVAL:
+      mrb_raise(mrb, E_ARGUMENT_ERROR, "invalid sleep argument");
+      break;
+    case MACHINE_SLEEP_EUNSUPPORTED:
+      mrb_raise(mrb, E_NOTIMP_ERROR, "this sleep mode is not supported on this platform");
+      break;
+    case MACHINE_SLEEP_ERESOURCE:
+      mrb_raise(mrb, E_RUNTIME_ERROR, "sleep: hardware resource unavailable");
+      break;
+    case MACHINE_SLEEP_ESTATE:
+      mrb_raise(mrb, E_RUNTIME_ERROR, "sleep: machine state does not allow sleeping");
+      break;
   }
-  if (24 * 60 * 60 <= sec) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "sleep length must be less than 24 hours (86400 sec)");
-  } else if (sec < 2) {
-    // Hangs if you attempt to sleep for 1 second.
-    mrb_warn(mrb, "Cannot sleep less than 2 sec\n");
-  } else {
-    mrb_warn(mrb, "Going to sleep %d sec\n", sec);
-    Machine_sleep(sec);
-  }
-  return mrb_fixnum_value(sec);
 }
 
 static mrb_value
-mrb_s_deep_sleep(mrb_state *mrb, mrb_value klass)
+mrb_s__sleep_timer(mrb_state *mrb, mrb_value klass)
 {
-  mrb_notimplement(mrb);
-  // TODO: Implement
-  mrb_int sec;
-  mrb_get_args(mrb, "i", &sec);
-  mrb_warn(mrb, "Going to deep sleep\n");
-  //Machine_deep_sleep(GET_INT_ARG(1), v[2].tt == mrb_TT_TRUE, v[3].tt == mrb_TT_TRUE);
-  return mrb_fixnum_value(0);
+  mrb_bool deep;
+  mrb_int ms;
+  mrb_get_args(mrb, "bi", &deep, &ms);
+  /* The mrblib wrapper validates too; this is the authority for a
+   * direct private call. The port takes uint32_t: reject rather than
+   * wrap. */
+  if (ms < 1) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "ms out of range");
+  }
+#if defined(MRB_INT64)
+  if (4294967295LL < ms) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "ms out of range");
+  }
+#endif
+  machine_sleep_raise_unless_ok(mrb, Machine_sleep_timer(deep, (uint32_t)ms));
+  return mrb_nil_value();
+}
+
+static mrb_value
+mrb_s__sleep_gpio(mrb_state *mrb, mrb_value klass)
+{
+  mrb_bool deep, edge, high;
+  mrb_int pin;
+  mrb_get_args(mrb, "bibb", &deep, &pin, &edge, &high);
+  /* Range-check BEFORE narrowing to int: with MRB_INT64, 2**32 would
+   * otherwise truncate to 0 and sleep on the wrong pin. The port
+   * checks the platform pin count. */
+  if (pin < 0) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "pin out of range");
+  }
+#if defined(MRB_INT64)
+  if (2147483647LL < pin) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "pin out of range");
+  }
+#endif
+  machine_sleep_raise_unless_ok(mrb, Machine_sleep_gpio(deep, (int)pin, edge, high));
+  return mrb_nil_value();
 }
 
 static mrb_value
@@ -472,8 +506,14 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
 
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(delay_ms), mrb_s_delay_ms, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(busy_wait_ms), mrb_s_busy_wait_ms, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(sleep), mrb_s_sleep, MRB_ARGS_REQ(1));
-  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(deep_sleep), mrb_s_deep_sleep, MRB_ARGS_REQ(3));
+  {
+    /* Private singleton methods: the C halves of Machine.sleep must
+     * not be part of the public surface. Their names appear in
+     * mrblib/machine.rb, so the presym table has them. */
+    struct RClass *machine_singleton = mrb_singleton_class_ptr(mrb, mrb_obj_value(module_Machine));
+    mrb_define_private_method_id(mrb, machine_singleton, MRB_SYM(_sleep_timer), mrb_s__sleep_timer, MRB_ARGS_REQ(2));
+    mrb_define_private_method_id(mrb, machine_singleton, MRB_SYM(_sleep_gpio), mrb_s__sleep_gpio, MRB_ARGS_REQ(4));
+  }
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(unique_id), mrb_s_unique_id, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(read_memory), mrb_s_read_memory, MRB_ARGS_REQ(2));
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(stack_usage), mrb_s_stack_usage, MRB_ARGS_NONE());

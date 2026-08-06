@@ -49,3 +49,17 @@ Machine_get_hwclock(struct timespec *ts)
   ts->tv_nsec = 0;
   return false;
 }
+
+machine_sleep_result_t
+Machine_sleep_timer(bool deep, uint32_t ms)
+{
+  (void)deep; (void)ms;
+  return MACHINE_SLEEP_EUNSUPPORTED;
+}
+
+machine_sleep_result_t
+Machine_sleep_gpio(bool deep, int pin, bool edge, bool high)
+{
+  (void)deep; (void)pin; (void)edge; (void)high;
+  return MACHINE_SLEEP_EUNSUPPORTED;
+}

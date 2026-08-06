@@ -239,9 +239,31 @@ Machine_busy_wait_us(uint32_t us)
   nanosleep(&ts, NULL);
 }
 
-void
-Machine_sleep(uint32_t seconds)
+machine_sleep_result_t
+Machine_sleep_timer(bool deep, uint32_t ms)
 {
+  /* The deep flag is accepted and ignored: the host has no dormant
+   * mode, and letting both matrix rows run keeps the tests simple. */
+  (void)deep;
+  if (ms < 1) return MACHINE_SLEEP_EINVAL;
+  struct timespec req, rem;
+  req.tv_sec = ms / 1000;
+  req.tv_nsec = (long)(ms % 1000) * 1000000;
+  /* Both host VMs drive their scheduler tick with periodic SIGALRM,
+   * so a single nanosleep returns early with EINTR. Sleep the
+   * remainder until done. */
+  while (nanosleep(&req, &rem) != 0) {
+    if (errno != EINTR) return MACHINE_SLEEP_ESTATE;
+    req = rem;
+  }
+  return MACHINE_SLEEP_OK;
+}
+
+machine_sleep_result_t
+Machine_sleep_gpio(bool deep, int pin, bool edge, bool high)
+{
+  (void)deep; (void)pin; (void)edge; (void)high;
+  return MACHINE_SLEEP_EUNSUPPORTED;
 }
 
 bool
