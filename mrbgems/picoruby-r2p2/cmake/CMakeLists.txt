@@ -206,9 +206,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   mruby
 )
 
-# Sleep functionality for both RP2040 and RP2350
+# Sleep functionality for both RP2040 and RP2350.
+# hardware_sleep (pico-extras) still backs the current Machine_sleep;
+# pico_low_power (SDK 2.3.0) is what the new sleep API builds on.
 target_link_libraries(${PROJECT_NAME} PRIVATE
   hardware_sleep
+  pico_low_power
 )
 
 # RTC only for RP2040

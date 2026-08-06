@@ -172,6 +172,18 @@ SECTIONS
         __bss_end__ = .;
     } > RAM
 
+    /* SDK 2.3.0's pico_low_power references these symbols (Pstate
+     * persistent data). Ported from the stock
+     * section_persistent_data.incl; nothing in this build places data
+     * here, so start == end and the library treats it as "no
+     * persistent data". */
+    .persistent_data (NOLOAD) : {
+        __persistent_data_start__ = .;
+        *(.persistent_data*)
+        . = ALIGN(4);
+    } > RAM
+    PROVIDE(__persistent_data_end__ = .);
+
     .heap (NOLOAD):
     {
         __end__ = .;
