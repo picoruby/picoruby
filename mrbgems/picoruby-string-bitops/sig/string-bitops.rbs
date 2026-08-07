@@ -1,0 +1,16 @@
+class String
+  def bit_get: (Integer offset, ?lsb_first: bool) -> Integer?
+  def bit_set?: (Integer offset, ?lsb_first: bool) -> bool?
+  def bit_set: (Integer offset, ?lsb_first: bool) -> String
+  def bit_clear: (Integer offset, ?lsb_first: bool) -> String
+  def bit_flip: (Integer offset, ?lsb_first: bool) -> String
+  def bit_count: () -> Integer
+  def bitwise_not: () -> String
+  def bitwise_not!: () -> String
+  def bitwise_and: (String other) -> String
+  def bitwise_and!: (String other) -> String
+  def bitwise_or: (String other) -> String
+  def bitwise_or!: (String other) -> String
+  def bitwise_xor: (String other) -> String
+  def bitwise_xor!: (String other) -> String
+end
