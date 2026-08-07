@@ -89,7 +89,8 @@ mrb_s_peek_event(mrb_state *mrb, mrb_value self)
  * Exactly one mrb_state owns the bridge, because the source table is a
  * process-global that ISRs write to -- a second owner could not tell
  * whose queue an event belongs to. The owner is claimed at gem init and
- * released at gem final; other VMs get no bridge methods at all.
+ * released at gem final; a second VM attempting to initialize the bridge
+ * raises.
  */
 
 static mrb_state *irq_owner_;
