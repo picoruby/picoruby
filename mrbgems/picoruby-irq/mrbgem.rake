@@ -4,4 +4,13 @@ MRuby::Gem::Specification.new('picoruby-irq') do |spec|
   spec.summary = 'IRQ module'
 
   spec.add_dependency 'picoruby-gpio'
+
+  # The ISR-to-task event bridge needs Task::Queue and the scheduler
+  # hook. Without them the gem still builds; only the bridge
+  # (IRQ.bind / IRQ.unbind / IRQ.take) compiles out. picoruby-machine
+  # owns the single hook slot and hands out scheduler services.
+  spec.add_dependency 'mruby-task' if build.picoruby?
+  spec.add_dependency 'picoruby-machine'
+
+  spec.cc.include_paths << "#{dir}/include"
 end

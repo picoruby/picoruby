@@ -3,8 +3,12 @@ module IRQ
   type irq_id_t = Integer
   type irq_event_type_t = Integer
   type irq_peri_t = GPIO
+  # Compile-time constant slot in the ISR-to-task event bridge; unrelated
+  # to irq_id_t, which is handed out by IRQ.register_gpio.
+  type irq_source_t = Integer
 
   MAX_PROCESS_COUNT: Integer
+  MAX_SOURCES: Integer
   HANDLER: Hash[irq_id_t, IRQInstance]
 
   private def self.peek_event: () -> [(irq_id_t | nil), irq_event_type_t]
@@ -14,6 +18,14 @@ module IRQ
   private def self.register_gpio: (gpio_pin_t pin, irq_event_type_t event_type, Hash[Symbol, untyped] opts) -> irq_id_t
   private def self.unregister_gpio: (irq_id_t id) -> bool
   def irq: (irq_event_type_t event_type, **untyped opts) { (irq_peri_t peri, irq_event_type_t event_type, Object capture) -> void } -> void
+
+  # ISR-to-task event bridge. Defined in C, and only in builds that have
+  # the task scheduler.
+  def self.gpio_source: () -> irq_source_t
+  def self.bind: (irq_source_t source, Task::Queue queue) -> Task::Queue
+  def self.unbind: (irq_source_t source) -> bool
+  def self.take: (irq_source_t source) -> Integer
+  def self.simulate: (irq_source_t source, Integer bits) -> nil
 
   class IRQInstance
     @id: irq_id_t

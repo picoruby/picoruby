@@ -41,6 +41,7 @@ MRuby::CrossBuild.new("r2p2-femtoruby-pico2_w") do |conf|
   conf.cc.defines << "MRBC_CONVERT_CRLF=1"
   conf.cc.defines << "MRBC_USE_MATH=1"
   conf.cc.defines << "MRBC_TICK_UNIT=1"
+  conf.cc.defines << "MRBC_TASK_SCHEDULER_HOOK"  # picoruby-irq event bridge
   conf.cc.defines << "MRBC_TIMESLICE_TICK_COUNT=10"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"

@@ -91,6 +91,62 @@ processed_count = IRQ.process(10)  # Process up to 10 events
 puts "Processed #{processed_count} events"
 ```
 
+## Event bridge (ISR to task)
+
+`IRQ.process` above is polling: something has to keep asking. The event
+bridge is the other direction -- a task parks in `Task::Queue#pop` and
+the interrupt wakes it.
+
+An interrupt handler cannot enter the VM, so it only stages work: it ORs
+event bits into a *source* and marks that source ready. At every
+scheduler entry, before the ready queue is read, PicoRuby turns each
+ready source into one token in the queue you bound to it. A task blocked
+on that queue becomes runnable in the same scheduler iteration.
+
+```ruby
+q = Task::Queue.new
+IRQ.bind(IRQ.gpio_source, q)
+
+Task.new do
+  while source = q.pop
+    IRQ.take(source)   # required: this is what allows the next token
+    # One token can stand for any number of interrupts, so drain rather
+    # than assume it means exactly one event.
+    while 0 < IRQ.process
+    end
+  end
+end
+```
+
+Source ids are compile-time constants, never allocated and never reused.
+GPIO uses one source for the whole subsystem: the token only says "the
+GPIO event queue is worth looking at", and `IRQ.process` is still what
+dispatches events to their handlers.
+
+### Contract
+
+1. **Tokens are edge-latched, coalesced notifications** -- one token per
+   "something happened since you last took the bits", not one per
+   interrupt. A burst of interrupts produces a single token whose bits
+   are ORed together, so the queue can never grow without bound.
+2. **Consumers must tolerate spurious tokens.** `IRQ.take` may return 0;
+   treat that as "nothing to do" rather than an error, and drain the
+   underlying peripheral until it reports empty rather than assuming one
+   token means exactly one event.
+3. **Late binding works, but coalesced.** Bits signalled while nothing
+   was bound are not lost: `IRQ.bind` re-asserts the source, and the
+   accumulated bits arrive on the next scheduler entry as one token.
+4. **Rebinding or unbinding a source with an undelivered token raises.**
+   Take the bits first. Rebinding the same queue is always a no-op.
+
+`IRQ.simulate(source, bits)` drives the bridge exactly as an interrupt
+handler would, for tests and for bringing a consumer up on a host build.
+Note that on a host build there are no GPIO interrupts to bind to.
+
+The bridge is available on both runtimes. A build configured without a
+task scheduler does not define these methods, and pays nothing for
+them.
+
 ## Constants
 
 ### GPIO Event Types

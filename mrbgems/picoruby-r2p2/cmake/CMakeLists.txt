@@ -250,6 +250,10 @@ if(PICORB_VM_MRUBY)
 elseif(PICORB_VM_MRUBYC)
   add_compile_definitions(PICORB_VM_MRUBYC=1)
   add_compile_definitions(MRBC_ALLOC_LIBC=1)
+  # Must match the build_config: ports compiled here share headers with
+  # the gem sources compiled by rake, and the IRQ event bridge is
+  # conditioned on this.
+  add_compile_definitions(MRBC_TASK_SCHEDULER_HOOK=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
     ${PICORUBY_ROOT}/mrbgems/picoruby-mrubyc/lib/mrubyc/src
   )

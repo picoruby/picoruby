@@ -103,7 +103,14 @@ gpio_isr_handler(void* arg)
     .event_type = events
   };
 
-  xQueueSendFromISR(event_queue, &event, NULL);
+  if (xQueueSendFromISR(event_queue, &event, NULL) == pdTRUE) {
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
+    /* Publish after the event is visible in the queue, so a task woken
+       by the token always finds it. A full queue does not signal: there
+       is nothing new to drain. */
+    IRQ_signal_from_isr(IRQ_SRC_GPIO, 1);
+#endif
+  }
 }
 
 int
@@ -236,3 +243,37 @@ IRQ_init(void)
 {
   memset(irq_handlers, 0, sizeof(irq_handlers));
 }
+
+#if defined(PICORB_IRQ_EVENT_BRIDGE)
+
+/*
+ * Atomic primitives for the event bridge. ESP-IDF supports the GCC
+ * __atomic builtins on both Xtensa and RISC-V targets, so no critical
+ * section (and no task/ISR variant split) is needed.
+ */
+
+uint32_t
+IRQ_hal_atomic_load_u32(const volatile uint32_t *p)
+{
+  return __atomic_load_n(p, __ATOMIC_SEQ_CST);
+}
+
+uint32_t
+IRQ_hal_atomic_or_u32(volatile uint32_t *p, uint32_t bits)
+{
+  return __atomic_fetch_or(p, bits, __ATOMIC_SEQ_CST);
+}
+
+uint32_t
+IRQ_hal_atomic_and_u32(volatile uint32_t *p, uint32_t mask)
+{
+  return __atomic_fetch_and(p, mask, __ATOMIC_SEQ_CST);
+}
+
+uint32_t
+IRQ_hal_atomic_exchange_u32(volatile uint32_t *p, uint32_t v)
+{
+  return __atomic_exchange_n(p, v, __ATOMIC_SEQ_CST);
+}
+
+#endif /* PICORB_IRQ_EVENT_BRIDGE */
