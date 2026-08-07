@@ -11,6 +11,10 @@ static void
 c_open_connection(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   size_t rx_buffer_size;
+  if (argc != 4) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments. expected 4");
+    return;
+  }
   if (v[4].tt == MRBC_TT_NIL) {
     rx_buffer_size = 0; // let the unit table pick the default
   } else if (v[4].tt == MRBC_TT_INTEGER) {

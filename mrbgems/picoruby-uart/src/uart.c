@@ -53,15 +53,17 @@ typedef struct {
  * overflow_count crosses the same boundary as the ring indices: the
  * producer is an ISR or, on ESP32, a task on another core. There is
  * only one writer, so it needs no read-modify-write -- the producer
- * reads its own value plainly and republishes it. Relaxed is enough
+ * loads its own value and republishes it incremented. Both halves go
+ * through the builtins: mixing a plain read with an atomic store on the
+ * same object is undefined even with a single writer. Relaxed is enough
  * because the counter orders nothing else, and __atomic_fetch_add would
  * be an out-of-line call to __atomic_fetch_add_4 on Cortex-M0+.
  */
 static inline void
 overflow_count_bump(uart_rx_metadata *metadata)
 {
-  __atomic_store_n(&metadata->overflow_count,
-                   metadata->overflow_count + 1, __ATOMIC_RELAXED);
+  uint32_t count = __atomic_load_n(&metadata->overflow_count, __ATOMIC_RELAXED);
+  __atomic_store_n(&metadata->overflow_count, count + 1, __ATOMIC_RELAXED);
 }
 
 static inline uint32_t

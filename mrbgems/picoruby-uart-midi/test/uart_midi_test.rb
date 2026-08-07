@@ -10,9 +10,9 @@ class UARTMIDITest < Picotest::Test
 
   def test_getevent_from_uart_buffer
     uart = @midi.instance_variable_get(:@uart)
-    uart.ungetbyte(100)
-    uart.ungetbyte(60)
-    uart.ungetbyte(0x90)
+    # ungetbyte holds one byte only, so a whole message has to enter the
+    # RX buffer the way real input does.
+    uart.inject_rx("\x90\x3c\x64")
     assert_equal [:note_on, 0, 60, 100], @midi.getevent
     assert @midi.last_event_timestamp_us.is_a?(Integer)
   end
