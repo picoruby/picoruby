@@ -1,6 +1,12 @@
 class UARTTest < Picotest::Test
   def setup
+    # Inside setup, not at the top of the file: this file is also loaded
+    # by host Ruby to enumerate the tests, where `irq` does not exist.
+    require 'irq'
     @uart = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 115200)
+    # The RX buffer belongs to the unit, not to this object, so it
+    # carries whatever an earlier test left in it.
+    @uart.clear_rx_buffer
   end
 
   def test_initialize
@@ -36,5 +42,212 @@ class UARTTest < Picotest::Test
 
   def test_putc_rejects_other_types
     assert_raise(TypeError) { @uart.putc(nil) }
+  end
+
+  def test_inject_rx_arrives_as_ordinary_input
+    assert_equal 3, @uart.inject_rx("abc")
+    assert_equal 3, @uart.bytes_available
+    assert_equal "abc", @uart.read
+  end
+
+  def test_event_source_id_does_not_collide_with_gpio
+    assert @uart.event_source_id.is_a?(Integer)
+    assert IRQ::SOURCE::GPIO < @uart.event_source_id
+    assert @uart.event_source_id < IRQ::MAX_SOURCES
+  end
+
+  # The v2 hypothesis: arriving bytes wake a task parked on the queue.
+  def test_incoming_bytes_deliver_a_token
+    source = @uart.event_source_id
+    q = Task::Queue.new
+    IRQ.take(source)
+    IRQ.unbind(source)
+    IRQ.bind(source, q)
+    @uart.inject_rx("hi")
+    Task.pass
+    assert_equal source, q.pop
+    assert_equal 1, IRQ.take(source)
+    assert_equal "hi", @uart.read
+    IRQ.unbind(source)
+  end
+
+  def test_a_burst_of_input_produces_one_token
+    source = @uart.event_source_id
+    q = Task::Queue.new
+    IRQ.take(source)
+    IRQ.unbind(source)
+    IRQ.bind(source, q)
+    @uart.inject_rx("a")
+    Task.pass
+    @uart.inject_rx("b")
+    Task.pass
+    @uart.inject_rx("c")
+    Task.pass
+    # Coalesced: one outstanding token stands for the whole burst.
+    assert_equal 1, q.size
+    assert_equal source, q.pop
+    assert_equal 1, IRQ.take(source)
+    assert_equal "abc", @uart.read
+    IRQ.unbind(source)
+  end
+
+  # --- UART#irq, the callback API over the bridge ---
+
+  # Spin the scheduler until the condition holds; delivery runs in the
+  # hidden dispatcher task, so it needs the scheduler to advance.
+  def wait_for(limit_ms = 100)
+    i = 0
+    while i < limit_ms
+      return true if yield
+      sleep_ms 1
+      i += 1
+    end
+    false
+  end
+
+  def test_irq_is_picoruby_only
+    skip "the guard fires only on FemtoRuby" unless femtoruby?
+    assert_raise(NotImplementedError) do
+      @uart.irq(UART::RX_RECEIVE) { |u, ev| }
+    end
+  end
+
+  def test_irq_delivers_received_data_to_the_handler
+    skip "FemtoRuby cannot spawn the dispatcher task" if femtoruby?
+    lines = []
+    instance = @uart.irq(UART::RX_RECEIVE) do |u, ev|
+      # One call may stand for a burst, so drain rather than count.
+      while line = u.gets
+        lines << line
+      end
+    end
+    IRQ.start
+    @uart.inject_rx("hello\nworld\n")
+    assert_true wait_for { lines.size == 2 }
+    assert_equal ["hello\n", "world\n"], lines
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_irq_handler_receives_the_uart_and_the_event
+    skip "FemtoRuby cannot spawn the dispatcher task" if femtoruby?
+    seen = nil
+    instance = @uart.irq(UART::RX_RECEIVE) do |u, ev|
+      seen = [u.equal?(@uart), ev, u.read]
+    end
+    IRQ.start
+    @uart.inject_rx("x")
+    assert_true wait_for { !seen.nil? }
+    assert_equal [true, UART::RX_RECEIVE, "x"], seen
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_unregister_stops_delivery
+    skip "FemtoRuby cannot spawn the dispatcher task" if femtoruby?
+    calls = 0
+    instance = @uart.irq(UART::RX_RECEIVE) do |u, ev|
+      calls += 1
+      u.clear_rx_buffer
+    end
+    IRQ.start
+    @uart.inject_rx("a")
+    assert_true wait_for { calls == 1 }
+    instance.unregister
+    @uart.inject_rx("b")
+    sleep_ms 30                     # long enough for a wrong delivery
+    assert_equal 1, calls
+    assert_equal "b", @uart.read    # the data itself is still there
+  ensure
+    IRQ.stop
+  end
+
+  def test_ungetbyte_holds_one_byte_only
+    assert_nil @uart.ungetbyte(0x41)
+    assert_raise(IOError) { @uart.ungetbyte(0x42) }
+    # The first byte is still the one that comes back.
+    assert_equal 0x41, @uart.getbyte
+    assert_nil @uart.ungetbyte(0x42)
+    assert_equal 0x42, @uart.getbyte
+  end
+
+  def test_ungetbyte_counts_towards_bytes_available
+    assert_equal 0, @uart.bytes_available
+    @uart.ungetbyte(0x41)
+    assert_equal 1, @uart.bytes_available
+    @uart.getbyte
+    assert_equal 0, @uart.bytes_available
+  end
+
+  def test_read_returns_the_pushed_back_byte_first
+    @uart.ungetbyte(0x41)
+    assert_equal "A", @uart.read
+    assert_nil @uart.read
+  end
+
+  def test_read_does_not_update_the_last_read_timestamp
+    @uart.ungetbyte(0x41)
+    assert_equal "A", @uart.read
+    # Only getbyte updates it, and clear_rx_buffer in setup cleared it.
+    assert_nil @uart.last_read_timestamp_us
+  end
+
+  def test_gets_returns_a_pushed_back_newline
+    @uart.ungetbyte(0x0a)
+    assert_equal "\n", @uart.gets
+    assert_equal 0, @uart.bytes_available
+  end
+
+  def test_gets_is_nil_while_no_newline_has_been_pushed_back
+    @uart.ungetbyte(0x41)
+    assert_nil @uart.gets
+    # Observing must not have consumed it.
+    assert_equal 1, @uart.bytes_available
+  end
+
+  def test_clear_rx_buffer_drops_the_pushed_back_byte
+    @uart.ungetbyte(0x41)
+    @uart.clear_rx_buffer
+    assert_equal 0, @uart.bytes_available
+    assert_nil @uart.getbyte
+  end
+
+  def test_clear_rx_buffer_forgets_the_last_read_timestamp
+    @uart.ungetbyte(0x41)
+    assert_equal 0x41, @uart.getbyte
+    assert @uart.last_read_timestamp_us.is_a?(Integer)
+    @uart.clear_rx_buffer
+    assert_nil @uart.last_read_timestamp_us
+  end
+
+  def test_reopening_a_unit_keeps_what_it_has_buffered
+    @uart.ungetbyte(0x41)
+    other = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 9600)
+    assert_equal 1, other.bytes_available
+    assert_equal 0x41, other.getbyte
+  end
+
+  def test_two_objects_on_one_unit_read_one_stream
+    other = UART.new(unit: :PICORB_UART_RP2040_UART0, baudrate: 115200)
+    @uart.ungetbyte(0x42)
+    assert_equal 1, other.bytes_available
+    assert_equal 0x42, other.getbyte
+    # The byte is gone for both of them; there is only one stream.
+    assert_equal 0, @uart.bytes_available
+    assert_nil @uart.getbyte
+  end
+
+  def test_reopening_a_unit_with_another_buffer_size_raises
+    assert_raise(ArgumentError) do
+      UART.new(unit: :PICORB_UART_RP2040_UART0, rx_buffer_size: 512)
+    end
+  end
+
+  def test_rx_buffer_size_must_be_a_power_of_two
+    assert_raise(IOError) do
+      UART.new(unit: :PICORB_UART_RP2040_UART0, rx_buffer_size: 100)
+    end
   end
 end

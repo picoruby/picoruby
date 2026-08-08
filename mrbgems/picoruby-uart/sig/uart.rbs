@@ -1,12 +1,10 @@
 # @sidebar io_peripheral
 class UART
-
-  # @sidebar io_peripheral
-  class RxBuffer
-  end
+  include IRQ
 
   type unit_t = Symbol|String
 
+  RX_RECEIVE: Integer
   PARITY_NONE: 0
   PARITY_ODD: 1
   PARITY_EVEN: 2
@@ -15,7 +13,6 @@ class UART
   FLOW_CONTROL_XON_XOFF: 2
 
   @unit_num: Integer
-  @rx_buffer: UART::RxBuffer
   @line_ending: ("\n"|"\r\n"|"\r")
 
   attr_reader baudrate: Integer
@@ -33,12 +30,11 @@ class UART
     ?cts_pin: Integer,
     ?rx_buffer_size: Integer?
   ) -> void
-  private def open_rx_buffer: (Integer|nil rx_buffer_size) -> UART::RxBuffer
   private def open_connection: (
     String unit,
     Integer txd_pin,
     Integer rxd_pin,
-    UART::RxBuffer rx_buffer
+    Integer|nil rx_buffer_size
   ) -> Integer
   def setmode: (
     ?baudrate: Integer?,
@@ -55,6 +51,11 @@ class UART
   private def _set_function: (Integer pin) -> void
   def set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
   private def _set_format: (Integer data_bits, Integer stop_bits, Integer parity) -> void
+  # Only defined when the build has the ISR-to-task event bridge.
+  def event_source_id: () -> Integer
+  # Test-only, and host builds only: drives the RX path as the interrupt
+  # handler would, which on a real port would be a second producer.
+  def inject_rx: (String bytes) -> Integer
   def read: (?Integer len) -> (String | nil)
   def readpartial: (Integer maxlen) -> String
   def getbyte: () -> (Integer | nil)

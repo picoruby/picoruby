@@ -111,8 +111,8 @@ class IRQBridgeTest < Picotest::Test
 
   # GPIO shares one source for the whole subsystem, and it must be a
   # real slot -- binding it is how a task waits for button presses.
-  def test_gpio_source_is_a_bindable_source
-    src = IRQ.gpio_source
+  def test_the_gpio_source_constant_is_bindable
+    src = IRQ::SOURCE::GPIO
     assert_true 0 <= src
     assert_true src < IRQ::MAX_SOURCES
     assert_not_equal spare_source, src
@@ -150,9 +150,453 @@ class IRQBridgeTest < Picotest::Test
     assert_equal 8, IRQ.take(spare_source)
   end
 
-  # The same thing with a second task doing the waiting, which is how a
-  # driver would really use it. PicoRuby only: FemtoRuby cannot spawn a
-  # task from a block (Task.create takes compiled bytecode).
+  # --- The dispatcher machinery under IRQ.start ---
+  # PicoRuby only: the dispatcher is a task created from a block.
+  # on/off are private (internal API); the tests reach them with send
+  # because the machinery contracts -- stale tokens, retirement, lock
+  # ordering -- are best pinned down at this layer.
+
+  def irq_on(source, &handler)
+    IRQ.send(:on, source, &handler)
+  end
+
+  def irq_off(source)
+    # Runs in ensure blocks even after a skip, so it must be harmless
+    # on FemtoRuby -- whose send cannot reach Ruby-defined methods.
+    return false if femtoruby?
+    IRQ.send(:off, source)
+  end
+
+  # Spin the scheduler until the condition holds; the dispatcher is
+  # another task, so every delivery needs it to run.
+  def wait_for(limit_ms = 100)
+    i = 0
+    while i < limit_ms
+      return true if yield
+      sleep_ms 1
+      i += 1
+    end
+    false
+  end
+
+  def release_spare_for_on
+    IRQ.take(spare_source)
+    IRQ.unbind(spare_source)
+  end
+
+  def test_start_is_picoruby_only
+    skip "the guard fires only on FemtoRuby" unless femtoruby?
+    assert_raise(NotImplementedError) { IRQ.start }
+    # stop must stay callable from ensure blocks on either VM.
+    assert_false IRQ.stop
+  end
+
+  # --- IRQ.start / IRQ.stop, the user-facing switch ---
+
+  # The delivery protocol only needs a peripheral that exposes an
+  # event source; the spare slot plays one. That this works also
+  # proves the protocol is open to any gem, not just UART.
+  def make_fake_serial(source)
+    klass = Class.new do
+      include IRQ
+      attr_accessor :event_source_id_value
+      def event_source_id
+        @event_source_id_value
+      end
+    end
+    fake = klass.new
+    fake.event_source_id_value = source
+    fake
+  end
+
+  def test_start_and_stop_are_idempotent_and_stop_retires
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    wait_for { dispatcher_tasks.empty? }
+    assert_false IRQ.stop
+    assert_true IRQ.start
+    assert_false IRQ.start          # a second start is a no-op
+    assert_equal 1, dispatcher_tasks.size
+    assert_true IRQ.stop
+    assert_false IRQ.stop           # a second stop is a no-op
+    assert_true wait_for { dispatcher_tasks.empty? }
+  ensure
+    IRQ.stop
+  end
+
+  def test_start_delivers_peripheral_events
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    fake = make_fake_serial(spare_source)
+    seen = []
+    instance = fake.irq(1, capture: "tag") do |peri, event_type, capture|
+      seen << [peri.equal?(fake), event_type, capture]
+    end
+    IRQ.start
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { !seen.empty? }
+    assert_equal [[true, 1, "tag"]], seen
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_events_signalled_before_start_arrive_after_start
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    fake = make_fake_serial(spare_source)
+    seen = []
+    instance = fake.irq(1) { |peri, event_type, capture| seen << event_type }
+    IRQ.simulate(spare_source, 1)   # nothing is started yet
+    Task.pass
+    assert_true seen.empty?
+    IRQ.start                       # late binding: the bits were latched
+    assert_true wait_for { seen == [1] }
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_registration_after_start_is_live_immediately
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    IRQ.start
+    fake = make_fake_serial(spare_source)
+    seen = []
+    instance = fake.irq(1) { |peri, event_type, capture| seen << event_type }
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { seen == [1] }
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_each_instance_gets_only_its_masked_events
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    fake = make_fake_serial(spare_source)
+    ones = []
+    twos = []
+    i1 = fake.irq(1) { |peri, event_type, capture| ones << event_type }
+    i2 = fake.irq(2) { |peri, event_type, capture| twos << event_type }
+    IRQ.start
+    IRQ.simulate(spare_source, 3)
+    assert_true wait_for { !ones.empty? && !twos.empty? }
+    assert_equal [1], ones
+    assert_equal [2], twos
+    i1.unregister
+    i2.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_a_raising_handler_does_not_rob_its_neighbors
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    fake = make_fake_serial(spare_source)
+    seen = []
+    bad = fake.irq(1) { |peri, event_type, capture| raise "deliberate failure" }
+    good = fake.irq(1) { |peri, event_type, capture| seen << event_type }
+    IRQ.start
+    IRQ.simulate(spare_source, 1)
+    # Isolation is per handler: the raiser is reported, its neighbor
+    # still gets the bits.
+    assert_true wait_for { seen == [1] }
+    bad.unregister
+    good.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_a_handler_that_unregisters_itself_does_not_skip_its_neighbor
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    fake = make_fake_serial(spare_source)
+    seen = []
+    # @type var first: IRQ::IRQInstance?
+    first = nil
+    first = fake.irq(1) { |peri, event_type, capture| first.unregister }
+    second = fake.irq(1) { |peri, event_type, capture| seen << event_type }
+    IRQ.start
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { seen == [1] }
+    second.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_a_disabled_instance_is_skipped
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    fake = make_fake_serial(spare_source)
+    seen = []
+    instance = fake.irq(1) { |peri, event_type, capture| seen << event_type }
+    IRQ.start
+    instance.disable
+    IRQ.simulate(spare_source, 1)
+    sleep_ms 30                     # long enough for a wrong delivery
+    assert_true seen.empty?
+    instance.enable
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { seen == [1] }
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_unregister_releases_the_source_for_the_queue_level
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    fake = make_fake_serial(spare_source)
+    instance = fake.irq(1) { |peri, event_type, capture| }
+    IRQ.start
+    instance.unregister
+    q = Task::Queue.new
+    IRQ.bind(spare_source, q)       # free again: delivery would refuse
+    IRQ.simulate(spare_source, 4)
+    Task.pass
+    assert_equal spare_source, q.pop(timeout_ms: 200)
+    assert_equal 4, IRQ.take(spare_source)
+    IRQ.unbind(spare_source)
+  ensure
+    IRQ.stop
+  end
+
+  def test_start_refuses_a_source_bound_by_hand_and_rolls_back
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    fake = make_fake_serial(spare_source)
+    instance = fake.irq(1) { |peri, event_type, capture| }
+    q = Task::Queue.new
+    IRQ.bind(spare_source, q)
+    assert_raise(ArgumentError) { IRQ.start }
+    # The failed start rolled itself back: once the manual binding is
+    # gone, a retry works and the registration was kept.
+    IRQ.unbind(spare_source)
+    seen = []
+    instance.unregister
+    instance = fake.irq(1) { |peri, event_type, capture| seen << event_type }
+    assert_true IRQ.start
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { seen == [1] }
+    instance.unregister
+  ensure
+    IRQ.stop
+  end
+
+  def test_on_delivers_bits_to_the_handler
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    seen = []
+    irq_on(spare_source) { |bits| seen << bits }
+    IRQ.simulate(spare_source, 5)
+    assert_true wait_for { !seen.empty? }
+    assert_equal [5], seen
+  ensure
+    irq_off(spare_source)
+  end
+
+  def test_a_raising_handler_does_not_stop_the_dispatcher
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    calls = 0
+    irq_on(spare_source) do |bits|
+      calls += 1
+      raise "deliberate failure from the test handler" if calls == 1
+    end
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { calls == 1 }
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { calls == 2 }
+  ensure
+    irq_off(spare_source)
+  end
+
+  def test_off_releases_the_source_completely
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    irq_on(spare_source) { |bits| }
+    IRQ.simulate(spare_source, 1)
+    wait_for { true }
+    assert_true irq_off(spare_source)
+    assert_false irq_off(spare_source)
+    # The source is unbound and holds no token, so the queue-level API
+    # can pick it up from scratch.
+    q = Task::Queue.new
+    IRQ.bind(spare_source, q)
+    IRQ.simulate(spare_source, 2)
+    Task.pass
+    assert_equal spare_source, q.pop
+    assert_equal 2, IRQ.take(spare_source)
+    IRQ.unbind(spare_source)
+  end
+
+  def test_on_refuses_a_source_bound_by_hand
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    # setup bound spare_source to @q, so IRQ.on must not steal it.
+    assert_raise(ArgumentError) { irq_on(spare_source) { |b| } }
+  end
+
+  # A failed on must leave no handler behind: the C side rejects the
+  # source only after the handler is registered, and a dead entry
+  # would keep handlers.empty? false forever -- the dispatcher would
+  # never retire and the VM could never finish.
+  def test_a_failed_on_leaves_no_handler_behind
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    assert_raise(ArgumentError) { irq_on(IRQ::MAX_SOURCES) { |b| } }
+    seen = []
+    irq_on(spare_source) { |bits| seen << bits }
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { seen == [1] }
+    irq_off(spare_source)
+    assert_true wait_for { dispatcher_tasks.empty? }
+  end
+
+  # The public IRQ.bind rebinds a source silently whenever no token is
+  # outstanding, so a binding made after on can replace the
+  # dispatcher's. off must then release only its own bookkeeping -- an
+  # unconditional take-and-unbind would tear down the newcomer's
+  # binding and discard its events.
+  def test_off_leaves_a_binding_made_after_on_alone
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    irq_on(spare_source) { |bits| }
+    q = Task::Queue.new
+    IRQ.bind(spare_source, q)
+    assert_true irq_off(spare_source)        # its handler is removed...
+    IRQ.simulate(spare_source, 2)
+    Task.pass
+    assert_equal spare_source, q.pop(timeout_ms: 200)
+    assert_equal 2, IRQ.take(spare_source)   # ...but the binding survived
+    IRQ.unbind(spare_source)
+  end
+
+  def test_a_second_handler_for_the_same_source_raises
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    irq_on(spare_source) { |bits| }
+    assert_raise(ArgumentError) { irq_on(spare_source) { |b| } }
+  ensure
+    irq_off(spare_source)
+  end
+
+  def test_on_works_again_after_all_handlers_were_removed
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    # First round: deliver, then off removes the last handler.
+    seen = []
+    irq_on(spare_source) { |bits| seen << bits }
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { seen.size == 1 }
+    irq_off(spare_source)
+    # Second round: the resident dispatcher must deliver again.
+    irq_on(spare_source) { |bits| seen << bits }
+    IRQ.simulate(spare_source, 2)
+    assert_true wait_for { seen.size == 2 }
+    assert_equal [1, 2], seen
+  ensure
+    irq_off(spare_source)
+  end
+
+  # A token already in the dispatcher's queue outlives IRQ.off. The
+  # dispatcher must not keep the bits it takes through such a token:
+  # they may have arrived for whoever bound the source afterwards.
+  def test_a_stale_token_does_not_steal_bits_from_the_next_consumer
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    entered = 0
+    irq_on(spare_source) do |bits|
+      entered += 1
+      sleep_ms 30
+    end
+    IRQ.simulate(spare_source, 1)
+    assert_true wait_for { entered == 1 } # dispatcher is inside the handler
+    IRQ.simulate(spare_source, 2)         # queues a second token behind it
+    Task.pass
+    irq_off(spare_source)                 # leaves that token stale
+    q = Task::Queue.new
+    IRQ.bind(spare_source, q)
+    IRQ.simulate(spare_source, 4)         # bits for the new consumer
+    # Let the dispatcher wake and pop the stale token BEFORE the new
+    # consumer looks -- that is the order in which stealing is possible
+    # at all. It must give the bits back; a spurious token afterwards is
+    # within the contract, lost bits are not.
+    sleep_ms 60
+    got = 0
+    tries = 0
+    while got == 0 && tries < 10
+      src = q.pop(timeout_ms: 200)
+      break if src.nil?
+      got = IRQ.take(spare_source)
+      tries += 1
+    end
+    assert_equal 4, got
+    # The give-back may have produced one more (spurious) token; release
+    # it so unbind is legal.
+    IRQ.take(spare_source)
+    IRQ.unbind(spare_source)
+  end
+
+  # Live dispatchers only: one that already retired (DORMANT) is done,
+  # merely not yet reaped by the next IRQ.on.
+  def dispatcher_tasks
+    # @type var found: Array[Task]
+    found = []
+    list = Task.list
+    i = 0
+    while i < list.size
+      t = list[i]
+      found << t if t.name == "irq_dispatcher" && t.status != :DORMANT
+      i += 1
+    end
+    found
+  end
+
+  # The off that removes the last handler must let the dispatcher end:
+  # the scheduler only finishes when no task is left waiting, so a
+  # dispatcher parked in pop forever would keep the VM (and this very
+  # test process) alive after the program is done with interrupts.
+  def test_the_dispatcher_retires_after_the_last_off
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    irq_on(spare_source) { |bits| }
+    assert_equal 1, dispatcher_tasks.size
+    irq_off(spare_source)
+    assert_true wait_for { dispatcher_tasks.empty? }
+  end
+
+  # Within one on/off burst the dispatcher is reused, not torn down and
+  # recreated per cycle. Task.new roots every task it creates, so a
+  # dispatcher per cycle would be a leak -- and these cycles
+  # deliberately never yield, so the retire requests they queue are all
+  # re-checked and discarded by the one dispatcher once it runs.
+  def test_on_off_cycles_reuse_one_dispatcher
+    skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
+    release_spare_for_on
+    # A dispatcher from an earlier test may still be on its way out;
+    # let it finish so the count below is this burst's alone.
+    wait_for { dispatcher_tasks.empty? }
+    n = 0
+    while n < 5
+      irq_on(spare_source) { |bits| }
+      irq_off(spare_source)
+      n += 1
+    end
+    assert_true dispatcher_tasks.size <= 1
+    # And the survivor still delivers.
+    seen = []
+    irq_on(spare_source) { |bits| seen << bits }
+    IRQ.simulate(spare_source, 3)
+    assert_true wait_for { !seen.empty? }
+    assert_equal [3], seen
+  ensure
+    irq_off(spare_source)
+  end
+
+  # The parked-pop hypothesis again, with a second task doing the
+  # waiting, which is how a driver would really use it. PicoRuby only:
+  # FemtoRuby cannot spawn a task from a block (Task.create takes
+  # compiled bytecode).
   def test_a_task_blocked_in_pop_wakes_on_signal
     skip "FemtoRuby cannot spawn a task from a block" if femtoruby?
     q = @q

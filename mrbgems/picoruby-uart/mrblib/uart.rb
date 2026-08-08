@@ -1,6 +1,34 @@
 require "gpio"
+begin
+  require "irq"
+rescue LoadError
+  # No picoruby-irq in this build (ESP32); the include below then
+  # falls back to a stub UART#irq that raises NotImplementedError.
+end
 
 class UART
+  # Event bits for UART#irq, matching what the RX interrupt signals
+  # through the event bridge (UART_signal_rx in src/uart.c). Further
+  # conditions -- break, errors -- become further bits, so the API
+  # already has room for them.
+  RX_RECEIVE = 1
+
+  # The event-delivery protocol (see picoruby-irq's README): the
+  # include provides UART#irq, and #event_source_id (defined in the
+  # C glue when the build has the bridge) tells IRQ which source this
+  # object signals. rescue, not defined?: the ESP32 build carries no
+  # picoruby-irq, and mruby/c has no defined? for constants.
+  begin
+    include IRQ
+  rescue NameError
+    # No picoruby-irq in this build: give UART#irq the same visible
+    # failure every other no-bridge path raises, instead of a
+    # NoMethodError that looks like a typo.
+    def irq(event_type, **opts, &callback)
+      raise NotImplementedError, "this build has no event bridge"
+    end
+  end
+
   def initialize(
         unit: nil,
         txd_pin: -1,
@@ -13,8 +41,7 @@ class UART
         rts_pin: -1,
         cts_pin: -1,
         rx_buffer_size: nil)
-    @rx_buffer = open_rx_buffer(rx_buffer_size)
-    @unit_num = open_connection(unit.to_s, txd_pin, rxd_pin, @rx_buffer)
+    @unit_num = open_connection(unit.to_s, txd_pin, rxd_pin, rx_buffer_size)
     @baudrate = _set_baudrate(baudrate)
     setmode(
       baudrate: nil,

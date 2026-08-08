@@ -47,9 +47,45 @@ void IRQ_init(void);
 #define IRQ_MAX_SOURCES 8
 #endif
 
+/*
+ * The one registry of source ids. Keeping them here rather than in each
+ * driver's header is what makes a collision impossible to write.
+ *
+ * Layout: a common block shared by every port, then one block for the
+ * peripherals the building platform actually wires to the bridge. Each
+ * block starts where the previous one ended, so ids stay unique by
+ * construction, and a port that lacks a peripheral does not spend a
+ * source on it. Per-unit ids within a platform block must stay
+ * adjacent: drivers compute source = base + unit_num.
+ */
 enum {
+  /* -- Common: every port ----------------------------------------- */
   IRQ_SRC_GPIO = 0,   /* shared by the whole GPIO subsystem */
+  IRQ_SRC_COMMON_END_,
+
+#if defined(PICORB_PLATFORM_RP2)
+  /* -- RP2040 / RP2350: two hardware UARTs ------------------------ */
+  IRQ_SRC_UART0 = IRQ_SRC_COMMON_END_,  /* one per unit: a reader of */
+  IRQ_SRC_UART1,                        /* UART0 should not wake for */
+  IRQ_SRC_UART_END_,                    /* traffic on UART1 */
+  IRQ_SRC_PLATFORM_END_ = IRQ_SRC_UART_END_,
+#elif defined(PICORB_PLATFORM_POSIX)
+  /* -- POSIX host: the single stub UART the tests drive ----------- */
+  IRQ_SRC_UART0 = IRQ_SRC_COMMON_END_,
+  IRQ_SRC_UART_END_,
+  IRQ_SRC_PLATFORM_END_ = IRQ_SRC_UART_END_,
+#else
+  /* -- Other platforms (ESP32, ...): nothing on the bridge yet ---- */
+  IRQ_SRC_PLATFORM_END_ = IRQ_SRC_COMMON_END_,
+#endif
 };
+
+/* Compile-time proof that every block fits the table, and that the
+   table fits the 32-bit masks in irq_source.c -- a 33rd source would
+   pass valid_id and then shift out of the word. */
+typedef char irq_source_registry_fits_[
+  ((IRQ_SRC_PLATFORM_END_ <= IRQ_MAX_SOURCES) &&
+   (IRQ_MAX_SOURCES <= 32)) * 2 - 1];
 
 /* ISR side. Invalid ids are a no-op. Order is load-bearing: the bits
  * are published before the source is marked ready. */

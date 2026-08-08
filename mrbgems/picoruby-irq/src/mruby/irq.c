@@ -266,22 +266,84 @@ mrb_s_simulate(mrb_state *mrb, mrb_value self)
 }
 
 /*
- * IRQ.gpio_source -> the source id shared by every GPIO interrupt
+ * IRQ._bind_if_unbound(id, queue) -> whether the binding was made
  *
- * One source for the whole subsystem, not one per pin: the token only
- * says "the GPIO event queue is worth looking at", and IRQ.process is
- * what sorts events out to their handlers.
+ * IRQ.on's binding step. Tasks switch only at instruction boundaries,
+ * so one C call is indivisible; a check-then-bind written in Ruby
+ * leaves a window in which another task's manual IRQ.bind lands
+ * between the two and is then silently stolen. Refuses any existing
+ * binding instead of replacing it; otherwise the semantics are
+ * bind's, including re-asserting bits that arrived while nothing was
+ * bound.
  */
 static mrb_value
-mrb_s_gpio_source(mrb_state *mrb, mrb_value self)
+mrb_s_bind_if_unbound(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(IRQ_SRC_GPIO);
+  mrb_int id;
+  mrb_value queue, current;
+  struct RClass *queue_class;
+
+  mrb_get_args(mrb, "io", &id, &queue);
+  irq_check_id(mrb, id);
+
+  queue_class = mrb_class_get_under_id(mrb, mrb_class_get_id(mrb, MRB_SYM(Task)), MRB_SYM(Queue));
+  if (!mrb_obj_is_kind_of(mrb, queue, queue_class)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "IRQ.bind expects a Task::Queue");
+  }
+  current = mrb_ary_entry(irq_bindings_, id);
+  if (mrb_obj_eq(mrb, current, queue)) {
+    return mrb_true_value();   /* already this queue; nothing to do */
+  }
+  if (!mrb_nil_p(current)) {
+    return mrb_false_value();  /* someone else's binding; never steal it */
+  }
+  mrb_ary_set(mrb, irq_bindings_, id, queue);
+  if (IRQ_peek_pending((int)id) != 0) {
+    IRQ_mark_ready((int)id);
+  }
+  return mrb_true_value();
+}
+
+/*
+ * IRQ._unbind_if_bound(id, queue) -> whether the binding was removed
+ *
+ * IRQ.off's release step, the mirror of _bind_if_unbound: it touches
+ * the source only while the binding still belongs to `queue`. Written
+ * in Ruby as take-then-unbind it has two windows -- a scheduler entry
+ * between the two can push a fresh token, and another task's public
+ * IRQ.bind can replace the binding, which the unbind would then tear
+ * down. One C call has neither: tasks switch only at instruction
+ * boundaries, and the drain that creates tokens only runs at scheduler
+ * entries. An interrupt landing mid-call merely latches bits, which
+ * stay latched for whoever binds the source next.
+ */
+static mrb_value
+mrb_s_unbind_if_bound(mrb_state *mrb, mrb_value self)
+{
+  mrb_int id;
+  mrb_value queue, current;
+
+  mrb_get_args(mrb, "io", &id, &queue);
+  irq_check_id(mrb, id);
+
+  current = mrb_ary_entry(irq_bindings_, id);
+  if (!mrb_obj_eq(mrb, current, queue)) {
+    return mrb_false_value();  /* not ours (anymore); leave it alone */
+  }
+  /* Take discards the undelivered bits -- that is what off means --
+     and releases the outstanding-token state, which is what makes
+     removing the binding legal. A token already pushed stays in the
+     queue; the dispatcher resolves it as stale. */
+  IRQ_take_bits((int)id);
+  mrb_ary_set(mrb, irq_bindings_, id, mrb_nil_value());
+  return mrb_true_value();
 }
 
 static void
 irq_bridge_init(mrb_state *mrb, struct RClass *module_IRQ)
 {
   mrb_value bindings;
+  struct RClass *irq_singleton;
   int i;
 
   if (irq_owner_ != NULL) {
@@ -304,9 +366,26 @@ irq_bridge_init(mrb_state *mrb, struct RClass *module_IRQ)
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(unbind), mrb_s_unbind, MRB_ARGS_REQ(1));
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(take), mrb_s_take, MRB_ARGS_REQ(1));
   mrb_define_module_function_id(mrb, module_IRQ, MRB_SYM(simulate), mrb_s_simulate, MRB_ARGS_REQ(2));
-  /* Not MRB_SYM(): "gpio_source" appears in no Ruby source, so it is
-     not in the generated presym table. */
-  mrb_define_module_function(mrb, module_IRQ, "gpio_source", mrb_s_gpio_source, MRB_ARGS_NONE());
+  /* IRQ::SOURCE::GPIO -- the source shared by every GPIO interrupt.
+     One source for the whole subsystem, not one per pin: the token
+     only says "the GPIO event queue is worth looking at", and
+     IRQ.process is what sorts events out to their handlers. A
+     constant, not a method: source ids are compile-time constants and
+     should read as such. Platform sources (UART units and friends)
+     are deliberately NOT exported -- they are port-specific, and
+     peripheral objects hand out their own via #event_source_id. */
+  {
+    struct RClass *source_mod = mrb_define_module_under_id(mrb, module_IRQ, MRB_SYM(SOURCE));
+    mrb_define_const_id(mrb, source_mod, MRB_SYM(GPIO), mrb_fixnum_value(IRQ_SRC_GPIO));
+  }
+  /* Private singleton methods, not module functions: module_function
+     would also mix them into every includer as private instance
+     methods (UART gains #irq via include IRQ). Defined private from
+     the start; class << self code still reaches them through the
+     implicit receiver. */
+  irq_singleton = mrb_singleton_class_ptr(mrb, mrb_obj_value(module_IRQ));
+  mrb_define_private_method_id(mrb, irq_singleton, MRB_SYM(_bind_if_unbound), mrb_s_bind_if_unbound, MRB_ARGS_REQ(2));
+  mrb_define_private_method_id(mrb, irq_singleton, MRB_SYM(_unbind_if_bound), mrb_s_unbind_if_bound, MRB_ARGS_REQ(2));
   mrb_define_const(mrb, module_IRQ, "MAX_SOURCES", mrb_fixnum_value(IRQ_MAX_SOURCES));
 
   irq_bindings_ = bindings;

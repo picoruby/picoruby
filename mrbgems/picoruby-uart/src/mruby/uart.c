@@ -8,53 +8,26 @@
 #include <mruby/internal.h>
 #include <mruby/variable.h>
 
-static void
-mrb_uart_rx_buffer_free(mrb_state *mrb, void *ptr)
-{
-  mrb_free(mrb, ptr);
-}
-
-struct mrb_data_type mrb_uart_rx_buffer_type = {
-  "UART", mrb_uart_rx_buffer_free,
-};
-
-static mrb_value
-mrb_open_rx_buffer(mrb_state *mrb, mrb_value self)
-{
-  int rx_buffer_size;
-  mrb_value buffer_size;
-  mrb_get_args(mrb, "o", &buffer_size);
-  if (mrb_nil_p(buffer_size)) {
-    rx_buffer_size = PICORB_UART_RX_BUFFER_SIZE;
-  } else if (mrb_fixnum_p(buffer_size)) {
-    rx_buffer_size = mrb_fixnum(buffer_size);
-  } else {
-    mrb_raise(mrb, E_TYPE_ERROR, "wrong argument type (expected Integer or nil)");
-  }
-  size_t allocation_size = UART_rx_buffer_allocation_size((size_t)rx_buffer_size);
-  if (allocation_size == 0) {
-    struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
-    mrb_raise(mrb, IOError, "UART: rx_buffer_size is not power of two");
-  }
-  RingBuffer *rx = (RingBuffer *)mrb_malloc(mrb, allocation_size);
-  if (!UART_rx_buffer_init(rx, (size_t)rx_buffer_size)) {
-    mrb_free(mrb, rx);
-    struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
-    mrb_raise(mrb, IOError, "UART: failed to initialize rx buffer");
-  }
-  DATA_PTR(self) = rx;
-  DATA_TYPE(self) = &mrb_uart_rx_buffer_type;
-  return mrb_true_value(); // for compatibility with mruby/c
-}
-
 static mrb_value
 mrb_open_connection(mrb_state *mrb, mrb_value self)
 {
   const char *unit_name;
   mrb_int txd_pin, rxd_pin;
-  mrb_value rx_buffer;
-  mrb_get_args(mrb, "ziio", &unit_name, &txd_pin, &rxd_pin, &rx_buffer);
-  (void)rx_buffer; // for compatibility with mruby/c
+  mrb_value buffer_size;
+  size_t rx_buffer_size;
+  mrb_get_args(mrb, "ziio", &unit_name, &txd_pin, &rxd_pin, &buffer_size);
+  if (mrb_nil_p(buffer_size)) {
+    rx_buffer_size = 0; // let the unit table pick the default
+  } else if (mrb_fixnum_p(buffer_size)) {
+    mrb_int requested = mrb_fixnum(buffer_size);
+    if (requested <= 0) {
+      struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
+      mrb_raise(mrb, IOError, "UART: rx_buffer_size is not power of two");
+    }
+    rx_buffer_size = (size_t)requested;
+  } else {
+    mrb_raise(mrb, E_TYPE_ERROR, "wrong argument type (expected Integer or nil)");
+  }
   int unit_num = UART_resolve_unit_num(unit_name, (int)txd_pin, (int)rxd_pin);
   if (unit_num == UART_ERROR_UNIT_MISMATCH) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "UART: pins conflict with unit or are invalid for UART");
@@ -64,8 +37,28 @@ mrb_open_connection(mrb_state *mrb, mrb_value self)
     struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
     mrb_raise(mrb, IOError, "UART: invalid unit name");
   }
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  UART_init(unit_num, txd_pin, rxd_pin, rx);
+  switch (UART_unit_open(unit_num, rx_buffer_size)) {
+    case UART_ERROR_NONE:
+      break;
+    case UART_ERROR_BUFFER_INUSE:
+      mrb_raise(mrb, E_ARGUMENT_ERROR,
+                "UART: unit is already open with a different rx_buffer_size");
+      break;
+    case UART_ERROR_NOMEM:
+      mrb_raise(mrb, E_RUNTIME_ERROR, "UART: failed to allocate rx buffer");
+      break;
+    case UART_ERROR_INVALID_UNIT: {
+      struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
+      mrb_raise(mrb, IOError, "UART: invalid unit name");
+      break;
+    }
+    default: {
+      struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
+      mrb_raise(mrb, IOError, "UART: rx_buffer_size is not power of two");
+      break;
+    }
+  }
+  UART_open(unit_num, txd_pin, rxd_pin);
   return mrb_fixnum_value(unit_num);
 }
 
@@ -107,11 +100,17 @@ mrb__set_function(mrb_state *mrb, mrb_value self)
   return self;
 }
 
+static int
+mrb_uart_unit_num(mrb_state *mrb, mrb_value self)
+{
+  return mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+}
+
 static mrb_value
 mrb_read(mrb_state *mrb, mrb_value self)
 {
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  size_t available_len = RingBuffer_data_size(rx);
+  int unit_num = mrb_uart_unit_num(mrb, self);
+  size_t available_len = UART_bytes_available(unit_num);
   if (available_len == 0) {
     return mrb_nil_value();
   }
@@ -124,34 +123,33 @@ mrb_read(mrb_state *mrb, mrb_value self)
     }
   }
   uint8_t buf[available_len];
-  RingBuffer_pop_n(rx, buf,available_len);
+  available_len = UART_read(unit_num, buf, available_len);
   return mrb_str_new(mrb, (const char *)buf, available_len);
 }
 
 static mrb_value
 mrb_readpartial(mrb_state *mrb, mrb_value self)
 {
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
+  int unit_num = mrb_uart_unit_num(mrb, self);
   mrb_int maxlen;
   mrb_get_args(mrb, "i", &maxlen);
-  size_t available_len = RingBuffer_data_size(rx);
+  size_t available_len = UART_bytes_available(unit_num);
   if (available_len == 0) {
     return mrb_nil_value();
   }
-  if (available_len < maxlen) {
+  if (available_len < (size_t)maxlen) {
     maxlen = available_len;
   }
   uint8_t buf[maxlen];
-  RingBuffer_pop_n(rx, buf,maxlen);
-  return mrb_str_new(mrb, (const char *)buf, maxlen);
+  size_t len = UART_read(unit_num, buf, (size_t)maxlen);
+  return mrb_str_new(mrb, (const char *)buf, len);
 }
 
 static mrb_value
 mrb_getbyte(mrb_state *mrb, mrb_value self)
 {
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
   uint8_t byte;
-  if (!UART_popBuffer(rx, &byte)) {
+  if (!UART_getbyte(mrb_uart_unit_num(mrb, self), &byte)) {
     return mrb_nil_value();
   }
   return mrb_fixnum_value(byte);
@@ -162,8 +160,7 @@ mrb_ungetbyte(mrb_state *mrb, mrb_value self)
 {
   mrb_int value;
   mrb_get_args(mrb, "i", &value);
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  if (!UART_unshiftBuffer(rx, (uint8_t)(value & 0xff))) {
+  if (!UART_ungetbyte(mrb_uart_unit_num(mrb, self), (uint8_t)(value & 0xff))) {
     struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
     mrb_raise(mrb, IOError, "UART: rx buffer is full");
   }
@@ -173,16 +170,14 @@ mrb_ungetbyte(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_bytes_available(mrb_state *mrb, mrb_value self)
 {
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  return mrb_fixnum_value(RingBuffer_data_size(rx));
+  return mrb_fixnum_value(UART_bytes_available(mrb_uart_unit_num(mrb, self)));
 }
 
 static mrb_value
 mrb_last_read_timestamp_us(mrb_state *mrb, mrb_value self)
 {
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
   uint64_t timestamp_us;
-  if (!UART_lastReadTimestamp(rx, &timestamp_us)) {
+  if (!UART_lastReadTimestamp(mrb_uart_unit_num(mrb, self), &timestamp_us)) {
     return mrb_nil_value();
   }
   return mrb_int_value(mrb, (mrb_int)timestamp_us);
@@ -191,8 +186,7 @@ mrb_last_read_timestamp_us(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_rx_overflow_count(mrb_state *mrb, mrb_value self)
 {
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  return mrb_int_value(mrb, (mrb_int)UART_rxOverflowCount(rx));
+  return mrb_int_value(mrb, (mrb_int)UART_rxOverflowCount(mrb_uart_unit_num(mrb, self)));
 }
 
 static mrb_value
@@ -239,15 +233,14 @@ mrb_putc(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_gets(mrb_state *mrb, mrb_value self)
 {
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  int pos = RingBuffer_search_char(rx,(uint8_t)'\n');
+  int unit_num = mrb_uart_unit_num(mrb, self);
+  int pos = UART_line_length(unit_num);
   if (pos < 0) {
     return mrb_nil_value();
   }
-  pos++;
   uint8_t buf[pos];
-  RingBuffer_pop_n(rx, buf,pos);
-  return mrb_str_new(mrb, (const char *)buf, pos);
+  size_t len = UART_read(unit_num, buf, (size_t)pos);
+  return mrb_str_new(mrb, (const char *)buf, len);
 }
 
 static mrb_value
@@ -269,12 +262,40 @@ mrb_clear_tx_buffer(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_clear_rx_buffer(mrb_state *mrb, mrb_value self)
 {
-  RingBuffer *rx = (RingBuffer *)mrb_data_get_ptr(mrb, self, &mrb_uart_rx_buffer_type);
-  RingBuffer_clear(rx);
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
-  UART_clear_rx_buffer(unit_num);
+  UART_clear_rx(mrb_uart_unit_num(mrb, self));
   return self;
 }
+
+#if defined(PICORB_UART_EVENT_BRIDGE)
+/*
+ * The bridge source for this unit, to hand to IRQ.bind. Undefined in a
+ * build without the event bridge, exactly like IRQ::SOURCE.
+ */
+static mrb_value
+mrb_event_source_id(mrb_state *mrb, mrb_value self)
+{
+  int source = UART_event_source(mrb_uart_unit_num(mrb, self));
+  if (source < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "UART: this unit has no event source");
+  }
+  return mrb_fixnum_value(source);
+}
+
+#endif /* PICORB_UART_EVENT_BRIDGE */
+
+#if defined(PICORB_PLATFORM_POSIX)
+/* Test-only, host builds only: on a real port the interrupt handler is
+   already the producer, and this would be a second one. */
+static mrb_value
+mrb_inject_rx(mrb_state *mrb, mrb_value self)
+{
+  mrb_value str;
+  mrb_get_args(mrb, "S", &str);
+  return mrb_fixnum_value(UART_inject_rx(mrb_uart_unit_num(mrb, self),
+                                         (const uint8_t *)RSTRING_PTR(str),
+                                         (size_t)RSTRING_LEN(str)));
+}
+#endif
 
 static mrb_value
 mrb_break(mrb_state *mrb, mrb_value self)
@@ -301,9 +322,10 @@ mrb_break(mrb_state *mrb, mrb_value self)
 void
 mrb_picoruby_uart_gem_init(mrb_state* mrb)
 {
+  /* No MRB_SET_INSTANCE_TT: the RX ring belongs to the unit now, so a
+     UART carries no C data and has no free function that could pull the
+     ring out from under the ISR. */
   struct RClass *class_UART = mrb_define_class_id(mrb, MRB_SYM(UART), mrb->object_class);
-
-  MRB_SET_INSTANCE_TT(class_UART, MRB_TT_CDATA);
 
   mrb_define_const_id(mrb, class_UART, MRB_SYM(PARITY_NONE), mrb_fixnum_value(PARITY_NONE));
   mrb_define_const_id(mrb, class_UART, MRB_SYM(PARITY_EVEN), mrb_fixnum_value(PARITY_EVEN));
@@ -311,7 +333,6 @@ mrb_picoruby_uart_gem_init(mrb_state* mrb)
   mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_NONE), mrb_fixnum_value(FLOW_CONTROL_NONE));
   mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_RTS_CTS), mrb_fixnum_value(FLOW_CONTROL_RTS_CTS));
 
-  mrb_define_private_method_id(mrb, class_UART, MRB_SYM(open_rx_buffer), mrb_open_rx_buffer, MRB_ARGS_REQ(1));
   mrb_define_private_method_id(mrb, class_UART, MRB_SYM(open_connection), mrb_open_connection, MRB_ARGS_REQ(4));
   mrb_define_private_method_id(mrb, class_UART, MRB_SYM(_set_baudrate), mrb__set_baudrate, MRB_ARGS_REQ(1));
   mrb_define_private_method_id(mrb, class_UART, MRB_SYM(_set_flow_control), mrb__set_flow_control, MRB_ARGS_REQ(2));
@@ -331,6 +352,15 @@ mrb_picoruby_uart_gem_init(mrb_state* mrb)
   mrb_define_method_id(mrb, class_UART, MRB_SYM(clear_tx_buffer), mrb_clear_tx_buffer, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(clear_rx_buffer), mrb_clear_rx_buffer, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_UART, MRB_SYM(break), mrb_break, MRB_ARGS_OPT(1));
+#if defined(PICORB_UART_EVENT_BRIDGE)
+  /* In the presym table: picoruby-irq's mrblib names it. */
+  mrb_define_method_id(mrb, class_UART, MRB_SYM(event_source_id), mrb_event_source_id, MRB_ARGS_NONE());
+#endif
+#if defined(PICORB_PLATFORM_POSIX)
+  /* Not MRB_SYM(): the name appears in no Ruby source (tests are not
+     scanned), so it is not in the presym table. */
+  mrb_define_method(mrb, class_UART, "inject_rx", mrb_inject_rx, MRB_ARGS_REQ(1));
+#endif
 }
 
 void
