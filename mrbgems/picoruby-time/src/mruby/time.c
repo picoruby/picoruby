@@ -183,15 +183,25 @@ mrb_s_local(mrb_state *mrb, mrb_value klass)
     tm.tm_min = 0;
   }
 
+  int usec = 0;
   if (5 < argc) {
-    int sec = Integer(argv[5]);
+    double sec;
+    if (mrb_float_p(argv[5])) {
+      sec = mrb_float(argv[5]);
+      usec = (sec - (int)sec) * USEC;
+    } else {
+      sec = (double)Integer(argv[5]);
+    }
     if (sec < 0 || 60 < sec) mrb_raise(mrb, E_ARGUMENT_ERROR, "sec out of range");
-    tm.tm_sec = sec;
+    tm.tm_sec = (int)sec;
   } else {
     tm.tm_sec = 0;
   }
+  mrb_value time = new_from_tm(mrb, klass, &tm);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(time);
+  data->unixtime_us += usec;
 
-  return new_from_tm(mrb, klass, &tm);
+  return time;
 }
 
 static mrb_value
