@@ -58,8 +58,12 @@ module Machine
       unless ms.is_a?(Integer)
         raise ArgumentError, "ms: must be an Integer"
       end
-      # The C side takes uint32_t; reject instead of wrapping.
-      if ms < 1 || 4294967295 < ms
+      # The C side takes uint32_t and is the authority on the upper
+      # bound; it rejects instead of wrapping. No literal above
+      # INT32_MAX may appear here: a build whose Integer is 32-bit
+      # cannot load the irep that would hold it, and the failure takes
+      # down every class defined in this file.
+      if ms < 1
         raise ArgumentError, "ms: out of range (1..4294967295)"
       end
       _sleep_timer(deep, ms)

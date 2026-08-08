@@ -115,9 +115,15 @@ c_Machine__sleep_timer(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   mrbc_int_t ms = GET_INT_ARG(2);
-  /* The port takes uint32_t: reject rather than wrap. mrbc_int_t is
-   * 64-bit here (PICORB_INT64). */
-  if (ms < 1 || 4294967295LL < (int64_t)ms) {
+  /* The mrblib wrapper checks the lower bound too; this is the
+   * authority for a direct private call. The port takes uint32_t:
+   * reject rather than wrap. A 32-bit mrbc_int_t cannot hold a value
+   * out of range, so the upper bound only exists under MRBC_INT64. */
+  if (ms < 1
+#if defined(MRBC_INT64)
+      || 4294967295LL < (int64_t)ms
+#endif
+     ) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "ms out of range");
     return;
   }
