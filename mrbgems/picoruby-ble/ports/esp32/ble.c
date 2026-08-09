@@ -518,7 +518,13 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
       break;
     case BLE_GAP_EVENT_DISCONNECT:
       con_handle = 0xffff;
-      picoruby_nimble_reset_writes();
+      /* The write queue is deliberately NOT reset here. Its entries are
+       * addressed to an attribute handle, not to the link, and gatt_access_cb
+       * has already told the peer the write succeeded. Discarding them loses
+       * data the peer believes was delivered -- measured on hardware: a
+       * central that writes and disconnects inside one 100ms tick (PING, and
+       * CoreBluetooth's CCCD 0x0000 on unsubscribe) never reached Ruby.
+       * Staleness across a BLE restart is handled by picoruby_nimble_start. */
       if (role == BLE_ROLE_PERIPHERAL) {
         synth_disconnection_complete(event->disconnect.conn.conn_handle,
                                      (uint8_t)event->disconnect.reason);
