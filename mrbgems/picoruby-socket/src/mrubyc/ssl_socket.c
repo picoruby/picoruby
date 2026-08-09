@@ -853,9 +853,12 @@ c_ssl_context_set_key_file(mrbc_vm *vm, mrbc_value *v, int argc)
 #endif
 }
 
-/* ssl_context.set_ca_pem(str) -- store pointer to String buffer; keeps String alive via ivar */
+/* Common body of set_ca_pem/set_cert_pem/set_key_pem -- store pointer to
+ * String buffer; ivar keeps it alive */
 static void
-c_ssl_context_set_ca_pem(mrbc_vm *vm, mrbc_value *v, int argc)
+c_ssl_context_set_pem(mrbc_vm *vm, mrbc_value *v, int argc, const char *ivar_name,
+                      bool (*setter)(picorb_state *, picorb_ssl_context_t *, const void *, size_t),
+                      const char *error_message)
 {
   if (argc != 1) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
@@ -874,76 +877,35 @@ c_ssl_context_set_ca_pem(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_instance_setiv(&v[0], mrbc_str_to_symid("ca_pem"), &str);
+  mrbc_instance_setiv(&v[0], mrbc_str_to_symid(ivar_name), &str);
 
-  if (!SSLContext_set_ca(vm, wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set CA certificate");
+  if (!setter(vm, wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), error_message);
     return;
   }
 
   SET_NIL_RETURN();
+}
+
+/* ssl_context.set_ca_pem(str) */
+static void
+c_ssl_context_set_ca_pem(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  c_ssl_context_set_pem(vm, v, argc, "ca_pem", SSLContext_set_ca, "failed to set CA certificate");
 }
 
 /* ssl_context.set_cert_pem(str) */
 static void
 c_ssl_context_set_cert_pem(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
-    return;
-  }
-
-  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
-  if (!wrapper->ptr) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
-    return;
-  }
-
-  mrbc_value str = GET_ARG(1);
-  if (str.tt != MRBC_TT_STRING) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be a String");
-    return;
-  }
-
-  mrbc_instance_setiv(&v[0], mrbc_str_to_symid("cert_pem"), &str);
-
-  if (!SSLContext_set_cert(vm, wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set certificate");
-    return;
-  }
-
-  SET_NIL_RETURN();
+  c_ssl_context_set_pem(vm, v, argc, "cert_pem", SSLContext_set_cert, "failed to set certificate");
 }
 
 /* ssl_context.set_key_pem(str) */
 static void
 c_ssl_context_set_key_pem(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (argc != 1) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments");
-    return;
-  }
-
-  ssl_context_wrapper_t *wrapper = (ssl_context_wrapper_t *)v[0].instance->data;
-  if (!wrapper->ptr) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "SSL context is not initialized");
-    return;
-  }
-
-  mrbc_value str = GET_ARG(1);
-  if (str.tt != MRBC_TT_STRING) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "argument must be a String");
-    return;
-  }
-
-  mrbc_instance_setiv(&v[0], mrbc_str_to_symid("key_pem"), &str);
-
-  if (!SSLContext_set_key(vm, wrapper->ptr, (const void *)str.string->data, (size_t)str.string->size)) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "failed to set key");
-    return;
-  }
-
-  SET_NIL_RETURN();
+  c_ssl_context_set_pem(vm, v, argc, "key_pem", SSLContext_set_key, "failed to set key");
 }
 
 /* ssl_context.set_key(addr, size) */
@@ -1062,8 +1024,7 @@ ssl_socket_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
 
   mrbc_define_method(vm, class_SSLSocket, "new", c_ssl_socket_new);
 #ifdef PICO_CYW43_ARCH_POLL
-  mrbc_define_method(vm, class_SSLSocket, "__set_connect_hostname",
-                     c_ssl_socket_set_connect_hostname);
+  mrbc_define_method(vm, class_SSLSocket, "__set_connect_hostname", c_ssl_socket_set_connect_hostname);
   mrbc_define_method(vm, class_SSLSocket, "__open_poll", c_ssl_socket_open);
   mrbc_define_method(vm, class_SSLSocket, "__connect_poll", c_ssl_socket_connect);
   mrbc_define_method(vm, class_SSLSocket, "__connection_state", c_ssl_socket_connection_state);

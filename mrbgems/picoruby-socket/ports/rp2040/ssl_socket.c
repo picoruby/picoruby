@@ -496,18 +496,24 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
     return false;
   }
 
+  /* mbedTLS treats the input as PEM only when the given length includes
+   * the terminating NUL; otherwise it falls back to DER and fails.
+   * The buffers come from Ruby strings (set_*_pem), which are always
+   * NUL-terminated, so pass len + 1 here (same convention as the esp32
+   * port). DER input is not supported through this path. */
+  size_t ca_len = ssl_sock->ssl_ctx->ca_data ? ssl_sock->ssl_ctx->ca_len + 1 : 0;
   if (has_cert && has_key) {
     D("SSL: using 2-way auth (client cert)\n");
     tls_config = altcp_tls_create_config_client_2wayauth(
-      ssl_sock->ssl_ctx->ca_data, ssl_sock->ssl_ctx->ca_len,
-      ssl_sock->ssl_ctx->key_data, ssl_sock->ssl_ctx->key_len,
+      ssl_sock->ssl_ctx->ca_data, ca_len,
+      ssl_sock->ssl_ctx->key_data, ssl_sock->ssl_ctx->key_len + 1,
       NULL, 0,  /* No password for private key */
-      ssl_sock->ssl_ctx->cert_data, ssl_sock->ssl_ctx->cert_len
+      ssl_sock->ssl_ctx->cert_data, ssl_sock->ssl_ctx->cert_len + 1
     );
   } else {
     D("SSL: using standard client auth (no client cert configured)\n");
     tls_config = altcp_tls_create_config_client(
-      ssl_sock->ssl_ctx->ca_data, ssl_sock->ssl_ctx->ca_len
+      ssl_sock->ssl_ctx->ca_data, ca_len
     );
   }
 

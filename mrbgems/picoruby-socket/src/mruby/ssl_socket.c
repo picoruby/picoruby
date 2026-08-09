@@ -184,9 +184,12 @@ mrb_ssl_context_set_key(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
-/* ssl_context.set_ca_pem(str) -- store pointer to String buffer; ivar keeps it alive */
+/* Common body of set_ca_pem/set_cert_pem/set_key_pem -- store pointer to
+ * String buffer; ivar keeps it alive */
 static mrb_value
-mrb_ssl_context_set_ca_pem(mrb_state *mrb, mrb_value self)
+mrb_ssl_context_set_pem(mrb_state *mrb, mrb_value self, mrb_sym ivar_sym,
+                        bool (*setter)(picorb_state *, picorb_ssl_context_t *, const void *, size_t),
+                        const char *error_message)
 {
   picorb_ssl_context_t *ctx;
   mrb_value str;
@@ -197,57 +200,34 @@ mrb_ssl_context_set_ca_pem(mrb_state *mrb, mrb_value self)
   }
 
   mrb_get_args(mrb, "S", &str);
-  mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@ca_pem"), str);
+  mrb_iv_set(mrb, self, ivar_sym, str);
 
-  if (!SSLContext_set_ca(mrb, ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set CA certificate");
+  if (!setter(mrb, ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, error_message);
   }
 
   return mrb_nil_value();
+}
+
+/* ssl_context.set_ca_pem(str) */
+static mrb_value
+mrb_ssl_context_set_ca_pem(mrb_state *mrb, mrb_value self)
+{
+  return mrb_ssl_context_set_pem(mrb, self, MRB_IVSYM(ca_pem), SSLContext_set_ca, "failed to set CA certificate");
 }
 
 /* ssl_context.set_cert_pem(str) */
 static mrb_value
 mrb_ssl_context_set_cert_pem(mrb_state *mrb, mrb_value self)
 {
-  picorb_ssl_context_t *ctx;
-  mrb_value str;
-
-  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
-  if (!ctx) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
-  }
-
-  mrb_get_args(mrb, "S", &str);
-  mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@cert_pem"), str);
-
-  if (!SSLContext_set_cert(mrb, ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set certificate");
-  }
-
-  return mrb_nil_value();
+  return mrb_ssl_context_set_pem(mrb, self, MRB_IVSYM(cert_pem), SSLContext_set_cert, "failed to set certificate");
 }
 
 /* ssl_context.set_key_pem(str) */
 static mrb_value
 mrb_ssl_context_set_key_pem(mrb_state *mrb, mrb_value self)
 {
-  picorb_ssl_context_t *ctx;
-  mrb_value str;
-
-  ctx = (picorb_ssl_context_t *)mrb_data_get_ptr(mrb, self, &mrb_ssl_context_type);
-  if (!ctx) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "SSL context is not initialized");
-  }
-
-  mrb_get_args(mrb, "S", &str);
-  mrb_iv_set(mrb, self, mrb_intern_lit(mrb, "@key_pem"), str);
-
-  if (!SSLContext_set_key(mrb, ctx, RSTRING_PTR(str), (size_t)RSTRING_LEN(str))) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set key");
-  }
-
-  return mrb_nil_value();
+  return mrb_ssl_context_set_pem(mrb, self, MRB_IVSYM(key_pem), SSLContext_set_key, "failed to set key");
 }
 
 /* ssl_context.verify_mode = mode */
@@ -364,8 +344,7 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
   mrb_data_init(self, ssl_sock, &mrb_ssl_socket_type);
 
 #ifdef PICO_CYW43_ARCH_POLL
-  picorb_socket_attach_event_queue(mrb, &self,
-                                   SSLSocket_event_socket(ssl_sock));
+  picorb_socket_attach_event_queue(mrb, &self, SSLSocket_event_socket(ssl_sock));
 #endif
 
   return self;
@@ -409,8 +388,7 @@ mrb_ssl_socket_s_open(mrb_state *mrb, mrb_value klass)
   struct RData *data = mrb_data_object_alloc(mrb, cls, ssl_sock, &mrb_ssl_socket_type);
   mrb_value self = mrb_obj_value(data);
   mrb_iv_set(mrb, self, MRB_IVSYM(ssl_context), ssl_context_obj);
-  picorb_socket_attach_event_queue(mrb, &self,
-                                   SSLSocket_event_socket(ssl_sock));
+  picorb_socket_attach_event_queue(mrb, &self, SSLSocket_event_socket(ssl_sock));
   return self;
 #else
   if (!SSLSocket_connect(mrb, ssl_sock)) {
