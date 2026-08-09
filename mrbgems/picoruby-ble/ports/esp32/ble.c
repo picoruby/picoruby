@@ -167,12 +167,24 @@ gatt_access_cb(uint16_t conn, uint16_t attr_handle, struct ble_gatt_access_ctxt 
   switch (ctxt->op) {
     case BLE_GATT_ACCESS_OP_READ_CHR:
     case BLE_GATT_ACCESS_OP_READ_DSC: {
+      /* Runs on the NimBLE host task: reads only the mirror that the VM thread
+       * refreshes each tick. os_mbuf_append can allocate, so it is called
+       * outside the critical section. rd_tmp is static because this callback
+       * has exactly one caller task and NimBLE's stack is small -- same reason
+       * as the write branch's buf below. */
+      static uint8_t rd_tmp[RDM_MAX];
       const uint8_t *data = e->static_value;
       uint16_t len = e->static_len;
-      BLE_read_value_t rv = { .att_handle = e->ruby_handle, .data = NULL, .size = 0 };
-      if ((e->blob_flags & BLOB_FLAG_DYNAMIC) && BLE_read_data(&rv) == 0) {
-        data = rv.data;
-        len = rv.size;
+      if (e->mirror_slot >= 0) {
+        uint16_t n;
+        taskENTER_CRITICAL(&rdm_mux);
+        n = rdm_len[e->mirror_slot];
+        if (n > 0) memcpy(rd_tmp, rdm_buf[e->mirror_slot], n);
+        taskEXIT_CRITICAL(&rdm_mux);
+        if (n > 0) {
+          data = rd_tmp;
+          len = n;
+        }
       }
       if (data == NULL || len == 0) return 0;
       return os_mbuf_append(ctxt->om, data, len) == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
