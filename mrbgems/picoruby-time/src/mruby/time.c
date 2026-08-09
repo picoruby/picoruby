@@ -188,6 +188,7 @@ mrb_s_local(mrb_state *mrb, mrb_value klass)
     double sec;
     if (mrb_float_p(argv[5])) {
       sec = mrb_float(argv[5]);
+      if (sec != sec) mrb_raise(mrb, E_FLOATDOMAIN_ERROR, "NaN");
       usec = (sec - (int)sec) * USEC;
     } else {
       sec = (double)Integer(argv[5]);

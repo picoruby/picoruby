@@ -141,6 +141,7 @@ c_local(struct VM *vm, mrbc_value v[], int argc)
     mrbc_value value = GET_ARG(6);
     if (value.tt == MRBC_TT_FLOAT) {
       sec = value.d;
+      if (sec != sec) mrbc_raise(vm, MRBC_CLASS(RangeError), "NaN");
       usec = (sec - (int)sec) * USEC;
     } else {
       sec = (mrbc_float_t)Integer(value);
