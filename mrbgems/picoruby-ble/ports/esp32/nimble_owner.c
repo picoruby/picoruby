@@ -170,6 +170,7 @@ uint16_t
 picoruby_nimble_dequeue_event(uint8_t *out, uint16_t cap)
 {
   flush_writes();
+  picoruby_ble_refresh_read_mirrors();
   evq_entry_t entry;
   taskENTER_CRITICAL(&evq_mux);
   if (evq_count == 0) {
