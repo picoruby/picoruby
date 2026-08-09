@@ -172,9 +172,10 @@ gatt_access_cb(uint16_t conn, uint16_t attr_handle, struct ble_gatt_access_ctxt 
       if (ble_hs_mbuf_to_flat(ctxt->om, buf, sizeof(buf), &out_len) != 0) {
         return BLE_ATT_ERR_UNLIKELY;
       }
-      if (BLE_write_data(e->ruby_handle, buf, out_len) == 0) {
-        con_handle = conn;
+      if (picoruby_nimble_enqueue_write(e->ruby_handle, buf, out_len) != 0) {
+        return BLE_ATT_ERR_INSUFFICIENT_RES;
       }
+      con_handle = conn;
       return 0;
     }
     default:
@@ -450,6 +451,7 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
       break;
     case BLE_GAP_EVENT_DISCONNECT:
       con_handle = 0xffff;
+      picoruby_nimble_reset_writes();
       if (role == BLE_ROLE_PERIPHERAL) {
         synth_disconnection_complete(event->disconnect.conn.conn_handle,
                                      (uint8_t)event->disconnect.reason);
@@ -473,7 +475,7 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
         uint8_t v[2] = { 0x00, 0x00 };
         if (event->subscribe.cur_notify) v[0] = 0x01;
         else if (event->subscribe.cur_indicate) v[0] = 0x02;
-        BLE_write_data(e->cccd_ruby_handle, v, 2);
+        picoruby_nimble_enqueue_write(e->cccd_ruby_handle, v, 2);
         con_handle = event->subscribe.conn_handle;
       }
       break;
