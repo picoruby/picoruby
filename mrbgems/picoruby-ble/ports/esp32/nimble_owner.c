@@ -155,17 +155,6 @@ flush_writes(void)
   }
 }
 
-/* Pops one queued event into `out` (capacity `cap`), returns its length or 0
- * if empty/dropped. Touches only the plain evq ring buffer (critical-section
- * guarded) — never mruby. Must be called from the VM thread only: darwin's
- * port (ports/darwin/src/mruby/ble.c, PicoBLECentral.swift) documents that
- * BLE_push_event (which calls mrb_malloc/mrb_free against the GC-managed
- * heap) must have exactly one caller, the VM thread itself. This port used to
- * violate that by calling BLE_push_event directly from dispatch_timer_cb on
- * the esp_timer service task (tiny dedicated stack) — confirmed via hardware
- * trace to silently fail there (BLE_push_event's own trace lines never even
- * printed), which is why BTSTACK_EVENT_STATE never reached Ruby. See
- * stackchan-picoruby/docs/superpowers/handoff/2026-07-22-ble-role-coverage-verification-evidence.md. */
 uint16_t
 picoruby_nimble_dequeue_event(uint8_t *out, uint16_t cap)
 {

@@ -18,15 +18,12 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
-/* See ports/esp32/nimble_owner.c for the companion dispatch-path tracing;
- * both share the systemic BTSTACK_EVENT_STATE-never-arrives investigation. */
 static const char *BLE_TAG = "prb_ble_evq";
 
 #define EVT_BTSTACK_STATE 0x60
 #define EVT_DISCONNECTION_COMPLETE 0x05
 #define EVT_LE_META 0x3E
 #define EVT_ATT_MTU_EXCHANGE_COMPLETE 0xB5
-#define EVT_ATT_CAN_SEND_NOW 0xB7
 #define EVT_GAP_ADVERTISING_REPORT 0xDA
 #define EVT_GATT_QUERY_COMPLETE 0xA0
 #define EVT_GATT_SERVICE_QUERY_RESULT 0xA1
@@ -122,15 +119,6 @@ picoruby_ble_handle_r2n(uint16_t ruby_handle)
 {
   for (int i = 0; i < attr_map_count; i++) {
     if (attr_map[i].ruby_handle == ruby_handle) return attr_map[i].nimble_handle;
-  }
-  return 0;
-}
-
-uint16_t
-picoruby_ble_handle_n2r(uint16_t nimble_handle)
-{
-  for (int i = 0; i < attr_map_count; i++) {
-    if (attr_map[i].nimble_handle == nimble_handle) return attr_map[i].ruby_handle;
   }
   return 0;
 }

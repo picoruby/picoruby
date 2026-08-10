@@ -13,9 +13,10 @@ extern "C" {
 
 extern uint16_t con_handle;
 
+#define EVT_ATT_CAN_SEND_NOW 0xB7
+
 int picoruby_ble_gap_event(struct ble_gap_event *event, void *arg);
 void picoruby_ble_gatts_register_cb(struct ble_gatt_register_ctxt *ctxt, void *arg);
-uint16_t picoruby_ble_handle_n2r(uint16_t nimble_handle);
 uint16_t picoruby_ble_handle_r2n(uint16_t ruby_handle);
 /* VM-thread only. Copies each dynamic readable attribute's current mruby
  * String value into plain memory, so gatt_access_cb can serve GATT reads on
