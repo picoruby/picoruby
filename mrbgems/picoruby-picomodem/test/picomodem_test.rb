@@ -74,6 +74,15 @@ class PicomodemSessionTest < Picotest::Test
     assert_equal "app.rb", frame[1]
   end
 
+  # Line noise before a frame is skipped by scanning to the next STX.
+  def test_recv_frame_skips_leading_junk
+    junk = "\xFF\x00\x41\x7E"
+    io = CaptureIO.new(junk + build_frame(PicoModem::FILE_READ, "app.rb"))
+    frame = PicoModem.recv_frame(io)
+    assert_equal PicoModem::FILE_READ, frame[0]
+    assert_equal "app.rb", frame[1]
+  end
+
   def test_send_frame_roundtrip
     io = CaptureIO.new
     PicoModem.send_frame(io, PicoModem::DONE_ACK, [PicoModem::OK].pack("C"))
@@ -121,6 +130,22 @@ class PicomodemSessionTest < Picotest::Test
     frames = parse_frames(io.written)
     assert_equal 1, frames.size # only the SESSION_OPEN ack
     assert_equal PicoModem::DONE_ACK, frames[0][0]
+  end
+
+  # Noise between frames must not count toward SESSION_IDLE_LIMIT.
+  def test_session_survives_line_noise
+    junk = "\xFF" * (PicoModem::SESSION_IDLE_LIMIT + 4)
+    io = CaptureIO.new(
+      build_frame(PicoModem::SESSION_OPEN) +
+      junk +
+      build_frame(PicoModem::SESSION_QUIT)
+    )
+    info = PicoModem.run_session(io, io)
+    assert_equal "session", info
+    frames = parse_frames(io.written)
+    assert_equal 2, frames.size
+    assert_equal PicoModem::DONE_ACK, frames[0][0] # SESSION_OPEN ack
+    assert_equal PicoModem::DONE_ACK, frames[1][0] # SESSION_QUIT ack, not a timeout
   end
 
   # Without a session, one unknown command gets ERROR and the loop returns.

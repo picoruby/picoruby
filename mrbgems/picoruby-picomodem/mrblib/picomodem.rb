@@ -144,14 +144,18 @@ module PicoModem
     send_frame(io_out, CMD_CAP_FLAGS, payload)
   end
 
-  # Receive one PicoModem frame from io
-  # Returns [cmd, payload] or nil on timeout/error
+  # Receive one PicoModem frame from io, scanning to the next STX so line noise
+  # between frames is skipped instead of failing the read.
+  # Returns [cmd, payload] or nil on timeout/corrupt frame.
   def self.recv_frame(io)
-    # Read STX
-    stx = read_exact(io, 1)
-    return nil unless stx
-    unless stx.getbyte(0) == 0x02
-      return nil
+    skipped = 0
+    while true
+      stx = read_exact(io, 1)
+      return nil unless stx
+      break if stx.getbyte(0) == 0x02
+      skipped += 1
+      # Bound the scan so a junk flood without STX cannot block forever
+      return nil if CHUNK_SIZE < skipped
     end
     # Read length (2 bytes big-endian)
     len_bytes = read_exact(io, 2)
