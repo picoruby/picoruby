@@ -46,6 +46,13 @@ class PicomodemSessionTest < Picotest::Test
     [0x02, body.bytesize].pack("Cn") + body + [CRC.crc16(body)].pack("n")
   end
 
+  # A well-framed frame whose CRC is wrong, so recv_frame consumes it fully and
+  # returns nil instantly (no timeout wait).
+  def bad_crc_frame(cmd)
+    good = build_frame(cmd)
+    good.byteslice(0, good.bytesize - 1) + [good.getbyte(good.bytesize - 1) ^ 0xFF].pack("C")
+  end
+
   def parse_frames(bytes)
     frames = []
     pos = 0
@@ -90,6 +97,32 @@ class PicomodemSessionTest < Picotest::Test
     assert_equal 1, frames.size
     assert_equal PicoModem::DONE_ACK, frames[0][0]
     assert_equal PicoModem::OK, frames[0][1].getbyte(0)
+  end
+
+  # send_frame output (its own CRC) must decode back through recv_frame.
+  def test_send_frame_recv_frame_roundtrip
+    out = CaptureIO.new
+    PicoModem.send_frame(out, PicoModem::CMD_CAP_FLAGS, "\x01\x02")
+    frame = PicoModem.recv_frame(CaptureIO.new(out.written))
+    assert_equal PicoModem::CMD_CAP_FLAGS, frame[0]
+    assert_equal "\x01\x02", frame[1]
+  end
+
+  # The STX scan is bounded: a frame is found after CHUNK_SIZE junk bytes, but
+  # one more junk byte makes recv_frame give up with nil.
+  def test_recv_frame_bounds_junk_scan
+    frame = build_frame(PicoModem::CMD_CAP)
+    at_bound = CaptureIO.new(("\xFF" * PicoModem::CHUNK_SIZE) + frame)
+    assert_not_nil PicoModem.recv_frame(at_bound)
+    over_bound = CaptureIO.new(("\xFF" * (PicoModem::CHUNK_SIZE + 1)) + frame)
+    assert_nil PicoModem.recv_frame(over_bound)
+  end
+
+  # A bogus oversized length is rejected instead of allocating a huge read.
+  def test_recv_frame_rejects_oversized_length
+    big = PicoModem::MAX_FRAME_SIZE + 1
+    io = CaptureIO.new([0x02, big].pack("Cn") + "\x00")
+    assert_nil PicoModem.recv_frame(io)
   end
 
   # --- session dispatch loop -----------------------------------------------
@@ -146,6 +179,31 @@ class PicomodemSessionTest < Picotest::Test
     assert_equal 2, frames.size
     assert_equal PicoModem::DONE_ACK, frames[0][0] # SESSION_OPEN ack
     assert_equal PicoModem::DONE_ACK, frames[1][0] # SESSION_QUIT ack, not a timeout
+  end
+
+  # SESSION_IDLE_LIMIT consecutive recv failures end the session. A corrupt frame
+  # is an instant nil, so this needs no real waiting.
+  def test_session_ends_after_idle_limit
+    bad = bad_crc_frame(PicoModem::CMD_CAP)
+    io = CaptureIO.new(build_frame(PicoModem::SESSION_OPEN) + bad * PicoModem::SESSION_IDLE_LIMIT)
+    info = PicoModem.run_session(io, io)
+    assert_equal "session timeout", info
+  end
+
+  # A valid frame resets the idle counter: more than SESSION_IDLE_LIMIT total
+  # failures survive as long as a good frame lands before any run of 12.
+  def test_valid_frame_resets_idle
+    bad = bad_crc_frame(PicoModem::CMD_CAP)
+    n = PicoModem::SESSION_IDLE_LIMIT - 1
+    io = CaptureIO.new(
+      build_frame(PicoModem::SESSION_OPEN) +
+      bad * n +
+      build_frame(PicoModem::CMD_CAP) +
+      bad * n +
+      build_frame(PicoModem::SESSION_QUIT)
+    )
+    info = PicoModem.run_session(io, io)
+    assert_equal "capability", info
   end
 
   # Without a session, one unknown command gets ERROR and the loop returns.
@@ -215,8 +273,15 @@ class PicomodemSessionTest < Picotest::Test
     payload = frames[0][1]
     assert_equal PicoModem::PROTOCOL_VERSION, payload.getbyte(0)
     bitmap = payload.byteslice(2, payload.getbyte(1))
-    assert_true supported?(bitmap, PicoModem::SESSION_OPEN)
+    # Every advertised opcode is set...
     assert_true supported?(bitmap, PicoModem::FILE_READ)
+    assert_true supported?(bitmap, PicoModem::FILE_WRITE)
+    assert_true supported?(bitmap, PicoModem::DFU_START)
+    assert_true supported?(bitmap, PicoModem::CMD_CAP)
+    assert_true supported?(bitmap, PicoModem::SESSION_QUIT)
+    assert_true supported?(bitmap, PicoModem::SESSION_OPEN)
+    # ...and non-advertised opcodes are clear.
+    assert_false supported?(bitmap, PicoModem::CHUNK)
     assert_false supported?(bitmap, PicoModem::DONE)
   end
 

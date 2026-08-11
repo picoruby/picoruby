@@ -41,7 +41,10 @@ module PicoModem
 
   CHUNK_SIZE = 480
   TIMEOUT_MS = 5000
-  # Consecutive failed reads (timeout or bad frame) that end an idle session.
+  # Largest Cmd+Payload a valid frame can declare. A frame claiming more is
+  # rejected before read_exact allocates a read buffer for it.
+  MAX_FRAME_SIZE = 1024
+  # Consecutive recv failures (silence or a corrupt frame) before a session ends.
   SESSION_IDLE_LIMIT = 12
   PROTOCOL_VERSION = 1
   # Host -> device opcodes advertised by CMD_CAP.
@@ -83,37 +86,50 @@ module PicoModem
         idle = 0
         cmd = frame[0]
         payload = frame[1]
-        case cmd
-        when SESSION_OPEN
-          info = "session"
-          in_session = true
-          send_frame(io_out, DONE_ACK, [OK].pack("C"))
-        when SESSION_QUIT
-          info ||= "quit"
-          send_frame(io_out, DONE_ACK, [OK].pack("C"))
-          break
-        when CMD_CAP
-          info = "capability"
-          handle_capability(io_out)
-          break unless in_session
-        when FILE_READ
-          info = "read #{payload}"
-          handle_file_read(io_in, io_out, payload)
-          break unless in_session
-        when FILE_WRITE
-          path = 4 < payload.bytesize ? payload.byteslice(4, payload.bytesize - 4) : ""
-          info = "write #{path}"
-          handle_file_write(io_in, io_out, payload)
-          break unless in_session
-        when DFU_START
-          info = "dfu"
-          handle_dfu(io_in, io_out, payload)
-          break
-        when ABORT
-          info ||= "abort"
-          break
-        else
-          send_frame(io_out, ERROR, "Unknown command")
+        begin
+          case cmd
+          when SESSION_OPEN
+            info = "session"
+            in_session = true
+            send_frame(io_out, DONE_ACK, [OK].pack("C"))
+          when SESSION_QUIT
+            info ||= "quit"
+            send_frame(io_out, DONE_ACK, [OK].pack("C"))
+            break
+          when CMD_CAP
+            info = "capability"
+            handle_capability(io_out)
+            break unless in_session
+          when FILE_READ
+            info = "read #{payload}"
+            # Handlers return true when the host ABORTed, which ends the session.
+            break if handle_file_read(io_in, io_out, payload)
+            break unless in_session
+          when FILE_WRITE
+            path = 4 < payload.bytesize ? payload.byteslice(4, payload.bytesize - 4) : ""
+            info = "write #{path}"
+            break if handle_file_write(io_in, io_out, payload)
+            break unless in_session
+          when DFU_START
+            info = "dfu"
+            handle_dfu(io_in, io_out, payload)
+            break
+          when ABORT
+            info ||= "abort"
+            break
+          else
+            send_frame(io_out, ERROR, "Unknown command")
+            break unless in_session
+          end
+        rescue => e
+          # A per-command failure is recoverable: report it and, in a session,
+          # keep the loop running. A one-shot command ends as before.
+          info = "error: #{e.message}"
+          begin
+            send_frame(io_out, ERROR, e.message.to_s)
+          rescue
+            # best effort
+          end
           break unless in_session
         end
       end
@@ -162,6 +178,8 @@ module PicoModem
     return nil unless len_bytes
     # @type var length: Integer
     length = len_bytes.unpack("n")[0]
+    # Reject a bogus length before allocating a read buffer for it
+    return nil if length < 1 || MAX_FRAME_SIZE < length
     # Read cmd + payload + CRC16
     rest = read_exact(io, length + 2)
     return nil unless rest
@@ -212,11 +230,12 @@ module PicoModem
   # Handle FILE_READ: send file contents in chunks.
   # Reads the file in chunks to avoid loading the entire file into RAM.
   # CRC32 is computed incrementally across chunks.
+  # Returns true when the host ABORTed the transfer (the session should end).
   def self.handle_file_read(io_in, io_out, payload)
     path = payload.to_s
     unless File.exist?(path)
       send_frame(io_out, ERROR, "File not found: #{path}")
-      return
+      return false
     end
     total = File::Stat.new(path).size
     file_crc = 0
@@ -234,22 +253,25 @@ module PicoModem
         frame_payload << chunk
         send_frame(io_out, FILE_DATA, frame_payload)
         ack = recv_frame(io_in)
+        return true if ack && ack[0] == ABORT
         unless ack && ack[0] == CHUNK_ACK
           # No CHUNK_ACK: emit a terminal ERROR so a session sees a clean boundary.
           send_frame(io_out, ERROR, "FILE_READ aborted: missing CHUNK_ACK")
-          return
+          return false
         end
       end
     end
     send_frame(io_out, DONE_ACK, [OK, file_crc].pack("CN"))
+    false
   end
 
-  # Handle FILE_WRITE: receive file contents in chunks and stream them to flash
+  # Handle FILE_WRITE: receive file contents in chunks and stream them to flash.
+  # Returns true when the host ABORTed the transfer (the session should end).
   def self.handle_file_write(io_in, io_out, payload)
     # Payload: 4 bytes total size (big-endian) + path
     if payload.bytesize < 5
       send_frame(io_out, ERROR, "Invalid FILE_WRITE payload")
-      return
+      return false
     end
     # @type var total: Integer
     total = (payload.byteslice(0, 4) || '').unpack("N")[0]
@@ -296,10 +318,13 @@ module PicoModem
     if error_message
       File.unlink(path) if File.exist?(path)
       send_frame(io_out, ERROR, error_message.to_s)
+      false
     elsif aborted
       File.unlink(path) if File.exist?(path)
+      true
     else
       send_frame(io_out, DONE_ACK, [OK, file_crc].pack("CN"))
+      false
     end
   end
 

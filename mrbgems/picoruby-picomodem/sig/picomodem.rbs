@@ -23,6 +23,7 @@ module PicoModem
 
   CHUNK_SIZE: Integer
   TIMEOUT_MS: Integer
+  MAX_FRAME_SIZE: Integer
   SESSION_IDLE_LIMIT: Integer
   PROTOCOL_VERSION: Integer
   CAPABILITIES: Array[Integer]
@@ -33,8 +34,8 @@ module PicoModem
   def self.recv_frame: (IO io) -> [Integer, String]?
   def self.send_frame: (IO io, Integer cmd, ?String payload) -> void
   def self.read_exact: (IO io, Integer n) -> String?
-  def self.handle_file_read: (IO io_in, IO io_out, String payload) -> void
-  def self.handle_file_write: (IO io_in, IO io_out, String payload) -> void
+  def self.handle_file_read: (IO io_in, IO io_out, String payload) -> bool
+  def self.handle_file_write: (IO io_in, IO io_out, String payload) -> bool
   def self.handle_dfu: (IO io_in, IO io_out, String payload) -> void
 end
 
