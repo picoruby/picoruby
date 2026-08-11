@@ -15,12 +15,14 @@ require 'pack'
 module PicoModem
 
   # Command types (Host -> Device)
-  FILE_READ  = 0x01
-  FILE_WRITE = 0x02
-  DFU_START  = 0x03
-  CHUNK      = 0x04
-  DONE       = 0x0F
-  ABORT      = 0xFF
+  FILE_READ    = 0x01
+  FILE_WRITE   = 0x02
+  DFU_START    = 0x03
+  CHUNK        = 0x04
+  SESSION_QUIT = 0x0D
+  SESSION_OPEN = 0x0E
+  DONE         = 0x0F
+  ABORT        = 0xFF
 
   # Response types (Device -> Host) = request | 0x80
   FILE_DATA  = 0x81
@@ -37,39 +39,73 @@ module PicoModem
 
   CHUNK_SIZE = 480
   TIMEOUT_MS = 5000
+  # Consecutive failed reads (timeout or bad frame) that end an idle session.
+  SESSION_IDLE_LIMIT = 12
 
-  # Run a PicoModem session: read frames, dispatch commands, return to shell
+  # Run a PicoModem session from the shell: raw terminal, dispatch, then restore.
   def self.session(io_in, io_out)
     STDIN.raw!
     info = nil
     begin
+      info = run_session(io_in, io_out)
+    ensure
+      STDIN.cooked! # restore the terminal even if run_session raises
+    end
+    # Wait for browser to stop binary capture before printing
+    sleep_ms 200
+    puts "[PicoModem] #{info}"
+  end
+
+  # Read and dispatch frames. One command per call, or - after SESSION_OPEN - a
+  # loop until SESSION_QUIT/ABORT/idle timeout. Returns the shell status string.
+  def self.run_session(io_in, io_out)
+    info = nil
+    in_session = false
+    idle = 0
+    begin
       while true
         frame = recv_frame(io_in)
         unless frame
-          info = "timeout"
+          if in_session
+            idle += 1
+            next if idle < SESSION_IDLE_LIMIT
+            info = "session timeout"
+          else
+            info = "timeout"
+          end
           break
         end
+        idle = 0
         cmd = frame[0]
         payload = frame[1]
         case cmd
+        when SESSION_OPEN
+          info = "session"
+          in_session = true
+          send_frame(io_out, DONE_ACK, [OK].pack("C"))
+        when SESSION_QUIT
+          info ||= "quit"
+          send_frame(io_out, DONE_ACK, [OK].pack("C"))
+          break
         when FILE_READ
           info = "read #{payload}"
           handle_file_read(io_in, io_out, payload)
-          break
+          break unless in_session
         when FILE_WRITE
           path = 4 < payload.bytesize ? payload.byteslice(4, payload.bytesize - 4) : ""
           info = "write #{path}"
           handle_file_write(io_in, io_out, payload)
-          break
+          break unless in_session
         when DFU_START
           info = "dfu"
           handle_dfu(io_in, io_out, payload)
           break
         when ABORT
+          info ||= "abort"
           break
         else
           send_frame(io_out, ERROR, "Unknown command")
-          break
+          break unless in_session
         end
       end
     rescue => e
@@ -80,10 +116,7 @@ module PicoModem
         # best effort
       end
     end
-    STDIN.cooked!
-    # Wait for browser to stop binary capture before printing
-    sleep_ms 200
-    puts "[PicoModem] #{info}"
+    info
   end
 
   # Receive one PicoModem frame from io
@@ -173,6 +206,8 @@ module PicoModem
         send_frame(io_out, FILE_DATA, frame_payload)
         ack = recv_frame(io_in)
         unless ack && ack[0] == CHUNK_ACK
+          # No CHUNK_ACK: emit a terminal ERROR so a session sees a clean boundary.
+          send_frame(io_out, ERROR, "FILE_READ aborted: missing CHUNK_ACK")
           return
         end
       end
