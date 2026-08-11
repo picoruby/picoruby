@@ -19,18 +19,20 @@ module PicoModem
   FILE_WRITE   = 0x02
   DFU_START    = 0x03
   CHUNK        = 0x04
+  CMD_CAP      = 0x0A
   SESSION_QUIT = 0x0D
   SESSION_OPEN = 0x0E
   DONE         = 0x0F
   ABORT        = 0xFF
 
   # Response types (Device -> Host) = request | 0x80
-  FILE_DATA  = 0x81
-  FILE_ACK   = 0x82
-  DFU_ACK    = 0x83
-  CHUNK_ACK  = 0x84
-  DONE_ACK   = 0x8F
-  ERROR      = 0xFE
+  FILE_DATA     = 0x81
+  FILE_ACK      = 0x82
+  DFU_ACK       = 0x83
+  CHUNK_ACK     = 0x84
+  CMD_CAP_FLAGS = 0x8A
+  DONE_ACK      = 0x8F
+  ERROR         = 0xFE
 
   # Status codes
   OK    = 0x00
@@ -41,6 +43,9 @@ module PicoModem
   TIMEOUT_MS = 5000
   # Consecutive failed reads (timeout or bad frame) that end an idle session.
   SESSION_IDLE_LIMIT = 12
+  PROTOCOL_VERSION = 1
+  # Host -> device opcodes advertised by CMD_CAP.
+  CAPABILITIES = [FILE_READ, FILE_WRITE, DFU_START, CMD_CAP, SESSION_QUIT, SESSION_OPEN]
 
   # Run a PicoModem session from the shell: raw terminal, dispatch, then restore.
   def self.session(io_in, io_out)
@@ -87,6 +92,10 @@ module PicoModem
           info ||= "quit"
           send_frame(io_out, DONE_ACK, [OK].pack("C"))
           break
+        when CMD_CAP
+          info = "capability"
+          handle_capability(io_out)
+          break unless in_session
         when FILE_READ
           info = "read #{payload}"
           handle_file_read(io_in, io_out, payload)
@@ -117,6 +126,22 @@ module PicoModem
       end
     end
     info
+  end
+
+  # Handle CMD_CAP: reply with the protocol version and a bitmap of the
+  # supported host -> device opcodes (bit n set means opcode n is supported).
+  def self.handle_capability(io_out)
+    max_byte = 0
+    CAPABILITIES.each do |op|
+      b = op >> 3
+      max_byte = b if max_byte < b
+    end
+    bitmap = Array.new(max_byte + 1, 0)
+    CAPABILITIES.each do |op|
+      bitmap[op >> 3] |= (1 << (op & 7))
+    end
+    payload = [PROTOCOL_VERSION, bitmap.size].pack("CC") + bitmap.pack("C*")
+    send_frame(io_out, CMD_CAP_FLAGS, payload)
   end
 
   # Receive one PicoModem frame from io

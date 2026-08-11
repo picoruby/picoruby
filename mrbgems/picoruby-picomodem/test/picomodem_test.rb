@@ -61,6 +61,10 @@ class PicomodemSessionTest < Picotest::Test
     frames
   end
 
+  def supported?(bitmap, op)
+    (bitmap.getbyte(op >> 3) & (1 << (op & 7))) != 0
+  end
+
   # --- frame encode / parse ------------------------------------------------
 
   def test_recv_frame_roundtrip
@@ -172,5 +176,37 @@ class PicomodemSessionTest < Picotest::Test
     io = CaptureIO.new(build_frame(PicoModem::ABORT))
     info = PicoModem.run_session(io, io)
     assert_equal "abort", info
+  end
+
+  # --- capability check ----------------------------------------------------
+
+  # CMD_CAP replies with the version and a bitmap of the supported opcodes.
+  def test_capability_reports_supported_opcodes
+    io = CaptureIO.new(build_frame(PicoModem::CMD_CAP))
+    PicoModem.run_session(io, io)
+    frames = parse_frames(io.written)
+    assert_equal 1, frames.size
+    assert_equal PicoModem::CMD_CAP_FLAGS, frames[0][0]
+    payload = frames[0][1]
+    assert_equal PicoModem::PROTOCOL_VERSION, payload.getbyte(0)
+    bitmap = payload.byteslice(2, payload.getbyte(1))
+    assert_true supported?(bitmap, PicoModem::SESSION_OPEN)
+    assert_true supported?(bitmap, PicoModem::FILE_READ)
+    assert_false supported?(bitmap, PicoModem::DONE)
+  end
+
+  # A capability query works inside a session and does not end it.
+  def test_capability_in_session
+    io = CaptureIO.new(
+      build_frame(PicoModem::SESSION_OPEN) +
+      build_frame(PicoModem::CMD_CAP) +
+      build_frame(PicoModem::SESSION_QUIT)
+    )
+    PicoModem.run_session(io, io)
+    frames = parse_frames(io.written)
+    assert_equal 3, frames.size
+    assert_equal PicoModem::DONE_ACK, frames[0][0]      # SESSION_OPEN ack
+    assert_equal PicoModem::CMD_CAP_FLAGS, frames[1][0] # capability response
+    assert_equal PicoModem::DONE_ACK, frames[2][0]      # SESSION_QUIT ack
   end
 end

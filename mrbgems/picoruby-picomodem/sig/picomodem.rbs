@@ -3,6 +3,7 @@ module PicoModem
   FILE_WRITE: Integer
   DFU_START: Integer
   CHUNK: Integer
+  CMD_CAP: Integer
   SESSION_QUIT: Integer
   SESSION_OPEN: Integer
   DONE: Integer
@@ -12,6 +13,7 @@ module PicoModem
   FILE_ACK: Integer
   DFU_ACK: Integer
   CHUNK_ACK: Integer
+  CMD_CAP_FLAGS: Integer
   DONE_ACK: Integer
   ERROR: Integer
 
@@ -22,9 +24,12 @@ module PicoModem
   CHUNK_SIZE: Integer
   TIMEOUT_MS: Integer
   SESSION_IDLE_LIMIT: Integer
+  PROTOCOL_VERSION: Integer
+  CAPABILITIES: Array[Integer]
 
   def self.session: (IO io_in, IO io_out) -> void
   def self.run_session: (IO io_in, IO io_out) -> String?
+  def self.handle_capability: (IO io_out) -> void
   def self.recv_frame: (IO io) -> [Integer, String]?
   def self.send_frame: (IO io, Integer cmd, ?String payload) -> void
   def self.read_exact: (IO io, Integer n) -> String?
