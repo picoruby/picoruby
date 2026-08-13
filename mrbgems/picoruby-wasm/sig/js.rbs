@@ -36,6 +36,9 @@ module JS
     def to_f: () -> Float
     def to_a: () -> ::Array[untyped]
 
+    # Browser dialogs
+    def confirm: (String message) -> bool
+
     # Event Handling
     def addEventListener: (String event_type, ?sync: bool, ?capture: bool, ?once: bool, ?passive: bool?) { (JS::Event event) -> void } -> Integer
     def self.removeEventListener: (Integer callback_id) -> bool
