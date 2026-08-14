@@ -39,6 +39,13 @@ class MedianFilterTest < Picotest::Test
     assert_equal(1.6, filter.update(99.9))
   end
 
+  def test_update_rejects_non_numeric
+    filter = MedianFilter.new
+    assert_raise(TypeError) do
+      filter.update(nil)
+    end
+  end
+
   def test_window_five_rejects_two_consecutive_spikes
     filter = MedianFilter.new(window: 5)
     filter.update(10)
