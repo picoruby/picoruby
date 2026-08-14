@@ -38,6 +38,9 @@ class MedianFilter
   # returned (the lower middle one while the count is even), so the
   # first sample passes through as is.
   def update(value)
+    unless value.is_a?(Integer) || value.is_a?(Float)
+      raise TypeError, "value must be an Integer or Float"
+    end
     @samples << value
     @samples.shift if @window < @samples.size
     sorted = @samples.sort
