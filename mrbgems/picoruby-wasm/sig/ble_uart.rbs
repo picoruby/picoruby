@@ -9,14 +9,31 @@ module JS
       # Default read timeout in seconds (nil = block forever)
       DEFAULT_TIMEOUT: Integer?
 
+      # Cap for the receive buffer (oldest bytes dropped first)
+      RX_BUFFER_LIMIT: Integer
+
+      @service_uuid: String
+      @tx_uuid: String
+      @rx_uuid: String
+      @buffer: String
+      @connected: bool
+      @on_disconnect: (^() -> void | nil)
+
       # Connect to a BLE UART device
       def initialize: (
         ?service_uuid: String,
         ?tx_uuid: String,
         ?rx_uuid: String,
         ?name: String,
-        ?name_prefix: String
+        ?name_prefix: String,
+        ?filter_by_service: bool
       ) -> void
+
+      # Registers a block called when the connection is lost
+      def on_disconnect: () ?{ () -> void } -> void
+
+      # Reconnect to the same device without a new browser chooser
+      def reconnect: () -> self
 
       # Write string data to the TX characteristic
       # Returns the number of bytes written
@@ -45,6 +62,9 @@ module JS
 
       # Disconnect and clean up
       def close: () -> void
+
+      private def _connect: () -> void
+      private def _push_rx: (String data) -> void
     end
   end
 end

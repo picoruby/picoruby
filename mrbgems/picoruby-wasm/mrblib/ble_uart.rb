@@ -12,39 +12,54 @@ module JS
 
       DEFAULT_TIMEOUT = nil
 
+      # Cap for the receive buffer. If the application stops reading,
+      # oldest bytes are dropped first instead of growing forever.
+      RX_BUFFER_LIMIT = 8192
+
       attr_reader :device
 
       # Connect to a BLE UART device.
+      # By default the browser chooser only lists devices advertising
+      # service_uuid; pass filter_by_service: false to list everything
+      # (some peripherals do not advertise the service UUID).
       def initialize(service_uuid: NUS_SERVICE_UUID,
                      tx_uuid: NUS_TX_CHAR_UUID,
                      rx_uuid: NUS_RX_CHAR_UUID,
-                     name: nil, name_prefix: nil)
+                     name: nil, name_prefix: nil,
+                     filter_by_service: true)
+        @service_uuid = service_uuid
+        @tx_uuid = tx_uuid
+        @rx_uuid = rx_uuid
+        @on_disconnect = nil
         @device = GATT.request_device(
           name: name,
           name_prefix: name_prefix,
+          services: filter_by_service ? [service_uuid] : nil,
           optional_services: [service_uuid]
         )
 
         @buffer = ""
-        @server = @device.connect # steep:ignore
-        @service = @server.service(service_uuid) # steep:ignore
-        @tx_char = @service.characteristic(tx_uuid) # steep:ignore
-
-        if tx_uuid == rx_uuid
-          @rx_char = @tx_char
-        else
-          @rx_char = @service.characteristic(rx_uuid) # steep:ignore
-        end
-
-        @rx_char.on_change do |data| # steep:ignore
-          @buffer << data
-        end
-        @rx_char.start_notify # steep:ignore
-
         @device.on_disconnected do # steep:ignore
           @connected = false
+          @on_disconnect&.call
         end
-        @connected = true
+        _connect
+      end
+
+      # Registers a block called when the connection is lost.
+      def on_disconnect(&block)
+        @on_disconnect = block
+      end
+
+      # Reconnect to the same device without showing the browser
+      # chooser again (the permission granted by the first chooser is
+      # remembered by Web Bluetooth). Use this to recover from a
+      # dropped link or after #close.
+      def reconnect
+        return self if connected?
+        @buffer = ""
+        _connect
+        self
       end
 
       # Write string data to the TX characteristic.
@@ -109,12 +124,40 @@ module JS
         @connected && @device.connected? # steep:ignore
       end
 
-      # Disconnect and clean up.
+      # Disconnect and clean up. The device reference is kept, so
+      # #reconnect can re-establish the link without a new chooser.
       def close
         @rx_char.stop_notify # steep:ignore
         @device.disconnect # steep:ignore
         @connected = false
         @buffer = ""
+      end
+
+      private
+
+      def _connect
+        @server = @device.connect # steep:ignore
+        @service = @server.service(@service_uuid) # steep:ignore
+        @tx_char = @service.characteristic(@tx_uuid) # steep:ignore
+
+        if @tx_uuid == @rx_uuid
+          @rx_char = @tx_char
+        else
+          @rx_char = @service.characteristic(@rx_uuid) # steep:ignore
+        end
+
+        @rx_char.on_change do |data| # steep:ignore
+          _push_rx(data)
+        end
+        @rx_char.start_notify # steep:ignore
+        @connected = true
+      end
+
+      def _push_rx(data)
+        @buffer << data
+        if RX_BUFFER_LIMIT < @buffer.bytesize
+          @buffer = @buffer.byteslice(-RX_BUFFER_LIMIT, RX_BUFFER_LIMIT) || ""
+        end
       end
     end
   end
