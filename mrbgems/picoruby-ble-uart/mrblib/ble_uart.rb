@@ -191,7 +191,9 @@ class BLE
       @on_disconnect = block
     end
 
-    # Writes data to the peer. Returns the number of bytes accepted.
+    # Writes data to the peer. Returns the number of bytes of this
+    # call that remain queued after the TX_BUFFER_LIMIT cap is applied
+    # (older queued bytes are discarded first when the cap trims).
     # While disconnected the data is dropped and 0 is returned; nothing
     # would ever drain the buffer, so hoarding it only wastes memory
     # and would burst stale data at the peer on the next connection.
@@ -199,7 +201,9 @@ class BLE
       str = data.to_s
       return 0 unless @connected
       @tx_buffer << str
+      accepted = str.bytesize
       if TX_BUFFER_LIMIT < @tx_buffer.bytesize
+        accepted = TX_BUFFER_LIMIT if TX_BUFFER_LIMIT < accepted
         @tx_buffer = @tx_buffer.byteslice(-TX_BUFFER_LIMIT, TX_BUFFER_LIMIT) || ""
       end
       if peripheral?
@@ -207,7 +211,7 @@ class BLE
       else
         _flush_tx_central
       end
-      str.bytesize
+      accepted
     end
 
     def puts(data = "")

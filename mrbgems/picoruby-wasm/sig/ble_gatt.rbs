@@ -69,7 +69,7 @@ module JS
         def write: (String data, ?without_response: bool) -> void
 
         # Register a notification callback (data is binary String)
-        def on_change: () { (String data) -> void } -> void
+        def on_change: () { (String data) -> void } -> Integer
 
         # Start receiving notifications
         def start_notify: () -> void

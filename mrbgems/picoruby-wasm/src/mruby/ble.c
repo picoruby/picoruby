@@ -74,11 +74,17 @@ EM_JS(int, ble_create_uint8array, (const uint8_t *data, int length), {
   }
 });
 
-/* Set up characteristicvaluechanged listener with binary data extraction */
+/* Set up characteristicvaluechanged listener with binary data extraction.
+ * Replace semantics: registering again on the same characteristic removes
+ * the previous listener first, so reconnect flows cannot stack handlers
+ * and duplicate received data. */
 EM_JS(void, ble_set_notify_handler, (int char_ref_id, uintptr_t callback_id), {
   try {
     const char_obj = globalThis.picorubyRefs[char_ref_id];
-    char_obj.addEventListener('characteristicvaluechanged', (event) => {
+    if (char_obj.__picorbNotifyListener) {
+      char_obj.removeEventListener('characteristicvaluechanged', char_obj.__picorbNotifyListener);
+    }
+    const listener = (event) => {
       const dataview = event.target.value;
       const len = dataview.byteLength;
       const ptr = _malloc(len);
@@ -92,7 +98,9 @@ EM_JS(void, ble_set_notify_handler, (int char_ref_id, uintptr_t callback_id), {
         [callback_id, ptr, len]
       );
       _free(ptr);
-    });
+    };
+    char_obj.__picorbNotifyListener = listener;
+    char_obj.addEventListener('characteristicvaluechanged', listener);
   } catch(e) {
     console.error('ble_set_notify_handler failed:', e);
   }

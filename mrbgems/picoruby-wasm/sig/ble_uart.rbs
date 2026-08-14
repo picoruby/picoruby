@@ -18,6 +18,7 @@ module JS
       @buffer: String
       @connected: bool
       @on_disconnect: (^() -> void | nil)
+      @rx_callback_id: Integer?
 
       # Connect to a BLE UART device
       def initialize: (
@@ -64,6 +65,7 @@ module JS
       def close: () -> void
 
       private def _connect: () -> void
+      private def _close_rx_consumer: () -> void
       private def _push_rx: (String data) -> void
     end
   end

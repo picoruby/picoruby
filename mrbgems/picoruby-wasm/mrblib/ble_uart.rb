@@ -31,6 +31,7 @@ module JS
         @tx_uuid = tx_uuid
         @rx_uuid = rx_uuid
         @on_disconnect = nil
+        @rx_callback_id = nil
         @device = GATT.request_device(
           name: name,
           name_prefix: name_prefix,
@@ -131,6 +132,7 @@ module JS
         @device.disconnect # steep:ignore
         @connected = false
         @buffer = ""
+        _close_rx_consumer
       end
 
       private
@@ -146,11 +148,24 @@ module JS
           @rx_char = @service.characteristic(@rx_uuid) # steep:ignore
         end
 
-        @rx_char.on_change do |data| # steep:ignore
+        # End the previous notification consumer before installing a
+        # new one; otherwise every reconnect would leak a consumer task.
+        # The JS-side listener uses replace semantics, so re-registering
+        # on the same characteristic cannot stack handlers either.
+        _close_rx_consumer
+        @rx_callback_id = @rx_char.on_change do |data| # steep:ignore
           _push_rx(data)
         end
         @rx_char.start_notify # steep:ignore
         @connected = true
+      end
+
+      def _close_rx_consumer
+        callback_id = @rx_callback_id
+        if callback_id
+          JS::Object._close_event_queue(callback_id)
+          @rx_callback_id = nil
+        end
       end
 
       def _push_rx(data)
