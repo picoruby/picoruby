@@ -17,6 +17,7 @@ module JS
       @rx_uuid: String
       @buffer: String
       @connected: bool
+      @on_connect: (^() -> void | nil)
       @on_disconnect: (^() -> void | nil)
       @rx_callback_id: Integer?
 
@@ -29,6 +30,9 @@ module JS
         ?name_prefix: String,
         ?filter_by_service: bool
       ) -> void
+
+      # Registers a block called after the link is (re-)established
+      def on_connect: () ?{ () -> void } -> void
 
       # Registers a block called when the connection is lost
       def on_disconnect: () ?{ () -> void } -> void

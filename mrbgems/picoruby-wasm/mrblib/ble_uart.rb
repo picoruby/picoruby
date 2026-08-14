@@ -30,6 +30,8 @@ module JS
         @service_uuid = service_uuid
         @tx_uuid = tx_uuid
         @rx_uuid = rx_uuid
+        @connected = false
+        @on_connect = nil
         @on_disconnect = nil
         @rx_callback_id = nil
         @device = GATT.request_device(
@@ -42,9 +44,20 @@ module JS
         @buffer = ""
         @device.on_disconnected do # steep:ignore
           @connected = false
+          # Also end the notification consumer here so an unexpected
+          # disconnect does not leave the task running until the next
+          # reconnect (which may never come).
+          _close_rx_consumer
           @on_disconnect&.call
         end
         _connect
+      end
+
+      # Registers a block called after the link is (re-)established.
+      # The initial connection happens inside #initialize, so in
+      # practice this fires on successful #reconnect.
+      def on_connect(&block)
+        @on_connect = block
       end
 
       # Registers a block called when the connection is lost.
@@ -158,6 +171,7 @@ module JS
         end
         @rx_char.start_notify # steep:ignore
         @connected = true
+        @on_connect&.call
       end
 
       def _close_rx_consumer

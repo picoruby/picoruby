@@ -341,8 +341,13 @@ class BLE
 
       when HCI_EVENT_DISCONNECTION_COMPLETE
         debug_puts "Disconnected, re-scanning"
-        @on_disconnect&.call if @connected
+        # Reset state before invoking the hook so that user code inside
+        # on_disconnect sees the same disconnected state as the
+        # peripheral path (e.g. write drops instead of being accepted
+        # and then discarded by the reset).
+        was_connected = @connected
         _central_reset
+        @on_disconnect&.call if was_connected
         start_scan
         @uart_central_state = :TC_W4_SCAN_RESULT
 
