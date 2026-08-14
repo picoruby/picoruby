@@ -1,0 +1,12 @@
+class MedianFilter
+  @window: Integer
+  @samples: Array[Integer | Float]
+
+  attr_reader window: Integer
+
+  def initialize: (?window: Integer) -> void
+  def window=: (Integer value) -> Integer
+  def update: (Integer | Float value) -> (Integer | Float)
+  def reset: () -> nil
+  def size: () -> Integer
+end
