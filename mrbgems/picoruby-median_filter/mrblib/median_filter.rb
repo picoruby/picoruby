@@ -29,7 +29,7 @@ class MedianFilter
       raise ArgumentError, "window must be a positive odd Integer"
     end
     @window = value
-    @samples.shift while value < @samples.size
+    @samples = @samples[-value, value] if @samples.size > value
     value
   end
 
