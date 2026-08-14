@@ -40,6 +40,13 @@ class BLE
 
     USER_BLOCK_INTERVAL_MS = 20
 
+    # Caps for the internal buffers. Without them, a stalled link (or
+    # an application that writes while nobody is connected) would let
+    # a buffer grow until memory runs out. Oldest bytes are dropped
+    # first; fresh data is more valuable for telemetry-style traffic.
+    TX_BUFFER_LIMIT = 1024
+    RX_BUFFER_LIMIT = 1024
+
     def initialize(role: :peripheral,
                    name: "RubyUART",
                    service_uuid: NUS_SERVICE_UUID,
@@ -51,6 +58,8 @@ class BLE
       @rx_buffer = ""
       @tx_buffer = ""
       @connected = false
+      @on_connect = nil
+      @on_disconnect = nil
       @notify_chunk_size = DEFAULT_ATT_MTU - 3
 
       if role == :peripheral
@@ -171,13 +180,32 @@ class BLE
 
     # --- IO interface (shared between peripheral and central) ---
 
+    # Registers a block called when a central subscribes (peripheral
+    # role) or the link becomes ready (central role).
+    def on_connect(&block)
+      @on_connect = block
+    end
+
+    # Registers a block called when an established link is lost.
+    def on_disconnect(&block)
+      @on_disconnect = block
+    end
+
+    # Writes data to the peer. Returns the number of bytes accepted.
+    # While disconnected the data is dropped and 0 is returned; nothing
+    # would ever drain the buffer, so hoarding it only wastes memory
+    # and would burst stale data at the peer on the next connection.
     def write(data)
       str = data.to_s
+      return 0 unless @connected
       @tx_buffer << str
+      if TX_BUFFER_LIMIT < @tx_buffer.bytesize
+        @tx_buffer = @tx_buffer.byteslice(-TX_BUFFER_LIMIT, TX_BUFFER_LIMIT) || ""
+      end
       if peripheral?
         _request_send
       else
-        _flush_tx_central if @connected
+        _flush_tx_central
       end
       str.bytesize
     end
@@ -228,17 +256,23 @@ class BLE
         debug_puts "UART Peripheral up on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
         _start_advertise
       when HCI_EVENT_DISCONNECTION_COMPLETE
+        was_connected = @connected
         @connected = false
         @notification_enabled = false
         @advertising_started = false
         @notify_chunk_size = DEFAULT_ATT_MTU - 3
+        # Anything still queued belongs to the lost connection; flushing
+        # it to the next central would only deliver stale data.
+        @tx_buffer = ""
         debug_puts "Disconnected, re-advertising"
+        @on_disconnect&.call if was_connected
         _start_advertise
       when ATT_EVENT_MTU_EXCHANGE_COMPLETE
         @connected = true
         mtu = Utils.little_endian_to_int16(event_packet.byteslice(4, 2))
         @notify_chunk_size = mtu - 3 if mtu && mtu >= DEFAULT_ATT_MTU
         debug_puts "Connected (MTU=#{mtu}, chunk=#{@notify_chunk_size})"
+        @on_connect&.call
       when ATT_EVENT_CAN_SEND_NOW
         _flush_tx
       end
@@ -246,7 +280,14 @@ class BLE
 
     def _drain_rx
       while (data = pop_write_value(@rx_handle))
-        @rx_buffer << data
+        _push_rx(data)
+      end
+    end
+
+    def _push_rx(data)
+      @rx_buffer << data
+      if RX_BUFFER_LIMIT < @rx_buffer.bytesize
+        @rx_buffer = @rx_buffer.byteslice(-RX_BUFFER_LIMIT, RX_BUFFER_LIMIT) || ""
       end
     end
 
@@ -296,6 +337,7 @@ class BLE
 
       when HCI_EVENT_DISCONNECTION_COMPLETE
         debug_puts "Disconnected, re-scanning"
+        @on_disconnect&.call if @connected
         _central_reset
         start_scan
         @uart_central_state = :TC_W4_SCAN_RESULT
@@ -328,7 +370,7 @@ class BLE
         return unless value_handle == @peer_tx_handle
         value_length = Utils.little_endian_to_int16(event_packet.byteslice(6, 2))
         value = event_packet.byteslice(8, value_length)
-        @rx_buffer << value if value
+        _push_rx(value) if value
       end
     end
 
@@ -389,12 +431,14 @@ class BLE
           @connected = true
           @uart_central_state = :TC_READY
           debug_puts "NUS central ready"
+          @on_connect&.call
         end
       end
     end
 
     def _central_reset
       @connected = false
+      @tx_buffer = ""
       @conn_handle = HCI_CON_HANDLE_INVALID
       @peer_rx_handle = nil
       @peer_tx_handle = nil

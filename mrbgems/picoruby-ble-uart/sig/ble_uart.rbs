@@ -29,6 +29,9 @@ class BLE
 
     USER_BLOCK_INTERVAL_MS: Integer
 
+    TX_BUFFER_LIMIT: Integer
+    RX_BUFFER_LIMIT: Integer
+
     # peripheral-only state
     @adv_data: String
     @rx_handle: Integer
@@ -54,6 +57,8 @@ class BLE
     @connected: bool
     @notify_chunk_size: Integer
     @user_block: (^() -> void | nil)
+    @on_connect: (^() -> void | nil)
+    @on_disconnect: (^() -> void | nil)
 
     def initialize: (
       ?role: :peripheral | :central,
@@ -66,6 +71,8 @@ class BLE
     def heartbeat_callback: () -> void
     def packet_callback: (String event_packet) -> void
 
+    def on_connect: () ?{ () -> void } -> void
+    def on_disconnect: () ?{ () -> void } -> void
     def write: (untyped data) -> Integer
     def puts: (?untyped data) -> nil
     def read_nonblock: (?Integer nbytes) -> (String | nil)
@@ -82,6 +89,7 @@ class BLE
     private def _central_reset: () -> void
     private def _flush_tx_central: () -> void
     private def _drain_rx: () -> void
+    private def _push_rx: (String data) -> void
     private def _check_cccd: () -> void
     private def _request_send: () -> void
     private def _flush_tx: () -> void
