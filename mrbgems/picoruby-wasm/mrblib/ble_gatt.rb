@@ -163,10 +163,14 @@ module JS
 
         # Register a notification callback.
         # The block receives binary String data on each notification.
+        # Returns a callback id that can be passed to
+        # JS::Object._close_event_queue to end the consumer, e.g. when
+        # re-registering after a reconnect.
         def on_change(&block)
           callback_id = block.object_id
           JS::Object._spawn_event_consumer(callback_id, block)
           JS::BLE._set_notify_handler(@js_char, callback_id)
+          callback_id
         end
 
         # Start receiving notifications.

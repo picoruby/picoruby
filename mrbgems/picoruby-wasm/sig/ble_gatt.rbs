@@ -16,7 +16,7 @@ module JS
       def self.request_device: (
         ?name: String,
         ?name_prefix: String,
-        ?services: ::Array[String],
+        ?services: ::Array[String]?,
         ?optional_services: ::Array[String]
       ) -> JS::BLE::GATT::Device?
 
@@ -69,7 +69,7 @@ module JS
         def write: (String data, ?without_response: bool) -> void
 
         # Register a notification callback (data is binary String)
-        def on_change: () { (String data) -> void } -> void
+        def on_change: () { (String data) -> void } -> Integer
 
         # Start receiving notifications
         def start_notify: () -> void
