@@ -71,13 +71,13 @@ heap_exit_critical(void)
       #define HEAP_SIZE_KB 320
     #elif defined(PICORB_DEBUG)
       #if defined(PICORB_VM_MRUBYC)
-        #define HEAP_SIZE_KB 376
+        #define HEAP_SIZE_KB 374
       #else
         #define HEAP_SIZE_KB 384
       #endif
     #else
       #if defined(PICORB_VM_MRUBYC)
-        #define HEAP_SIZE_KB 390
+        #define HEAP_SIZE_KB 388
       #else
         #define HEAP_SIZE_KB 396
       #endif
