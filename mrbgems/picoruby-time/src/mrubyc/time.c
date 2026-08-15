@@ -139,20 +139,21 @@ c_local(struct VM *vm, mrbc_value v[], int argc)
   if (5 < argc) {
     double sec;
     mrbc_value value = GET_ARG(6);
-    if (sec < 0 || 60 < sec) {
-      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "sec out of range");
-      return
-    }
     if (value.tt == MRBC_TT_FLOAT) {
       sec = value.d;
       if (sec != sec) {
         mrbc_raise(vm, MRBC_CLASS(RangeError), "NaN");
         return;
       }
-      usec = (sec - (int)sec) * USEC;
     } else {
       sec = (mrbc_float_t)Integer(value);
+      if (vm->exception.tt == MRBC_TT_EXCEPTION) return;
     }
+    if (sec < 0 || 60 < sec) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "sec out of range");
+      return;
+    }
+    usec = (sec - (int)sec) * USEC + 0.5;
     tm.tm_sec = (int)sec;
   } else tm.tm_sec = 0;
   mrbc_value time = new_from_tm(vm, v, &tm);
