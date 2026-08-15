@@ -158,12 +158,11 @@ mrb__init(mrb_state *mrb, mrb_value self)
     if (new_profile) mrb_free(mrb, new_profile);
     mrb_raise(mrb, E_RUNTIME_ERROR, "BLE init failed");
   }
-  if (new_profile) {
-    /* The previous profile is unreferenced once BLE_init() has
-     * installed the new one. */
-    if (profile_buf) mrb_free(mrb, profile_buf);
-    profile_buf = new_profile;
-  }
+  /* BLE_init() replaces the ATT database for every role (possibly
+   * with no database), so the previous profile is unreferenced now
+   * and must be released even when the new role has none. */
+  if (profile_buf) mrb_free(mrb, profile_buf);
+  profile_buf = new_profile;
 
   /* The value hashes are created in ble.rb as instance variables so
    * the GC keeps them alive through the pinned instance. */

@@ -155,12 +155,11 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }
-  if (new_profile) {
-    /* The previous profile is unreferenced once BLE_init() has
-     * installed the new one. */
-    if (profile_buf) mrbc_raw_free(profile_buf);
-    profile_buf = new_profile;
-  }
+  /* BLE_init() replaces the ATT database for every role (possibly
+   * with no database), so the previous profile is unreferenced now
+   * and must be released even when the new role has none. */
+  if (profile_buf) mrbc_raw_free(profile_buf);
+  profile_buf = new_profile;
 
   /* Take references to the new instance's objects, then release the
    * previous instance's ones (mrbc_instance_getiv increfs). The

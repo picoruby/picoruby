@@ -153,6 +153,9 @@ BLE_init(const uint8_t *profile_data, int ble_role)
       att_server_register_packet_handler(packet_handler);
       break;
     case BLE_ROLE_BROADCASTER:
+      /* Clear any ATT database left over from a previous peripheral
+       * init so BLE_init() never keeps a stale profile pointer. */
+      att_server_init(NULL, NULL, NULL);
       att_server_register_packet_handler(packet_handler);
       break;
     case BLE_ROLE_OBSERVER:
