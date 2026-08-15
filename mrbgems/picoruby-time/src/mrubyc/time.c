@@ -135,12 +135,31 @@ c_local(struct VM *vm, mrbc_value v[], int argc)
     if (min < 0 || 59 < min) mrbc_raise(vm, MRBC_CLASS(ArgumentError), "min out of range");
     tm.tm_min = min;
   } else tm.tm_min = 0;
+  int usec = 0;
   if (5 < argc) {
-    int sec = Integer(GET_ARG(6));
-    if (sec < 0 || 60 < sec) mrbc_raise(vm, MRBC_CLASS(ArgumentError), "sec out of range");
-    tm.tm_sec = sec;
+    double sec;
+    mrbc_value value = GET_ARG(6);
+    if (value.tt == MRBC_TT_FLOAT) {
+      sec = value.d;
+      if (sec != sec) {
+        mrbc_raise(vm, MRBC_CLASS(RangeError), "NaN");
+        return;
+      }
+    } else {
+      sec = (mrbc_float_t)Integer(value);
+      if (vm->exception.tt == MRBC_TT_EXCEPTION) return;
+    }
+    if (sec < 0 || 60 < sec) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "sec out of range");
+      return;
+    }
+    usec = (sec - (int)sec) * USEC + 0.5;
+    tm.tm_sec = (int)sec;
   } else tm.tm_sec = 0;
-  SET_RETURN(new_from_tm(vm, v, &tm));
+  mrbc_value time = new_from_tm(vm, v, &tm);
+  PICORB_TIME *data = (PICORB_TIME *)time.instance->data;
+  data->unixtime_us += usec;
+  SET_RETURN(time);
 }
 
 static void

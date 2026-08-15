@@ -183,15 +183,26 @@ mrb_s_local(mrb_state *mrb, mrb_value klass)
     tm.tm_min = 0;
   }
 
+  int usec = 0;
   if (5 < argc) {
-    int sec = Integer(argv[5]);
+    double sec;
+    if (mrb_float_p(argv[5])) {
+      sec = mrb_float(argv[5]);
+      if (sec != sec) mrb_raise(mrb, E_FLOATDOMAIN_ERROR, "NaN");
+    } else {
+      sec = (double)Integer(argv[5]);
+    }
     if (sec < 0 || 60 < sec) mrb_raise(mrb, E_ARGUMENT_ERROR, "sec out of range");
-    tm.tm_sec = sec;
+    usec = (sec - (int)sec) * USEC + 0.5;
+    tm.tm_sec = (int)sec;
   } else {
     tm.tm_sec = 0;
   }
+  mrb_value time = new_from_tm(mrb, klass, &tm);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(time);
+  data->unixtime_us += usec;
 
-  return new_from_tm(mrb, klass, &tm);
+  return time;
 }
 
 static mrb_value
@@ -580,7 +591,7 @@ mrb_picoruby_time_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Time, MRB_OPSYM(sub), mrb_sub, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Time, MRB_OPSYM(add), mrb_add, MRB_ARGS_REQ(1));
 
-  mrb_define_method_id(mrb, class_Time, MRB_SYM(time_methods), mrb_time_methods, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(time_methods), mrb_time_methods, MRB_ARGS_NONE());
 }
 
 void
