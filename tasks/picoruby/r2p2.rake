@@ -119,7 +119,11 @@ namespace :r2p2 do
               dir = r2p2_build_dir(vm, board, mode)
               FileUtils.mkdir_p dir
               config = r2p2_mruby_config(vm, board)
-              mruby_build_path = "#{MRUBY_ROOT}/build/r2p2-#{vm}-#{board}"
+              # PICORB_DEBUG changes the compile flags of the whole
+              # library, so debug and prod must not share a build
+              # directory (the build_config appends the same suffix).
+              lib_name = "r2p2-#{vm}-#{board}#{mode == 'debug' ? '-debug' : ''}"
+              mruby_build_path = "#{MRUBY_ROOT}/build/#{lib_name}"
               FileUtils.cd MRUBY_ROOT do
                 sh "MRUBY_CONFIG=#{config} PICORB_BOARD=#{board} #{mode=='debug' ? 'PICORB_DEBUG=1' : ''} rake"
               end
@@ -129,7 +133,7 @@ namespace :r2p2 do
                 -D EXTRA_LIBRARY_PATH=#{mruby_build_path}/lib \
                 -D EXTRA_INCLUDE_DIR=#{mruby_build_path}/include \
                 -D PICO_CYW43_SUPPORTED=1 \
-                -D MRUBY_CONFIG=r2p2-#{vm}-#{board} \
+                -D MRUBY_CONFIG=#{lib_name} \
                 #{r2p2_def_picorb_vm(vm)} \
                 #{r2p2_def_r2p2_name(vm, board)} \
                 #{r2p2_def_board(board)} \
@@ -149,6 +153,7 @@ namespace :r2p2 do
               config = r2p2_mruby_config(vm, board)
               if File.exist?(config)
                 sh "MRUBY_CONFIG=#{config} rake clean"
+                sh "MRUBY_CONFIG=#{config} PICORB_DEBUG=1 rake clean"
               end
             end
             %w[debug prod].each do |mode|

@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2-femtoruby-pico") do |conf|
+MRuby::CrossBuild.new("r2p2-femtoruby-pico#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do |conf|
 
   ###############################################################
   # You need following tools:

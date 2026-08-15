@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("r2p2-picoruby-pico2") do |conf|
+MRuby::CrossBuild.new("r2p2-picoruby-pico2#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do |conf|
 
   ###############################################################
   # You need following tools:
