@@ -5,10 +5,24 @@
 #include "mruby/array.h"
 #include "task.h"
 
+/*
+ * GC strategy: only the current BLE instance is pinned with
+ * mrb_gc_register (BTstack is a hardware singleton, so there is at
+ * most one). The event queue and the value hashes are instance
+ * variables of that instance, so they stay alive through it and get
+ * collected together with it when the next _init unpins it. The
+ * statics below are mere caches for the BTstack callbacks; they are
+ * always backed by the pinned instance, so they cannot dangle.
+ */
 static mrb_state *_mrb = NULL;
+static mrb_value registered_ble;
+static bool ble_registered = false;
 static mrb_value write_values;
 static mrb_value read_values;
 static mrb_value event_queue;
+/* C-heap copy of the GATT profile. BTstack keeps a raw pointer to it
+ * indefinitely, which is why it is not owned by a Ruby object. */
+static uint8_t *profile_buf = NULL;
 static uint8_t pending_event_count;
 
 #define BLE_MAX_PENDING_EVENTS 16
@@ -108,18 +122,7 @@ mrb_push_read_value(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__init(mrb_state *mrb, mrb_value self)
 {
-  _mrb = mrb;
-  event_queue = mrb_iv_get(mrb, self, MRB_IVSYM(event_queue));
-  mrb_gc_register(mrb, event_queue);
-  pending_event_count = 0;
-  write_values = mrb_hash_new(mrb);
-  mrb_gc_register(mrb, write_values);
-  read_values = mrb_hash_new(mrb);
-  mrb_gc_register(mrb, read_values);
-
   mrb_value profile;
-  mrb_value profile_copy = mrb_nil_value();
-  const uint8_t *profile_data = NULL;
   mrb_get_args(mrb, "o", &profile);
 
   if (!mrb_string_p(profile) && !mrb_nil_p(profile)) {
@@ -143,16 +146,52 @@ mrb__init(mrb_state *mrb, mrb_value self)
     default:
       mrb_raise(mrb, E_TYPE_ERROR, "BLE._init: wrong role type");
   }
+
+  uint8_t *new_profile = NULL;
+  size_t new_profile_len = 0;
   if (ble_role == BLE_ROLE_PERIPHERAL && mrb_string_p(profile)) {
-    profile_copy = mrb_str_dup(mrb, profile);
-    profile_data = (const uint8_t *)RSTRING_PTR(profile_copy);
+    new_profile_len = (size_t)RSTRING_LEN(profile);
+    new_profile = (uint8_t *)mrb_malloc(mrb, new_profile_len);
+    memcpy(new_profile, RSTRING_PTR(profile), new_profile_len);
   }
-  if (BLE_init(profile_data, ble_role) < 0) {
+  if (BLE_init(new_profile, ble_role) < 0) {
+    if (new_profile) mrb_free(mrb, new_profile);
     mrb_raise(mrb, E_RUNTIME_ERROR, "BLE init failed");
   }
-  if (!mrb_nil_p(profile_copy)) {
-    /* BTstack keeps profile_data by pointer after BLE_init(). */
-    mrb_gc_register(mrb, profile_copy);
+  if (new_profile) {
+    /* The previous profile is unreferenced once BLE_init() has
+     * installed the new one. */
+    if (profile_buf) mrb_free(mrb, profile_buf);
+    profile_buf = new_profile;
+  }
+
+  /* The value hashes are created in ble.rb as instance variables so
+   * the GC keeps them alive through the pinned instance. */
+  mrb_value new_write_values = mrb_iv_get(mrb, self, MRB_IVSYM(write_values));
+  mrb_value new_read_values = mrb_iv_get(mrb, self, MRB_IVSYM(read_values));
+  if (!mrb_hash_p(new_write_values) || !mrb_hash_p(new_read_values)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "BLE._init: value hashes not initialized");
+  }
+
+  /* Pin the new instance before unpinning the previous one so the
+   * statics never point into an unpinned object graph. */
+  mrb_value prev_ble = registered_ble;
+  bool release_prev = ble_registered;
+  mrb_gc_register(mrb, self);
+  registered_ble = self;
+  ble_registered = true;
+
+  _mrb = mrb;
+  event_queue = mrb_iv_get(mrb, self, MRB_IVSYM(event_queue));
+  write_values = new_write_values;
+  read_values = new_read_values;
+  pending_event_count = 0;
+
+  /* The object identity check matters: mrb_gc_unregister removes ALL
+   * occurrences of an object, so unregistering self here would undo
+   * the pin above if _init ever ran twice on one instance. */
+  if (release_prev && !mrb_obj_eq(mrb, prev_ble, self)) {
+    mrb_gc_unregister(mrb, prev_ble);
   }
   return self;
 }
@@ -194,4 +233,10 @@ mrb_picoruby_ble_gem_init(mrb_state* mrb)
 void
 mrb_picoruby_ble_gem_final(mrb_state* mrb)
 {
+  if (profile_buf) {
+    mrb_free(mrb, profile_buf);
+    profile_buf = NULL;
+  }
+  ble_registered = false;
+  _mrb = NULL;
 }

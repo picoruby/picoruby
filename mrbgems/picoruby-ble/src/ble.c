@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <string.h>
 #include "picoruby.h"
 #include "../include/ble.h"
 #include "../include/ble_central.h"

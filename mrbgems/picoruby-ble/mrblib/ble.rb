@@ -79,6 +79,11 @@ class BLE
     @role = role
     @debug = false
     @event_queue = Task::Queue.new
+    # Value stores accessed from the C layer (BTstack callbacks).
+    # They live as instance variables so the GC can reclaim them
+    # together with this instance.
+    @write_values = {}
+    @read_values = {}
     unless CYW43.init
       puts "Failed to initialize CYW43"
       return # raising an exception here may cause a crash
