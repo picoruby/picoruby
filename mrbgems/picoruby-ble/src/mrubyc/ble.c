@@ -1,6 +1,9 @@
 static mrbc_value write_values = {.tt = MRBC_TT_NIL};
 static mrbc_value read_values = {.tt = MRBC_TT_NIL};
 static mrbc_value event_queue = {.tt = MRBC_TT_NIL};
+/* C-heap copy of the GATT profile. BTstack keeps a raw pointer to it
+ * indefinitely, which is why it is not owned by a Ruby object. */
+static uint8_t *profile_buf = NULL;
 static uint8_t pending_event_count;
 
 #define BLE_MAX_PENDING_EVENTS 16
@@ -113,14 +116,6 @@ c_push_read_value(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  if (event_queue.tt != MRBC_TT_NIL) mrbc_decref(&event_queue);
-  event_queue = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("event_queue"));
-  pending_event_count = 0;
-  write_values = mrbc_hash_new(vm, 0);
-  read_values = mrbc_hash_new(vm, 0);
-
-  mrbc_value profile_copy = mrbc_nil_value();
-  const uint8_t *profile_data = NULL;
   if (GET_TT_ARG(1) != MRBC_TT_STRING && GET_TT_ARG(1) != MRBC_TT_NIL) {
     mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong argument type");
     return;
@@ -139,19 +134,59 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: wrong role type");
     return;
   }
+
+  uint8_t *new_profile = NULL;
   if (ble_role == BLE_ROLE_PERIPHERAL && GET_TT_ARG(1) == MRBC_TT_STRING) {
-    profile_copy = mrbc_string_dup(vm, &v[1]);
-    profile_data = (uint8_t *)mrbc_string_cstr(&profile_copy);
+    /* Copy the profile to the C heap. BTstack keeps a raw pointer to
+     * it, so a refcounted Ruby string is the wrong owner (the old
+     * code leaked one copy per BLE.new). */
+    int len = v[1].string->size;
+    new_profile = mrbc_raw_alloc(len + 1);
+    if (new_profile == NULL) {
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE._init: no memory");
+      return;
+    }
+    memcpy(new_profile, v[1].string->data, len);
+    new_profile[len] = 0;
   }
   Machine_tud_task();
-  if (BLE_init(profile_data, ble_role) < 0) {
-    if (profile_copy.tt == MRBC_TT_STRING) {
-      mrbc_decref(&profile_copy);
-    }
+  if (BLE_init(new_profile, ble_role) < 0) {
+    if (new_profile) mrbc_raw_free(new_profile);
     mrbc_raise(vm, MRBC_CLASS(RuntimeError), "BLE init failed");
     return;
   }
-  /* Keep profile_copy's initial reference count for BTstack's profile_data pointer. */
+  /* BLE_init() replaces the ATT database for every role (possibly
+   * with no database), so the previous profile is unreferenced now
+   * and must be released even when the new role has none. */
+  if (profile_buf) mrbc_raw_free(profile_buf);
+  profile_buf = new_profile;
+
+  /* Take references to the new instance's objects, then release the
+   * previous instance's ones (mrbc_instance_getiv increfs). The
+   * swap order keeps the statics valid at every point. */
+  mrbc_value new_event_queue = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("event_queue"));
+  mrbc_value new_write_values = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("write_values"));
+  mrbc_value new_read_values = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("read_values"));
+  if (new_write_values.tt != MRBC_TT_HASH || new_read_values.tt != MRBC_TT_HASH) {
+    /* The value hashes are created in ble.rb; a wrong type here
+     * would crash the callbacks later. Release the getiv refs. */
+    mrbc_decref(&new_event_queue);
+    mrbc_decref(&new_write_values);
+    mrbc_decref(&new_read_values);
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: value hashes not initialized");
+    return;
+  }
+  mrbc_value prev_event_queue = event_queue;
+  mrbc_value prev_write_values = write_values;
+  mrbc_value prev_read_values = read_values;
+  event_queue = new_event_queue;
+  write_values = new_write_values;
+  read_values = new_read_values;
+  pending_event_count = 0;
+  mrbc_decref(&prev_event_queue);
+  mrbc_decref(&prev_write_values);
+  mrbc_decref(&prev_read_values);
+
   Machine_tud_task();
 }
 

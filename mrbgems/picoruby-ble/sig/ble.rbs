@@ -68,6 +68,8 @@ class BLE
   @led_on: bool
   @ensure_proc: Proc
   @event_queue: Task::Queue
+  @write_values: Hash[Integer, Array[String]]
+  @read_values: Hash[Integer, String]
 
   type role_t = :central | :peripheral | :observer | :broadcaster
   attr_accessor debug: bool
