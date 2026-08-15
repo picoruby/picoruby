@@ -591,7 +591,7 @@ mrb_picoruby_time_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Time, MRB_OPSYM(sub), mrb_sub, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Time, MRB_OPSYM(add), mrb_add, MRB_ARGS_REQ(1));
 
-  mrb_define_method_id(mrb, class_Time, MRB_SYM(time_methods), mrb_time_methods, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(time_methods), mrb_time_methods, MRB_ARGS_NONE());
 }
 
 void
