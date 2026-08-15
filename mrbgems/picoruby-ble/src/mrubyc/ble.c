@@ -164,12 +164,24 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Take references to the new instance's objects, then release the
    * previous instance's ones (mrbc_instance_getiv increfs). The
    * swap order keeps the statics valid at every point. */
+  mrbc_value new_event_queue = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("event_queue"));
+  mrbc_value new_write_values = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("write_values"));
+  mrbc_value new_read_values = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("read_values"));
+  if (new_write_values.tt != MRBC_TT_HASH || new_read_values.tt != MRBC_TT_HASH) {
+    /* The value hashes are created in ble.rb; a wrong type here
+     * would crash the callbacks later. Release the getiv refs. */
+    mrbc_decref(&new_event_queue);
+    mrbc_decref(&new_write_values);
+    mrbc_decref(&new_read_values);
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "BLE._init: value hashes not initialized");
+    return;
+  }
   mrbc_value prev_event_queue = event_queue;
   mrbc_value prev_write_values = write_values;
   mrbc_value prev_read_values = read_values;
-  event_queue = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("event_queue"));
-  write_values = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("write_values"));
-  read_values = mrbc_instance_getiv(&v[0], mrbc_str_to_symid("read_values"));
+  event_queue = new_event_queue;
+  write_values = new_write_values;
+  read_values = new_read_values;
   pending_event_count = 0;
   mrbc_decref(&prev_event_queue);
   mrbc_decref(&prev_write_values);

@@ -173,10 +173,17 @@ mrb__init(mrb_state *mrb, mrb_value self)
   }
 
   /* Pin the new instance before unpinning the previous one so the
-   * statics never point into an unpinned object graph. */
+   * statics never point into an unpinned object graph. The identity
+   * check keeps the pin count at exactly one even if _init runs
+   * twice on the same instance: registering again would stack a
+   * duplicate, and mrb_gc_unregister removes ALL occurrences, so
+   * unregistering self would undo the pin instead. */
   mrb_value prev_ble = registered_ble;
-  bool release_prev = ble_registered;
-  mrb_gc_register(mrb, self);
+  bool same_instance = ble_registered && mrb_obj_eq(mrb, prev_ble, self);
+  bool release_prev = ble_registered && !same_instance;
+  if (!same_instance) {
+    mrb_gc_register(mrb, self);
+  }
   registered_ble = self;
   ble_registered = true;
 
@@ -186,10 +193,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
   read_values = new_read_values;
   pending_event_count = 0;
 
-  /* The object identity check matters: mrb_gc_unregister removes ALL
-   * occurrences of an object, so unregistering self here would undo
-   * the pin above if _init ever ran twice on one instance. */
-  if (release_prev && !mrb_obj_eq(mrb, prev_ble, self)) {
+  if (release_prev) {
     mrb_gc_unregister(mrb, prev_ble);
   }
   return self;
