@@ -266,7 +266,8 @@ end
 def wasm_build_config_gem_names
   @wasm_build_config_gem_names ||= begin
     config_path = File.expand_path("#{MRUBY_ROOT}/build_config/picoruby-wasm.rb")
-    target_name = "picoruby-wasm"
+    # The build_config appends -debug to the target name under PICORB_DEBUG.
+    target_name = "picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}"
     # Evaluating the production WASM build config gives the exact set of gems
     # (gemboxes and transitive dependencies expanded) that end up in the WASM
     # binary. Stub package.json generation so this discovery step does not

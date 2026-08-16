@@ -1,4 +1,4 @@
-MRuby::CrossBuild.new("picoruby-wasm") do |conf|
+MRuby::CrossBuild.new("picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do |conf|
   conf.generate_package_json_from_template(
     "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/picoruby/package.json.template",
     "#{MRUBY_ROOT}/mrbgems/picoruby-wasm/npm/picoruby/package.json"

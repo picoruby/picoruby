@@ -55,6 +55,14 @@ namespace :wasm do
     end
   end
 
+  # PICORB_DEBUG changes the compile flags of the whole library, so
+  # each mode gets a clean build in its own build directory.
+  clean_build_picoruby = lambda do |debug|
+    env = debug ? "PICORB_DEBUG=1 " : ""
+    sh "CONFIG=picoruby-wasm #{env}rake clean"
+    sh "CONFIG=picoruby-wasm #{env}rake"
+  end
+
   desc "Build mrbc WASM"
   task :build_mrbc do
     sh "CONFIG=mrbc-wasm PICORB_DEBUG=1 rake"
@@ -76,24 +84,27 @@ namespace :wasm do
     sh "CONFIG=picoruby-wasm rake"
   end
 
-  desc "Build all WASM artifacts required by Funicular release"
-  task :build_release_artifacts do
+  desc "Clean-build mrbc plus production and debug PicoRuby WASM"
+  task :build_release_binaries do
     sh "CONFIG=mrbc-wasm rake clean"
     Rake::Task["wasm:build_mrbc"].invoke
+    clean_build_picoruby.call(false)
+    clean_build_picoruby.call(true)
+  end
 
-    sh "CONFIG=picoruby-wasm rake clean"
-    sh "CONFIG=picoruby-wasm rake"
-
-    sh "CONFIG=picoruby-wasm rake clean"
-    sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
-
+  desc "Build all WASM artifacts required by Funicular release"
+  task :build_release_artifacts => :build_release_binaries do
     sh "MRUBY_CONFIG=picoruby-wasm-test rake clean"
     sh "MRUBY_CONFIG=picoruby-wasm-test rake all"
   end
 
   desc "Clean PicoRuby WASM build"
   task :clean do
+    # PICORB_DEBUG changes the compile flags of the whole library, so
+    # debug and prod use separate build directories (the build_config
+    # appends a -debug suffix); clean both.
     sh "CONFIG=picoruby-wasm rake clean"
+    sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake clean"
     sh "CONFIG=mrbc-wasm rake clean"
   end
 
@@ -111,20 +122,11 @@ namespace :wasm do
     end
 
     desc "Build and publish versioned production and debug npm packages"
-    task :publish => :whoami do
+    task :publish => [:whoami, "wasm:build_release_binaries"] do
       version = picoruby_version.call
       debug_version = "#{version}-debug"
-
-      sh "CONFIG=mrbc-wasm rake clean"
-      Rake::Task["wasm:build_mrbc"].invoke
       publish_mrbc_npm.call(version)
-
-      sh "CONFIG=picoruby-wasm rake clean"
-      sh "CONFIG=picoruby-wasm rake"
       publish_picoruby_npm.call(version, "latest", "dist")
-
-      sh "CONFIG=picoruby-wasm rake clean"
-      sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
       publish_picoruby_npm.call(debug_version, "debug", "debug")
     end
 
@@ -134,13 +136,9 @@ namespace :wasm do
       base_version = picoruby_version.call
       head_version = "#{base_version}-head.#{date_suffix}"
       debug_version = "#{base_version}-head-debug.#{date_suffix}"
-
-      sh "CONFIG=picoruby-wasm rake clean"
-      sh "CONFIG=picoruby-wasm rake"
+      clean_build_picoruby.call(false)
       publish_picoruby_npm.call(head_version, "head", "dist")
-
-      sh "CONFIG=picoruby-wasm rake clean"
-      sh "CONFIG=picoruby-wasm PICORB_DEBUG=1 rake"
+      clean_build_picoruby.call(true)
       publish_picoruby_npm.call(debug_version, "head-debug", "debug")
     end
 
