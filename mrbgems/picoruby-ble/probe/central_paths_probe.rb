@@ -1,18 +1,16 @@
 require 'ble'
 
-# Drives and witnesses the central-side paths of the ESP32 NimBLE port.
-# Counterpart: ports/darwin/test/e2e_peripheral_test.rb, run under
-# PicoRubyBLE.app and advertising as PBLE-DARWIN.
+# Drives and witnesses the central-side paths. Needs a peripheral peer
+# advertising as PBLE-DARWIN and exposing the service below.
 #
-#   C1 BLE_write_value_of_characteristic_without_response
-#   C2 BLE_write_characteristic_descriptor_using_descriptor_handle
-#   C3 BLE_GAP_EVENT_NOTIFY_RX -> 0xA7
+#   C1 write_value_of_characteristic_without_response
+#   C2 write_characteristic_descriptor_using_descriptor_handle
+#   C3 notification received (0xA7)
 #
 # C3 is observed by overriding packet_callback: ble_central.rb's
 # GATT_EVENT_NOTIFICATION branch is an empty TODO, so the raw packet is the
-# only place the port's output is visible. ports/esp32/ble.c:486-497 lays the
-# packet out as [0]=0xA7/0xA8, [1]=6+vlen, [2..3]=conn_handle,
-# [4..5]=attr_handle, [6..7]=vlen, [8..]=value.
+# only place it is visible. That packet is [0]=0xA7/0xA8, [1]=6+vlen,
+# [2..3]=conn_handle, [4..5]=attr_handle, [6..7]=vlen, [8..]=value.
 class CentralPathsProbe < BLE
   TARGET_NAME = "PBLE-DARWIN"
   SERVICE     = 0x181A
@@ -41,13 +39,10 @@ class CentralPathsProbe < BLE
            "handle=#{Utils.little_endian_to_int16(event_packet.byteslice(4, 2))} count=#{@notify_seen}"
     end
     super
-    # drive is called from here, not only from heartbeat_callback: on ESP32 the
-    # heartbeat stops after connect(). ble_central.rb's connect runs a nested
-    # start(10, :TC_IDLE), whose ensure block calls
-    # hci_power_control(HCI_POWER_OFF) -- visible on the serial log as
-    # "BLE_hci_power_control(0)" -- and that stops the port's heartbeat timer.
-    # The outer scan loop keeps pumping pop_packet, so packet_callback still
-    # fires and is the only hook left that runs after discovery settles.
+    # drive runs from here, not only from heartbeat_callback: connect() runs a
+    # nested start(10, :TC_IDLE) whose ensure block powers HCI off, which stops
+    # the heartbeat. The outer scan loop keeps dispatching events, so
+    # packet_callback is the only hook left once discovery settles.
     drive
   end
 

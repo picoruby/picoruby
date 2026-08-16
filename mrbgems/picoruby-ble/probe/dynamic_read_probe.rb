@@ -1,8 +1,10 @@
 require 'ble'
 
-# Verifies the ESP32 port's dynamic-read mirror: the VM thread pushes a value
-# with push_read_value, the NimBLE host task must serve it from plain memory.
-# Counterpart: ports/darwin/test/esp32_dynamic_read_test.rb.
+# Verifies the dynamic-read mirror: the VM thread pushes a value with
+# push_read_value, and the host stack has to serve it from plain memory off
+# that thread. Rewrites the value every heartbeat, so a mirror that copied once
+# at init shows up as a mismatch instead of passing. Needs a Central peer that
+# reads the characteristic repeatedly.
 class DynamicReadProbe < BLE
   ADV_FLAGS     = 0x06
   AD_TYPE_FLAGS = 0x01
