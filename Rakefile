@@ -5,9 +5,16 @@ MRUBY_ROOT = File.dirname(File.expand_path(__FILE__))
 MRUBY_BUILD_HOST_IS_CYGWIN = RUBY_PLATFORM.include?('cygwin')
 MRUBY_BUILD_HOST_IS_OPENBSD = RUBY_PLATFORM.include?('openbsd')
 
+# The mruby build system is loaded directly from the mruby submodule so that a
+# submodule bump immediately exercises the new build system instead of waiting
+# for a manual copy-sync. Files picoruby overrides live under lib/ and tasks/
+# here; lib/ overrides win by load-path order, task overrides are loaded from
+# MRUBY_ROOT below.
+MRUBY_SUBMODULE = "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby"
+
 Rake.verbose(false) if Rake.verbose == Rake::DSL::DEFAULT
 
-$LOAD_PATH << File.join(MRUBY_ROOT, "lib")
+$LOAD_PATH << File.join(MRUBY_ROOT, "lib") << File.join(MRUBY_SUBMODULE, "lib")
 
 # load build systems
 require "mruby/core_ext"
@@ -15,9 +22,29 @@ require "mruby/build"
 require "picoruby/build"
 require "picoruby/gem"
 
+# Toolchain definitions come from the submodule. Preload them so that
+# `conf.toolchain` finds them in the registry and never falls back to
+# loading from "#{MRUBY_ROOT}/tasks/toolchains/".
+Dir["#{MRUBY_SUBMODULE}/tasks/toolchains/*.rake"].each {|f| load f}
+
 # load configuration file
 MRUBY_CONFIG = MRuby::Build.mruby_config_path
 load MRUBY_CONFIG
+
+# define MRB_NO_GEMS and set up all gems (mirrors the submodule's Rakefile)
+MRuby.each_target do |build|
+  unless enable_gems? && libmruby_enabled?
+    compilers.each do |compiler|
+      compiler.defines << "MRB_NO_GEMS"
+    end
+  end
+  gems.setup(self) if enable_gems?
+
+  # The config has been read and every gem's mrbgem.rake body has run, so the
+  # defines a gem contributes are all in. `build.has_define?` answers from
+  # here on, and refuses before.
+  build.defines_final!
+end
 
 # load basic rules
 MRuby.each_target do |build|
@@ -25,22 +52,21 @@ MRuby.each_target do |build|
 end
 
 # load custom rules
-load "#{MRUBY_ROOT}/tasks/core.rake"
-load "#{MRUBY_ROOT}/tasks/mrblib.rake"
-load "#{MRUBY_ROOT}/tasks/mrbgems.rake"
+load "#{MRUBY_SUBMODULE}/tasks/core.rake"
+load "#{MRUBY_SUBMODULE}/tasks/mrblib.rake"
+load "#{MRUBY_SUBMODULE}/tasks/mrbgems.rake"
 load "#{MRUBY_ROOT}/tasks/picoruby/mrbgems.rake"
 load "#{MRUBY_ROOT}/tasks/picoruby/test.rake"
 load "#{MRUBY_ROOT}/tasks/picoruby/build.rake"
 load "#{MRUBY_ROOT}/tasks/picoruby/r2p2.rake"
 load "#{MRUBY_ROOT}/tasks/picoruby/rbenv.rake"
 load "#{MRUBY_ROOT}/tasks/picoruby/wasm.rake"
-load "#{MRUBY_ROOT}/tasks/libmruby.rake"
-load "#{MRUBY_ROOT}/tasks/bin.rake"
-load "#{MRUBY_ROOT}/tasks/presym.rake"
-#load "#{MRUBY_ROOT}/tasks/test.rake"
-load "#{MRUBY_ROOT}/tasks/benchmark.rake"
-load "#{MRUBY_ROOT}/tasks/gitlab.rake"
-load "#{MRUBY_ROOT}/tasks/doc.rake"
+load "#{MRUBY_SUBMODULE}/tasks/libmruby.rake"
+load "#{MRUBY_SUBMODULE}/tasks/bin.rake"
+load "#{MRUBY_SUBMODULE}/tasks/presym.rake"
+#load "#{MRUBY_SUBMODULE}/tasks/test.rake"
+load "#{MRUBY_SUBMODULE}/tasks/benchmark.rake"
+load "#{MRUBY_SUBMODULE}/tasks/doc.rake"
 
 ##############################
 # generic build targets, rules

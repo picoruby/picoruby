@@ -70,13 +70,14 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
       f.puts
       f.puts "static shell_executables executables[] = {"
       executable_mrbfiles.each do |vm_code|
-        sio = StringIO.new("hoge", 'w+')
-        sio.set_encoding('ASCII-8BIT')
-        mrbc.compile_options = "--remove-lv -o-"
-        mrbc.run(sio, vm_code[:rbfile], "", cdump: false)
-        sio.rewind
-        crc = Zlib.crc32(sio.read.chomp)
-        sio.close
+        tmpmrb = "#{vm_code[:mrbfile]}.crc.mrb"
+        crc = File.open(tmpmrb, 'w+b') do |tmp|
+          mrbc.compile_options = "--remove-lv -o-"
+          mrbc.run(tmp, vm_code[:rbfile], "", cdump: false)
+          tmp.rewind
+          Zlib.crc32(tmp.read.chomp)
+        end
+        rm_f tmpmrb
         basename = File.basename(vm_code[:mrbfile], ".c")
         dirname = pathmap.find { _1[:basename] == basename }[:dir]
         line = "  {\"#{dirname}/#{basename}\", executable_#{basename.gsub('-', '_')}, #{crc}},"
