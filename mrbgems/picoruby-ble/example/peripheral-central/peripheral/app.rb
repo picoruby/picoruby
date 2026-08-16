@@ -2,7 +2,7 @@ require 'ble'
 
 # ble.rb defines a no-op CYW43 on boards without the chip. Giving it a GPIO
 # that prints keeps the demo below identical on Pico W and everywhere else.
-unless CYW43.const_defined?(:GPIO)
+unless CYW43.const_defined?(:GPIO, false)
   class CYW43
     class GPIO
       LED_PIN = 0
