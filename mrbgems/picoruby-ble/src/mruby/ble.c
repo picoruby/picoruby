@@ -5,7 +5,7 @@
 #include "mruby/array.h"
 #include "task.h"
 
-#ifdef ESP32_PLATFORM
+#ifdef PICORB_PLATFORM_ESP32
 #include "../../ports/esp32/nimble_owner.h"
 #endif
 
@@ -58,12 +58,9 @@ static mrb_value
 mrb_event_popped(mrb_state *mrb, mrb_value self)
 {
   if (0 < pending_event_count) pending_event_count--;
-#ifdef ESP32_PLATFORM
-  /* NimBLE delivers events on its own FreeRTOS task via a plain (non-mruby)
-   * evq ring buffer (ports/esp32/nimble_owner.c). BLE_push_event calls
-   * mrb_malloc/mrb_free against the GC-managed heap, so draining the ring
-   * buffer must happen here, on the VM thread that owns mrb_state — never
-   * from the NimBLE host task or an esp_timer callback directly. */
+#ifdef PICORB_PLATFORM_ESP32
+  /* NimBLE fills a plain ring buffer from its own FreeRTOS task. BLE_push_event
+   * touches the GC heap, so it must run here, on the thread owning mrb_state. */
   {
     uint8_t buf[100];
     uint16_t n = picoruby_nimble_dequeue_event(buf, sizeof(buf));
