@@ -48,7 +48,7 @@ class IO
       STDOUT.print "\e[6n"
       timeout = 500
       while timeout > 0
-        c = STDIN.read_nonblock(1)&.ord || 0
+        c = STDIN.read_nonblock(1)&.getbyte(0) || 0
         if 0x30 <= c && c <= 0x39 # "0".."9"
           row = row * 10 + c - 0x30
         elsif c == 0x3B # ";"
@@ -59,7 +59,7 @@ class IO
         end
       end
       while timeout > 0
-        c = STDIN.read_nonblock(1)&.ord || 0
+        c = STDIN.read_nonblock(1)&.getbyte(0) || 0
         # @type var c: Integer
         if 0x30 <= c && c <= 0x39
           col = col * 10 + c - 0x30

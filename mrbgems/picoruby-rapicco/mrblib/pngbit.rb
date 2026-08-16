@@ -24,7 +24,7 @@ module PNGBIT
       x = 0
       prev_color = nil
       while x < width
-        b = file.read(1)&.ord
+        b = file.read(1)&.getbyte(0)
         break unless b # Corrupted file or EOF (unexpeted though...)
         if b == 0
           line += "\e[C"  # skip transparent pixel

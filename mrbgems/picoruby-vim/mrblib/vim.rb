@@ -127,7 +127,7 @@ class Vim
           when 101 # e word end
             buffer.word_end
           when 103 # g
-            cc = STDIN.getch.ord
+            cc = STDIN.getch.getbyte(0)
             if cc == 103 # gg: go to top
               buffer.home
             end
@@ -147,7 +147,8 @@ class Vim
             end
           when 114 # r replace
             rc = STDIN.getch
-            if rc && rc.ord >= 32
+            rcb = rc.getbyte(0)
+            if rcb && 32 <= rcb
               buffer.replace_char(rc)
             end
           when 117 # u undo
@@ -160,7 +161,7 @@ class Vim
           when 120 # x delete
             buffer.delete
           when 121 # y yank
-            yc = STDIN.getch.ord
+            yc = STDIN.getch.getbyte(0)
             if yc == 121 # yy: yank line
               @paste_board = buffer.current_line.dup
               @paste_type = :line
@@ -262,7 +263,7 @@ class Vim
         when 101 # e word end
           buffer.word_end
         when 103 # g
-          cc = STDIN.getch.ord
+          cc = STDIN.getch.getbyte(0)
           if cc == 103 # gg: go to top
             buffer.home
           end

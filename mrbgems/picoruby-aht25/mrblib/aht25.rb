@@ -12,7 +12,7 @@ class AHT25
   def check
     @i2c.write(ADDRESS, 0x71)
     sleep_ms 10
-    if @i2c.read(ADDRESS, 1)[0]&.ord & 0x18 == 0x18
+    if @i2c.read(ADDRESS, 1).getbyte(0) & 0x18 == 0x18
       true
     else
       puts "AHT25: check failed. You may need to reset."

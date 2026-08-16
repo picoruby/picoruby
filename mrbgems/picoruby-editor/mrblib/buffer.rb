@@ -338,7 +338,10 @@ module Editor
 
     def word_char?(ch)
       return false unless ch
-      c = ch.ord
+      # Classify by the first byte: same result as #ord for the ASCII
+      # word characters below, but never raises on invalid UTF-8.
+      c = ch.getbyte(0)
+      return false unless c
       (c >= 48 && c <= 57) ||   # 0-9
       (c >= 65 && c <= 90) ||   # A-Z
       (c >= 97 && c <= 122) ||  # a-z

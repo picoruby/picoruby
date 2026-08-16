@@ -40,7 +40,7 @@ class Rapicco
       while i < 100
         sleep_ms 1
         begin
-          c = STDIN.read_nonblock(1)&.ord
+          c = STDIN.read_nonblock(1)&.getbyte(0)
         rescue Interrupt
           return
         rescue SignalException => e

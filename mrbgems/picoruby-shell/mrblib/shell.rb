@@ -257,7 +257,7 @@ class Shell
       print question
       answer = ""
       while true
-        case c = STDIN.getch.ord
+        case c = STDIN.getch.getbyte(0) || 0
         when 0x0d, 0x0a
           puts
           break

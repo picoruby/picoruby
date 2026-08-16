@@ -254,9 +254,9 @@ class BLE
     # --- Peripheral private methods ---
 
     def _peripheral_packet_callback(event_packet)
-      case event_packet[0]&.ord
+      case event_packet.getbyte(0)
       when BTSTACK_EVENT_STATE
-        return unless event_packet[2]&.ord == HCI_STATE_WORKING
+        return unless event_packet.getbyte(2) == HCI_STATE_WORKING
         debug_puts "UART Peripheral up on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
         _start_advertise
       when HCI_EVENT_DISCONNECTION_COMPLETE

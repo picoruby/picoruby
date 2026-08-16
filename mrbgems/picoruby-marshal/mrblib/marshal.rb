@@ -170,7 +170,7 @@ module Marshal
       when TYPE_IVAR
         load_ivar(data, pos)
       else
-        raise ArgumentError, "unsupported type: #{type.ord.to_s(16)}"
+        raise ArgumentError, "unsupported type: #{(type.getbyte(0) || 0).to_s(16)}"
       end
     end
 
