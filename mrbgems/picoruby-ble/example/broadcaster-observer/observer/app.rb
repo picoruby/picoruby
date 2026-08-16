@@ -4,11 +4,9 @@ class DemoObserver < BLE
   TARGET_NAME = "PicoRuby"
 
   def initialize
-    # Scan-only is the observer role, but mrblib gates scan and
-    # advertising_report_callback on :central, so that is what the stack is
-    # initialized as. This demo simply never calls connect. The port itself
-    # treats BLE_ROLE_OBSERVER and BLE_ROLE_CENTRAL identically on the
-    # advertising-report path (ports/esp32/ble.c:482).
+    # Scan-only is the observer role, but scan and advertising_report_callback
+    # are gated on :central, so that is what the stack is initialized as. This
+    # demo simply never calls connect.
     super(:central)
   end
 
