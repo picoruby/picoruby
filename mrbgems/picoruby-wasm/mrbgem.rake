@@ -54,10 +54,16 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
   is_test_build = build.name == 'picoruby-wasm-test'
 
   file output_js => [File.join(build.build_dir, 'lib', 'libmruby.a'), bin_dir] do |t|
-    if ENV['PICORB_DEBUG'] || is_test_build
+    if ENV['PICORB_DEBUG']
       server_ip = ENV['PICORB_DEBUG_SERVER_IP'] || '127.0.0.1'
       optdebug = "-O0 -gsource-map --source-map-base http://#{server_ip}:8080/"
       exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_picorb_create_task_with_filename", "_mrb_tick_wasm", "_mrb_run_step", "_mrb_run_step_status", "_mrb_gc_scheduler_pending_wasm", "_malloc", "_free", "_mrb_get_globals_json", "_mrb_eval_string", "_mrb_get_component_debug_info", "_mrb_get_component_state_by_id", "_mrb_debug_get_status", "_mrb_debug_continue", "_mrb_debug_get_locals", "_mrb_debug_eval_in_binding", "_mrb_debug_step", "_mrb_debug_next", "_mrb_debug_get_callstack"]'
+    elsif is_test_build
+      # The Node.js test runner only needs the production exports plus
+      # _picorb_create_task_with_filename; a full -O0/sourcemap debug
+      # build would bloat the funicular gem for no benefit.
+      optdebug = '-g0 -O2'
+      exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_picorb_create_task_with_filename", "_mrb_tick_wasm", "_mrb_run_step", "_mrb_run_step_status", "_mrb_gc_scheduler_pending_wasm", "_malloc", "_free"]'
     else
       optdebug = '-g0 -O2'
       exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_mrb_run_step_status", "_mrb_gc_scheduler_pending_wasm", "_malloc", "_free"]'
