@@ -10,7 +10,7 @@ class ADNS5050 < SPI
   def get_cpi
     self.select do |spi|
       spi.write(0x19)
-      reg = spi.read(1).bytes[0] & 0b1111
+      reg = spi.read(1).getbyte(0) & 0b1111
       CPI[reg]
     end
   end
