@@ -70,7 +70,8 @@ MRuby::Gem::Specification.new('picoruby-socket') do |spec|
       end
     end
 
-    spec.cc.defines << 'PICO_CYW43_ARCH_POLL=1'
+    # R2P2 links pico_cyw43_arch_lwip_threadsafe_background in CMake.
+    spec.cc.defines << 'PICO_CYW43_ARCH_POLL=1' unless build.name.to_s.start_with?('r2p2-')
 
     # Add LwIP include paths
     spec.cc.include_paths << "#{lwip_dir}/src/include"

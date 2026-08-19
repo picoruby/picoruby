@@ -17,9 +17,9 @@
 /* CYW43 includes for polling */
 #include "pico/cyw43_arch.h"
 
-/* Pre-allocated receive buffer size for accepted TCP connections. */
+/* Keep the server-side buffer modest: mruby/c aborts on heap exhaustion. */
 #ifndef TCP_SERVER_RECV_BUF_SIZE
-#define TCP_SERVER_RECV_BUF_SIZE 4096
+#define TCP_SERVER_RECV_BUF_SIZE 1024
 #endif
 
 /* TCP Server structure */
@@ -278,7 +278,7 @@ TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server)
     return NULL;
   }
 
-#ifdef PICO_CYW43_ARCH_POLL
+#if defined(PICO_CYW43_ARCH_POLL) && PICO_CYW43_ARCH_POLL
   cyw43_arch_poll();
 #endif
 

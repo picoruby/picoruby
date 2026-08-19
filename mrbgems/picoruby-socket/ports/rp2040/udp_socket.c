@@ -189,7 +189,7 @@ UDPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
 
   pbuf_free(pbuf);
 
-#ifdef PICO_CYW43_ARCH_POLL
+#if defined(PICO_CYW43_ARCH_POLL) && PICO_CYW43_ARCH_POLL
   cyw43_arch_poll();
 #endif
 
@@ -221,7 +221,7 @@ UDPSocket_sendto(picorb_state *vm, picorb_socket_t *sock, const void *data, size
 
   pbuf_free(pbuf);
 
-#ifdef PICO_CYW43_ARCH_POLL
+#if defined(PICO_CYW43_ARCH_POLL) && PICO_CYW43_ARCH_POLL
   cyw43_arch_poll();
 #endif
 
@@ -235,7 +235,7 @@ UDPSocket_recvfrom(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t le
 {
   if (!sock || !buf) return -1;
 
-#ifdef PICO_CYW43_ARCH_POLL
+#if defined(PICO_CYW43_ARCH_POLL) && PICO_CYW43_ARCH_POLL
   cyw43_arch_poll();
 #endif
 

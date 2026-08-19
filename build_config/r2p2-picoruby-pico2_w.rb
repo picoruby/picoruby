@@ -19,6 +19,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w") do |conf|
   conf.cc.defines << "PICORB_ALLOC_ESTALLOC"
   conf.cc.defines << "PICORB_ALLOC_ALIGN=8"
   conf.cc.defines << "USE_WIFI"
+  conf.cc.defines << "PICO_CYW43_ARCH_THREADSAFE_BACKGROUND=1"
   conf.cc.defines << "MRB_USE_CUSTOM_RO_DATA_P"
   conf.cc.defines << "MRB_LINK_TIME_RO_DATA_P"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"

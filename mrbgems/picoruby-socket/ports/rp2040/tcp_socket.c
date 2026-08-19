@@ -295,7 +295,7 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
     }
     lwip_end();
 
-#ifdef PICO_CYW43_ARCH_POLL
+#if defined(PICO_CYW43_ARCH_POLL) && PICO_CYW43_ARCH_POLL
     cyw43_arch_poll();
 #endif
 

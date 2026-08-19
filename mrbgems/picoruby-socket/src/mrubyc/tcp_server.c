@@ -117,13 +117,14 @@ c_tcp_server_accept_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   /*
-   * Create TCPSocket object with pointer pattern.
-   * Store the pointer directly to preserve LwIP callback arg.
+   * Create TCPSocket object with the same wrapper layout used by
+   * TCPSocket.new so methods and the destructor can safely access vm.
    */
   mrbc_class *class_TCPSocket = mrbc_get_class_by_name("TCPSocket");
-  mrbc_value client_obj = mrbc_instance_new(vm, class_TCPSocket, sizeof(picorb_socket_t *));
-  picorb_socket_t **sock_ptr = (picorb_socket_t **)client_obj.instance->data;
-  *sock_ptr = client;
+  mrbc_value client_obj = mrbc_instance_new(vm, class_TCPSocket, sizeof(socket_wrapper_t));
+  socket_wrapper_t *sock_wrapper = (socket_wrapper_t *)client_obj.instance->data;
+  sock_wrapper->ptr = client;
+  sock_wrapper->vm = vm;
 
   mrbc_incref(&v[0]);
   SET_RETURN(client_obj);

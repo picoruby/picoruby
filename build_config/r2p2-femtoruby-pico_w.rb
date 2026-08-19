@@ -37,6 +37,7 @@ MRuby::CrossBuild.new("r2p2-femtoruby-pico_w") do |conf|
   conf.cc.defines << "MAX_SYMBOLS_COUNT=2000"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "USE_WIFI"
+  conf.cc.defines << "PICO_CYW43_ARCH_THREADSAFE_BACKGROUND=1"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
 
   conf.femtoruby(alloc_libc: false)
