@@ -57,16 +57,7 @@ static volatile bool synced = false;
 static uint8_t own_addr_type = BLE_OWN_ADDR_PUBLIC;
 static SemaphoreHandle_t sync_sem = NULL;
 static esp_timer_handle_t heartbeat_timer = NULL;
-/* connect() runs a nested BLE#start(10, :TC_IDLE) that powers HCI off in its
- * ensure block after the 10ms wait, while the outer scan's start() loop is
- * still running and still needs events. The heartbeat timer is the only
- * producer that ever pushes onto the VM-thread event queue on this port, so
- * a plain enable/disable let that nested power-off silence it for the rest
- * of the outer loop's lifetime -- connect's own completion and every GATT
- * discovery event after it would sit in the ring buffer undrained. Counting
- * nesting depth instead means the timer keeps running as long as any
- * start() session, nested or not, still considers itself powered on. */
-static int heartbeat_depth = 0;
+static int heartbeat_depth = 0; // nest count: only the outermost disable actually stops it
 
 void
 picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_adv)
