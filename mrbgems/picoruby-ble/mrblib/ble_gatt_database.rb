@@ -79,7 +79,7 @@ class BLE
       cmac.update(@hash_src)
       digest = cmac.digest
       0.upto(15) do |i|
-        @profile_data.setbyte(@hash_pos + i, digest.getbyte(15 - i))
+        @profile_data.setbyte(@hash_pos + i, digest.getbyte(15 - i)) # digest is raw bytes, not chars
       end
     end
 
