@@ -2,12 +2,6 @@ require 'mbedtls'
 begin
   require 'cyw43'
 rescue LoadError # Only LoadError should be rescued
-  # Boards without the CYW43 chip do not build picoruby-cyw43 in (see mrbgem.rake).
-  class CYW43
-    def self.init
-      true
-    end
-  end
 end
 
 class BLE
@@ -93,7 +87,7 @@ class BLE
     # together with this instance.
     @write_values = {}
     @read_values = {}
-    unless CYW43.init
+    if Object.const_defined?(:CYW43) && !CYW43.init
       puts "Failed to initialize CYW43"
       return # raising an exception here may cause a crash
     end
