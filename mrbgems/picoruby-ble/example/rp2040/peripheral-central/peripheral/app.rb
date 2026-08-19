@@ -1,37 +1,5 @@
+require 'adc'
 require 'ble'
-
-# ble.rb defines a no-op CYW43 on boards without the chip. Giving it a GPIO
-# that prints keeps the demo below identical on Pico W and everywhere else.
-unless CYW43.const_defined?(:GPIO, false)
-  class CYW43
-    class GPIO
-      LED_PIN = 0
-      def initialize(pin)
-      end
-      def write(value)
-        puts "led: #{value}"
-      end
-    end
-  end
-end
-
-# Absorbs whether the board has an on-chip temperature sensor. Centi-degrees.
-class Thermometer
-  def initialize
-    @adc = begin
-      require 'adc'
-      ADC.new(:temperature) # RP2040 internal temperature channel
-    rescue                  # elsewhere picoruby-adc wants a GPIO pin number
-      nil
-    end
-    @counter = 0
-  end
-
-  def read
-    return ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i if @adc
-    2000 + ((@counter += 1) % 100) * 10 # sawtooth, so a peer sees it change
-  end
-end
 
 class DemoPeripheral < BLE
   # for advertising
@@ -63,7 +31,7 @@ class DemoPeripheral < BLE
     end
     db = BLE::GattDatabase.new do |db|
       db.add_service(GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
-        s.add_characteristic(READ, BLE::GAP_DEVICE_NAME_UUID, READ, "picoruby_temp")
+        s.add_characteristic(READ, BLE::GAP_DEVICE_NAME_UUID, READ, "picow_temp")
       end
       db.add_service(GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
         database_hash_key = 0.chr * 16
@@ -84,12 +52,13 @@ class DemoPeripheral < BLE
     @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
     @led_on = false
     @counter = 0
-    @thermo = Thermometer.new
+    @adc = ADC.new(:temperature)
   end
 
   def heartbeat_callback
     @counter += 1
-    push_read_value(@temperature_handle, Utils.int16_to_little_endian(@thermo.read))
+    temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
+    push_read_value(@temperature_handle, Utils.int16_to_little_endian(temperature))
     if @counter == 10
       if @notification_enabled
         debug_puts "request_can_send_now_event"
