@@ -16,8 +16,10 @@ set_freq_and_start(mrbc_value *v, picorb_float_t freq)
   SETIV(frequency, &mrbc_float_value(vm, freq));
   uint32_t pin = GETIV(pin).i;
   picorb_float_t duty = GETIV(duty).d;
-  PWM_set_frequency_and_duty(pin, freq, duty);
+  /* Zero means stop: the settings are not pushed at all, or the port
+   * would have to divide by it. */
   if (0 < freq) {
+    PWM_set_frequency_and_duty(pin, freq, duty);
     PWM_set_enabled(pin, true);
   } else {
     PWM_set_enabled(pin, false);
@@ -55,6 +57,10 @@ c_period_us(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type");
     return;
   }
+  if (GET_INT_ARG(1) <= 0) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "period must be positive");
+    return;
+  }
   picorb_float_t freq = 1000000.0 / GET_INT_ARG(1);
   set_freq_and_start(v, freq);
   SET_FLOAT_RETURN(freq);
@@ -69,7 +75,10 @@ set_duty(mrbc_value *v, picorb_float_t duty)
     duty = 100.0;
   }
   SETIV(duty, &mrbc_float_value(vm, duty));
-  PWM_set_frequency_and_duty(GETIV(pin).i, GETIV(frequency).d, duty);
+  picorb_float_t freq = GETIV(frequency).d;
+  if (0 < freq) {
+    PWM_set_frequency_and_duty(GETIV(pin).i, freq, duty);
+  }
   SET_FLOAT_RETURN(duty);
 }
 
