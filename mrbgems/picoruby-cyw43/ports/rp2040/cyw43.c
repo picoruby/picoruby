@@ -1,10 +1,15 @@
 #include "../../include/cyw43.h"
+#include "ap_dhcp_server.h"
 
 #include <string.h>
 
 #include "pico/cyw43_arch.h"
 #include "lwip/dhcp.h"
 #include "lwip/netif.h"
+
+#define CYW43_AP_MAX_SSID_LEN 32
+#define CYW43_AP_MIN_PASSWORD_LEN 8
+#define CYW43_AP_MAX_PASSWORD_LEN 64
 
 int
 CYW43_CONST_link_down(void)
@@ -61,6 +66,39 @@ CYW43_dhcp_supplied(void)
   return dhcp_supplied_address(netif);
 }
 
+bool
+CYW43_ap_active(void)
+{
+  return (cyw43_state.itf_state & (1 << CYW43_ITF_AP)) != 0;
+}
+
+const char *
+CYW43_ap_ssid(char *buf, size_t buflen)
+{
+  size_t ssid_len = 0;
+  const uint8_t *ssid = NULL;
+
+  if (!CYW43_ap_active() || buflen == 0) {
+    return NULL;
+  }
+
+  cyw43_wifi_ap_get_ssid(&cyw43_state, &ssid_len, &ssid);
+  if (!ssid || ssid_len == 0) {
+    return NULL;
+  }
+
+  size_t copy_len = ssid_len < (buflen - 1) ? ssid_len : (buflen - 1);
+  memcpy(buf, ssid, copy_len);
+  buf[copy_len] = '\0';
+  return buf;
+}
+
+int
+CYW43_CONST_auth_wpa2_aes_psk(void)
+{
+  return CYW43_AUTH_WPA2_AES_PSK;
+}
+
 int
 CYW43_arch_init_with_country(const uint8_t *country)
 {
@@ -86,6 +124,7 @@ CYW43_arch_init_with_country(const uint8_t *country)
 void
 CYW43_arch_deinit(void)
 {
+  picoruby_ap_dhcp_server_stop();
   cyw43_arch_deinit();
 }
 
@@ -99,6 +138,33 @@ void
 CYW43_arch_disable_sta_mode(void)
 {
   cyw43_arch_disable_sta_mode();
+}
+
+bool
+CYW43_arch_enable_ap_mode(const char *ssid, const char *pw, uint32_t auth)
+{
+  size_t ssid_len = ssid ? strlen(ssid) : 0;
+  size_t password_len = pw ? strlen(pw) : 0;
+
+  if (ssid_len == 0 || CYW43_AP_MAX_SSID_LEN < ssid_len ||
+      password_len < CYW43_AP_MIN_PASSWORD_LEN || CYW43_AP_MAX_PASSWORD_LEN < password_len) {
+    return false;
+  }
+
+  cyw43_arch_enable_ap_mode(ssid, pw, auth);
+  if (!CYW43_ap_active() || !picoruby_ap_dhcp_server_start()) {
+    picoruby_ap_dhcp_server_stop();
+    cyw43_arch_disable_ap_mode();
+    return false;
+  }
+  return true;
+}
+
+void
+CYW43_arch_disable_ap_mode(void)
+{
+  picoruby_ap_dhcp_server_stop();
+  cyw43_arch_disable_ap_mode();
 }
 
 /* Response shape of CYW43_IOCTL_GET_SSID (wlc_ssid_t; cyw43_ll.h defines
@@ -168,47 +234,89 @@ CYW43_GPIO_read(uint8_t pin)
   return(cyw43_arch_gpio_get(pin) ? 1 : 0);
 }
 
-const char *
-CYW43_ipv4_address(char *buf, size_t buflen)
+static const char *
+cyw43_ipv4_address_for_if(int itf, char *buf, size_t buflen)
 {
   const char *res;
   lwip_begin();
-  const ip4_addr_t *ip = netif_ip4_addr(netif_default);
-  if (ip && ip->addr != 0) {
-    res = ipaddr_ntoa_r(ip, buf, buflen);
-  } else {
+  if ((cyw43_state.itf_state & (1 << itf)) == 0) {
     res = NULL;
+  } else {
+    const ip4_addr_t *ip = netif_ip4_addr(&cyw43_state.netif[itf]);
+    if (ip && ip->addr != 0) {
+      res = ipaddr_ntoa_r(ip, buf, buflen);
+    } else {
+      res = NULL;
+    }
   }
   lwip_end();
   return res;
+}
+
+static const char *
+cyw43_ipv4_netmask_for_if(int itf, char *buf, size_t buflen)
+{
+  const char *res;
+  lwip_begin();
+  if ((cyw43_state.itf_state & (1 << itf)) == 0) {
+    res = NULL;
+  } else {
+    const ip4_addr_t *netmask = netif_ip4_netmask(&cyw43_state.netif[itf]);
+    if (netmask && netmask->addr != 0) {
+      res = ipaddr_ntoa_r(netmask, buf, buflen);
+    } else {
+      res = NULL;
+    }
+  }
+  lwip_end();
+  return res;
+}
+
+static const char *
+cyw43_ipv4_gateway_for_if(int itf, char *buf, size_t buflen)
+{
+  const char *res;
+  lwip_begin();
+  if ((cyw43_state.itf_state & (1 << itf)) == 0) {
+    res = NULL;
+  } else {
+    const ip4_addr_t *gateway = netif_ip4_gw(&cyw43_state.netif[itf]);
+    if (gateway && gateway->addr != 0) {
+      res = ipaddr_ntoa_r(gateway, buf, buflen);
+    } else {
+      res = NULL;
+    }
+  }
+  lwip_end();
+  return res;
+}
+
+const char *
+CYW43_ipv4_address(char *buf, size_t buflen)
+{
+  return cyw43_ipv4_address_for_if(CYW43_ITF_STA, buf, buflen);
 }
 
 const char *
 CYW43_ipv4_netmask(char *buf, size_t buflen)
 {
-  const char *res;
-  lwip_begin();
-  const ip4_addr_t *netmask = netif_ip4_netmask(netif_default);
-  if (netmask && netmask->addr != 0) {
-    res = ipaddr_ntoa_r(netmask, buf, buflen);
-  } else {
-    res = NULL;
-  }
-  lwip_end();
-  return res;
+  return cyw43_ipv4_netmask_for_if(CYW43_ITF_STA, buf, buflen);
 }
 
 const char *
 CYW43_ipv4_gateway(char *buf, size_t buflen)
 {
-  const char *res;
-  lwip_begin();
-  const ip4_addr_t *gateway = netif_ip4_gw(netif_default);
-  if (gateway && gateway->addr != 0) {
-    res = ipaddr_ntoa_r(gateway, buf, buflen);
-  } else {
-    res = NULL;
-  }
-  lwip_end();
-  return res;
+  return cyw43_ipv4_gateway_for_if(CYW43_ITF_STA, buf, buflen);
+}
+
+const char *
+CYW43_ap_ipv4_address(char *buf, size_t buflen)
+{
+  return cyw43_ipv4_address_for_if(CYW43_ITF_AP, buf, buflen);
+}
+
+const char *
+CYW43_ap_ipv4_netmask(char *buf, size_t buflen)
+{
+  return cyw43_ipv4_netmask_for_if(CYW43_ITF_AP, buf, buflen);
 }
