@@ -68,9 +68,9 @@ class DemoPeripheral < BLE
   end
 
   def packet_callback(event_packet)
-    case event_packet[0]&.ord # event type
+    case event_packet.getbyte(0) # event type
     when BTSTACK_EVENT_STATE
-      return unless event_packet[2]&.ord ==  BLE::HCI_STATE_WORKING
+      return unless event_packet.getbyte(2) ==  BLE::HCI_STATE_WORKING
       debug_puts "Peripheral is up and running on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
     when HCI_EVENT_DISCONNECTION_COMPLETE

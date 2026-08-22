@@ -23,8 +23,8 @@ class DemoBroadcaster < BLE
   end
 
   def packet_callback(event_packet)
-    return unless event_packet[0]&.ord == BLE::BTSTACK_EVENT_STATE
-    return unless event_packet[2]&.ord == BLE::HCI_STATE_WORKING
+    return unless event_packet.getbyte(0) == BLE::BTSTACK_EVENT_STATE
+    return unless event_packet.getbyte(2) == BLE::HCI_STATE_WORKING
     puts "[broadcaster] up on `#{BLE::Utils.bd_addr_to_str(gap_local_bd_addr)}`"
   end
 end
