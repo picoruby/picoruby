@@ -89,10 +89,6 @@ picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_ad
   taskEXIT_CRITICAL(&evq_mux);
 }
 
-/* NimBLE host-task side. Copies the bytes into wrq and returns 0, or returns
- * -1 when the queue is full. Touches no mruby. The caller in ble.c turns -1
- * into BLE_ATT_ERR_INSUFFICIENT_RES, which NimBLE sends as an ATT error for a
- * Write Request and discards for a Write Without Response. */
 int
 picoruby_nimble_enqueue_write(uint16_t ruby_handle, const uint8_t *data, uint16_t len)
 {
@@ -118,8 +114,6 @@ picoruby_nimble_enqueue_write(uint16_t ruby_handle, const uint8_t *data, uint16_
   return 0;
 }
 
-/* Drops everything queued for a link that is gone. Called from the host task
- * on disconnect; only rewinds indices, so it is safe there. */
 void
 picoruby_nimble_reset_writes(void)
 {
@@ -130,10 +124,6 @@ picoruby_nimble_reset_writes(void)
   taskEXIT_CRITICAL(&wrq_mux);
 }
 
-/* VM-thread side. Hands every queued write to BLE_write_data, which builds the
- * mruby String. Called from picoruby_nimble_dequeue_event, whose only caller is
- * mrb_pop_packet on the VM thread. BLE_write_data is called outside the
- * critical section because it allocates. */
 static void
 flush_writes(void)
 {
@@ -199,9 +189,7 @@ picoruby_nimble_heartbeat_enable(bool enable)
   }
 }
 
-/* Full stop: silence the timer unconditionally rather than trust depth
- * bookkeeping, since this runs on every BLE_init (fresh instance or role
- * change) and must never carry nesting state across sessions. */
+// Unconditional stop, not depth-gated: runs on every BLE_init and must not carry nesting state across sessions.
 static void
 heartbeat_force_stop(void)
 {

@@ -155,12 +155,7 @@ gatt_access_cb(uint16_t conn, uint16_t attr_handle, struct ble_gatt_access_ctxt 
   switch (ctxt->op) {
     case BLE_GATT_ACCESS_OP_READ_CHR:
     case BLE_GATT_ACCESS_OP_READ_DSC: {
-      /* Runs on the NimBLE host task: reads only the mirror that the VM thread
-       * refreshes each tick. os_mbuf_append can allocate, so it is called
-       * outside the critical section. rd_tmp is static because this callback
-       * has exactly one caller task and NimBLE's stack is small -- same reason
-       * as the write branch's buf below. */
-      static uint8_t rd_tmp[RDM_MAX];
+      static uint8_t rd_tmp[RDM_MAX]; // static is safe: this callback has only one caller task
       const uint8_t *data = e->static_value;
       uint16_t len = e->static_len;
       if (e->mirror_slot >= 0) {
@@ -175,7 +170,7 @@ gatt_access_cb(uint16_t conn, uint16_t attr_handle, struct ble_gatt_access_ctxt 
         }
       }
       if (data == NULL || len == 0) return 0;
-      return os_mbuf_append(ctxt->om, data, len) == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+      return os_mbuf_append(ctxt->om, data, len) == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES; // can allocate, so called after the critical section exits
     }
     case BLE_GATT_ACCESS_OP_WRITE_CHR:
     case BLE_GATT_ACCESS_OP_WRITE_DSC: {
@@ -258,11 +253,7 @@ alloc_map(uint16_t ruby_handle)
   return e;
 }
 
-/* Gives a plain-memory mirror slot to attributes that a GATT read can hit and
- * whose value lives in mruby (DYNAMIC). Called during profile registration on
- * the VM thread. When the pool is exhausted the attribute keeps mirror_slot -1
- * and serves its static value; there is deliberately no fallback that calls
- * BLE_read_data from the host task, because that is the defect being fixed. */
+// No fallback to BLE_read_data from the host task here: touching the GC heap off the VM thread is the defect this fixes.
 static void
 mirror_assign(attr_map_t *e, uint16_t flags)
 {
@@ -462,15 +453,7 @@ synth_mtu_exchange_complete(uint16_t conn, uint16_t mtu)
 static void
 synth_advertising_report(const struct ble_gap_disc_desc *d)
 {
-  /* mrblib/ble_advertising_report.rb requires packet.bytesize >= 14 (a
-   * contract inherited from BTstack's own GAP_EVENT_ADVERTISING_REPORT wire
-   * format, which this synthesizes). NimBLE can report advertisements with
-   * length_data of 0 or 1 (e.g. minimal/non-connectable beacons), which
-   * would otherwise produce a 12-13 byte packet and raise ArgumentError in
-   * the shared parser — confirmed on real hardware once the STATE-delivery
-   * fix let scanning actually start. Pad with trailing zero bytes past the
-   * declared data_length; inspect_reports() only reads the first
-   * data_length bytes, so the padding is never parsed. */
+  // Pad to >=14 bytes: mrblib/ble_advertising_report.rb requires it and NimBLE can report shorter adverts; safe since inspect_reports() only reads the declared data_length.
   uint8_t p[14 + 31];
   uint8_t dlen = d->length_data > 31 ? 31 : d->length_data;
   p[0] = EVT_GAP_ADVERTISING_REPORT;
@@ -506,13 +489,7 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
       break;
     case BLE_GAP_EVENT_DISCONNECT:
       con_handle = 0xffff;
-      /* The write queue is deliberately NOT reset here. Its entries are
-       * addressed to an attribute handle, not to the link, and gatt_access_cb
-       * has already told the peer the write succeeded. Discarding them loses
-       * data the peer believes was delivered -- measured on hardware: a
-       * central that writes and disconnects inside one 100ms tick (PING, and
-       * CoreBluetooth's CCCD 0x0000 on unsubscribe) never reached Ruby.
-       * Staleness across a BLE restart is handled by picoruby_nimble_start. */
+      // Write queue is NOT reset on disconnect: entries are per-attribute-handle, and the peer was already told the write succeeded; BLE restart staleness is handled by picoruby_nimble_start.
       if (role == BLE_ROLE_PERIPHERAL) {
         synth_disconnection_complete(event->disconnect.conn.conn_handle,
                                      (uint8_t)event->disconnect.reason);
