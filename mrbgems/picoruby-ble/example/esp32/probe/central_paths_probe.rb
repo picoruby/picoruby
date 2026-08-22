@@ -1,16 +1,6 @@
 require 'ble'
 
-# Drives and witnesses the central-side paths. Needs a peripheral peer
-# advertising as PBLE-DARWIN and exposing the service below.
-#
-#   C1 write_value_of_characteristic_without_response
-#   C2 write_characteristic_descriptor_using_descriptor_handle
-#   C3 notification received (0xA7)
-#
-# C3 is observed by overriding packet_callback: ble_central.rb's
-# GATT_EVENT_NOTIFICATION branch is an empty TODO, so the raw packet is the
-# only place it is visible. That packet is [0]=0xA7/0xA8, [1]=6+vlen,
-# [2..3]=conn_handle, [4..5]=attr_handle, [6..7]=vlen, [8..]=value.
+# C3 (notification) only surfaces via packet_callback: ble_central.rb's GATT_EVENT_NOTIFICATION branch is an empty TODO.
 class CentralPathsProbe < BLE
   TARGET_NAME = "PBLE-DARWIN"
   SERVICE     = 0x181A
@@ -39,40 +29,26 @@ class CentralPathsProbe < BLE
            "handle=#{Utils.little_endian_to_int16(event_packet.byteslice(4, 2))} count=#{@notify_seen}"
     end
     super
-    # drive runs from here, not only from heartbeat_callback: connect() runs a
-    # nested start(10, :TC_IDLE) whose ensure block powers HCI off, which stops
-    # the heartbeat. The outer scan loop keeps dispatching events, so
-    # packet_callback is the only hook left once discovery settles.
+    # drive also runs here: connect()'s nested start(10, :TC_IDLE) stops the heartbeat via its ensure block powering HCI off.
     drive
   end
 
   # Bluetooth Base UUID tail shared by every 16-bit UUID promoted to 128 bits.
   BT_BASE_SUFFIX = "\x00\x00\x10\x00\x80\x00\x00\x80\x5F\x9B\x34\xFB"
 
-  # Builds the canonical big-endian 128-bit form of a 16-bit UUID, e.g. 0x181A
-  # -> 0000181A-0000-1000-8000-00805F9B34FB.
   def uuid128_for(uuid16)
     "\x00\x00" + [(uuid16 >> 8) & 0xff, uuid16 & 0xff].pack("CC") + BT_BASE_SUFFIX
   end
 
-  # Matches on :uuid128, not :uuid32. Utils.uuid128_to_uuid32 (ble_utils.rb:52)
-  # reads the leading 4 bytes little-endian, but the canonical 128-bit form
-  # holds them big-endian, so service 0x181A comes back as 0x0A180000 and no
-  # uuid32 comparison can ever match. Measured on hardware. Matching the
-  # uuid128 bytes sidesteps that helper entirely.
-  #
-  # Array#find / Enumerable#detect are not in the base picoruby VM, so this
-  # walks with each and keeps the last match.
+  # Matches uuid128, not uuid32: Utils.uuid128_to_uuid32 reads it little-endian but the canonical form is big-endian, so uuid32 never matches (measured on hardware).
   def pick(list, uuid16)
     want = uuid128_for(uuid16)
     found = nil
-    list.each { |e| found = e if e[:uuid128] == want }
+    list.each { |e| found = e if e[:uuid128] == want } # Array#find isn't in the base VM
     found
   end
 
-  # Called from the scan loop once discovery has settled. ble_central.rb only
-  # reaches :TC_IDLE after the last GATT_EVENT_QUERY_COMPLETE, so that state is
-  # what makes @conn_handle and @services safe to use.
+  # :TC_IDLE only follows the last GATT_EVENT_QUERY_COMPLETE, so that's what makes @conn_handle/@services safe to read.
   def drive
     return if @wrote
     return if state != :TC_IDLE
@@ -105,8 +81,7 @@ class CentralPathsProbe < BLE
       puts "[probe] C2 write_characteristic_descriptor_using_descriptor_handle rc=#{rc}"
       @subscribed = true
     else
-      # Dumping the descriptors here saves a whole device round-trip if the
-      # CCCD landed under a different characteristic than expected.
+      # Dumping here saves a device round-trip vs. rediscovering.
       puts "[probe] CCCD descriptor not discovered on the notify characteristic"
       puts "[probe] descriptors=#{nt[:descriptors].inspect}"
     end
@@ -120,6 +95,5 @@ class CentralPathsProbe < BLE
 end
 
 probe = CentralPathsProbe.new
-# debug: must be passed to scan -- scan assigns @debug from its own keyword
-# (ble_central.rb:63), so setting probe.debug beforehand would be overwritten.
+# debug: must go through the scan kwarg -- scan assigns @debug itself (ble_central.rb:63), overwriting probe.debug= set beforehand.
 probe.scan(timeout_ms: 120_000, stop_state: :no_stop, debug: true)

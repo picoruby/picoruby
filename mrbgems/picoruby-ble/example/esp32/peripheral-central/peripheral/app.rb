@@ -51,8 +51,7 @@ class DemoPeripheral < BLE
     @counter = 0
   end
 
-  # No sensor wiring assumed. A sawtooth stands in for a reading so a peer
-  # can see it change; ../../../rp2040 has the wired version.
+  # No sensor wired; sawtooth fakes the reading (../../../rp2040 has the wired version).
   def heartbeat_callback
     @counter += 1
     push_read_value(@temperature_handle, Utils.int16_to_little_endian(2000 + (@counter % 100) * 10))
