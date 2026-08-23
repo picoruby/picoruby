@@ -1,8 +1,7 @@
 require 'mbedtls'
 begin
   require 'cyw43'
-rescue LoadError
-  # CYW43 only exists on RP2040W builds. ESP32 / host builds skip.
+rescue LoadError # Only LoadError should be rescued
 end
 
 class BLE
@@ -88,11 +87,9 @@ class BLE
     # together with this instance.
     @write_values = {}
     @read_values = {}
-    if Object.const_defined?(:CYW43)
-      unless CYW43.init
-        puts "Failed to initialize CYW43"
-        return # raising an exception here may cause a crash
-      end
+    if Object.const_defined?(:CYW43) && !CYW43.init
+      puts "Failed to initialize CYW43"
+      return # raising an exception here may cause a crash
     end
     _init(profile_data)
     init_central if @role == :central
