@@ -15,13 +15,7 @@ int picoruby_nimble_stop(void);
 bool picoruby_nimble_started(void);
 uint8_t picoruby_nimble_own_addr_type(void);
 void picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_adv);
-/* Drains everything the VM thread owes the BLE stack for this tick, then pops
- * one event. Despite the name it also flushes the inbound write queue into
- * BLE_write_data and refreshes the dynamic-read mirrors via BLE_read_data,
- * because those calls touch the GC-managed heap and this is the port's only
- * guaranteed per-tick VM-thread entry point. Not
- * renamed: the name appears in the shared src/mruby/ble.c hook, which this
- * port must not modify. */
+// Also flushes writes and refreshes read mirrors here (GC-heap safe: the port's only guaranteed per-tick VM-thread entry point); kept this name since src/mruby/ble.c's hook is fixed and shared.
 uint16_t picoruby_nimble_dequeue_event(uint8_t *out, uint16_t cap);
 int picoruby_nimble_enqueue_write(uint16_t ruby_handle, const uint8_t *data, uint16_t len);
 void picoruby_nimble_reset_writes(void);

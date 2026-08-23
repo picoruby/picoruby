@@ -80,7 +80,7 @@ BLE_peripheral_notify(uint16_t att_handle)
 void
 BLE_peripheral_request_can_send_now_event(void)
 {
-  uint8_t p[4] = { 0xB7, 2, 0, 0 };
+  uint8_t p[4] = { EVT_ATT_CAN_SEND_NOW, 2, 0, 0 };
   p[2] = con_handle & 0xff;
   p[3] = con_handle >> 8;
   picoruby_nimble_enqueue_event(p, sizeof(p), false);
