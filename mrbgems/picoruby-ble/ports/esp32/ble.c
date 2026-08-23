@@ -14,6 +14,8 @@
 
 #include "ble_common.h"
 #include "nimble_owner.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "esp_log.h"
 
 /* See ports/esp32/nimble_owner.c for the companion dispatch-path tracing;
@@ -49,7 +51,17 @@ static const char *BLE_TAG = "prb_ble_evq";
 
 #define VALUE_EVENT_DATA_MAX 92
 
+#ifndef RDM_SLOTS
+#define RDM_SLOTS 16
+#endif
+#define RDM_MAX 256
+
 static enum BLE_role_t role = BLE_ROLE_NONE;
+
+static uint8_t  rdm_buf[RDM_SLOTS][RDM_MAX];
+static uint16_t rdm_len[RDM_SLOTS];
+static int      rdm_used = 0;
+static portMUX_TYPE rdm_mux = portMUX_INITIALIZER_UNLOCKED;
 
 static void
 uuid_to_le128(const ble_uuid_any_t *u, uint8_t out[16])
@@ -90,6 +102,7 @@ typedef struct {
   const uint8_t *static_value;
   uint16_t static_len;
   uint16_t cccd_ruby_handle;
+  int16_t mirror_slot;
 } attr_map_t;
 
 static attr_map_t attr_map[MAX_ATTRS];
@@ -154,12 +167,24 @@ gatt_access_cb(uint16_t conn, uint16_t attr_handle, struct ble_gatt_access_ctxt 
   switch (ctxt->op) {
     case BLE_GATT_ACCESS_OP_READ_CHR:
     case BLE_GATT_ACCESS_OP_READ_DSC: {
+      /* Runs on the NimBLE host task: reads only the mirror that the VM thread
+       * refreshes each tick. os_mbuf_append can allocate, so it is called
+       * outside the critical section. rd_tmp is static because this callback
+       * has exactly one caller task and NimBLE's stack is small -- same reason
+       * as the write branch's buf below. */
+      static uint8_t rd_tmp[RDM_MAX];
       const uint8_t *data = e->static_value;
       uint16_t len = e->static_len;
-      BLE_read_value_t rv = { .att_handle = e->ruby_handle, .data = NULL, .size = 0 };
-      if ((e->blob_flags & BLOB_FLAG_DYNAMIC) && BLE_read_data(&rv) == 0) {
-        data = rv.data;
-        len = rv.size;
+      if (e->mirror_slot >= 0) {
+        uint16_t n;
+        taskENTER_CRITICAL(&rdm_mux);
+        n = rdm_len[e->mirror_slot];
+        if (n > 0) memcpy(rd_tmp, rdm_buf[e->mirror_slot], n);
+        taskEXIT_CRITICAL(&rdm_mux);
+        if (n > 0) {
+          data = rd_tmp;
+          len = n;
+        }
       }
       if (data == NULL || len == 0) return 0;
       return os_mbuf_append(ctxt->om, data, len) == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
@@ -180,6 +205,24 @@ gatt_access_cb(uint16_t conn, uint16_t attr_handle, struct ble_gatt_access_ctxt 
     }
     default:
       return BLE_ATT_ERR_UNLIKELY;
+  }
+}
+
+void
+picoruby_ble_refresh_read_mirrors(void)
+{
+  static uint8_t tmp[RDM_MAX];
+  for (int i = 0; i < attr_map_count; i++) {
+    attr_map_t *e = &attr_map[i];
+    if (e->mirror_slot < 0) continue;
+    BLE_read_value_t rv = { .att_handle = e->ruby_handle, .data = NULL, .size = 0 };
+    if (BLE_read_data(&rv) != 0 || rv.data == NULL) continue;
+    uint16_t n = rv.size > RDM_MAX ? RDM_MAX : rv.size;
+    memcpy(tmp, rv.data, n);
+    taskENTER_CRITICAL(&rdm_mux);
+    memcpy(rdm_buf[e->mirror_slot], tmp, n);
+    rdm_len[e->mirror_slot] = n;
+    taskEXIT_CRITICAL(&rdm_mux);
   }
 }
 
@@ -223,13 +266,35 @@ alloc_map(uint16_t ruby_handle)
   attr_map_t *e = &attr_map[attr_map_count++];
   memset(e, 0, sizeof(*e));
   e->ruby_handle = ruby_handle;
+  e->mirror_slot = -1;
   return e;
+}
+
+/* Gives a plain-memory mirror slot to attributes that a GATT read can hit and
+ * whose value lives in mruby (DYNAMIC). Called during profile registration on
+ * the VM thread. When the pool is exhausted the attribute keeps mirror_slot -1
+ * and serves its static value; there is deliberately no fallback that calls
+ * BLE_read_data from the host task, because that is the defect being fixed. */
+static void
+mirror_assign(attr_map_t *e, uint16_t flags)
+{
+  const uint16_t need = BLOB_FLAG_DYNAMIC | BLOB_FLAG_READ;
+  if (e == NULL || (flags & need) != need) return;
+  if (rdm_used >= RDM_SLOTS) {
+    ESP_LOGE(BLE_TAG,
+             "read mirror slots exhausted (RDM_SLOTS=%d); ruby_handle=%u serves its static value only",
+             RDM_SLOTS, (unsigned)e->ruby_handle);
+    return;
+  }
+  e->mirror_slot = (int16_t)rdm_used++;
+  rdm_len[e->mirror_slot] = 0;
 }
 
 static int
 parse_att_db(const uint8_t *db, size_t db_len)
 {
   attr_map_count = 0;
+  rdm_used = 0;
   svc_count = chr_slot_count = dsc_slot_count = uuid_count = 0;
   memset(svc_defs, 0, sizeof(svc_defs));
   memset(chr_slots, 0, sizeof(chr_slots));
@@ -299,6 +364,7 @@ parse_att_db(const uint8_t *db, size_t db_len)
       cur_chr_map->blob_flags = flags;
       cur_chr_map->static_value = value;
       cur_chr_map->static_len = value_len;
+      mirror_assign(cur_chr_map, flags);
       expected_value_handle = 0;
     } else if (u16 == GATT_CCCD_UUID && cur_chr_map) {
       cur_chr_map->cccd_ruby_handle = handle;
@@ -309,6 +375,7 @@ parse_att_db(const uint8_t *db, size_t db_len)
       m->blob_flags = flags;
       m->static_value = value;
       m->static_len = value_len;
+      mirror_assign(m, flags);
       struct ble_gatt_dsc_def *dsc = &dsc_slots[dsc_slot_count];
       if (cur_chr->descriptors == NULL) cur_chr->descriptors = dsc;
       dsc_slot_count++;
@@ -521,6 +588,7 @@ BLE_init(const uint8_t *profile_data, int ble_role)
   con_handle = 0xffff;
   have_services = false;
   attr_map_count = 0;
+  rdm_used = 0;
 
   if (owned_profile_data) {
     free(owned_profile_data);
