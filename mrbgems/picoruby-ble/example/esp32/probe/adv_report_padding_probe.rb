@@ -1,26 +1,11 @@
 require 'ble'
 
-# Every GAP advertising report handed to Ruby has to satisfy what
-# mrblib/ble_advertising_report.rb requires of it:
-#
-#   getbyte(11) = declared data_length
-#   bytesize    = total length, must be >= 14
-#   getbyte(1)  = length field, must equal bytesize - 2
-#
-# packet_callback sees the raw packet before AdvertisingReport parses it, so a
-# port that assembles the packet itself can be checked byte by byte from Ruby.
-# Reports declaring a data_length of 0 or 1 are the ones worth watching: they
-# are the shortest a port has to emit, and one that does not pad them up to 14
-# bytes produces a packet the parser rejects. Active scanning makes them
-# plentiful, since every nearby device advertising without scan-response data
-# answers the SCAN_REQ with an empty SCAN_RSP.
+# Short adv reports (data_length 0/1) must be padded to 14 bytes; see README.md.
 class AdvProbe < BLE
   GAP_ADV = 0xda
 
   def initialize
-    # :central, not :observer: scan and packet_callback are gated on :central,
-    # so that is the role which reaches the code under test.
-    super(:central)
+    super(:central) # only :central reaches packet_callback
     @total = 0
     @d0 = 0
     @d1 = 0
@@ -62,10 +47,7 @@ class AdvProbe < BLE
   end
 end
 
-# NEGATIVE CONTROL: rebuild the packet an unpadded port emits for data_length
-# == 0 (p[1] = 10 + dlen, total 12 + dlen bytes) and feed it to the same
-# parser. If this does NOT raise, the probe below has no power to detect the
-# bug and its PASS would be meaningless.
+# Negative control: an unpadded packet must raise, or this probe can't detect the bug.
 prefix = "\xda\x0a\x04\x00"      # evt, len=10, event_type=SCAN_RSP, addr_type
 addr   = "\x11\x22\x33\x44\x55\x66"
 tail   = "\xc0\x00"              # rssi, data_length = 0
@@ -77,6 +59,6 @@ rescue => e
   puts "[probe] NEGCTL bytes=#{unpadded.bytesize} raised=yes msg=#{e.message}"
 end
 
-# Active scanning is what makes short reports arrive; the default is passive.
+# Active scan (not the default) is what makes short reports arrive.
 probe = AdvProbe.new
 probe.scan(scan_type: :active, stop_state: :no_stop)

@@ -1,10 +1,6 @@
 require 'ble'
 
-# Counts inbound writes during a flood so the device side can be compared with
-# what the peer says it sent.
-#
-# Prints every 50th arrival rather than every one: at 500 frames a per-frame
-# print would itself stall the VM thread and change what is being measured.
+# Prints every 50th arrival, not every one: a per-frame print at 500 frames would stall the VM thread and skew the measurement.
 class WriteFloodProbe < BLE
   ADV_FLAGS     = 0x06
   AD_TYPE_FLAGS = 0x01
