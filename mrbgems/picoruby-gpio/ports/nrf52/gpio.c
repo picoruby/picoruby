@@ -82,10 +82,23 @@ GPIO_set_dir(uint8_t pin, uint8_t dir)
   }
 }
 
+/*
+ * Standard '0', disconnect '1' -- the pin drives low and floats high,
+ * so an external pull-up sets the idle level. Read-modify-write rather
+ * than nrf_gpio_cfg(), which rewrites the whole PIN_CNF: mrblib calls
+ * open_drain after set_dir and the pulls, and a full rewrite would
+ * silently drop them.
+ */
 void
 GPIO_open_drain(uint8_t pin)
 {
-  (void)pin;
+  uint32_t pin_number = pin;
+  NRF_GPIO_Type *reg = nrf_gpio_pin_port_decode(&pin_number);
+  uint32_t cnf = reg->PIN_CNF[pin_number];
+
+  cnf &= ~(uint32_t)GPIO_PIN_CNF_DRIVE_Msk;
+  cnf |= (uint32_t)NRF_GPIO_PIN_S0D1 << GPIO_PIN_CNF_DRIVE_Pos;
+  reg->PIN_CNF[pin_number] = cnf;
 }
 
 void

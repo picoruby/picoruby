@@ -55,6 +55,9 @@ value = GPIO.read_at(15)
   board silkscreens, as a String or a Symbol; `P0_13` works too, so a
   symbol needs no quoting. The two ports flatten into one range, so
   `P0.xx` is `xx` and `P1.xx` is `32 + xx`.
+- `GPIO::OPEN_DRAIN` is honoured: the pin drives low and floats high, so
+  an external pull-up sets the idle level. RP2040 has no open-drain drive
+  mode and ignores the flag.
 - `GPIO::ALT` has no effect. PIN_CNF has no function field; a peripheral
   claims a pin from its own side by writing the pin number into its PSEL
   register, so there is no per-pin mux for GPIO to set.
