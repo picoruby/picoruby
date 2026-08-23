@@ -57,6 +57,7 @@ static volatile bool synced = false;
 static uint8_t own_addr_type = BLE_OWN_ADDR_PUBLIC;
 static SemaphoreHandle_t sync_sem = NULL;
 static esp_timer_handle_t heartbeat_timer = NULL;
+static int heartbeat_depth = 0; // nest count: only the outermost disable actually stops it
 
 void
 picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_adv)
@@ -198,14 +199,25 @@ picoruby_nimble_heartbeat_enable(bool enable)
 {
   if (heartbeat_timer == NULL) return;
   if (enable) {
-    if (!esp_timer_is_active(heartbeat_timer)) {
-      esp_err_t err = esp_timer_start_periodic(heartbeat_timer, HEARTBEAT_PERIOD_US);
-      ESP_LOGI(TAG, "esp_timer_start_periodic(heartbeat) -> %s, is_active=%d",
-               esp_err_to_name(err), esp_timer_is_active(heartbeat_timer));
-    }
+    if (heartbeat_depth++ > 0) return;
+    esp_err_t err = esp_timer_start_periodic(heartbeat_timer, HEARTBEAT_PERIOD_US);
+    ESP_LOGI(TAG, "esp_timer_start_periodic(heartbeat) -> %s, is_active=%d",
+             esp_err_to_name(err), esp_timer_is_active(heartbeat_timer));
   } else {
+    if (heartbeat_depth > 0) heartbeat_depth--;
+    if (heartbeat_depth > 0) return;
     esp_timer_stop(heartbeat_timer);
   }
+}
+
+/* Full stop: silence the timer unconditionally rather than trust depth
+ * bookkeeping, since this runs on every BLE_init (fresh instance or role
+ * change) and must never carry nesting state across sessions. */
+static void
+heartbeat_force_stop(void)
+{
+  heartbeat_depth = 0;
+  if (heartbeat_timer) esp_timer_stop(heartbeat_timer);
 }
 
 static void
@@ -303,7 +315,7 @@ int
 picoruby_nimble_stop(void)
 {
   if (!started) return 0;
-  picoruby_nimble_heartbeat_enable(false);
+  heartbeat_force_stop();
   ble_gap_adv_stop();
   ble_gap_disc_cancel();
   nimble_port_stop();
