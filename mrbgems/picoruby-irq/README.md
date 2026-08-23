@@ -248,3 +248,23 @@ gpio.irq(GPIO::EDGE_FALL | GPIO::EDGE_RISE) { |gpio, event| ... }
 ## License
 
 MIT License
+
+## nRF52 notes
+
+- GPIO interrupts use the eight GPIOTE IN channels, so at most eight
+  registrations exist at once.
+- Level-triggered events are not supported and `IRQ.new` raises for them.
+  GPIOTE IN is edge-only; level detection runs through PIN_CNF SENSE and
+  the shared PORT event, whose DETECT signal stays asserted for as long as
+  the level holds. Re-arming on the opposite polarity after each event --
+  the usual workaround -- is edge detection wearing a level's name.
+- Watching a pin stops it driving: GPIOTE overrides the pin direction, so
+  a pin configured as `GPIO::OUT` goes high-impedance while an interrupt
+  is registered on it. RP2040 allows an output to carry an interrupt.
+- For a both-edges registration the reported edge is a best guess. The
+  hardware does not record which edge fired, so the pin is sampled in the
+  handler; a pulse shorter than the interrupt latency reads as the
+  opposite edge.
+- `debounce_ms` is measured on RTC1's counter, which keeps running while
+  the CPU sleeps. If nothing has started RTC1 the debounce is inert
+  rather than blocking.
