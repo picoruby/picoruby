@@ -59,17 +59,28 @@ Machine_reboot(void)
 }
 
 /*
- * Wall clock on RTC2.
+ * Wall clock on RTC0.
  *
  * nRF52 has no calendar peripheral and no backup domain, so "hardware
  * clock" here means a monotonic tick count with an epoch offset applied.
  * It survives a soft reboot no better than RAM does -- there is nothing
  * on this part that would.
  *
- * RTC2 rather than the alternatives, and the reason is future-proofing
- * as much as availability: RTC0 is reserved by the SoftDevice, which
- * this board will want when BLE arrives, and RTC1 belongs to app_timer.
- * RTC2 is free today and stays free then.
+ * RTC0 is the only one of the three that is actually free here:
+ *   RTC1  app_timer owns it (APP_TIMER_V2_RTC1_ENABLED).
+ *   RTC2  OpenThread's alarm takes it -- ot-nrf528xx defines
+ *         RTC_INSTANCE as NRF_RTC2 for nRF52840, along with the
+ *         matching IRQ handler, so a wall clock there would collide at
+ *         link time the moment the radio stack is added.
+ *   RTC0  claimed only by the SoftDevice radio arbiter
+ *         (nrf_raal_softdevice.c), which is compiled solely into the
+ *         SoftDevice-coexistence build of the 802.15.4 driver. This
+ *         board runs no SoftDevice: BLE and Thread are mutually
+ *         exclusive builds here and the Thread one has none, so RTC0
+ *         stays free.
+ * If SoftDevice coexistence is ever wanted this has to move again, and
+ * at that point nothing is free -- the clock would have to be layered
+ * on someone else's RTC rather than owning one.
  *
  * Machine_uptime_us is deliberately not used as the time base. On this
  * platform it is derived from app_timer_cnt_get(), which returns the
@@ -87,10 +98,10 @@ static uint64_t epoch_offset_ticks;   /* wall clock at tick 0 */
 static bool     epoch_known;
 
 void
-RTC2_IRQHandler(void)
+RTC0_IRQHandler(void)
 {
-  if (nrf_rtc_event_pending(NRF_RTC2, NRF_RTC_EVENT_OVERFLOW)) {
-    nrf_rtc_event_clear(NRF_RTC2, NRF_RTC_EVENT_OVERFLOW);
+  if (nrf_rtc_event_pending(NRF_RTC0, NRF_RTC_EVENT_OVERFLOW)) {
+    nrf_rtc_event_clear(NRF_RTC0, NRF_RTC_EVENT_OVERFLOW);
     rtc_overflows++;
   }
 }
@@ -114,16 +125,16 @@ clock_start(void)
     NRF_CLOCK->EVENTS_LFCLKSTARTED = 0;
   }
 
-  nrf_rtc_prescaler_set(NRF_RTC2, 0);   /* 32768 Hz, one tick per LFCLK */
-  nrf_rtc_event_clear(NRF_RTC2, NRF_RTC_EVENT_OVERFLOW);
-  nrf_rtc_event_enable(NRF_RTC2, RTC_EVTEN_OVRFLW_Msk);
-  nrf_rtc_int_enable(NRF_RTC2, NRF_RTC_INT_OVERFLOW_MASK);
+  nrf_rtc_prescaler_set(NRF_RTC0, 0);   /* 32768 Hz, one tick per LFCLK */
+  nrf_rtc_event_clear(NRF_RTC0, NRF_RTC_EVENT_OVERFLOW);
+  nrf_rtc_event_enable(NRF_RTC0, RTC_EVTEN_OVRFLW_Msk);
+  nrf_rtc_int_enable(NRF_RTC0, NRF_RTC_INT_OVERFLOW_MASK);
   /* Priority 6, as app_timer and the USB driver use: an overflow tick
      must not preempt either. */
-  NVIC_SetPriority(RTC2_IRQn, 6);
-  NVIC_ClearPendingIRQ(RTC2_IRQn);
-  NVIC_EnableIRQ(RTC2_IRQn);
-  nrf_rtc_task_trigger(NRF_RTC2, NRF_RTC_TASK_START);
+  NVIC_SetPriority(RTC0_IRQn, 6);
+  NVIC_ClearPendingIRQ(RTC0_IRQn);
+  NVIC_EnableIRQ(RTC0_IRQn);
+  nrf_rtc_task_trigger(NRF_RTC0, NRF_RTC_TASK_START);
 
   clock_started = true;
 }
@@ -143,10 +154,10 @@ ticks_now(void)
 
   do {
     overflows = rtc_overflows;
-    counter = nrf_rtc_counter_get(NRF_RTC2);
+    counter = nrf_rtc_counter_get(NRF_RTC0);
   } while (overflows != rtc_overflows);
 
-  if (nrf_rtc_event_pending(NRF_RTC2, NRF_RTC_EVENT_OVERFLOW) &&
+  if (nrf_rtc_event_pending(NRF_RTC0, NRF_RTC_EVENT_OVERFLOW) &&
       counter < RTC_COUNTER_HALF) {
     overflows++;
   }
