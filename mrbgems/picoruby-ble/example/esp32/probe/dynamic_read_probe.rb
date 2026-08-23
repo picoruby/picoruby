@@ -1,10 +1,6 @@
 require 'ble'
 
-# Verifies the dynamic-read mirror: the VM thread pushes a value with
-# push_read_value, and the host stack has to serve it from plain memory off
-# that thread. Rewrites the value every heartbeat, so a mirror that copied once
-# at init shows up as a mismatch instead of passing. Needs a Central peer that
-# reads the characteristic repeatedly.
+# Checks that push_read_value (called from the VM thread) is actually served by the host stack thread, not a stale copy.
 class DynamicReadProbe < BLE
   ADV_FLAGS     = 0x06
   AD_TYPE_FLAGS = 0x01
@@ -47,10 +43,7 @@ class DynamicReadProbe < BLE
     end
   end
 
-  # Rewrites the value every tick so a mirror that copied once at init shows up
-  # as a mismatch rather than passing. The Mac side rejects "STATIC" (the
-  # profile's static value, what an unpopulated mirror returns) and requires
-  # the RDPROBE- prefix.
+  # New value every tick catches a stale mirror; peer requires the RDPROBE- prefix ("STATIC" means unpopulated).
   def heartbeat_callback
     @tick += 1
     value = "RDPROBE-#{@tick}"

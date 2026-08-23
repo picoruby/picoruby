@@ -14,8 +14,7 @@ class DemoBroadcaster < BLE
     end
   end
 
-  # No sensor wiring assumed. A sawtooth stands in for a reading so an Observer
-  # can confirm the payload changes; ../../../rp2040 has the wired version.
+  # No sensor wired; sawtooth fakes the reading (../../../rp2040 has the wired version).
   def heartbeat_callback
     @counter += 1
     fake_temp = 2000 + (@counter % 100) * 10
