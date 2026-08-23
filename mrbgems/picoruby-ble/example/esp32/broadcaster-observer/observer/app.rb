@@ -1,0 +1,26 @@
+require 'ble'
+
+class DemoObserver < BLE
+  TARGET_NAME = "PicoRuby"
+
+  def initialize
+    # Scan-only is the observer role, but scan and advertising_report_callback
+    # are gated on :central, so that is what the stack is initialized as. This
+    # demo simply never calls connect.
+    super(:central)
+  end
+
+  def advertising_report_callback(adv_report)
+    return unless adv_report.name_include?(TARGET_NAME)
+    fake_temp = adv_report.reports[:manufacturer_specific_data]
+    puts "[observer] saw `#{TARGET_NAME}` rssi=#{adv_report.rssi} fake_temp=#{fake_temp}"
+  end
+
+  def heartbeat_callback
+    puts "[observer] scanning..."
+  end
+end
+
+observer = DemoObserver.new
+observer.debug = true
+observer.scan(stop_state: :no_stop)
