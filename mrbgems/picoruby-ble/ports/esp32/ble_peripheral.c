@@ -5,84 +5,83 @@
 #include "../../include/ble.h"
 #include "../../include/ble_peripheral.h"
 
-#include "btstack.h"
+#include "host/ble_hs.h"
+#include "host/ble_gap.h"
+#include "host/ble_gatt.h"
+#include "host/ble_hs_mbuf.h"
 
 #include "ble_common.h"
-#include "btstack_owner.h"
+#include "nimble_owner.h"
 
-hci_con_handle_t con_handle;
+uint16_t con_handle = 0xffff;
 
-// All BTstack APIs are called from Ruby thread via Ruby's packet_callback
-// (which itself runs on Ruby thread after pop_packet). Wrap each call so it
-// executes on the BTstack thread.
+#define ADV_INTERVAL_0625MS 800
 
-typedef struct {
-  uint8_t *adv_data;
-  uint8_t adv_data_len;
-  bool connectable;
-} advertise_ctx_t;
+static uint8_t adv_data_buf[31];
+static uint8_t adv_data_len = 0;
+static bool adv_connectable = false;
+static bool adv_wanted = false;
 
-static void
-peripheral_advertise_on_btstack_thread(void *ctx_p)
+static int
+adv_start(void)
 {
-  advertise_ctx_t *p = (advertise_ctx_t *)ctx_p;
-  uint16_t adv_int_min = 800;
-  uint16_t adv_int_max = 800;
-  uint8_t adv_type = p->connectable ? 0 : 2;
-  uint8_t channel_map = 0x07;
-  uint8_t filter_policy = 0x00;
-  bd_addr_t null_addr;
-  memset(null_addr, 0, 6);
-  gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, channel_map, filter_policy);
-  gap_advertisements_set_data(p->adv_data_len, p->adv_data);
-  gap_advertisements_enable(1);
+  struct ble_gap_adv_params params;
+  memset(&params, 0, sizeof(params));
+  params.conn_mode = adv_connectable ? BLE_GAP_CONN_MODE_UND : BLE_GAP_CONN_MODE_NON;
+  params.disc_mode = BLE_GAP_DISC_MODE_GEN;
+  params.itvl_min = ADV_INTERVAL_0625MS;
+  params.itvl_max = ADV_INTERVAL_0625MS;
+  int rc = ble_gap_adv_set_data(adv_data_buf, adv_data_len);
+  if (rc == 0) {
+    rc = ble_gap_adv_start(picoruby_nimble_own_addr_type(), NULL, BLE_HS_FOREVER,
+                           &params, picoruby_ble_gap_event, NULL);
+  }
+  return rc;
 }
 
 void
-BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len, bool connectable)
+BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len_in, bool connectable)
 {
-  advertise_ctx_t ctx = { .adv_data = adv_data, .adv_data_len = adv_data_len, .connectable = connectable };
-  picoruby_btstack_run_sync(peripheral_advertise_on_btstack_thread, &ctx);
-}
-
-static void
-peripheral_stop_advertise_on_btstack_thread(void *ctx_p)
-{
-  (void)ctx_p;
-  gap_advertisements_enable(0);
+  if (adv_data_len_in > sizeof(adv_data_buf)) adv_data_len_in = sizeof(adv_data_buf);
+  memcpy(adv_data_buf, adv_data, adv_data_len_in);
+  adv_data_len = adv_data_len_in;
+  adv_connectable = connectable;
+  adv_wanted = true;
+  ble_gap_adv_stop();
+  adv_start();
 }
 
 void
 BLE_peripheral_stop_advertise(void)
 {
-  picoruby_btstack_run_sync(peripheral_stop_advertise_on_btstack_thread, NULL);
+  adv_wanted = false;
+  ble_gap_adv_stop();
 }
 
-static void
-peripheral_notify_on_btstack_thread(void *ctx_p)
+void
+picoruby_ble_peripheral_rearm_adv(void)
 {
-  uint16_t att_handle = (uint16_t)(uintptr_t)ctx_p;
-  BLE_read_value_t read_value = { .att_handle = att_handle, .data = NULL, .size = 0 };
-  if (BLE_read_data(&read_value) < 0) return;
-  if (read_value.size == 0) return;
-  att_server_notify(con_handle, att_handle, read_value.data, read_value.size);
+  if (adv_wanted) adv_start();
 }
 
 void
 BLE_peripheral_notify(uint16_t att_handle)
 {
-  picoruby_btstack_run_sync(peripheral_notify_on_btstack_thread, (void *)(uintptr_t)att_handle);
-}
-
-static void
-peripheral_request_can_send_now_on_btstack_thread(void *ctx_p)
-{
-  (void)ctx_p;
-  att_server_request_can_send_now_event(con_handle);
+  BLE_read_value_t read_value = { .att_handle = att_handle, .data = NULL, .size = 0 };
+  if (BLE_read_data(&read_value) < 0) return;
+  if (read_value.size == 0) return;
+  uint16_t nimble_handle = picoruby_ble_handle_r2n(att_handle);
+  if (nimble_handle == 0 || con_handle == 0xffff) return;
+  struct os_mbuf *om = ble_hs_mbuf_from_flat(read_value.data, read_value.size);
+  if (om == NULL) return;
+  ble_gatts_notify_custom(con_handle, nimble_handle, om);
 }
 
 void
 BLE_peripheral_request_can_send_now_event(void)
 {
-  picoruby_btstack_run_sync(peripheral_request_can_send_now_on_btstack_thread, NULL);
+  uint8_t p[4] = { 0xB7, 2, 0, 0 };
+  p[2] = con_handle & 0xff;
+  p[3] = con_handle >> 8;
+  picoruby_nimble_enqueue_event(p, sizeof(p), false);
 }
