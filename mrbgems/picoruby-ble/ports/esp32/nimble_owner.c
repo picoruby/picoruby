@@ -21,6 +21,10 @@ static const char *TAG = "prb_ble_evq";
 
 #define EVQ_DEPTH 32
 #define EVQ_PKT_MAX 100
+#ifndef WRQ_DEPTH
+#define WRQ_DEPTH 32
+#endif
+#define WRQ_PKT_MAX 256
 #define HEARTBEAT_PERIOD_US (1000 * 1000)
 #define SYNC_TIMEOUT_TICKS pdMS_TO_TICKS(2000)
 
@@ -34,6 +38,19 @@ static evq_entry_t evq[EVQ_DEPTH];
 static int evq_head = 0;
 static int evq_count = 0;
 static portMUX_TYPE evq_mux = portMUX_INITIALIZER_UNLOCKED;
+
+typedef struct {
+  uint16_t ruby_handle;
+  uint16_t len;
+  uint8_t data[WRQ_PKT_MAX];
+} wrq_entry_t;
+
+static wrq_entry_t wrq[WRQ_DEPTH];
+static int wrq_head = 0;
+static int wrq_count = 0;
+static uint32_t wrq_dropped = 0;
+static bool wrq_drop_logged = false;
+static portMUX_TYPE wrq_mux = portMUX_INITIALIZER_UNLOCKED;
 
 static bool started = false;
 static volatile bool synced = false;
@@ -71,6 +88,73 @@ picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_ad
   taskEXIT_CRITICAL(&evq_mux);
 }
 
+/* NimBLE host-task side. Copies the bytes into wrq and returns 0, or returns
+ * -1 when the queue is full. Touches no mruby. The caller in ble.c turns -1
+ * into BLE_ATT_ERR_INSUFFICIENT_RES, which NimBLE sends as an ATT error for a
+ * Write Request and discards for a Write Without Response. */
+int
+picoruby_nimble_enqueue_write(uint16_t ruby_handle, const uint8_t *data, uint16_t len)
+{
+  if (ruby_handle == 0 || len == 0 || len > WRQ_PKT_MAX) return -1;
+  taskENTER_CRITICAL(&wrq_mux);
+  if (wrq_count == WRQ_DEPTH) {
+    wrq_dropped++;
+    bool first = !wrq_drop_logged;
+    wrq_drop_logged = true;
+    taskEXIT_CRITICAL(&wrq_mux);
+    if (first) {
+      ESP_LOGW(TAG, "write queue full (depth=%d), dropping; total dropped=%lu",
+               WRQ_DEPTH, (unsigned long)wrq_dropped);
+    }
+    return -1;
+  }
+  int slot = (wrq_head + wrq_count) % WRQ_DEPTH;
+  wrq_count++;
+  wrq[slot].ruby_handle = ruby_handle;
+  wrq[slot].len = len;
+  memcpy(wrq[slot].data, data, len);
+  taskEXIT_CRITICAL(&wrq_mux);
+  return 0;
+}
+
+/* Drops everything queued for a link that is gone. Called from the host task
+ * on disconnect; only rewinds indices, so it is safe there. */
+void
+picoruby_nimble_reset_writes(void)
+{
+  taskENTER_CRITICAL(&wrq_mux);
+  wrq_head = 0;
+  wrq_count = 0;
+  wrq_drop_logged = false;
+  taskEXIT_CRITICAL(&wrq_mux);
+}
+
+/* VM-thread side. Hands every queued write to BLE_write_data, which builds the
+ * mruby String. Called from picoruby_nimble_dequeue_event, whose only caller is
+ * mrb_pop_packet on the VM thread. BLE_write_data is called outside the
+ * critical section because it allocates. */
+static void
+flush_writes(void)
+{
+  static uint8_t buf[WRQ_PKT_MAX];
+  for (;;) {
+    uint16_t handle;
+    uint16_t len;
+    taskENTER_CRITICAL(&wrq_mux);
+    if (wrq_count == 0) {
+      taskEXIT_CRITICAL(&wrq_mux);
+      return;
+    }
+    handle = wrq[wrq_head].ruby_handle;
+    len = wrq[wrq_head].len;
+    memcpy(buf, wrq[wrq_head].data, len);
+    wrq_head = (wrq_head + 1) % WRQ_DEPTH;
+    wrq_count--;
+    taskEXIT_CRITICAL(&wrq_mux);
+    BLE_write_data(handle, buf, len);
+  }
+}
+
 /* Pops one queued event into `out` (capacity `cap`), returns its length or 0
  * if empty/dropped. Touches only the plain evq ring buffer (critical-section
  * guarded) — never mruby. Must be called from the VM thread only: darwin's
@@ -85,6 +169,7 @@ picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_ad
 uint16_t
 picoruby_nimble_dequeue_event(uint8_t *out, uint16_t cap)
 {
+  flush_writes();
   evq_entry_t entry;
   taskENTER_CRITICAL(&evq_mux);
   if (evq_count == 0) {
@@ -197,6 +282,7 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
   evq_head = 0;
   evq_count = 0;
   taskEXIT_CRITICAL(&evq_mux);
+  picoruby_nimble_reset_writes();
 
   if (sync_sem == NULL) sync_sem = xSemaphoreCreateBinary();
   synced = false;
