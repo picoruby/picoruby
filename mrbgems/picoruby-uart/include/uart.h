@@ -40,6 +40,8 @@ extern "C" {
 #define UART_UNIT_MAX 2
 #elif defined(PICORB_PLATFORM_ESP32)
 #define UART_UNIT_MAX 3
+#elif defined(PICORB_PLATFORM_NRF52)
+#define UART_UNIT_MAX 2
 #else
 #define UART_UNIT_MAX 1
 #endif
