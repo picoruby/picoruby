@@ -253,6 +253,27 @@ alloc_map(uint16_t ruby_handle)
   return e;
 }
 
+static struct ble_gatt_svc_def *
+alloc_svc(void)
+{
+  if (svc_count >= MAX_SVCS) return NULL;
+  return &svc_defs[svc_count++];
+}
+
+static struct ble_gatt_chr_def *
+alloc_chr(void)
+{
+  if (chr_slot_count >= MAX_CHR_SLOTS) return NULL;
+  return &chr_slots[chr_slot_count++];
+}
+
+static struct ble_gatt_dsc_def *
+alloc_dsc(void)
+{
+  if (dsc_slot_count >= MAX_DSC_SLOTS) return NULL;
+  return &dsc_slots[dsc_slot_count++];
+}
+
 // No fallback to BLE_read_data from the host task here: touching the GC heap off the VM thread is the defect this fixes.
 static void
 mirror_assign(attr_map_t *e, uint16_t flags)
@@ -303,34 +324,26 @@ parse_att_db(const uint8_t *db, size_t db_len)
     pos += entry_size;
 
     if (u16 == GATT_PRIMARY_SERVICE_UUID || u16 == GATT_SECONDARY_SERVICE_UUID) {
-      if (cur_chr && cur_chr->descriptors) {
-        if (dsc_slot_count >= MAX_DSC_SLOTS) return -1;
-        dsc_slot_count++;
-      }
+      if (cur_chr && cur_chr->descriptors && alloc_dsc() == NULL) return -1;
       cur_chr = NULL;
       cur_chr_map = NULL;
-      if (cur_svc) {
-        if (chr_slot_count >= MAX_CHR_SLOTS) return -1;
-        chr_slot_count++;
-      }
-      if (svc_count >= MAX_SVCS) return -1;
-      cur_svc = &svc_defs[svc_count++];
+      if (cur_svc && alloc_chr() == NULL) return -1;
+      cur_svc = alloc_svc();
+      if (cur_svc == NULL) return -1;
       cur_svc->type = (u16 == GATT_PRIMARY_SERVICE_UUID)
                         ? BLE_GATT_SVC_TYPE_PRIMARY : BLE_GATT_SVC_TYPE_SECONDARY;
       cur_svc->uuid = alloc_uuid(value, value_len);
       cur_svc->characteristics = &chr_slots[chr_slot_count];
       if (cur_svc->uuid == NULL) return -1;
     } else if (u16 == GATT_CHARACTERISTIC_UUID && cur_svc) {
-      if (cur_chr && cur_chr->descriptors) {
-        if (dsc_slot_count >= MAX_DSC_SLOTS) return -1;
-        dsc_slot_count++;
-      }
-      if (value_len < 3 || chr_slot_count >= MAX_CHR_SLOTS) return -1;
+      if (cur_chr && cur_chr->descriptors && alloc_dsc() == NULL) return -1;
+      if (value_len < 3) return -1;
       uint8_t props = value[0];
       expected_value_handle = get_le16(value + 1);
       cur_chr_uuid = value + 3;
       cur_chr_uuid_len = value_len - 3;
-      cur_chr = &chr_slots[chr_slot_count++];
+      cur_chr = alloc_chr();
+      if (cur_chr == NULL) return -1;
       cur_chr->uuid = alloc_uuid(value + 3, value_len - 3);
       cur_chr->access_cb = gatt_access_cb;
       cur_chr->flags = props_to_chr_flags(props);
@@ -348,16 +361,14 @@ parse_att_db(const uint8_t *db, size_t db_len)
     } else if (u16 == GATT_CCCD_UUID && cur_chr_map) {
       cur_chr_map->cccd_ruby_handle = handle;
     } else if (cur_chr) {
-      if (dsc_slot_count >= MAX_DSC_SLOTS) return -1;
+      struct ble_gatt_dsc_def *dsc = alloc_dsc();
       attr_map_t *m = alloc_map(handle);
-      if (m == NULL) return -1;
+      if (dsc == NULL || m == NULL) return -1;
       m->blob_flags = flags;
       m->static_value = value;
       m->static_len = value_len;
       mirror_assign(m, flags);
-      struct ble_gatt_dsc_def *dsc = &dsc_slots[dsc_slot_count];
       if (cur_chr->descriptors == NULL) cur_chr->descriptors = dsc;
-      dsc_slot_count++;
       dsc->uuid = alloc_uuid(uuid, uuid_len);
       dsc->att_flags = ((flags & BLOB_FLAG_READ) ? BLE_ATT_F_READ : 0)
                      | ((flags & (BLOB_FLAG_WRITE | BLOB_FLAG_WRITE_NO_RSP)) ? BLE_ATT_F_WRITE : 0);
@@ -367,14 +378,8 @@ parse_att_db(const uint8_t *db, size_t db_len)
     }
   }
 
-  if (cur_chr && cur_chr->descriptors) {
-    if (dsc_slot_count >= MAX_DSC_SLOTS) return -1;
-    dsc_slot_count++;
-  }
-  if (cur_svc) {
-    if (chr_slot_count >= MAX_CHR_SLOTS) return -1;
-    chr_slot_count++;
-  }
+  if (cur_chr && cur_chr->descriptors && alloc_dsc() == NULL) return -1;
+  if (cur_svc && alloc_chr() == NULL) return -1;
   have_services = (svc_count > 0);
   return 0;
 }
