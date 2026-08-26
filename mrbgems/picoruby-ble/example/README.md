@@ -1,26 +1,29 @@
 # picoruby-ble examples
 
 Each demo is a pair of programs that talk to each other, so every one of them
-needs two peers. Demos live under the board they were written for; there is
-no file shared between boards.
+needs two peers. The demos at the top level contain no board-specific code and
+run on any port; `rp2040/` holds Pico W versions of two of them that read real
+sensors.
 
-| Board | Demo | Roles | Hardware |
-|---|---|---|---|
-| `rp2040/peripheral-central/` | Peripheral, Central | Pico W LED, internal temperature ADC |
-| `rp2040/broadcaster-observer/` | Broadcaster, Observer | Pico W, plus an LCD and a thermocouple on a breadboard |
-| `esp32/peripheral-central/` | Peripheral, Central | None; a sawtooth stands in for the temperature reading |
-| `esp32/broadcaster-observer/` | Broadcaster, Observer | None; a sawtooth stands in for the temperature reading |
+| Demo | Roles | Hardware |
+|---|---|---|
+| `peripheral-central/` | Peripheral, Central | None; a sawtooth stands in for the temperature reading |
+| `broadcaster-observer/` | Broadcaster, Observer | None; a sawtooth stands in for the temperature reading |
+| `rp2040/peripheral/` | Peripheral | Pico W internal temperature ADC, CYW43 LED |
+| `rp2040/broadcaster/` | Broadcaster | Pico W, plus an LCD and a thermocouple on a breadboard |
 
-`esp32/probe/` is not an example -- it holds on-device verification programs
-for picoruby-ble itself. See `esp32/probe/README.md`.
+`probe/` is not an example -- it holds on-device verification programs
+for picoruby-ble itself. See `probe/README.md`.
 
 ## Peers
 
-Run the two halves on two boards, or pair one half with a BLE app on a phone
-or a Mac: any scanner shows the broadcaster's advertisement, and a GATT
-simulator can stand in for the peripheral.
+Any broadcaster pairs with any observer, and any peripheral with any central,
+across the two layers: the advertised name always contains `PicoRuby`, which
+is what the central and the observer look for. A phone or a Mac can also
+stand in for either half: any scanner shows the broadcaster's advertisement,
+and a GATT simulator can stand in for the peripheral.
 
 ## Deploying
 
-`<board>/<demo>/<role>/app.rb` goes to `/home/app.rb`. Where a demo also
-ships a `lib/` directory, those files go to `/lib/`.
+`app.rb` goes to `/home/app.rb`. Any other `.rb` file next to it goes
+to `/lib/`.

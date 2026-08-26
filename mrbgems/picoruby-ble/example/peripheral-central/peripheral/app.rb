@@ -7,8 +7,6 @@ class DemoPeripheral < BLE
   BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS = 0x03
   BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME = 0x09
   # for GATT
-  BTSTACK_EVENT_STATE = 0x60
-  HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
   ATT_EVENT_CAN_SEND_NOW = 0xB7
   ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
   GATT_CHARACTERISTIC_USER_DESCRIPTION = 0x2901
@@ -51,7 +49,7 @@ class DemoPeripheral < BLE
     @counter = 0
   end
 
-  # No sensor wired; sawtooth fakes the reading (../../../rp2040 has the wired version).
+  # No sensor wired; sawtooth fakes the reading (rp2040/peripheral is the wired version).
   def heartbeat_callback
     @counter += 1
     push_read_value(@temperature_handle, Utils.int16_to_little_endian(2000 + (@counter % 100) * 10))

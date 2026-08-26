@@ -22,7 +22,7 @@ class PeripheralPathsProbe < BLE
     end
     db = GattDatabase.new do |d|
       d.add_service(GATT_PRIMARY_SERVICE_UUID, GAP_SERVICE_UUID) do |s|
-        s.add_characteristic(READ, GAP_DEVICE_NAME_UUID, READ, "esp32_probe")
+        s.add_characteristic(READ, GAP_DEVICE_NAME_UUID, READ, "picoruby_probe")
       end
       d.add_service(GATT_PRIMARY_SERVICE_UUID, SERVICE) do |s|
         s.add_characteristic(READ|NOTIFY|DYNAMIC, CHAR_NOTIFY, READ|DYNAMIC, "") do |c|
