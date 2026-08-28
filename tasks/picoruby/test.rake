@@ -114,6 +114,9 @@ def collect_gems(vm_type, specified_gem = nil)
   gems = []
   Dir.glob(["#{gems_dir}/picoruby-*", "#{gems_dir}/mruby-*"]).map do |gem_path|
     next unless Dir.exist?("#{gem_path}/test")
+    # Gems vendored as git submodules (e.g. mruby-compiler) are upstream as-is;
+    # their test/ directories hold mrbtest-style tests, not picotest ones.
+    next if File.exist?("#{gem_path}/.git")
     next if specified_gem && File.basename(gem_path) != specified_gem
     if Dir.exist?("#{gem_path}/src/#{vm}")
       # C extension exists for the target VM

@@ -31,6 +31,11 @@ Dir["#{MRUBY_SUBMODULE}/tasks/toolchains/*.rake"].each {|f| load f}
 MRUBY_CONFIG = MRuby::Build.mruby_config_path
 load MRUBY_CONFIG
 
+# Give every cross build the `mrbc` it compiles with. The whole config has been
+# read, so a `host` declared after a cross build is as visible as one declared
+# before it, and no gem has been set up yet, so nothing has asked for `mrbc`.
+MRuby.resolve_mrbc_hosts
+
 # define MRB_NO_GEMS and set up all gems (mirrors the submodule's Rakefile)
 MRuby.each_target do |build|
   unless enable_gems? && libmruby_enabled?

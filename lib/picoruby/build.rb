@@ -8,6 +8,11 @@ module MRuby
     def build_mrbc_exec
       gem core: 'mruby-compiler' unless @gems['mruby-compiler']
       gem core: "mruby-bin-mrbc" unless @gems['mruby-bin-mrbc']
+      # MRuby.resolve_mrbc_hosts generates a bare MRuby::Build for a cross
+      # target's mrbc, which never goes through #common; mruby-compiler's
+      # headers include <mrbconf.h> from the mruby core in the submodule.
+      mruby_include = "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include"
+      cc.include_paths << mruby_include unless cc.include_paths.include?(mruby_include)
       self.mrbcfile = "#{build_dir}/bin/mrbc"
       set_build_info
     end
