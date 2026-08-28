@@ -152,6 +152,7 @@ main(int argc, char **argv)
 
   init_posix();
 
+  PICORB_ESTALLOC_MRUBYC_INIT(heap_pool, HEAP_SIZE);
   mrbc_init(heap_pool, HEAP_SIZE);
   mrbc_tcb *tcb = mrbc_create_task(app, 0);
   mrbc_vm *vm = &tcb->vm;
