@@ -1,5 +1,4 @@
 #include <string.h>
-#include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_rom_gpio.h"
 #include "soc/i2c_periph.h"
@@ -36,9 +35,14 @@ static i2c_bus_context_t i2c_contexts[2] = {0};
 // SOC_I2C_SUPPORT_HW_FSM_RST the driver's error path resets the state machine
 // without re-running the pin configuration.
 //
-// Re-asserting the routing costs a handful of register writes against a
-// transfer measured in hundreds of microseconds, and is a no-op when nothing
-// else touches the pins.
+// Only the signal routing is restored. The pad's electrical setup (open
+// drain, pull-up, input enable) was done when the bus was created and is not
+// what gets taken away, and re-running it here would mean detaching the pad
+// from the peripheral and driving it as a plain GPIO for a moment before
+// re-attaching it -- gpio_set_direction() routes SIG_GPIO_OUT_IDX to the pad
+// on the way -- which is a glitch on a live bus for no gain.
+//
+// Two register writes per pin, and a no-op when nothing else touches them.
 static void
 i2c_reclaim_pins(int unit_num)
 {
@@ -49,15 +53,8 @@ i2c_reclaim_pins(int unit_num)
     return;
   }
 
-  gpio_set_level((gpio_num_t)sda_pin, 1);
-  gpio_set_direction((gpio_num_t)sda_pin, GPIO_MODE_INPUT_OUTPUT_OD);
-  gpio_set_pull_mode((gpio_num_t)sda_pin, GPIO_PULLUP_ONLY);
   esp_rom_gpio_connect_out_signal(sda_pin, i2c_periph_signal[unit_num].sda_out_sig, false, false);
   esp_rom_gpio_connect_in_signal(sda_pin, i2c_periph_signal[unit_num].sda_in_sig, false);
-
-  gpio_set_level((gpio_num_t)scl_pin, 1);
-  gpio_set_direction((gpio_num_t)scl_pin, GPIO_MODE_INPUT_OUTPUT_OD);
-  gpio_set_pull_mode((gpio_num_t)scl_pin, GPIO_PULLUP_ONLY);
   esp_rom_gpio_connect_out_signal(scl_pin, i2c_periph_signal[unit_num].scl_out_sig, false, false);
   esp_rom_gpio_connect_in_signal(scl_pin, i2c_periph_signal[unit_num].scl_in_sig, false);
 }
