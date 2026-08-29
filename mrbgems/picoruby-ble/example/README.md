@@ -12,8 +12,9 @@ sensors.
 | `rp2040/peripheral/` | Peripheral | Pico W internal temperature ADC, CYW43 LED |
 | `rp2040/broadcaster/` | Broadcaster | Pico W, plus an LCD and a thermocouple on a breadboard |
 
-`probe/` is not an example -- it holds on-device verification programs
-for picoruby-ble itself. See `probe/README.md`.
+`probe/` holds on-device diagnostics for picoruby-ble itself: each program
+exercises one path of the gem and prints evidence lines to check against the
+table in `probe/README.md`.
 
 ## Peers
 
