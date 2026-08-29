@@ -1,3 +1,4 @@
+require 'adc'
 require 'ble'
 
 class DemoPeripheral < BLE
@@ -30,7 +31,7 @@ class DemoPeripheral < BLE
     end
     db = BLE::GattDatabase.new do |db|
       db.add_service(GATT_PRIMARY_SERVICE_UUID, BLE::GAP_SERVICE_UUID) do |s|
-        s.add_characteristic(READ, BLE::GAP_DEVICE_NAME_UUID, READ, "picoruby_temp")
+        s.add_characteristic(READ, BLE::GAP_DEVICE_NAME_UUID, READ, "picow_temp")
       end
       db.add_service(GATT_PRIMARY_SERVICE_UUID, BLE::GATT_SERVICE_UUID) do |s|
         database_hash_key = 0.chr * 16
@@ -48,19 +49,26 @@ class DemoPeripheral < BLE
     @temperature_handle =   db.handle_table[SERVICE_ENVIRONMENTAL_SENSING][CHARACTERISTIC_TEMPERATURE][:value_handle]
     @configuration_handle = db.handle_table[SERVICE_ENVIRONMENTAL_SENSING][CHARACTERISTIC_TEMPERATURE][BLE::CLIENT_CHARACTERISTIC_CONFIGURATION]
     super(:peripheral, db.profile_data)
+    @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
+    @led_on = false
     @counter = 0
+    @adc = ADC.new(:temperature)
   end
 
-  # No sensor wired; sawtooth fakes the reading (rp2040/peripheral is the wired version).
   def heartbeat_callback
     @counter += 1
-    push_read_value(@temperature_handle, Utils.int16_to_little_endian(2000 + (@counter % 100) * 10))
+    temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
+    push_read_value(@temperature_handle, Utils.int16_to_little_endian(temperature))
     if @counter == 10
       if @notification_enabled
         debug_puts "request_can_send_now_event"
         request_can_send_now_event
       end
       @counter = 0
+    end
+    unless @led_on.nil?
+      @led_on = !@led_on
+      @led.write(@led_on ? 1 : 0)
     end
     if write_value = pop_write_value(@configuration_handle)
       @notification_enabled = ( write_value == "\x01\x00" )
@@ -71,15 +79,22 @@ class DemoPeripheral < BLE
     case event_packet.getbyte(0) # event type
     when BTSTACK_EVENT_STATE
       return unless event_packet.getbyte(2) ==  BLE::HCI_STATE_WORKING
+      @led_on = false
       debug_puts "Peripheral is up and running on: `#{Utils.bd_addr_to_str(gap_local_bd_addr)}`"
       advertise(@adv_data)
     when HCI_EVENT_DISCONNECTION_COMPLETE
+      @led_on = false
       debug_puts "disconnected"
       @notification_enabled = false
     when ATT_EVENT_MTU_EXCHANGE_COMPLETE
       debug_puts "mtu exchange complete"
+      @led_on = nil
+      @led.write(0)
     when ATT_EVENT_CAN_SEND_NOW
+      @led.write(1)
       notify @temperature_handle
+      sleep_ms 10
+      @led.write(0)
     end
   end
 end

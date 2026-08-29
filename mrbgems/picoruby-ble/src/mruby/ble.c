@@ -5,6 +5,10 @@
 #include "mruby/array.h"
 #include "task.h"
 
+#ifdef PICORB_PLATFORM_ESP32
+#include "../../ports/esp32/nimble_owner.h"
+#endif
+
 /*
  * GC strategy: only the current BLE instance is pinned with
  * mrb_gc_register (BTstack is a hardware singleton, so there is at
@@ -54,6 +58,15 @@ static mrb_value
 mrb_event_popped(mrb_state *mrb, mrb_value self)
 {
   if (0 < pending_event_count) pending_event_count--;
+#ifdef PICORB_PLATFORM_ESP32
+  /* NimBLE fills a plain ring buffer from its own FreeRTOS task. BLE_push_event
+   * touches the GC heap, so it must run here, on the thread owning mrb_state. */
+  {
+    uint8_t buf[100];
+    uint16_t n = picoruby_nimble_dequeue_event(buf, sizeof(buf));
+    if (n > 0) BLE_push_event(buf, n);
+  }
+#endif
   return mrb_nil_value();
 }
 

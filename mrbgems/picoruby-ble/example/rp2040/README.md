@@ -1,4 +1,7 @@
-## Example of BLE (Broadcaster - Observer pattern)
+# Pico W examples
+
+Sensor-wired versions of the top-level demos. Their peers are the top-level
+observer and central.
 
 ## Broadcaster
 
@@ -22,19 +25,12 @@
 /lib/thermo.rb
 ```
 
-## Observer
+## Peripheral
 
-![Observer](observer_bb.png)
-
-### Pin assign
-  * 3V3 to USB-TTL:VCC
-  * GND to USB-TTL:GND
-  * GPIO16 to USB-TTL:RX
-  * GPIO17 to USB-TTL:TX
+No wiring needed.
 
 ### Source
 
 ```console
 /home/app.rb
-/lib/led.rb
 ```

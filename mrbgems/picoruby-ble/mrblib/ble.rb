@@ -1,5 +1,8 @@
 require 'mbedtls'
-require 'cyw43'
+begin
+  require 'cyw43'
+rescue LoadError # Only LoadError should be rescued
+end
 
 class BLE
   HCI_STATE_OFF = 0
@@ -84,7 +87,7 @@ class BLE
     # together with this instance.
     @write_values = {}
     @read_values = {}
-    unless CYW43.init
+    if Object.const_defined?(:CYW43) && !CYW43.init
       puts "Failed to initialize CYW43"
       return # raising an exception here may cause a crash
     end

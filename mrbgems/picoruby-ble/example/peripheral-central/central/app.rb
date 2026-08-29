@@ -1,24 +1,30 @@
 require 'ble'
 
 class DemoCentral < BLE
+  TARGET_NAME = "PicoRuby"
+
   def initialize
-    @led = CYW43::GPIO.new(CYW43::GPIO::LED_PIN)
-    @led_on = false
     super(:central)
   end
 
-  def heartbeat_callback
-    @led.write((@led_on = !@led_on) ? 1 : 0)
+  def advertising_report_callback(adv_report)
+    return unless adv_report.name_include?(TARGET_NAME)
+    puts "Found `#{TARGET_NAME}` rssi: #{adv_report.rssi}. Connecting..."
+    connect(adv_report)
   end
 end
 
-$central = DemoCentral.new
-$central.debug = true
-$central.scan("PicoRuby")
-if $central.found_devices.count == 1
-  puts "Found device including 'PicoRuby' in name"
-  $central.connect 0
-  puts "Run irb and type '$central'"
+central = DemoCentral.new
+central.debug = true
+central.scan(timeout_ms: 30_000)
+
+if central.services.empty?
+  puts "No service discovered"
 else
-  puts "No device found"
+  central.services.each do |service|
+    puts "service uuid32: 0x#{service[:uuid32]&.to_s(16)}"
+    service[:characteristics].each do |characteristic|
+      puts "  characteristic uuid32: 0x#{characteristic[:uuid32]&.to_s(16)} value: #{characteristic[:value].inspect}"
+    end
+  end
 end
