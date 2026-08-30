@@ -134,6 +134,7 @@
     <div class="controls">
       <label><input id="mode-plain" type="radio" name="upload-mode" value="plain" checked> Plain</label>
       <label><input id="mode-compile" type="radio" name="upload-mode" value="compile"> Compile</label>
+      <label><input id="mode-binary" type="radio" name="upload-mode" value="binary"> Binary</label>
       <span style="width:8px;display:inline-block;"></span>
       <button id="download-btn" disabled>Download</button>
       <input id="path-input" type="text" value="/home/app.rb" placeholder="/home/app.rb" style="width:220px">
@@ -199,6 +200,9 @@
         @doc = JS.document
         @current_port = nil
         @auto_reconnect = false
+        @binary_file_data = nil
+        @binary_file_name = nil
+        @text_file_name = nil
         setup_terminal
         unless JS::WebSerial.supported?
           el('not-supported').style.display = 'block'
@@ -274,6 +278,39 @@
         el('mode-compile')[:checked] == true
       end
 
+      def binary_mode?
+        el('mode-binary')[:checked] == true
+      end
+
+      def plain_mode?
+        el('mode-plain')[:checked] == true
+      end
+
+      def update_upload_mode
+        editor = el('editor')
+        file_label = el('file-label')
+        local_file_path = el('local-file-path')
+        if binary_mode?
+          editor[:readOnly] = true
+          editor.style.opacity = '0.45'
+          editor[:placeholder] = 'Select a local binary file to upload without text conversion.'
+          file_label[:textContent] = 'Open binary file'
+          if @binary_file_name
+            local_file_path[:textContent] = "#{@binary_file_name} (#{@binary_file_data.bytesize} bytes)"
+          else
+            local_file_path[:textContent] = ''
+          end
+        else
+          editor[:readOnly] = false
+          editor.style.opacity = '1'
+          editor[:placeholder] = '# Type or download Ruby code here...'
+          file_label[:textContent] = 'Open local file'
+          local_file_path[:textContent] = @text_file_name.to_s
+        end
+        el('file-input')[:value] = ''
+        update_dfu_buttons
+      end
+
       def force_mrb_extension
         path_el = el('path-input')
         path = path_el[:value].to_s.strip
@@ -302,7 +339,7 @@
         else
           el('upload-btn').setAttribute('disabled', 'true')
         end
-        if enabled && !compile_mode?
+        if enabled && plain_mode?
           el('download-btn').removeAttribute('disabled')
         else
           el('download-btn').setAttribute('disabled', 'true')
@@ -407,11 +444,12 @@
         el('path-input').addEventListener('change') { update_dfu_buttons }
 
         # Mode radio buttons
-        el('mode-plain').addEventListener('change') { update_dfu_buttons }
+        el('mode-plain').addEventListener('change') { update_upload_mode }
         el('mode-compile').addEventListener('change') do
           force_mrb_extension
-          update_dfu_buttons
+          update_upload_mode
         end
+        el('mode-binary').addEventListener('change') { update_upload_mode }
 
         # Force .mrb extension on blur when compile mode
         el('path-input').addEventListener('blur') do
@@ -518,12 +556,32 @@
         el('file-input').addEventListener('change') do
           file = el('file-input')[:files][0]
           next unless file
+          if binary_mode?
+            begin
+              @binary_file_data = file.to_binary
+              @binary_file_name = file[:name].to_s
+              append_log("[+] Binary file loaded: #{@binary_file_name} (#{@binary_file_data.bytesize} bytes)")
+            rescue => err
+              @binary_file_data = nil
+              @binary_file_name = nil
+              append_log("[-] Binary file error: #{error_text(err)}")
+            ensure
+              el('file-input')[:value] = ''
+              update_upload_mode
+            end
+            next
+          end
           reader = JS.global[:FileReader].new
           reader.addEventListener('load') do |e|
             el('editor')[:value] = e[:target][:result].to_s
-            el('local-file-path')[:textContent] = file[:name].to_s
+            @text_file_name = file[:name].to_s
+            el('local-file-path')[:textContent] = @text_file_name
             el('file-input')[:value] = ''
             update_dfu_buttons
+          end
+          reader.addEventListener('error') do
+            append_log("[-] Text file error: #{reader[:error].to_s}")
+            el('file-input')[:value] = ''
           end
           reader.readAsText(file)
         end
@@ -753,10 +811,18 @@
           return
         end
 
-        code = el('editor')[:value].to_s
-        if code.strip.empty?
-          append_log("[-] Editor is empty")
-          return
+        if binary_mode?
+          code = @binary_file_data
+          unless code && 0 < code.bytesize
+            append_log("[-] No binary file selected")
+            return
+          end
+        else
+          code = el('editor')[:value].to_s
+          if code.strip.empty?
+            append_log("[-] Editor is empty")
+            return
+          end
         end
 
         path = current_path

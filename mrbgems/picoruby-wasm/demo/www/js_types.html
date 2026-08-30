@@ -296,6 +296,36 @@
       raise "body: #{body.inspect}" unless body == 'hello-binary'
     end
 
+    test_case("JS::Object#to_binary preserves Blob bytes") do
+      bytes = JS.global[:Uint8Array].new(5)
+      bytes[0] = 0x00
+      bytes[1] = 0x7f
+      bytes[2] = 0x80
+      bytes[3] = 0xff
+      bytes[4] = 0x0a
+      parts = JS.global.create_array
+      parts.push(bytes)
+      blob = JS.global[:Blob].new(parts)
+      body = blob.to_binary
+      expected = [0x00, 0x7f, 0x80, 0xff, 0x0a]
+      i = 0
+      while i < expected.length
+        raise "byte #{i}: #{body.getbyte(i)}" unless body.getbyte(i) == expected[i]
+        i += 1
+      end
+      raise "size: #{body.bytesize}" unless body.bytesize == expected.length
+    end
+
+    test_case("JS::Object#to_binary rejects objects without arrayBuffer") do
+      begin
+        JS.global.create_object.to_binary
+      rescue => e
+        raise "message: #{e.message}" unless e.message.include?('arrayBuffer')
+      else
+        raise "error was not raised"
+      end
+    end
+
     # ----- Phase 5: BasicObject inheritance -----
 
     test_case("JS::Object inherits from BasicObject") do

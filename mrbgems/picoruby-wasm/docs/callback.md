@@ -72,7 +72,7 @@ Use it when the handler needs any of:
 **Constraints.** The block cannot suspend, so anything that would suspend raises
 `RuntimeError` inside it:
 
-- `fetch`, `Promise#await` / `#then`, `JS::Response#to_binary`
+- `fetch`, `Promise#await` / `#then`, `JS::Object#to_binary`
 - blocking `Task::Queue#pop`
 - `Task#join` / `#suspend` / `#resume` / `#terminate`
 
