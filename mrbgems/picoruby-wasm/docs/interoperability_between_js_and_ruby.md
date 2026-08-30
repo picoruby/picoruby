@@ -43,6 +43,18 @@ items.each { |el| puts el[:textContent] }  # el is a JS::Object, [:textContent] 
 
 `#to_a` recursively auto-converts primitives too, so an array of numbers becomes `Array[Integer]`.
 
+### Reading binary data
+
+Use `#to_binary` with a `Blob`, `File`, `Response`, or another JavaScript object
+that implements `arrayBuffer()`. It returns a binary Ruby `String` without
+UTF-8 conversion and suspends the current task until the bytes are available:
+
+```ruby
+file = JS.document.getElementById('file-input')[:files][0]
+bytes = file.to_binary
+puts bytes.getbyte(0)
+```
+
 ## Writing to JS
 
 `[]=` and method arguments auto-convert Ruby types:
@@ -125,7 +137,7 @@ The complete set of Ruby-side methods on a `JS::Object` instance is:
   `typeof`, `refcount`, `create_object`, `create_array`
 - Ruby protocol predicates defined in C: `nil?` (always `false`), `is_a?`,
   `kind_of?`, `instance_of?`, `respond_to?`
-- Defined in Ruby: `addEventListener`, `fetch`, `setTimeout`, `clearTimeout`,
+- Defined in Ruby: `addEventListener`, `fetch`, `to_binary`, `setTimeout`, `clearTimeout`,
   and subclass methods such as `JS::Promise#await` / `#then`
 
 Every other method name is forwarded to JavaScript as a property read, method
