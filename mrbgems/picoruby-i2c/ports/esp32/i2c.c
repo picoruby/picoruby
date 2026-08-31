@@ -15,34 +15,21 @@ typedef struct {
 } i2c_bus_context_t;
 
 // Context for each I2C port (ESP32 has a maximum of 2 ports)
-static i2c_bus_context_t i2c_contexts[2] = {0};
+static i2c_bus_context_t i2c_contexts[2] = {
+  [0] = { .sda_pin = -1, .scl_pin = -1 },
+  [1] = { .sda_pin = -1, .scl_pin = -1 },
+};
 
-// Re-assert this unit's pad routing before every transfer.
-//
-// The pins are configured once, in i2c_new_master_bus(), and nothing touches
-// them again for the lifetime of the bus. That is fine while this port is the
-// only thing driving them. It stops being fine as soon as another driver
-// talks to another device over the same two pins -- an I2C touch screen owned
-// by a display library is the usual case, since a board that exposes an I2C
-// connector often hangs it off the touch controller's bus. Such a driver
-// points the pins at its own I2C unit, typically on every transaction, and
-// leaves them there.
-//
-// Only one side can win: an ESP32 pad carries the output signal of a single
-// peripheral at a time and the routing is last-writer-wins, so once the other
-// driver has run we drive neither SDA nor SCL and every transfer fails. It
-// does not recover on its own either -- on targets with
-// SOC_I2C_SUPPORT_HW_FSM_RST the driver's error path resets the state machine
-// without re-running the pin configuration.
-//
-// Only the signal routing is restored. The pad's electrical setup (open
-// drain, pull-up, input enable) was done when the bus was created and is not
-// what gets taken away, and re-running it here would mean detaching the pad
-// from the peripheral and driving it as a plain GPIO for a moment before
-// re-attaching it -- gpio_set_direction() routes SIG_GPIO_OUT_IDX to the pad
-// on the way -- which is a glitch on a live bus for no gain.
-//
-// Two register writes per pin, and a no-op when nothing else touches them.
+// Pins are routed only once when the bus is created. Drivers that share them—
+// for example, the I2C touch controller in the display library—reset them
+// to point toward their own unit for each transaction, so that a single pad
+// transmits signals from only one peripheral at a time. Afterward, neither SDA nor SCL
+// is driven, and the state is not restored.
+// This is because the error path resets the state machine, but the pin routing is not reset.
+// However, this applies only to routing. The electrical configuration is not removed, and
+// gpio_set_direction(), when passing through a glitch on an active bus,
+// will hand the pad over to a normal GPIO. Two register writes are required per pin,
+// but if the pin is not shared, this results in a no-operation.
 static void
 i2c_reclaim_pins(int unit_num)
 {
