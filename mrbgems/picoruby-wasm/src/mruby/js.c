@@ -1069,7 +1069,7 @@ EM_JS(bool, js_remove_attribute, (int ref_id, const char* name), {
   }
 });
 
-EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id), {
+EM_JS(void, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id), {
   const object = globalThis.picorubyRefs[ref_id];
   const reportError = (error) => {
     const message = error && typeof error.message === 'string'
@@ -1102,7 +1102,6 @@ EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task_
       [mrb_ptr, task_ptr, callback_id, ptr, uint8Array.length]
     );
   }).catch(reportError);
-  return 0;
 });
 
 typedef struct {

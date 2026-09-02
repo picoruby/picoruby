@@ -111,6 +111,17 @@ module JS
       end
     end
 
+    # Raise the pending error stored by the C promise-error resume path for
+    # callback_id, if any, cleaning up both global hashes first.
+    def _raise_pending_promise_error(callback_id)
+      return unless $promise_errors.key?(callback_id)
+      message = $promise_errors[callback_id]
+      $promise_errors.delete(callback_id)
+      $promise_responses.delete(callback_id)
+      # Kernel.raise: self is a JS object (BasicObject), Kernel#raise is absent
+      Kernel.raise message
+    end
+
     def fetch(url, options = nil, &block)
       # Kernel.raise: self is a JS object (BasicObject), Kernel#raise is absent
       Kernel.raise ArgumentError, "JS::Object#fetch requires a block: use `fetch(url) { |resp| ... }`" unless block
@@ -121,12 +132,7 @@ module JS
       else
         _fetch_and_suspend(url, callback_id)
       end
-      if $promise_errors.key?(callback_id)
-        message = $promise_errors[callback_id]
-        $promise_errors.delete(callback_id)
-        $promise_responses.delete(callback_id)
-        Kernel.raise message
-      end
+      _raise_pending_promise_error(callback_id)
       block.call($promise_responses[callback_id])
       $promise_responses.delete(callback_id)
     end
@@ -151,12 +157,7 @@ module JS
       # __id__: BasicObject has no object_id
       callback_id = self.__id__
       _to_binary_and_suspend(callback_id)
-      if $promise_errors.key?(callback_id)
-        message = $promise_errors[callback_id]
-        $promise_errors.delete(callback_id)
-        $promise_responses.delete(callback_id)
-        Kernel.raise message
-      end
+      _raise_pending_promise_error(callback_id)
       result = $promise_responses[callback_id]
       $promise_responses.delete(callback_id)
       result.to_s
@@ -215,12 +216,7 @@ module JS
       # __id__: BasicObject has no object_id
       callback_id = self.__id__
       _await_and_suspend(callback_id)
-      if $promise_errors.key?(callback_id)
-        message = $promise_errors[callback_id]
-        $promise_errors.delete(callback_id)
-        $promise_responses.delete(callback_id)
-        Kernel.raise message
-      end
+      _raise_pending_promise_error(callback_id)
       result = $promise_responses[callback_id]
       $promise_responses.delete(callback_id)
       result
