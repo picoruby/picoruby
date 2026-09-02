@@ -49,6 +49,7 @@ module JS
 
     # Async operations
     def fetch: (String url, ?Hash[Symbol, untyped]? options) { (JS::Response response) -> void } -> void
+    def to_binary: () -> String
 
     # Timer operations
     def setTimeout: (Integer delay_ms) { () -> void } -> Integer
@@ -111,6 +112,7 @@ module JS
     private def self._register_callback: (Integer callback_id, String name) -> nil
     private def _fetch_and_suspend: (String url, Integer callback_id) -> nil
     private def _fetch_with_options_and_suspend: (String url, String options_json, Integer callback_id) -> nil
+    private def _to_binary_and_suspend: (Integer callback_id) -> nil
     private def _await_and_suspend: (Integer callback_id) -> nil
     private def _set_timeout: (Integer callback_id, Integer delay_ms) -> Integer
     private def _clear_timeout: (Integer callback_id) -> bool
@@ -143,8 +145,6 @@ module JS
   end
 
   class Response < Object
-    def to_binary: () -> String
-    private def _to_binary_and_suspend: (Integer callback_id) -> nil
   end
 
   class Element < Object

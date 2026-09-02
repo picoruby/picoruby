@@ -1070,12 +1070,27 @@ EM_JS(bool, js_remove_attribute, (int ref_id, const char* name), {
 });
 
 EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id), {
-  const response = globalThis.picorubyRefs[ref_id];
-  if (!response || typeof response.arrayBuffer !== 'function') {
-    console.error('Invalid response object:', response);
-    return 0;
-  }
-  response.arrayBuffer().then(arrayBuffer => {
+  const object = globalThis.picorubyRefs[ref_id];
+  const reportError = (error) => {
+    const message = error && typeof error.message === 'string'
+      ? error.message
+      : String(error);
+    const size = lengthBytesUTF8(message) + 1;
+    const errorPtr = _malloc(size);
+    stringToUTF8(message, errorPtr, size);
+    ccall(
+      'resume_promise_error_task',
+      'void',
+      ['number', 'number', 'number', 'number'],
+      [mrb_ptr, task_ptr, callback_id, errorPtr]
+    );
+  };
+  Promise.resolve().then(() => {
+    if (!object || typeof object.arrayBuffer !== 'function') {
+      throw new TypeError('JS object does not implement arrayBuffer()');
+    }
+    return object.arrayBuffer();
+  }).then(arrayBuffer => {
     const uint8Array = new Uint8Array(arrayBuffer);
     const ptr = _malloc(uint8Array.length);
     const heapBytes = new Uint8Array(HEAPU8.buffer, ptr, uint8Array.length);
@@ -1086,9 +1101,7 @@ EM_JS(int, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task_
       ['number', 'number', 'number', 'number', 'number'],
       [mrb_ptr, task_ptr, callback_id, ptr, uint8Array.length]
     );
-  }).catch(error => {
-    console.error('Error in arrayBuffer processing:', error);
-  });
+  }).catch(reportError);
   return 0;
 });
 
@@ -2770,6 +2783,7 @@ mrb_js_init(mrb_state *mrb)
   mrb_define_class_method_id(mrb, class_JS_Object, MRB_SYM(_register_callback), mrb_object_s__register_callback, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_and_suspend), mrb_object__fetch_and_suspend, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_fetch_with_options_and_suspend), mrb_object__fetch_with_options_and_suspend, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_await_and_suspend), mrb_object__await_and_suspend, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_set_timeout), mrb_object__set_timeout, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_JS_Object, MRB_SYM(_clear_timeout), mrb_object__clear_timeout, MRB_ARGS_REQ(1));
@@ -2801,7 +2815,6 @@ mrb_js_init(mrb_state *mrb)
 
   class_JS_Response = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Response), class_JS_Object);
   MRB_SET_INSTANCE_TT(class_JS_Response, MRB_TT_DATA);
-  mrb_define_method_id(mrb, class_JS_Response, MRB_SYM(_to_binary_and_suspend), mrb_object__to_binary_and_suspend, MRB_ARGS_REQ(1));
 
   class_JS_Element = mrb_define_class_under_id(mrb, module_JS, MRB_SYM(Element), class_JS_Object);
   MRB_SET_INSTANCE_TT(class_JS_Element, MRB_TT_DATA);

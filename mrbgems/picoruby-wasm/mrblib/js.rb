@@ -145,6 +145,23 @@ module JS
       success
     end
 
+    # Read Blob, File, Response, or another object implementing arrayBuffer()
+    # as a binary Ruby String without UTF-8 conversion.
+    def to_binary
+      # __id__: BasicObject has no object_id
+      callback_id = self.__id__
+      _to_binary_and_suspend(callback_id)
+      if $promise_errors.key?(callback_id)
+        message = $promise_errors[callback_id]
+        $promise_errors.delete(callback_id)
+        $promise_responses.delete(callback_id)
+        Kernel.raise message
+      end
+      result = $promise_responses[callback_id]
+      $promise_responses.delete(callback_id)
+      result.to_s
+    end
+
   end
 
   # Composite-type subclasses. wrap_ref_as_js_object in js.c picks the right
@@ -179,16 +196,6 @@ module JS
   end
 
   class Response < Object
-    # Read the response body as a binary String. Suspends the current Ruby
-    # task until the underlying ArrayBuffer is materialized.
-    def to_binary
-      # __id__: BasicObject has no object_id
-      callback_id = self.__id__
-      _to_binary_and_suspend(callback_id)
-      result = $promise_responses[callback_id]
-      $promise_responses.delete(callback_id)
-      result.to_s
-    end
   end
 
   class Event < Object
