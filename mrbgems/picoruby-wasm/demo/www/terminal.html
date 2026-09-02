@@ -286,6 +286,10 @@
         el('mode-plain')[:checked] == true
       end
 
+      def binary_payload_ready?
+        !@binary_file_data.nil? && 0 < @binary_file_data.bytesize
+      end
+
       def update_upload_mode
         editor = el('editor')
         file_label = el('file-label')
@@ -330,7 +334,8 @@
 
       def update_dfu_buttons
         has_path = !el('path-input')[:value].to_s.strip.empty?
-        set_dfu_buttons_enabled(connected? && has_path)
+        has_payload = binary_mode? ? binary_payload_ready? : true
+        set_dfu_buttons_enabled(connected? && has_path && has_payload)
       end
 
       def set_dfu_buttons_enabled(enabled)
@@ -561,6 +566,13 @@
               @binary_file_data = file.to_binary
               @binary_file_name = file[:name].to_s
               append_log("[+] Binary file loaded: #{@binary_file_name} (#{@binary_file_data.bytesize} bytes)")
+              # Default the destination to the selected filename; still editable
+              path_el = el('path-input')
+              new_path = "/home/#{@binary_file_name}"
+              unless path_el[:value].to_s == new_path
+                path_el[:value] = new_path
+                append_log("[*] Path set: #{new_path}")
+              end
             rescue => err
               @binary_file_data = nil
               @binary_file_name = nil
@@ -813,8 +825,12 @@
 
         if binary_mode?
           code = @binary_file_data
-          unless code && 0 < code.bytesize
+          unless code
             append_log("[-] No binary file selected")
+            return
+          end
+          unless 0 < code.bytesize
+            append_log("[-] Binary file is empty")
             return
           end
         else
