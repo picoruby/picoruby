@@ -1,5 +1,7 @@
 #include <string.h>
 #include "driver/i2c_master.h"
+#include "esp_rom_gpio.h"
+#include "soc/i2c_periph.h"
 
 #include "../../include/i2c.h"
 
@@ -8,10 +10,41 @@ typedef struct {
   i2c_master_bus_handle_t bus_handle;
   bool initialized;
   uint32_t frequency;
+  int8_t sda_pin;
+  int8_t scl_pin;
 } i2c_bus_context_t;
 
 // Context for each I2C port (ESP32 has a maximum of 2 ports)
-static i2c_bus_context_t i2c_contexts[2] = {0};
+static i2c_bus_context_t i2c_contexts[2] = {
+  [0] = { .sda_pin = -1, .scl_pin = -1 },
+  [1] = { .sda_pin = -1, .scl_pin = -1 },
+};
+
+// Pins are routed only once when the bus is created. Drivers that share them—
+// for example, the I2C touch controller in the display library—reset them
+// to point toward their own unit for each transaction, so that a single pad
+// transmits signals from only one peripheral at a time. Afterward, neither SDA nor SCL
+// is driven, and the state is not restored.
+// This is because the error path resets the state machine, but the pin routing is not reset.
+// However, this applies only to routing. The electrical configuration is not removed, and
+// gpio_set_direction(), when passing through a glitch on an active bus,
+// will hand the pad over to a normal GPIO. Two register writes are required per pin,
+// but if the pin is not shared, this results in a no-operation.
+static void
+i2c_reclaim_pins(int unit_num)
+{
+  int8_t sda_pin = i2c_contexts[unit_num].sda_pin;
+  int8_t scl_pin = i2c_contexts[unit_num].scl_pin;
+
+  if (sda_pin < 0 || scl_pin < 0) {
+    return;
+  }
+
+  esp_rom_gpio_connect_out_signal(sda_pin, i2c_periph_signal[unit_num].sda_out_sig, false, false);
+  esp_rom_gpio_connect_in_signal(sda_pin, i2c_periph_signal[unit_num].sda_in_sig, false);
+  esp_rom_gpio_connect_out_signal(scl_pin, i2c_periph_signal[unit_num].scl_out_sig, false, false);
+  esp_rom_gpio_connect_in_signal(scl_pin, i2c_periph_signal[unit_num].scl_in_sig, false);
+}
 
 int
 I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bool nostop, uint32_t timeout_us)
@@ -19,6 +52,8 @@ I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bool n
   if (!i2c_contexts[unit_num].initialized) {
     return I2C_ERROR_INVALID_UNIT;
   }
+
+  i2c_reclaim_pins(unit_num);
 
   i2c_device_config_t dev_cfg = {
     .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -55,6 +90,8 @@ I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t* src, size_t len, bool 
   if (!i2c_contexts[unit_num].initialized) {
     return I2C_ERROR_INVALID_UNIT;
   }
+
+  i2c_reclaim_pins(unit_num);
 
   i2c_device_config_t dev_cfg = {
     .dev_addr_length = I2C_ADDR_BIT_LEN_7,
@@ -121,6 +158,8 @@ I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
 
   i2c_contexts[unit_num].initialized = true;
   i2c_contexts[unit_num].frequency = frequency;
+  i2c_contexts[unit_num].sda_pin = sda_pin;
+  i2c_contexts[unit_num].scl_pin = scl_pin;
 
   return I2C_ERROR_NONE;
 }
