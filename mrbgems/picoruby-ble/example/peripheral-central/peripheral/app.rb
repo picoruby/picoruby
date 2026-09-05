@@ -57,7 +57,7 @@ class DemoPeripheral < BLE
 
   def heartbeat_callback
     @counter += 1
-    temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
+    temperature = ((27 - (@adc.read - 0.706) / 0.001721) * 100).to_i
     push_read_value(@temperature_handle, Utils.int16_to_little_endian(temperature))
     if @counter == 10
       if @notification_enabled
