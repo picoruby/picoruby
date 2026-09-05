@@ -32,10 +32,12 @@ BLE_push_event(uint8_t *data, uint16_t size)
 {
   if (_mrb == NULL || mrb_nil_p(event_queue) ||
       BLE_MAX_PENDING_EVENTS <= pending_event_count) return;
+  int ai = mrb_gc_arena_save(_mrb);
   mrb_value event = mrb_str_new(_mrb, (const char *)data, size);
   if (mrb_task_queue_push(_mrb, event_queue, event) == MRB_TASK_QUEUE_PUSH_OK) {
     pending_event_count++;
   }
+  mrb_gc_arena_restore(_mrb, ai);
 }
 
 void
@@ -71,6 +73,7 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
     return -1;
   }
   mrb_value key = mrb_fixnum_value(att_handle);
+  int ai = mrb_gc_arena_save(_mrb);
   mrb_value write_value = mrb_str_new(_mrb, (const char *)data, size);
   write_values_mutex = true;
   mrb_value queue = mrb_hash_get(_mrb, write_values, key);
@@ -80,6 +83,7 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   }
   mrb_ary_push(_mrb, queue, write_value);
   write_values_mutex = false;
+  mrb_gc_arena_restore(_mrb, ai);
   return 0;
 }
 
