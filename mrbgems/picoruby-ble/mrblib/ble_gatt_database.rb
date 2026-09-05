@@ -45,11 +45,11 @@ class BLE
       @handle_table[@service_uuid][char_uuid] = { handle: @current_handle, value_handle: nil }
       # value
       if char_uuid == CHARACTERISTIC_DATABASE_HASH
-        if !value.is_a?(String) || value.length != 16
+        if !value.is_a?(String) || value.bytesize != 16
           raise "database hash key must be 16 bytes string: #{value.inspect}"
         end
         @database_hash_key = value
-        @hash_pos = @profile_data.length + line.length - 3
+        @hash_pos = @profile_data.bytesize + line.bytesize - 3
       end
       if value
         line = flag_by_uuid(char_uuid, value_properties)
@@ -79,8 +79,8 @@ class BLE
       cmac.update(@hash_src)
       digest = cmac.digest
       0.upto(15) do |i|
-        (c = digest[15 - i]) or raise "digest[#{15 - i}] is nil"
-        @profile_data[@hash_pos + i] = c
+        (b = digest.getbyte(15 - i)) or raise "digest[#{15 - i}] is nil"
+        @profile_data.setbyte(@hash_pos + i, b)
       end
     end
 
