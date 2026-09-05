@@ -49,7 +49,7 @@ class BLE
     # Bluetooth Base UUID: 00000000-0000-1000-8000-00805F9B34FB
     def self.uuid128_to_uuid32(uuid128)
       if uuid128.bytesize == 16 && uuid128.byteslice(4, 12) == "\x00\x00\x10\x00\x80\x00\x00\x80\x5F\x9B\x34\xFB"
-        ((uuid128.getbyte(0) || 0) | ((uuid128.getbyte(1) || 0) << 8) | ((uuid128.getbyte(2) || 0) << 16) | ((uuid128.getbyte(3) || 0) << 24))
+        (((uuid128.getbyte(0) || 0) << 24) | ((uuid128.getbyte(1) || 0) << 16) | ((uuid128.getbyte(2) || 0) << 8) | (uuid128.getbyte(3) || 0))
       else
         nil
       end
