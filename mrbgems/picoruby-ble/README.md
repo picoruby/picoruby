@@ -12,8 +12,6 @@ An application subclasses `BLE`, overrides the callbacks it needs, and runs the 
 require 'ble'
 
 class MyPeripheral < BLE
-  BTSTACK_EVENT_STATE = 0x60
-
   def initialize
     db = BLE::GattDatabase.new do |db|
       db.add_service(BLE::GATT_PRIMARY_SERVICE_UUID, 0x1234) do |s|
@@ -29,7 +27,7 @@ class MyPeripheral < BLE
 
   # Called with every event that `start` pops from BTstack
   def packet_callback(event_packet)
-    return unless event_packet.getbyte(0) == BTSTACK_EVENT_STATE
+    return unless event_packet.getbyte(0) == BLE::BTSTACK_EVENT_STATE
     advertise(@adv_data) if event_packet.getbyte(2) == BLE::HCI_STATE_WORKING
   end
 end
