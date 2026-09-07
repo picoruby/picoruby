@@ -67,15 +67,21 @@ class BLE
     @state = :TC_OFF
   end
 
+  # Call this from advertising_report_callback while `scan` is running.
+  # The scan loop then handles the connection and the service discovery.
   def connect(adv_report)
     restrict_central
-    stop_scan # Is it necessary?
+    unless @state == :TC_W4_SCAN_RESULT
+      raise "connect must be called from advertising_report_callback while scanning"
+    end
+    stop_scan
     err_code = gap_connect(adv_report.address, adv_report.address_type_code)
     if err_code == 0
       @state = :TC_W4_CONNECT
       return true
     else
-      puts "Error: #{err_code}"
+      puts "gap_connect failed. Error code: `#{err_code}`"
+      @state = :TC_IDLE # Let `scan` return instead of waiting forever
       return false
     end
   end
@@ -103,8 +109,14 @@ class BLE
       advertising_report_callback(AdvertisingReport.new(event_packet))
     when HCI_EVENT_LE_META
       return unless @state == :TC_W4_CONNECT
-      case event_packet.getbyte(2)
-      when HCI_SUBEVENT_LE_CONNECTION_COMPLETE
+      # [2] subevent, [3] status, [4..5] connection_handle
+      if event_packet.getbyte(2) == HCI_SUBEVENT_LE_CONNECTION_COMPLETE
+        status = event_packet.getbyte(3)
+        if status != 0
+          puts "Connection failed. Status: `#{status}`"
+          @state = :TC_IDLE
+          return
+        end
         @conn_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 2))
         debug_puts "Connected. Handle: `#{sprintf("0x%04X", @conn_handle)}`"
         @state = :TC_W4_SERVICE_RESULT
@@ -114,9 +126,11 @@ class BLE
           puts "Discover primary services failed. Error code: `#{err_code}`"
           @state = :TC_IDLE
         end
-      when HCI_EVENT_DISCONNECTION_COMPLETE
-        @conn_handle = HCI_CON_HANDLE_INVALID
       end
+    when HCI_EVENT_DISCONNECTION_COMPLETE
+      debug_puts "Disconnected"
+      @conn_handle = HCI_CON_HANDLE_INVALID
+      @state = :TC_IDLE
     when GATT_EVENT_QUERY_COMPLETE..GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT
       # Build @services
       case @state
@@ -193,6 +207,8 @@ class BLE
           elsif value_handle = @value_handles.shift
             read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
             @state = :TC_W4_CHARACTERISTIC_VALUE_RESULT
+          else
+            @state = :TC_IDLE
           end
         end
       when :TC_W4_CHARACTERISTIC_VALUE_RESULT
@@ -217,12 +233,13 @@ class BLE
             end
             si += 1
           end
-          if value_handle = @value_handles.shift
-            read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
-          end
         when GATT_EVENT_QUERY_COMPLETE
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic value"
-          if handle_range = @descriptor_handle_ranges.shift
+          # Every read ends with its own QUERY_COMPLETE, so the next read
+          # has to be issued from here and not from the VALUE_QUERY_RESULT
+          if value_handle = @value_handles.shift
+            read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
+          elsif handle_range = @descriptor_handle_ranges.shift
             discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
             @state = :TC_W4_ALL_CHARACTERISTIC_DESCRIPTORS_RESULT
           else
@@ -294,13 +311,14 @@ class BLE
             end
             si += 1
           end
+        when GATT_EVENT_QUERY_COMPLETE
+          debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor value"
           if descriptor_handle = @descriptor_handles.shift
             # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
             read_value_of_characteristic_using_value_handle(@conn_handle, descriptor_handle)
+          else
+            @state = :TC_IDLE
           end
-        when GATT_EVENT_QUERY_COMPLETE
-          debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor value"
-          @state = :TC_IDLE
         end
       else
         debug_puts "Not implemented: 0x#{event_type&.to_s(16)} state: #{@state}"
