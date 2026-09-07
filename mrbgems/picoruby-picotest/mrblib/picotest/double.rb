@@ -49,7 +49,9 @@ module Picotest
       return self
     end
 
-    if RUBY_ENGINE == 'mruby/c'
+    # `::` is required: this class body is not under Object, so a bare
+    # constant does not reach the top level.
+    if ::RUBY_ENGINE == 'mruby/c'
       protect_methods = %i(
         alias_method
         method_missing

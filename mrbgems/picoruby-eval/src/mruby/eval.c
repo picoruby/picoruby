@@ -1,9 +1,10 @@
 #include <mruby.h>
 #include <mruby/string.h>
 #include <mruby/presym.h>
-#include <mruby/internal.h>
 #include <mruby/class.h>
 #include <mruby/proc.h>
+/* internal.h exposes the proc/env declarations only after proc.h */
+#include <mruby/internal.h>
 #include <mruby/variable.h>
 
 #include "mrc_utils.h"
@@ -11,28 +12,6 @@
 // From mruby-binding gem
 extern const struct RProc *mrb_binding_extract_proc(mrb_state *mrb, mrb_value binding);
 extern struct REnv *mrb_binding_extract_env(mrb_state *mrb, mrb_value binding);
-
-static struct REnv*
-mrb_env_new(mrb_state *mrb, struct mrb_context *c, mrb_callinfo *ci, int nstacks, mrb_value *stack, struct RClass *tc)
-{
-  struct REnv *e;
-  mrb_int bidx = 1;
-  int n = ci->n;
-  int nk = ci->nk;
-
-  e = MRB_OBJ_ALLOC(mrb, MRB_TT_ENV, NULL);
-  e->c = tc;
-  MRB_ENV_SET_LEN(e, nstacks);
-  bidx += (n == 15) ? 1 : n;
-  bidx += (nk == 15) ? 1 : (2*nk);
-  MRB_ENV_SET_BIDX(e, bidx);
-  e->mid = ci->mid;
-  e->stack = stack;
-  e->cxt = c;
-  MRB_ENV_COPY_FLAGS_FROM_CI(e, ci);
-
-  return e;
-}
 
 static struct RProc*
 create_proc_from_string(mrb_state *mrb, const char *s, mrb_int len, mrb_value binding, const char *file, mrb_int line)
@@ -131,7 +110,7 @@ exec_irep(mrb_state *mrb, mrb_value self, struct RProc *proc)
 
   /* no argument passed from eval() */
   ci->n = 0;
-  ci->nk = 0;
+  ci->kw = 0;
   /* clear visibility */
   MRB_CI_SET_VISIBILITY_BREAK(ci);
   /* clear block */
