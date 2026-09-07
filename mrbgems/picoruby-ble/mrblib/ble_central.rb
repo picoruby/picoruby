@@ -18,6 +18,11 @@ class BLE
   GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT = 0xA9
   GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT = 0xAA
 
+  # GATT client events (BTstack 1.6 and later):
+  #   [0] event type, [1] length, [2..3] con_handle,
+  #   [4..5] service_id, [6..7] connection_id, [8..] payload
+  GATT_EVENT_PAYLOAD_OFFSET = 8
+
   def init_central
     reset_state
     @services = []
@@ -119,9 +124,10 @@ class BLE
         case event_type
         when GATT_EVENT_SERVICE_QUERY_RESULT
           debug_puts "GATT_EVENT_SERVICE_QUERY_RESULT"
-          start_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-          end_handle = Utils.little_endian_to_int16(event_packet.byteslice(6, 1))
-          uuid128 = Utils.reverse_128(event_packet.byteslice(8, 16))
+          # payload: start_group_handle(2) end_group_handle(2) uuid128(16)
+          start_handle = gatt_event_int16(event_packet, 0)
+          end_handle = gatt_event_int16(event_packet, 2)
+          uuid128 = gatt_event_uuid128(event_packet, 4)
           @services << {
             start_handle: start_handle,
             end_handle: end_handle,
@@ -147,16 +153,17 @@ class BLE
         case event_type
         when GATT_EVENT_CHARACTERISTIC_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_QUERY_RESULT"
-          start_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-          value_handle = Utils.little_endian_to_int16(event_packet.byteslice(6, 1))
-          end_handle = Utils.little_endian_to_int16(event_packet.byteslice(8, 1))
-          uuid128 = Utils.reverse_128(event_packet.byteslice(12, 16))
+          # payload: start_handle(2) value_handle(2) end_handle(2) properties(2) uuid128(16)
+          start_handle = gatt_event_int16(event_packet, 0)
+          value_handle = gatt_event_int16(event_packet, 2)
+          end_handle = gatt_event_int16(event_packet, 4)
+          uuid128 = gatt_event_uuid128(event_packet, 8)
           # @type var characteristic: characteristic_t
           characteristic = {
             start_handle: start_handle,
             value_handle: value_handle,
             end_handle: end_handle,
-            properties: Utils.little_endian_to_int16(event_packet.byteslice(10, 1)),
+            properties: gatt_event_int16(event_packet, 6),
             uuid128: uuid128,
             uuid32: Utils.uuid128_to_uuid32(uuid128),
             value: nil,
@@ -192,6 +199,8 @@ class BLE
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT"
+          value_handle = gatt_event_int16(event_packet, 0)
+          value = gatt_event_value(event_packet)
           si = 0
           found = false
           while si < @services.size && !found
@@ -199,8 +208,8 @@ class BLE
             ci = 0
             while ci < service[:characteristics].size
               chara = service[:characteristics][ci]
-              if chara[:value_handle] == Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-                chara[:value] = event_packet.byteslice(8, Utils.little_endian_to_int16(event_packet.byteslice(6, 1)))
+              if chara[:value_handle] == value_handle
+                chara[:value] = value
                 found = true
                 break
               end
@@ -224,8 +233,9 @@ class BLE
         case event_type
         when GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT
           debug_puts "GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT"
-          handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-          uuid128 = Utils.reverse_128(event_packet.byteslice(6, 16))
+          # payload: descriptor_handle(2) uuid128(16)
+          handle = gatt_event_int16(event_packet, 0)
+          uuid128 = gatt_event_uuid128(event_packet, 2)
           si = 0
           while si < @services.size
             service = @services[si]
@@ -261,6 +271,8 @@ class BLE
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT"
+          descriptor_handle = gatt_event_int16(event_packet, 0)
+          value = gatt_event_value(event_packet)
           si = 0
           found = false
           while si < @services.size && !found
@@ -271,8 +283,8 @@ class BLE
               di = 0
               while di < chara[:descriptors].size
                 descriptor = chara[:descriptors][di]
-                if descriptor[:handle] == Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-                  descriptor[:value] = event_packet.byteslice(8, Utils.little_endian_to_int16(event_packet.byteslice(6, 1)))
+                if descriptor[:handle] == descriptor_handle
+                  descriptor[:value] = value
                   found = true
                   break
                 end
@@ -297,6 +309,25 @@ class BLE
       #when :TC_W4_ENABLE_NOTIFICATIONS_COMPLETE
       # TODO
     end
+  end
+
+  # private
+
+  # Read a little-endian uint16 at `offset` bytes into the GATT event payload
+  def gatt_event_int16(event_packet, offset)
+    Utils.little_endian_to_int16(event_packet.byteslice(GATT_EVENT_PAYLOAD_OFFSET + offset, 2))
+  end
+
+  # Read a 128-bit UUID at `offset` bytes into the GATT event payload
+  def gatt_event_uuid128(event_packet, offset)
+    Utils.reverse_128(event_packet.byteslice(GATT_EVENT_PAYLOAD_OFFSET + offset, 16))
+  end
+
+  # Value of GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT and GATT_EVENT_NOTIFICATION
+  # payload: value_handle(2) value_length(2) value(value_length)
+  def gatt_event_value(event_packet)
+    length = gatt_event_int16(event_packet, 2)
+    event_packet.byteslice(GATT_EVENT_PAYLOAD_OFFSET + 4, length)
   end
 
 end
