@@ -94,7 +94,7 @@ class BLE
     end
 
     def add_line(line)
-      @profile_data << Utils.int16_to_little_endian(line.length + 2) << line
+      @profile_data << Utils.int16_to_little_endian(line.bytesize + 2) << line
     end
 
     def att_flags(properties)
@@ -179,7 +179,7 @@ class BLE
       else
         flag = att_flags(properties)
       end
-      if uuid.is_a?(String) && uuid.length == 16
+      if uuid.is_a?(String) && uuid.bytesize == 16
         Utils.int16_to_little_endian(flag|LONG_UUID)
       elsif uuid.is_a?(Integer)
         Utils.int16_to_little_endian(flag)
@@ -190,7 +190,7 @@ class BLE
 
     def uuid2str(uuid)
       if uuid.is_a?(String)
-        if uuid.length == 16
+        if uuid.bytesize == 16
           uuid
         else
           raise "invalid uuid: #{uuid.inspect}"

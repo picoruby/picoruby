@@ -21,7 +21,8 @@ class BLE
             raise ArgumentError, "invalid uuid value: `#{value}`"
           end
           if valid_char_for_uuid?(c[0]) && valid_char_for_uuid?(c[1])
-            str[j] = [c.to_i(16)].pack("C")
+            # setbyte: str holds binary data, so do not index it by character
+            str.setbyte(j, c.to_i(16))
           else
             str = ""
             break 0
