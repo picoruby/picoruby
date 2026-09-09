@@ -428,7 +428,7 @@ status_to_u8(uint16_t status)
 }
 
 static void
-synth_le_connection_complete(uint16_t handle)
+synth_le_connection_complete(uint16_t handle, uint8_t status)
 {
   struct ble_gap_conn_desc desc;
   uint8_t p[21];
@@ -436,9 +436,9 @@ synth_le_connection_complete(uint16_t handle)
   p[0] = EVT_LE_META;
   p[1] = 19;
   p[2] = 0x01;
-  p[3] = 0;
+  p[3] = status;
   put_le16(p + 4, handle);
-  if (ble_gap_conn_find(handle, &desc) == 0) {
+  if (status == 0 && ble_gap_conn_find(handle, &desc) == 0) {
     p[6] = (desc.role == BLE_GAP_ROLE_MASTER) ? 0 : 1;
     p[7] = desc.peer_id_addr.type;
     memcpy(p + 8, desc.peer_id_addr.val, 6);
@@ -497,8 +497,11 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
       if (event->connect.status == 0) {
         con_handle = event->connect.conn_handle;
         if (role == BLE_ROLE_CENTRAL) {
-          synth_le_connection_complete(event->connect.conn_handle);
+          synth_le_connection_complete(event->connect.conn_handle, 0);
         }
+      } else if (role == BLE_ROLE_CENTRAL) {
+        uint8_t status = (uint8_t)event->connect.status;
+        synth_le_connection_complete(0, status ? status : 0xff);
       } else if (role == BLE_ROLE_PERIPHERAL || role == BLE_ROLE_BROADCASTER) {
         picoruby_ble_peripheral_rearm_adv();
       }
@@ -506,9 +509,11 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
     case BLE_GAP_EVENT_DISCONNECT:
       con_handle = 0xffff;
       // Write queue is NOT reset on disconnect: entries are per-attribute-handle, and the peer was already told the write succeeded; BLE restart staleness is handled by picoruby_nimble_start.
-      if (role == BLE_ROLE_PERIPHERAL) {
+      if (role == BLE_ROLE_PERIPHERAL || role == BLE_ROLE_CENTRAL) {
         synth_disconnection_complete(event->disconnect.conn.conn_handle,
                                      (uint8_t)event->disconnect.reason);
+      }
+      if (role == BLE_ROLE_PERIPHERAL) {
         picoruby_ble_peripheral_rearm_adv();
       }
       break;
@@ -591,6 +596,7 @@ BLE_hci_power_control(uint8_t power_mode)
   ESP_LOGI(BLE_TAG, "BLE_hci_power_control(%u): started=%d", power_mode, picoruby_nimble_started());
   if (!picoruby_nimble_started()) return;
   if (power_mode == 1) {
+    picoruby_nimble_reset_events();
     picoruby_nimble_heartbeat_enable(true);
     picoruby_ble_synth_state_working();
   } else {

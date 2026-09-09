@@ -89,6 +89,15 @@ picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_ad
   taskEXIT_CRITICAL(&evq_mux);
 }
 
+void
+picoruby_nimble_reset_events(void)
+{
+  taskENTER_CRITICAL(&evq_mux);
+  evq_head = 0;
+  evq_count = 0;
+  taskEXIT_CRITICAL(&evq_mux);
+}
+
 int
 picoruby_nimble_enqueue_write(uint16_t ruby_handle, const uint8_t *data, uint16_t len)
 {
@@ -268,10 +277,7 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
   }
 
   ensure_timers();
-  taskENTER_CRITICAL(&evq_mux);
-  evq_head = 0;
-  evq_count = 0;
-  taskEXIT_CRITICAL(&evq_mux);
+  picoruby_nimble_reset_events();
   picoruby_nimble_reset_writes();
 
   if (sync_sem == NULL) sync_sem = xSemaphoreCreateBinary();
