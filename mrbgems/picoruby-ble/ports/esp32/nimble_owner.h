@@ -10,6 +10,8 @@ extern "C" {
 
 typedef int (*picoruby_nimble_setup_fn)(void);
 
+#define PICORUBY_NIMBLE_EVT_MAX 104
+
 int picoruby_nimble_start(picoruby_nimble_setup_fn setup);
 int picoruby_nimble_stop(void);
 bool picoruby_nimble_started(void);

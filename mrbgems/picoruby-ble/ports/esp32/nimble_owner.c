@@ -20,7 +20,7 @@ static const char *TAG = "prb_ble_evq";
 #include "../../include/ble.h"
 
 #define EVQ_DEPTH 32
-#define EVQ_PKT_MAX 100
+#define EVQ_PKT_MAX PICORUBY_NIMBLE_EVT_MAX
 #ifndef WRQ_DEPTH
 #define WRQ_DEPTH 32
 #endif

@@ -46,7 +46,8 @@ static const char *BLE_TAG = "prb_ble_evq";
 #define GATT_CHARACTERISTIC_UUID 0x2803
 #define GATT_CCCD_UUID 0x2902
 
-#define VALUE_EVENT_DATA_MAX 92
+#define GATT_EVENT_PAYLOAD_OFFSET 8
+#define VALUE_EVENT_DATA_MAX (PICORUBY_NIMBLE_EVT_MAX - GATT_EVENT_PAYLOAD_OFFSET - 4)
 
 #ifndef RDM_SLOTS
 #define RDM_SLOTS 16
@@ -402,10 +403,20 @@ picoruby_ble_synth_state_working(void)
 }
 
 static void
+gatt_event_header(uint8_t *p, uint8_t type, uint8_t len, uint16_t conn)
+{
+  p[0] = type;
+  p[1] = len;
+  put_le16(p + 2, conn);
+  memset(p + 4, 0, GATT_EVENT_PAYLOAD_OFFSET - 4);
+}
+
+static void
 synth_query_complete(uint16_t conn, uint8_t status)
 {
-  uint8_t p[5] = { EVT_GATT_QUERY_COMPLETE, 3, 0, 0, status };
-  put_le16(p + 2, conn);
+  uint8_t p[GATT_EVENT_PAYLOAD_OFFSET + 1];
+  gatt_event_header(p, EVT_GATT_QUERY_COMPLETE, sizeof(p) - 2, conn);
+  p[GATT_EVENT_PAYLOAD_OFFSET] = status;
   picoruby_nimble_enqueue_event(p, sizeof(p), false);
 }
 
@@ -532,14 +543,13 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
       if (role != BLE_ROLE_CENTRAL) break;
       uint16_t vlen = OS_MBUF_PKTLEN(event->notify_rx.om);
       if (vlen > VALUE_EVENT_DATA_MAX) vlen = VALUE_EVENT_DATA_MAX;
-      uint8_t p[8 + VALUE_EVENT_DATA_MAX];
-      p[0] = event->notify_rx.indication ? EVT_GATT_INDICATION : EVT_GATT_NOTIFICATION;
-      p[1] = 6 + vlen;
-      put_le16(p + 2, event->notify_rx.conn_handle);
-      put_le16(p + 4, event->notify_rx.attr_handle);
-      put_le16(p + 6, vlen);
-      os_mbuf_copydata(event->notify_rx.om, 0, vlen, p + 8);
-      picoruby_nimble_enqueue_event(p, 8 + vlen, false);
+      uint8_t p[GATT_EVENT_PAYLOAD_OFFSET + 4 + VALUE_EVENT_DATA_MAX];
+      gatt_event_header(p, event->notify_rx.indication ? EVT_GATT_INDICATION : EVT_GATT_NOTIFICATION,
+                        GATT_EVENT_PAYLOAD_OFFSET + 2 + vlen, event->notify_rx.conn_handle);
+      put_le16(p + GATT_EVENT_PAYLOAD_OFFSET, event->notify_rx.attr_handle);
+      put_le16(p + GATT_EVENT_PAYLOAD_OFFSET + 2, vlen);
+      os_mbuf_copydata(event->notify_rx.om, 0, vlen, p + GATT_EVENT_PAYLOAD_OFFSET + 4);
+      picoruby_nimble_enqueue_event(p, GATT_EVENT_PAYLOAD_OFFSET + 4 + vlen, false);
       break;
     }
     default:
@@ -622,13 +632,11 @@ disc_svc_cb(uint16_t conn, const struct ble_gatt_error *error,
 {
   (void)arg;
   if (error->status == 0 && service) {
-    uint8_t p[24];
-    p[0] = EVT_GATT_SERVICE_QUERY_RESULT;
-    p[1] = 22;
-    put_le16(p + 2, conn);
-    put_le16(p + 4, service->start_handle);
-    put_le16(p + 6, service->end_handle);
-    uuid_to_le128(&service->uuid, p + 8);
+    uint8_t p[GATT_EVENT_PAYLOAD_OFFSET + 20];
+    gatt_event_header(p, EVT_GATT_SERVICE_QUERY_RESULT, sizeof(p) - 2, conn);
+    put_le16(p + GATT_EVENT_PAYLOAD_OFFSET, service->start_handle);
+    put_le16(p + GATT_EVENT_PAYLOAD_OFFSET + 2, service->end_handle);
+    uuid_to_le128(&service->uuid, p + GATT_EVENT_PAYLOAD_OFFSET + 4);
     picoruby_nimble_enqueue_event(p, sizeof(p), false);
   } else {
     synth_query_complete(conn, status_to_u8(error->status));
@@ -639,15 +647,13 @@ disc_svc_cb(uint16_t conn, const struct ble_gatt_error *error,
 static void
 emit_characteristic(uint16_t conn, const struct ble_gatt_chr *c, uint16_t end_handle)
 {
-  uint8_t p[30];
-  p[0] = EVT_GATT_CHARACTERISTIC_QUERY_RESULT;
-  p[1] = 28;
-  put_le16(p + 2, conn);
-  put_le16(p + 4, c->def_handle);
-  put_le16(p + 6, c->val_handle);
-  put_le16(p + 8, end_handle);
-  put_le16(p + 10, c->properties);
-  uuid_to_le128(&c->uuid, p + 12);
+  uint8_t p[GATT_EVENT_PAYLOAD_OFFSET + 24];
+  gatt_event_header(p, EVT_GATT_CHARACTERISTIC_QUERY_RESULT, sizeof(p) - 2, conn);
+  put_le16(p + GATT_EVENT_PAYLOAD_OFFSET, c->def_handle);
+  put_le16(p + GATT_EVENT_PAYLOAD_OFFSET + 2, c->val_handle);
+  put_le16(p + GATT_EVENT_PAYLOAD_OFFSET + 4, end_handle);
+  put_le16(p + GATT_EVENT_PAYLOAD_OFFSET + 6, c->properties);
+  uuid_to_le128(&c->uuid, p + GATT_EVENT_PAYLOAD_OFFSET + 8);
   picoruby_nimble_enqueue_event(p, sizeof(p), false);
 }
 
@@ -679,12 +685,10 @@ disc_dsc_cb(uint16_t conn, const struct ble_gatt_error *error,
   (void)chr_val_handle;
   (void)arg;
   if (error->status == 0 && dsc) {
-    uint8_t p[22];
-    p[0] = EVT_GATT_ALL_DESCRIPTORS_QUERY_RESULT;
-    p[1] = 20;
-    put_le16(p + 2, conn);
-    put_le16(p + 4, dsc->handle);
-    uuid_to_le128(&dsc->uuid, p + 6);
+    uint8_t p[GATT_EVENT_PAYLOAD_OFFSET + 18];
+    gatt_event_header(p, EVT_GATT_ALL_DESCRIPTORS_QUERY_RESULT, sizeof(p) - 2, conn);
+    put_le16(p + GATT_EVENT_PAYLOAD_OFFSET, dsc->handle);
+    uuid_to_le128(&dsc->uuid, p + GATT_EVENT_PAYLOAD_OFFSET + 2);
     picoruby_nimble_enqueue_event(p, sizeof(p), false);
   } else {
     synth_query_complete(conn, status_to_u8(error->status));
@@ -700,14 +704,13 @@ read_attr_cb(uint16_t conn, const struct ble_gatt_error *error,
   if (error->status == 0 && attr && attr->om) {
     uint16_t vlen = OS_MBUF_PKTLEN(attr->om);
     if (vlen > VALUE_EVENT_DATA_MAX) vlen = VALUE_EVENT_DATA_MAX;
-    uint8_t p[8 + VALUE_EVENT_DATA_MAX];
-    p[0] = EVT_GATT_CHARACTERISTIC_VALUE_QUERY_RESULT;
-    p[1] = 6 + vlen;
-    put_le16(p + 2, conn);
-    put_le16(p + 4, attr->handle);
-    put_le16(p + 6, vlen);
-    os_mbuf_copydata(attr->om, 0, vlen, p + 8);
-    picoruby_nimble_enqueue_event(p, 8 + vlen, false);
+    uint8_t p[GATT_EVENT_PAYLOAD_OFFSET + 4 + VALUE_EVENT_DATA_MAX];
+    gatt_event_header(p, EVT_GATT_CHARACTERISTIC_VALUE_QUERY_RESULT,
+                      GATT_EVENT_PAYLOAD_OFFSET + 2 + vlen, conn);
+    put_le16(p + GATT_EVENT_PAYLOAD_OFFSET, attr->handle);
+    put_le16(p + GATT_EVENT_PAYLOAD_OFFSET + 2, vlen);
+    os_mbuf_copydata(attr->om, 0, vlen, p + GATT_EVENT_PAYLOAD_OFFSET + 4);
+    picoruby_nimble_enqueue_event(p, GATT_EVENT_PAYLOAD_OFFSET + 4 + vlen, false);
   }
   synth_query_complete(conn, status_to_u8(error->status));
   return 0;
