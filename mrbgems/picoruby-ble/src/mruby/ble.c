@@ -64,7 +64,7 @@ mrb_event_popped(mrb_state *mrb, mrb_value self)
   /* NimBLE fills a plain ring buffer from its own FreeRTOS task. BLE_push_event
    * touches the GC heap, so it must run here, on the thread owning mrb_state. */
   {
-    uint8_t buf[100];
+    uint8_t buf[PICORUBY_NIMBLE_EVT_MAX];
     uint16_t n = picoruby_nimble_dequeue_event(buf, sizeof(buf));
     if (n > 0) BLE_push_event(buf, n);
   }
