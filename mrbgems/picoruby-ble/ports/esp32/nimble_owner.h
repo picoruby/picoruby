@@ -17,6 +17,7 @@ int picoruby_nimble_stop(void);
 bool picoruby_nimble_started(void);
 uint8_t picoruby_nimble_own_addr_type(void);
 void picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_adv);
+void picoruby_nimble_reset_events(void);
 // Also flushes writes and refreshes read mirrors here (GC-heap safe: the port's only guaranteed per-tick VM-thread entry point); kept this name since src/mruby/ble.c's hook is fixed and shared.
 uint16_t picoruby_nimble_dequeue_event(uint8_t *out, uint16_t cap);
 int picoruby_nimble_enqueue_write(uint16_t ruby_handle, const uint8_t *data, uint16_t len);
