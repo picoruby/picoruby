@@ -26,10 +26,10 @@ class CentralPathsProbe < BLE
       @notify_seen += 1
       kind = (event_packet.getbyte(0) == GATT_EVENT_NOTIFICATION) ? "NOTIFICATION" : "INDICATION"
       puts "[probe] C3 raw #{kind} raw=#{event_packet.bytesize} " \
-           "handle=#{Utils.little_endian_to_int16(event_packet.byteslice(4, 2))} count=#{@notify_seen}"
+           "handle=#{Utils.little_endian_to_int16(event_packet.byteslice(GATT_EVENT_PAYLOAD_OFFSET, 2))} count=#{@notify_seen}"
     end
     super
-    # drive also runs here: connect()'s nested start(10, :TC_IDLE) stops the heartbeat via its ensure block powering HCI off.
+    # drive also runs here so C1/C2 go out on the QUERY_COMPLETE that ends discovery.
     drive
   end
 
@@ -40,7 +40,7 @@ class CentralPathsProbe < BLE
     "\x00\x00" + [(uuid16 >> 8) & 0xff, uuid16 & 0xff].pack("CC") + BT_BASE_SUFFIX
   end
 
-  # Matches uuid128, not uuid32: Utils.uuid128_to_uuid32 reads it little-endian but the canonical form is big-endian, so uuid32 never matches (measured on hardware).
+  # Matches on uuid128.
   def pick(list, uuid16)
     want = uuid128_for(uuid16)
     found = nil
@@ -95,5 +95,5 @@ class CentralPathsProbe < BLE
 end
 
 probe = CentralPathsProbe.new
-# debug: must go through the scan kwarg -- scan assigns @debug itself (ble_central.rb:63), overwriting probe.debug= set beforehand.
+# debug: pass it to scan; scan assigns @debug itself.
 probe.scan(timeout_ms: 120_000, stop_state: :no_stop, debug: true)
