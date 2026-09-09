@@ -9,6 +9,8 @@ MRuby::CrossBuild.new("picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do 
   )
 
   conf.toolchain :clang
+  # A CrossBuild selects no gem port by itself; Emscripten's libc is POSIX
+  conf.ports :posix
 
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
   conf.cc.defines << "PICORB_PLATFORM_WASM"

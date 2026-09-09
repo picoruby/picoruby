@@ -30,10 +30,12 @@ module JS
     # Spawn a long-lived consumer task that drains one Task::Queue per callback.
     # The C dispatcher pushes events into the queue; the consumer calls the block.
     def self._spawn_event_consumer(callback_id, block)
-      q = Task::Queue.new
+      # `::` is required throughout JS::Object: it descends from BasicObject,
+      # so a bare constant is not looked up in Object.
+      q = ::Task::Queue.new
       EVENT_QUEUES[callback_id] = q
       CALLBACKS[callback_id]    = block
-      EVENT_TASKS[callback_id]  = Task.new(name: "js-cb-#{callback_id}") do
+      EVENT_TASKS[callback_id]  = ::Task.new(name: "js-cb-#{callback_id}") do
         while true
           ev = q.pop
           break if ev.nil?
@@ -65,9 +67,9 @@ module JS
     def addEventListener(event_type, sync: false, capture: false, once: false, passive: nil, &block)
       callback_id = block.object_id
       if sync
-        JS::Object::CALLBACKS[callback_id] = block
+        ::JS::Object::CALLBACKS[callback_id] = block
       else
-        JS::Object._spawn_event_consumer(callback_id, block)
+        ::JS::Object._spawn_event_consumer(callback_id, block)
       end
       _add_event_listener(callback_id, event_type, sync, capture, once,
                           passive.nil? ? -1 : (passive ? 1 : 0))
@@ -102,7 +104,7 @@ module JS
       begin
         # _removeEventListener is the C path; it works in Node too, unlike
         # the window-only _js_remove_event_listener_wrapper helper.
-        result = JS.global._removeEventListener(callback_id)
+        result = ::JS.global._removeEventListener(callback_id)
         _close_event_queue(callback_id) if result
         result
       rescue
@@ -119,15 +121,15 @@ module JS
       $promise_errors.delete(callback_id)
       $promise_responses.delete(callback_id)
       # Kernel.raise: self is a JS object (BasicObject), Kernel#raise is absent
-      Kernel.raise message
+      ::Kernel.raise message
     end
 
     def fetch(url, options = nil, &block)
       # Kernel.raise: self is a JS object (BasicObject), Kernel#raise is absent
-      Kernel.raise ArgumentError, "JS::Object#fetch requires a block: use `fetch(url) { |resp| ... }`" unless block
+      ::Kernel.raise ::ArgumentError, "JS::Object#fetch requires a block: use `fetch(url) { |resp| ... }`" unless block
       callback_id = block.object_id
       if options
-        options_json = JSON.generate(options)
+        options_json = ::JSON.generate(options)
         _fetch_with_options_and_suspend(url, options_json, callback_id)
       else
         _fetch_and_suspend(url, callback_id)
@@ -139,7 +141,7 @@ module JS
 
     def setTimeout(delay_ms, &block)
       callback_id = block.object_id
-      JS::Object._spawn_event_consumer(callback_id, block)
+      ::JS::Object._spawn_event_consumer(callback_id, block)
       _set_timeout(callback_id, delay_ms)
       callback_id
     end
@@ -147,7 +149,7 @@ module JS
     def clearTimeout(callback_id)
       return false unless callback_id
       success = _clear_timeout(callback_id)
-      JS::Object._close_event_queue(callback_id) if success
+      ::JS::Object._close_event_queue(callback_id) if success
       success
     end
 
@@ -169,7 +171,7 @@ module JS
   # class based on the JS runtime type of the wrapped value.
 
   class Array < Object
-    include Enumerable
+    include ::Enumerable
 
     # Iterate over the wrapped JS array, yielding each element converted via
     # js_ref_to_ruby_value (primitives become Ruby native values).
