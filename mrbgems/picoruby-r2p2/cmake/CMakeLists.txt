@@ -264,6 +264,8 @@ target_include_directories(${PROJECT_NAME} PRIVATE
   ${R2P2_GEM_DIR}/include
   ${PICORUBY_ROOT}/include
   ${PICORUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include
+  # Prism's generated headers are written under build_root, not the submodule
+  ${PICORUBY_ROOT}/build/prism/include
   ${PICORUBY_ROOT}/mrbgems/mruby-compiler/include
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-socket/include
