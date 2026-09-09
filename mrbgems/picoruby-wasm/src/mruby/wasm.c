@@ -132,8 +132,15 @@ int
 picorb_init(void)
 {
   global_mrb = mrb_open();
-  if (!global_mrb) {
+  if (MRB_OPEN_FAILURE(global_mrb)) {
+    /* Either the allocation failed or a gem init raised. Without this
+       check the exception is silently dropped and every gem after the
+       one that raised is left uninitialized, which surfaces later only
+       as unrelated NameErrors. */
     fprintf(stderr, "Failed to initialize mruby state\n");
+    mrb_print_error(global_mrb); /* handles NULL */
+    mrb_close(global_mrb);       /* handles NULL */
+    global_mrb = NULL;
     return -1;
   }
   mrb_gc_scheduler_driven(global_mrb, TRUE);
