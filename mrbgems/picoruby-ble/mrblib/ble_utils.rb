@@ -21,7 +21,8 @@ class BLE
             raise ArgumentError, "invalid uuid value: `#{value}`"
           end
           if valid_char_for_uuid?(c[0]) && valid_char_for_uuid?(c[1])
-            str[j] = [c.to_i(16)].pack("C")
+            # setbyte: str holds binary data, so do not index it by character
+            str.setbyte(j, c.to_i(16))
           else
             str = ""
             break 0
@@ -49,7 +50,7 @@ class BLE
     # Bluetooth Base UUID: 00000000-0000-1000-8000-00805F9B34FB
     def self.uuid128_to_uuid32(uuid128)
       if uuid128.bytesize == 16 && uuid128.byteslice(4, 12) == "\x00\x00\x10\x00\x80\x00\x00\x80\x5F\x9B\x34\xFB"
-        ((uuid128.getbyte(0) || 0) | ((uuid128.getbyte(1) || 0) << 8) | ((uuid128.getbyte(2) || 0) << 16) | ((uuid128.getbyte(3) || 0) << 24))
+        (((uuid128.getbyte(0) || 0) << 24) | ((uuid128.getbyte(1) || 0) << 16) | ((uuid128.getbyte(2) || 0) << 8) | (uuid128.getbyte(3) || 0))
       else
         nil
       end

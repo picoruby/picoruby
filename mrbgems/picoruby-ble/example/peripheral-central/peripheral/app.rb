@@ -8,8 +8,6 @@ class DemoPeripheral < BLE
   BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS = 0x03
   BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME = 0x09
   # for GATT
-  BTSTACK_EVENT_STATE = 0x60
-  HCI_EVENT_DISCONNECTION_COMPLETE = 0x05
   ATT_EVENT_CAN_SEND_NOW = 0xB7
   ATT_EVENT_MTU_EXCHANGE_COMPLETE = 0xB5
   GATT_CHARACTERISTIC_USER_DESCRIPTION = 0x2901
@@ -57,7 +55,7 @@ class DemoPeripheral < BLE
 
   def heartbeat_callback
     @counter += 1
-    temperature = ((27 - (@adc.read * 3.3 / (1<<12) - 0.706) / 0.001721) * 100).to_i
+    temperature = ((27 - (@adc.read - 0.706) / 0.001721) * 100).to_i
     push_read_value(@temperature_handle, Utils.int16_to_little_endian(temperature))
     if @counter == 10
       if @notification_enabled

@@ -18,6 +18,11 @@ class BLE
   GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT = 0xA9
   GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT = 0xAA
 
+  # GATT client events (BTstack 1.6 and later):
+  #   [0] event type, [1] length, [2..3] con_handle,
+  #   [4..5] service_id, [6..7] connection_id, [8..] payload
+  GATT_EVENT_PAYLOAD_OFFSET = 8
+
   def init_central
     reset_state
     @services = []
@@ -62,16 +67,21 @@ class BLE
     @state = :TC_OFF
   end
 
+  # Call this from advertising_report_callback while `scan` is running.
+  # The scan loop then handles the connection and the service discovery.
   def connect(adv_report)
     restrict_central
-    stop_scan # Is it necessary?
+    unless @state == :TC_W4_SCAN_RESULT
+      raise "connect must be called from advertising_report_callback while scanning"
+    end
+    stop_scan
     err_code = gap_connect(adv_report.address, adv_report.address_type_code)
     if err_code == 0
       @state = :TC_W4_CONNECT
-      start(10, :TC_IDLE)
       return true
     else
-      puts "Error: #{err_code}"
+      puts "gap_connect failed. Error code: `#{err_code}`"
+      @state = :TC_IDLE # Let `scan` return instead of waiting forever
       return false
     end
   end
@@ -99,8 +109,14 @@ class BLE
       advertising_report_callback(AdvertisingReport.new(event_packet))
     when HCI_EVENT_LE_META
       return unless @state == :TC_W4_CONNECT
-      case event_packet.getbyte(2)
-      when HCI_SUBEVENT_LE_CONNECTION_COMPLETE
+      # [2] subevent, [3] status, [4..5] connection_handle
+      if event_packet.getbyte(2) == HCI_SUBEVENT_LE_CONNECTION_COMPLETE
+        status = event_packet.getbyte(3)
+        if status != 0
+          puts "Connection failed. Status: `#{status}`"
+          @state = :TC_IDLE
+          return
+        end
         @conn_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 2))
         debug_puts "Connected. Handle: `#{sprintf("0x%04X", @conn_handle)}`"
         @state = :TC_W4_SERVICE_RESULT
@@ -110,9 +126,11 @@ class BLE
           puts "Discover primary services failed. Error code: `#{err_code}`"
           @state = :TC_IDLE
         end
-      when HCI_EVENT_DISCONNECTION_COMPLETE
-        @conn_handle = HCI_CON_HANDLE_INVALID
       end
+    when HCI_EVENT_DISCONNECTION_COMPLETE
+      debug_puts "Disconnected"
+      @conn_handle = HCI_CON_HANDLE_INVALID
+      @state = :TC_IDLE
     when GATT_EVENT_QUERY_COMPLETE..GATT_EVENT_LONG_CHARACTERISTIC_VALUE_QUERY_RESULT
       # Build @services
       case @state
@@ -120,9 +138,10 @@ class BLE
         case event_type
         when GATT_EVENT_SERVICE_QUERY_RESULT
           debug_puts "GATT_EVENT_SERVICE_QUERY_RESULT"
-          start_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-          end_handle = Utils.little_endian_to_int16(event_packet.byteslice(6, 1))
-          uuid128 = Utils.reverse_128(event_packet.byteslice(8, 16))
+          # payload: start_group_handle(2) end_group_handle(2) uuid128(16)
+          start_handle = gatt_event_int16(event_packet, 0)
+          end_handle = gatt_event_int16(event_packet, 2)
+          uuid128 = gatt_event_uuid128(event_packet, 4)
           @services << {
             start_handle: start_handle,
             end_handle: end_handle,
@@ -148,16 +167,17 @@ class BLE
         case event_type
         when GATT_EVENT_CHARACTERISTIC_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_QUERY_RESULT"
-          start_handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-          value_handle = Utils.little_endian_to_int16(event_packet.byteslice(6, 1))
-          end_handle = Utils.little_endian_to_int16(event_packet.byteslice(8, 1))
-          uuid128 = Utils.reverse_128(event_packet.byteslice(12, 16))
+          # payload: start_handle(2) value_handle(2) end_handle(2) properties(2) uuid128(16)
+          start_handle = gatt_event_int16(event_packet, 0)
+          value_handle = gatt_event_int16(event_packet, 2)
+          end_handle = gatt_event_int16(event_packet, 4)
+          uuid128 = gatt_event_uuid128(event_packet, 8)
           # @type var characteristic: characteristic_t
           characteristic = {
             start_handle: start_handle,
             value_handle: value_handle,
             end_handle: end_handle,
-            properties: Utils.little_endian_to_int16(event_packet.byteslice(10, 1)),
+            properties: gatt_event_int16(event_packet, 6),
             uuid128: uuid128,
             uuid32: Utils.uuid128_to_uuid32(uuid128),
             value: nil,
@@ -187,12 +207,16 @@ class BLE
           elsif value_handle = @value_handles.shift
             read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
             @state = :TC_W4_CHARACTERISTIC_VALUE_RESULT
+          else
+            @state = :TC_IDLE
           end
         end
       when :TC_W4_CHARACTERISTIC_VALUE_RESULT
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT"
+          value_handle = gatt_event_int16(event_packet, 0)
+          value = gatt_event_value(event_packet)
           si = 0
           found = false
           while si < @services.size && !found
@@ -200,8 +224,8 @@ class BLE
             ci = 0
             while ci < service[:characteristics].size
               chara = service[:characteristics][ci]
-              if chara[:value_handle] == Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-                chara[:value] = event_packet.byteslice(8, Utils.little_endian_to_int16(event_packet.byteslice(6, 1)))
+              if chara[:value_handle] == value_handle
+                chara[:value] = value
                 found = true
                 break
               end
@@ -209,12 +233,13 @@ class BLE
             end
             si += 1
           end
-          if value_handle = @value_handles.shift
-            read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
-          end
         when GATT_EVENT_QUERY_COMPLETE
           debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic value"
-          if handle_range = @descriptor_handle_ranges.shift
+          # Every read ends with its own QUERY_COMPLETE, so the next read
+          # has to be issued from here and not from the VALUE_QUERY_RESULT
+          if value_handle = @value_handles.shift
+            read_value_of_characteristic_using_value_handle(@conn_handle, value_handle)
+          elsif handle_range = @descriptor_handle_ranges.shift
             discover_characteristic_descriptors(@conn_handle, handle_range[:value_handle], handle_range[:end_handle])
             @state = :TC_W4_ALL_CHARACTERISTIC_DESCRIPTORS_RESULT
           else
@@ -225,8 +250,9 @@ class BLE
         case event_type
         when GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT
           debug_puts "GATT_EVENT_ALL_CHARACTERISTIC_DESCRIPTORS_QUERY_RESULT"
-          handle = Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-          uuid128 = Utils.reverse_128(event_packet.byteslice(6, 16))
+          # payload: descriptor_handle(2) uuid128(16)
+          handle = gatt_event_int16(event_packet, 0)
+          uuid128 = gatt_event_uuid128(event_packet, 2)
           si = 0
           while si < @services.size
             service = @services[si]
@@ -262,6 +288,8 @@ class BLE
         case event_type
         when GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT
           debug_puts "GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT"
+          descriptor_handle = gatt_event_int16(event_packet, 0)
+          value = gatt_event_value(event_packet)
           si = 0
           found = false
           while si < @services.size && !found
@@ -272,8 +300,8 @@ class BLE
               di = 0
               while di < chara[:descriptors].size
                 descriptor = chara[:descriptors][di]
-                if descriptor[:handle] == Utils.little_endian_to_int16(event_packet.byteslice(4, 1))
-                  descriptor[:value] = event_packet.byteslice(8, Utils.little_endian_to_int16(event_packet.byteslice(6, 1)))
+                if descriptor[:handle] == descriptor_handle
+                  descriptor[:value] = value
                   found = true
                   break
                 end
@@ -283,13 +311,14 @@ class BLE
             end
             si += 1
           end
+        when GATT_EVENT_QUERY_COMPLETE
+          debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor value"
           if descriptor_handle = @descriptor_handles.shift
             # I don't know why, but read_value_of_characteristic_descriptor() doesn't work.
             read_value_of_characteristic_using_value_handle(@conn_handle, descriptor_handle)
+          else
+            @state = :TC_IDLE
           end
-        when GATT_EVENT_QUERY_COMPLETE
-          debug_puts "GATT_EVENT_QUERY_COMPLETE for characteristic descriptor value"
-          @state = :TC_IDLE
         end
       else
         debug_puts "Not implemented: 0x#{event_type&.to_s(16)} state: #{@state}"
@@ -298,6 +327,25 @@ class BLE
       #when :TC_W4_ENABLE_NOTIFICATIONS_COMPLETE
       # TODO
     end
+  end
+
+  # private
+
+  # Read a little-endian uint16 at `offset` bytes into the GATT event payload
+  def gatt_event_int16(event_packet, offset)
+    Utils.little_endian_to_int16(event_packet.byteslice(GATT_EVENT_PAYLOAD_OFFSET + offset, 2))
+  end
+
+  # Read a 128-bit UUID at `offset` bytes into the GATT event payload
+  def gatt_event_uuid128(event_packet, offset)
+    Utils.reverse_128(event_packet.byteslice(GATT_EVENT_PAYLOAD_OFFSET + offset, 16))
+  end
+
+  # Value of GATT_EVENT_CHARACTERISTIC_VALUE_QUERY_RESULT and GATT_EVENT_NOTIFICATION
+  # payload: value_handle(2) value_length(2) value(value_length)
+  def gatt_event_value(event_packet)
+    length = gatt_event_int16(event_packet, 2)
+    event_packet.byteslice(GATT_EVENT_PAYLOAD_OFFSET + 4, length)
   end
 
 end

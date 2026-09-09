@@ -75,6 +75,7 @@ packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t 
       switch (hci_event_packet_get_type(packet)) {
         case BTSTACK_EVENT_STATE:
         case HCI_EVENT_LE_META:
+        case HCI_EVENT_DISCONNECTION_COMPLETE:
         case GAP_EVENT_ADVERTISING_REPORT:
         case GATT_EVENT_QUERY_COMPLETE:
         case GATT_EVENT_SERVICE_QUERY_RESULT:

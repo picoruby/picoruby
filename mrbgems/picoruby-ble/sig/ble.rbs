@@ -182,6 +182,7 @@ class BLE
     GATT_EVENT_INDICATION: Integer
     GATT_EVENT_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT: Integer
     GATT_EVENT_LONG_CHARACTERISTIC_DESCRIPTOR_QUERY_RESULT: Integer
+    GATT_EVENT_PAYLOAD_OFFSET: Integer
 
     type service_t = {
       start_handle: Integer,
@@ -240,6 +241,9 @@ class BLE
     def discover_characteristics_for_service: (Integer conn_handle, Integer start_handle, Integer end_handle) -> Integer
     def write_value_of_characteristic_without_response: (Integer conn_handle, Integer value_handle, String data) -> Integer
     def write_characteristic_descriptor_using_descriptor_handle: (Integer conn_handle, Integer descriptor_handle, String data) -> Integer
+    private def gatt_event_int16: (String event_packet, Integer offset) -> Integer
+    private def gatt_event_uuid128: (String event_packet, Integer offset) -> String
+    private def gatt_event_value: (String event_packet) -> (String | nil)
   # end
 
   class AdvertisingData

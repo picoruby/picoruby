@@ -7,7 +7,8 @@ class BLE
     attr_reader :data
 
     def add(type, *values)
-      length_pos = @data.length
+      # @data is binary, so count bytes and never index it by character
+      length_pos = @data.bytesize
       @data << [0].pack("C") # dummy length
       @data << [type].pack("C")
       length = 1
@@ -17,7 +18,7 @@ class BLE
         case d
         when String
           @data << d
-          length += d.length
+          length += d.bytesize
         when 0
           @data << "\x00"
           length += 1
@@ -35,15 +36,15 @@ class BLE
         end
         vi += 1
       end
-      @data[length_pos] = [length].pack("C")
+      @data.setbyte(length_pos, length)
     end
 
     def self.build(&block)
       instance = self.new
       block.call(instance)
       adv_data = instance.data
-      if 31 < adv_data.length
-        raise ArgumentError, "too long AdvData: (#{adv_data.length} bytes). It must be less than 32 bytes."
+      if 31 < adv_data.bytesize
+        raise ArgumentError, "too long AdvData: (#{adv_data.bytesize} bytes). It must be less than 32 bytes."
       end
       adv_data
     end
