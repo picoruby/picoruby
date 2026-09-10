@@ -46,3 +46,17 @@ end
 - Environment variables are stored in memory
 - Commonly used variables: `HOME`, `PWD`, `PATH`
 - VFS uses `PWD` to track current working directory
+
+## nRF52 notes
+
+- Assignments persist to `/etc/env` on the littlefs volume, so they survive
+  a reboot. The file is a flat `KEY=VALUE` per line and is rewritten whole
+  on every change.
+- `ENV` itself is still an in-RAM hash; the file is read once at boot to
+  populate it. A key written by another program while this one is running
+  is not seen until the next boot.
+- Keys are limited to 64 bytes, values to 192, and the whole file to 512.
+  A key or value containing a newline, or a key containing `=`, is
+  rejected rather than written in a form that could not be read back.
+- `TZ` is parsed as it is loaded, so a timezone set in a previous session
+  applies to `Time` from boot.
