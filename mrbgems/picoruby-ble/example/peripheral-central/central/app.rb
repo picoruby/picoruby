@@ -9,22 +9,17 @@ class DemoCentral < BLE
 
   def advertising_report_callback(adv_report)
     return unless adv_report.name_include?(TARGET_NAME)
-    puts "Found `#{TARGET_NAME}` rssi: #{adv_report.rssi}. Connecting..."
+    puts adv_report.format
     connect(adv_report)
   end
 end
 
 central = DemoCentral.new
-central.debug = true
-central.scan(timeout_ms: 30_000)
+central.scan(timeout_ms: 30_000, debug: true)
 
-if central.services.empty?
-  puts "No service discovered"
-else
-  central.services.each do |service|
-    puts "service uuid32: 0x#{service[:uuid32]&.to_s(16)}"
-    service[:characteristics].each do |characteristic|
-      puts "  characteristic uuid32: 0x#{characteristic[:uuid32]&.to_s(16)} value: #{characteristic[:value].inspect}"
-    end
+central.services.each do |service|
+  puts sprintf("Service 0x%04X", service[:uuid32] || 0)
+  service[:characteristics].each do |chara|
+    puts sprintf("  Characteristic 0x%04X value: %s", chara[:uuid32] || 0, chara[:value].inspect)
   end
 end
