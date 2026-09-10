@@ -42,3 +42,21 @@ i2c.scan  # Prints addresses of connected devices
 
 - Address should be 7-bit I2C address (not 8-bit with R/W bit)
 - Data can be Integer, String, or Array of Integers
+
+## nRF52 notes
+
+- Units are `NRF52_I2C0` and `NRF52_I2C1`, mapping to TWIM0 and TWIM1.
+  `NRF52_TWIM0` / `NRF52_TWIM1` are accepted as aliases.
+- Any pin can carry SDA or SCL: the peripheral selects pins from its own
+  side, so there is no fixed pin table as on RP2040.
+- TWIM0 shares its hardware with SPIM0 and TWIS0 (and likewise for unit
+  1), so one unit cannot serve I2C and SPI at the same time. Nothing
+  detects the clash; give I2C and SPI different unit numbers.
+- Only 100 kHz, 250 kHz and 400 kHz exist. A request is rounded down to
+  one of those where it can be, so 300 kHz gives 250 kHz. 100 kHz is the
+  floor -- a slower request still runs at 100 kHz because the hardware has
+  nothing below it -- and 400 kHz is the ceiling.
+- Internal pull-ups are enabled, but at roughly 13 kOhm they are too weak
+  for anything but a short, lightly loaded bus. Fit external pull-ups.
+- `sda_pin:` and `scl_pin:` are required; there is no board default.
+- Transfers are limited to 65535 bytes, and addresses to 7 bits.
