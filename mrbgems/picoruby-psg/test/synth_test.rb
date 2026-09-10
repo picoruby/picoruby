@@ -202,6 +202,18 @@ class PSGSynthTest < Picotest::Test
     @synth = PSG::Synth.new(@driver, voice_pools: voice_pools).start
   end
 
+  # The synth task may be preempted in the middle of handling an event
+  # (a GC pause is enough to exhaust its timeslice), so a single Task.pass
+  # or a fixed sleep is not a reliable barrier. Poll instead.
+  def wait_until(timeout_ms = 500)
+    deadline = Task.tick + timeout_ms
+    while !yield
+      return false if deadline < Task.tick
+      sleep_ms 1
+    end
+    true
+  end
+
   def test_note_ownership_includes_source
     process([:note_on, 0, 60, 100], :mml, 0)
     process([:note_on, 0, 60, 100], :uart, 100)
@@ -411,12 +423,14 @@ class PSGSynthTest < Picotest::Test
   def test_voice_program_advances_while_event_queue_is_idle
     PSG.define_voice_program(:test_timed, [[100, 0, 15, 8], [200, 0, 10, 40]])
     @synth.trigger_program(:test_timed, source: :game)
-    Task.pass
-    voice = @synth.allocator.voice_for(PSG::Synth::PROGRAM_CHANNEL, :test_timed.object_id, source: :game)
-    assert @driver.calls.include?([:voice_write, voice, 100, 0, 15, 1])
+    voice = nil
+    assert wait_until {
+      voice = @synth.allocator.voice_for(PSG::Synth::PROGRAM_CHANNEL, :test_timed.object_id, source: :game)
+      voice && @driver.calls.include?([:voice_write, voice, 100, 0, 15, 1])
+    }
 
-    sleep_ms 20
-
-    assert @driver.calls.include?([:voice_write, voice, 200, 0, 10, 1])
+    # Nothing else is pushed to the queue; the second step must be written
+    # by the synth task's own timeout wakeup.
+    assert wait_until { @driver.calls.include?([:voice_write, voice, 200, 0, 10, 1]) }
   end
 end
