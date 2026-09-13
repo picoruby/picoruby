@@ -1,7 +1,9 @@
 #include <emscripten.h>
 
 #include "mruby.h"
+#include "mruby/array.h"
 #include "mruby/gc.h"
+#include "mruby/internal.h"
 #include "mruby/string.h"
 
 #include "mruby_compiler.h"
@@ -36,29 +38,50 @@ mrb_value main_task = {0};
 
 EMSCRIPTEN_KEEPALIVE int mrb_run_step_status(void);
 
+/* Print the Ruby backtrace of an exception that ended a task. Without it
+   the "Exception in task" line names the error but not the code path,
+   which is the one thing a page developer needs. */
+static void
+print_task_backtrace(mrb_state *mrb, mrb_value exc)
+{
+  mrb_value bt = mrb_exc_backtrace(mrb, exc);
+  if (mrb->exc) {
+    mrb->exc = NULL;
+    return;
+  }
+  if (!mrb_array_p(bt)) return;
+  for (mrb_int i = 0; i < RARRAY_LEN(bt); i++) {
+    mrb_value line = RARRAY_PTR(bt)[i];
+    if (mrb_string_p(line)) {
+      fprintf(stderr, "  %s\n", RSTRING_PTR(line));
+    }
+  }
+}
+
+static void
+log_exception_with_backtrace(mrb_state *mrb, mrb_value exc)
+{
+  mrb_value exc_str = mrb_inspect(mrb, exc);
+  if (mrb->exc) {
+    fprintf(stderr, "Exception in task (failed to inspect exception)\n");
+    mrb->exc = NULL;
+    return;
+  }
+  fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
+  print_task_backtrace(mrb, exc);
+}
+
 static mrb_bool
 log_task_exception(mrb_state *mrb, mrb_value result)
 {
   if (mrb_exception_p(result)) {
-    mrb_value exc_str = mrb_inspect(mrb, result);
-    if (mrb->exc) {
-      fprintf(stderr, "Exception in task (failed to inspect exception)\n");
-      mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
-    }
+    log_exception_with_backtrace(mrb, result);
     return TRUE;
   }
   else if (mrb->exc) {
     mrb_value exc = mrb_obj_value(mrb->exc);
     mrb->exc = NULL;
-    mrb_value exc_str = mrb_inspect(mrb, exc);
-    if (mrb->exc) {
-      fprintf(stderr, "Exception in task (failed to inspect exception)\n");
-      mrb->exc = NULL;
-    } else {
-      fprintf(stderr, "Exception in task: %s\n", RSTRING_PTR(exc_str));
-    }
+    log_exception_with_backtrace(mrb, exc);
     return TRUE;
   }
   return FALSE;

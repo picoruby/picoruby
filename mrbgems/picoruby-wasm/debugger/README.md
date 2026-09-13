@@ -116,6 +116,34 @@ enabled (`$__funicular_debug__ = true`), a **Components** panel appears
 alongside the REPL showing the live component tree. Click any component to
 inspect its state and instance variables.
 
+## Reproducing the panel's calls under Node
+
+`mrbgems/picoruby-wasm/tools/debugger-repro.mjs` drives the same C entry
+points the panel uses (`mrb_debug_get_status`, `mrb_get_component_debug_info`,
+`mrb_get_component_state_by_id`, `mrb_eval_string`) against a Funicular
+Rails app, without a browser. It loads the app's own
+`public/picoruby/debug/` build into jsdom, logs in to the running Rails
+dev server, loads the real page and `app.mrb`, runs the scheduler loop from
+`init.iife.js`, and then polls like `panel.js` does. A watchdog thread
+reports a ccall that never returns; the per-second stats expose a
+scheduler spin.
+
+Requirements: the Rails dev server running, `jsdom` in the app's
+`node_modules` (Funicular's client tests need it too), and optionally
+`fake-indexeddb` for a persistent local database.
+
+```bash
+node mrbgems/picoruby-wasm/tools/debugger-repro.mjs \
+  --app ~/work/my-funicular-app --live http://localhost:3000/chat \
+  --user alice --password secret \
+  --inspect-component 1,2,3      # "click" these components in the COMPONENTS pane
+```
+
+Other switches: `--no-tree-poll` / `--no-status-poll` to bisect,
+`--probe '<ruby>'` to evaluate an expression through `mrb_eval_string`
+periodically, `--gc-stress-ms` to force GC inside synchronous evals,
+`--fake-idb <dir>`. See the header of the script for the full list.
+
 ## Packaging for Chrome Web Store submission
 
 Run from the PicoRuby repository root:
