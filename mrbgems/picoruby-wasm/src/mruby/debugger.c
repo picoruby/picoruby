@@ -358,9 +358,10 @@ const char* mrb_get_component_debug_info(const char* method) {
   global_mrb->exc = NULL;
   mrb_value result = mrb_execute_proc_synchronously(global_mrb, proc_val, 0, NULL);
 
-  // Check for exception
-  if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
+  // Check for exception. An exception the code did not handle comes back
+  // as the result value (mrb->exc is cleared by the synchronous executor).
+  if (global_mrb->exc || mrb_exception_p(result)) {
+    mrb_value exc = global_mrb->exc ? mrb_obj_value(global_mrb->exc) : result;
     global_mrb->exc = NULL;
     mrb_value exc_str = mrb_inspect(global_mrb, exc);
     if (global_mrb->exc) {
@@ -440,9 +441,10 @@ const char* mrb_get_component_state_by_id(int component_id) {
   global_mrb->exc = NULL;
   mrb_value result = mrb_execute_proc_synchronously(global_mrb, proc_val, 0, NULL);
 
-  // Check for exception
-  if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
+  // Check for exception. An exception the code did not handle comes back
+  // as the result value (mrb->exc is cleared by the synchronous executor).
+  if (global_mrb->exc || mrb_exception_p(result)) {
+    mrb_value exc = global_mrb->exc ? mrb_obj_value(global_mrb->exc) : result;
     global_mrb->exc = NULL;
     mrb_value exc_str = mrb_inspect(global_mrb, exc);
     if (global_mrb->exc) {
@@ -519,9 +521,10 @@ const char* mrb_eval_string(const char* code) {
   mrb_value proc_val = mrb_obj_value(proc);
   mrb_value result = mrb_execute_proc_synchronously(global_mrb, proc_val, 0, NULL);
 
-  // Check for exception
-  if (global_mrb->exc) {
-    mrb_value exc = mrb_obj_value(global_mrb->exc);
+  // Check for exception. An exception the code did not handle comes back
+  // as the result value (mrb->exc is cleared by the synchronous executor).
+  if (global_mrb->exc || mrb_exception_p(result)) {
+    mrb_value exc = global_mrb->exc ? mrb_obj_value(global_mrb->exc) : result;
     global_mrb->exc = NULL;
 
     mrb_value exc_str = mrb_inspect(global_mrb, exc);

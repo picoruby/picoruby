@@ -90,6 +90,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
       -s INITIAL_MEMORY=32MB \
       -s ALLOW_MEMORY_GROWTH=1 \
       -s STACK_SIZE=2MB \
+      #{ENV['PICORB_DEBUG'] ? '-s STACK_OVERFLOW_CHECK=2' : ''} \
       -s ENVIRONMENT=#{environment} \
       -s WASM_ASYNC_COMPILATION=1 \
       -s ERROR_ON_UNDEFINED_SYMBOLS=0 \
