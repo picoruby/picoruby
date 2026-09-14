@@ -87,6 +87,9 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   spec.cc.defines << "MBEDTLS_CONFIG_FILE='\"#{dir}/include/mbedtls_config.h\"'"
   spec.cc.include_paths << "#{mbedtls_dir}/include"
   spec.cc.include_paths << "#{dir}/include"
+  # The nRF52 port draws entropy from picoruby-rng, which is already a
+  # dependency above; this makes its header reachable.
+  spec.cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-rng/include"
 
   # While DTLS is disabled, config_adjust_ssl.h #undefs
   # MBEDTLS_SSL_DTLS_CONNECTION_ID_COMPAT, then ssl.h evaluates it with
