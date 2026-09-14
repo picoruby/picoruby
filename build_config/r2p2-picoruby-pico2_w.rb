@@ -21,6 +21,12 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
   conf.cc.defines << "MRB_LINK_TIME_RO_DATA_P"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
 
+  # Prism arena block size. The 64KB default in mruby-compiler is host-sized;
+  # a parse of a REPL line uses about 4KB on a 32-bit target, so small blocks
+  # waste less of the Estalloc heap. Oversized allocations still fit: the
+  # arena doubles the block for any single allocation that needs more.
+  conf.cc.defines << "MRC_PRISM_ARENA_BLOCK=2048"
+
   conf.cc.command = "arm-none-eabi-gcc"
   conf.linker.command = "arm-none-eabi-ld"
   conf.linker.flags << "-static"
