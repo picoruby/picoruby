@@ -40,16 +40,23 @@ class TCPServer
   # @raise [Interrupt] if interrupted by signal or external task
   def accept
     event_queue = @event_queue
-    Signal.trap(:INT) do
+    interrupted = false
+    previous_int_handler = Signal.trap(:INT) do
+      interrupted = true
       self.close
     end
-    while true
-      client = accept_nonblock
-      break if client
-      event_queue ? event_queue.pop : sleep_ms(10)
+    begin
+      while true
+        raise Interrupt if interrupted
+        client = accept_nonblock
+        return client if client
+        event_queue ? event_queue.pop : sleep_ms(10)
+        raise Interrupt if interrupted
+      end
+    ensure
+      Signal.trap(:INT, previous_int_handler || "DEFAULT")
     end
-    # @type var client: TCPSocket
-    return client
+    raise Interrupt
   end
 
   # Accept an incoming client connection (non-blocking)

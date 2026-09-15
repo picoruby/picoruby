@@ -141,7 +141,8 @@ mrb_tcp_server_close(mrb_state *mrb, mrb_value self)
 
   server = (picorb_tcp_server_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_server_type);
   if (!server) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "server is not initialized");
+    /* Already closed. Match mruby/c and CRuby's idempotent close behavior. */
+    return mrb_nil_value();
   }
 
   if (!TCPServer_close(mrb, server)) {
