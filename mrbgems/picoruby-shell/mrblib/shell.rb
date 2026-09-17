@@ -552,7 +552,9 @@ class Shell
   end
 
   def builtin?(name)
-    self.respond_to?(name)
+    # The builtin commands are private methods. Since mruby 499577695,
+    # respond_to? hides private methods unless include_all is true.
+    self.respond_to?(name, true)
   end
 
   def execute_ast(ast)
