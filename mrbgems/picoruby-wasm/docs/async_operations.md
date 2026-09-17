@@ -13,7 +13,7 @@ When a task blocks, other Ruby tasks continue running. The JavaScript event loop
 
 ```ruby
 callback_id = button.addEventListener('click') do |event|
-  puts event[:clientX].to_i
+  puts event[:clientX]  #=> Integer
 end
 
 # Remove when done
@@ -43,7 +43,7 @@ Debounce pattern:
 $timer = nil
 input.addEventListener('input') do |e|
   JS.global.clearTimeout($timer) if $timer
-  $timer = JS.global.setTimeout(300) { search(e.target[:value].to_s) }
+  $timer = JS.global.setTimeout(300) { search(e.target[:value]) }
 end
 ```
 
@@ -82,7 +82,7 @@ end
 
 ```ruby
 JS.global.fetch('https://api.example.com/data') do |response|
-  puts response[:status].to_i
+  puts response[:status]  #=> Integer
 end
 
 # With options

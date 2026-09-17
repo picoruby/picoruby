@@ -15,7 +15,7 @@ Used for all event-driven and Promise-based patterns. Each fires in a new Ruby t
 ```ruby
 # DOM event
 button.addEventListener('click') do |event|
-  puts event[:type].to_s
+  puts event[:type]  #=> String
 end
 
 # Timer
@@ -49,7 +49,7 @@ dispatch stack*, before `dispatchEvent` returns.
 
 ```ruby
 input.addEventListener('keydown', sync: true) do |event|
-  event.preventDefault if event[:key].to_s == 'ArrowUp'
+  event.preventDefault if event[:key] == 'ArrowUp'
 end
 
 # passive is browser-default unless given; touch and wheel listeners need it
