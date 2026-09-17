@@ -6,6 +6,12 @@
 
 require 'socket'
 
+class TCPServerInterruptQueue
+  def pop
+    Signal.raise(:INT)
+  end
+end
+
 class TCPServerTest < Picotest::Test
   # Test 1: TCPServer.new with nil host and service (CRuby compatible)
   def test_tcp_server_new_with_nil_host
@@ -55,5 +61,18 @@ class TCPServerTest < Picotest::Test
     server = TCPServer.new(nil, 18086)
     assert_true server.respond_to?(:accept_loop)
     server.close
+  end
+
+  def test_accept_interrupt_closes_without_retrying_server
+    previous = Signal.trap(:INT, "DEFAULT")
+    server = TCPServer.new(nil, 18087)
+    event_queue = TCPServerInterruptQueue.new
+    server.instance_variable_set(:@event_queue, event_queue)
+    assert_raise(Interrupt) { server.accept }
+    # Closing an already closed server is intentionally safe.
+    server.close
+    assert_equal "DEFAULT", Signal.trap(:INT, "DEFAULT")
+  ensure
+    Signal.trap(:INT, previous || "DEFAULT")
   end
 end
