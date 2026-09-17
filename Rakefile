@@ -41,6 +41,10 @@ MRuby.each_target do |build|
   unless enable_gems? && libmruby_enabled?
     compilers.each do |compiler|
       compiler.defines << "MRB_NO_GEMS"
+      # A standalone mrbc includes <mrbconf.h> (see mrc_common.h) to settle
+      # the target's mrb_int width. Upstream finds it in MRUBY_ROOT/include;
+      # here it lives in the mruby submodule.
+      compiler.include_paths << "#{MRUBY_SUBMODULE}/include"
     end
   end
   gems.setup(self) if enable_gems?
