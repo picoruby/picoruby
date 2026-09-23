@@ -15,54 +15,28 @@ module JSON
   class GeneratorError < JSONError; end
   class DiggerError < JSONError; end
 
-  # Detect WASM build for Regexp-based optimization (lazy, cached)
-  def self.wasm_build?
-    return @wasm_build unless @wasm_build.nil?
-    @wasm_build = RUBY_DESCRIPTION.include?("wasm32")
-  end
-
-  # Toggle for Regexp optimization (can be set to false for benchmarking)
-  # Defaults to wasm_build? but can be overridden: JSON.use_regexp = false
-  def self.use_regexp?
-    return @use_regexp unless @use_regexp.nil?
-    @use_regexp = wasm_build?
-  end
-
-  def self.use_regexp=(val)
-    @use_regexp = val
-  end
-
-  # Regexp patterns (lazy initialization)
-  def self.ws_pattern
-    @ws_pattern ||= /^[ \t\n\r]+/
-  end
-
-  def self.string_content_pattern
-    @string_content_pattern ||= /^[^"\\]+/
-  end
-
-  def self.number_pattern
-    @number_pattern ||= /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/
-  end
-
+  # Parser and Digger scan the source by byte offset with getbyte/byteslice.
+  # With MRB_UTF8_STRING, String#[] by character index walks the string from
+  # its head whenever it holds a multibyte character, which made a whole parse
+  # quadratic in the input length.
   module Common
-    def expect(char)
-      if @json[@index] != char
-        raise JSON::JSONError.new("Expected '#{char}' at index #{@index}, but got '#{@json[@index]}'")
+    def expect(byte)
+      if @json.getbyte(@index) != byte
+        raise JSON::JSONError.new("Expected '#{byte.chr}' at index #{@index}, but got '#{@json.byteslice(@index, 1)}'")
       end
       @index += 1
     end
 
     def skip_whitespace
-      if JSON.use_regexp?
-        if md = JSON.ws_pattern.match(@json, @index)
-          @index = md.end(0)
-        end
-      else
-        while @index < @json.length && [' ', "\t", "\n", "\r"].include?(@json[@index])
-          @index += 1
-        end
+      json = @json
+      index = @index
+      while true
+        byte = json.getbyte(index)
+        # ' ', "\t", "\n", "\r"
+        break unless byte == 32 || byte == 9 || byte == 10 || byte == 13
+        index += 1
       end
+      @index = index
     end
 
     def parse_true
@@ -81,9 +55,11 @@ module JSON
     end
 
     def expect_sequence(sequence)
-      sequence.each_char do |char|
-        expect(char)
+      len = sequence.bytesize
+      if @json.byteslice(@index, len) != sequence
+        raise JSON::JSONError.new("Expected '#{sequence}' at index #{@index}")
       end
+      @index += len
     end
   end
 
@@ -150,7 +126,7 @@ module JSON
         else
           raise ArgumentError.new("Unsupported type: #{key.class}")
         end
-        @json = @json[@start_index, @index - @start_index]
+        @json = @json.byteslice(@start_index, @index - @start_index) || ""
         @json.strip!
         reset
         # p @json
@@ -171,13 +147,6 @@ module JSON
       @stack = []
     end
 
-    # Override to never use Regexp for Digger (performance)
-    def skip_whitespace
-      while @index < @json.length && [' ', "\t", "\n", "\r"].include?(@json[@index] || "")
-        @index += 1
-      end
-    end
-
     def push_stack(type)
       @stack.push(type)
       #puts "push_stack: #{@stack}, index: #{@index}"
@@ -190,40 +159,47 @@ module JSON
 
     def dig_string(need_return)
       skip_whitespace
-      expect('"')
+      expect(34) # '"'
+      json = @json
       string_start = @index
-      while char = @json[@index]
-        if char == '\\'
-          @index += 2
-        elsif char == '"'
+      index = string_start
+      while byte = json.getbyte(index)
+        if byte == 92 # '\\'
+          index += 2
+        elsif byte == 34 # '"'
+          @index = index + 1
           if need_return
-            str = @json[string_start, @index - string_start]
+            return json.byteslice(string_start, index - string_start)
           end
-          @index += 1
-          return str
+          return nil
         else
-          @index += 1
+          index += 1
         end
       end
+      @index = index
       raise JSON::DiggerError.new("Unterminated string")
     end
 
     def dig_number
-      while char = @json[@index]
-        if char == '-' || char == '.' || char == 'e' || char == 'E' || ('0' <= char && char <= '9')
-          @index += 1
+      json = @json
+      index = @index
+      while byte = json.getbyte(index)
+        # '-', '.', 'e', 'E', '0'..'9'
+        if byte == 45 || byte == 46 || byte == 101 || byte == 69 || (48 <= byte && byte <= 57)
+          index += 1
         else
           break
         end
       end
+      @index = index
     end
 
     def dig_object(key)
       push_stack(:object)
       skip_whitespace
-      expect('{')
-      while char = @json[@index]
-        if char == '}'
+      expect(123) # '{'
+      while byte = @json.getbyte(@index)
+        if byte == 125 # '}'
           @index += 1
           if @stack[-1] == :object
             pop_stack
@@ -233,21 +209,21 @@ module JSON
         found_key = dig_string(true)
         if key && found_key == key
           skip_whitespace
-          expect(':')
+          expect(58) # ':'
           @start_index = @index
           dig_value
           return
         else
           skip_whitespace
-          expect(':')
+          expect(58) # ':'
           dig_value
           skip_whitespace
-          if @json[@index] == '}'# && @stack[-1] == :object
+          if @json.getbyte(@index) == 125 # '}' # && @stack[-1] == :object
             @index += 1
             pop_stack
             break
           end
-          expect(',')
+          expect(44) # ','
           skip_whitespace
         end
       end
@@ -258,26 +234,24 @@ module JSON
 
     def dig_value
       skip_whitespace
-      case @json[@index]
-      when '{'
+      byte = @json.getbyte(@index)
+      case byte
+      when 123 # '{'
         dig_object(nil)
-      when '['
+      when 91 # '['
         dig_array(nil)
-      when '"'
+      when 34 # '"'
         dig_string(false)
-      when 't'
-        skip_whitespace
+      when 116 # 't'
         parse_true
-      when 'f'
-        skip_whitespace
+      when 102 # 'f'
         parse_false
-      when 'n'
-        skip_whitespace
+      when 110 # 'n'
         parse_null
-      when '-', '0'
+      when 45, 48 # '-', '0'
         dig_number
       else
-        if @json[@index].to_i != 0 # from '1' to '9'
+        if byte && 49 <= byte && byte <= 57 # from '1' to '9'
           dig_number
         else
           @index += 1
@@ -288,16 +262,16 @@ module JSON
     def dig_array(array_pos)
       push_stack(:array)
       skip_whitespace
-      expect('[')
+      expect(91) # '['
       skip_whitespace
       current_array_pos = 0
       @start_index = @index if array_pos
-      while char = @json[@index]
-        case char
-        when ']'
+      while byte = @json.getbyte(@index)
+        case byte
+        when 93 # ']'
           @index += 1
           break
-        when ','
+        when 44 # ','
           @index += 1
           if @stack[-1] == :array
             if array_pos
@@ -421,6 +395,7 @@ module JSON
     end
   end
 
+
   class Parser
     include JSON::Common
 
@@ -431,20 +406,21 @@ module JSON
 
     def parse
       skip_whitespace
-      case @json[@index]
-      when '{'
+      byte = @json.getbyte(@index)
+      case byte
+      when 123 # '{'
         parse_object
-      when '['
+      when 91 # '['
         parse_array
-      when '"'
+      when 34 # '"'
         parse_string
-      when '-', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
+      when 45, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57 # '-', '0'..'9'
         parse_number
-      when 't'
+      when 116 # 't'
         parse_true
-      when 'f'
+      when 102 # 'f'
         parse_false
-      when 'n'
+      when 110 # 'n'
         parse_null
       else
         raise JSON::ParserError.new("Unexpected character at index #{@index}")
@@ -458,17 +434,20 @@ module JSON
       @index += 1  # Skip '{'
       skip_whitespace
 
-      unless @json[@index] == '}'
+      unless @json.getbyte(@index) == 125 # '}'
         while true
+          if @json.getbyte(@index) != 34 # '"'
+            raise JSON::ParserError.new("Expected string key at index #{@index}")
+          end
           key = parse_string
           skip_whitespace
-          expect(':')
+          expect(58) # ':'
           skip_whitespace
           value = parse
           result[key] = value
           skip_whitespace
-          break if @json[@index] == '}'
-          expect(',')
+          break if @json.getbyte(@index) == 125 # '}'
+          expect(44) # ','
           skip_whitespace
         end
       end
@@ -482,13 +461,13 @@ module JSON
       @index += 1  # Skip '['
       skip_whitespace
 
-      unless @json[@index] == ']'
+      unless @json.getbyte(@index) == 93 # ']'
         while true
           value = parse
           result << value
           skip_whitespace
-          break if @json[@index] == ']'
-          expect(',')
+          break if @json.getbyte(@index) == 93 # ']'
+          expect(44) # ','
           skip_whitespace
         end
       end
@@ -497,204 +476,205 @@ module JSON
       result
     end
 
+    # Copies each run of plain bytes with one byteslice, and decodes an escape
+    # sequence where it is met.
     def parse_string
-      @index += 1  # Skip opening quote
+      json = @json
+      index = @index + 1  # Skip opening quote
+      run_start = index
       result = ''
-      while @json[@index] != '"'
-        if @json[@index] == '\\'
-          if snip = @json[@index, 2]
-            result += snip
-            @index += snip.length
-          end
-        else
-          if JSON.use_regexp?
-            if md = JSON.string_content_pattern.match(@json, @index)
-              result += md[0] || ""
-              @index = md.end(0)
-            else
-              result += @json[@index].to_s
-              @index += 1
-            end
-          else
-            result += @json[@index].to_s
-            @index += 1
-          end
-        end
-        if @index >= @json.length
-          raise JSON::ParserError.new("Unterminated string")
-        end
-      end
-      @index += 1  # Skip closing quote
-      replace_escape_sequence(result)
-    end
-
-    def replace_escape_sequence(str)
-      result = ''
-      i = 0
-      str_len = str.length
-      while i < str_len
-        char = str[i]
-        if char == '\\'
-          i += 1
-          case str[i]
-          when '"'
-            result += '"'
-          when '\\'
-            result += '\\'
-          when '/'
-            result += '/'
-          when 'b'
-            result += "\b"
-          when 'f'
-            result += "\f"
-          when 'n'
-            result += "\n"
-          when 'r'
-            result += "\r"
-          when 't'
-            result += "\t"
-          when 'u'
-            hex = str[i + 1, 4]
-            if hex && hex.length == 4
-              code = 0
-              hex.each_char do |h|
-                code <<= 4
-                case h
-                when '0'..'9'
-                  code += h.ord - '0'.ord
-                when 'a'..'f'
-                  code += h.ord - 'a'.ord + 10
-                when 'A'..'F'
-                  code += h.ord - 'A'.ord + 10
-                else
-                  raise JSON::ParserError.new("Invalid hex in unicode escape: #{h}")
-                end
-              end
-              result += [code].pack('C*')
-              i += 4
-            else
-              raise JSON::ParserError.new("Incomplete unicode escape sequence")
-            end
-          when nil
-            raise JSON::ParserError.new("Unterminated escape sequence")
-          else
-            raise JSON::ParserError.new("Unknown escape sequence: \\#{str[i]}")
-          end
-        elsif char.nil?
+      while true
+        byte = json.getbyte(index)
+        if byte == 34 # '"'
+          break
+        elsif byte == 92 # '\\'
+          result << json.byteslice(run_start, index - run_start).to_s if run_start < index
+          index = parse_escape(result, index + 1)
+          run_start = index
+        elsif byte.nil?
           raise JSON::ParserError.new("Unterminated string")
         else
-          result += char
+          index += 1
         end
-        i += 1
       end
+      if run_start < index
+        run = json.byteslice(run_start, index - run_start).to_s
+        # A string with no escape needs no copy of its own
+        if result.empty?
+          result = run
+        else
+          result << run
+        end
+      end
+      @index = index + 1  # Skip closing quote
       result
     end
 
-    def parse_number
-      if JSON.use_regexp?
-        md = JSON.number_pattern.match(@json, @index)
-        unless md
-          raise JSON::ParserError.new("Invalid number at index #{@index}")
+    # Appends the character an escape sequence stands for to result, and
+    # returns the index just past the sequence. index points past the '\\'.
+    def parse_escape(result, index)
+      case @json.getbyte(index)
+      when 34 # '"'
+        result << '"'
+      when 92 # '\\'
+        result << '\\'
+      when 47 # '/'
+        result << '/'
+      when 98 # 'b'
+        result << "\b"
+      when 102 # 'f'
+        result << "\f"
+      when 110 # 'n'
+        result << "\n"
+      when 114 # 'r'
+        result << "\r"
+      when 116 # 't'
+        result << "\t"
+      when 117 # 'u'
+        code = parse_hex4(index + 1)
+        index += 4
+        # A high surrogate followed by \uDC00-\uDFFF spells one character
+        if 0xD800 <= code && code <= 0xDBFF &&
+            @json.getbyte(index + 1) == 92 && @json.getbyte(index + 2) == 117
+          low = parse_hex4(index + 3)
+          if 0xDC00 <= low && low <= 0xDFFF
+            code = 0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
+            index += 6
+          end
         end
-        matched = md[0] || ""
-        start = @index
-        @index = md.end(0)
-        is_float = matched.include?('.') || matched.include?('e') || matched.include?('E')
-        if is_float
-          parse_float(start, @index)
-        else
-          parse_integer(start, @index)
-        end
+        result << utf8_encode(code)
+      when nil
+        raise JSON::ParserError.new("Unterminated escape sequence")
       else
-        start = @index
-        is_float = false
-        is_negative = @json[@index] == '-'
-        @index += 1 if is_negative
+        raise JSON::ParserError.new("Unknown escape sequence: \\#{@json.byteslice(index, 1)}")
+      end
+      index + 1
+    end
 
-        # Integer part
-        while @index < @json.length && is_digit?(@json[@index])
-          @index += 1
-        end
-
-        # Fractional part
-        if @index < @json.length && @json[@index] == '.'
-          is_float = true
-          @index += 1
-          while @index < @json.length && is_digit?(@json[@index])
-            @index += 1
-          end
-        end
-
-        # Exponent part
-        if @index < @json.length && (@json[@index] == 'e' || @json[@index] == 'E')
-          is_float = true
-          @index += 1
-          @index += 1 if @index < @json.length && (@json[@index] == '+' || @json[@index] == '-')
-          while @index < @json.length && is_digit?(@json[@index])
-            @index += 1
-          end
-        end
-
-        if is_float
-          parse_float(start, @index)
+    def parse_hex4(index)
+      json = @json
+      code = 0
+      i = 0
+      while i < 4
+        byte = json.getbyte(index + i)
+        if byte.nil?
+          raise JSON::ParserError.new("Incomplete unicode escape sequence")
+        elsif 48 <= byte && byte <= 57 # '0'..'9'
+          code = (code << 4) + byte - 48
+        elsif 97 <= byte && byte <= 102 # 'a'..'f'
+          code = (code << 4) + byte - 87
+        elsif 65 <= byte && byte <= 70 # 'A'..'F'
+          code = (code << 4) + byte - 55
         else
-          parse_integer(start, @index)
+          raise JSON::ParserError.new("Invalid hex in unicode escape: #{json.byteslice(index + i, 1)}")
         end
+        i += 1
+      end
+      code
+    end
+
+    def utf8_encode(code)
+      if code < 0x80
+        [code].pack('C*')
+      elsif code < 0x800
+        [0xC0 | (code >> 6), 0x80 | (code & 0x3F)].pack('C*')
+      elsif code < 0x10000
+        [0xE0 | (code >> 12), 0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F)].pack('C*')
+      else
+        [0xF0 | (code >> 18), 0x80 | ((code >> 12) & 0x3F),
+         0x80 | ((code >> 6) & 0x3F), 0x80 | (code & 0x3F)].pack('C*')
       end
     end
 
+    def parse_number
+      json = @json
+      start = @index
+      index = start
+      is_float = false
+      index += 1 if json.getbyte(index) == 45 # '-'
+
+      # Integer part
+      index = skip_digits(index)
+
+      # Fractional part
+      if json.getbyte(index) == 46 # '.'
+        is_float = true
+        index = skip_digits(index + 1)
+      end
+
+      # Exponent part
+      byte = json.getbyte(index)
+      if byte == 101 || byte == 69 # 'e', 'E'
+        is_float = true
+        index += 1
+        byte = json.getbyte(index)
+        index += 1 if byte == 43 || byte == 45 # '+', '-'
+        index = skip_digits(index)
+      end
+
+      @index = index
+      if is_float
+        parse_float(start, index)
+      else
+        parse_integer(start, index)
+      end
+    end
+
+    def skip_digits(index)
+      json = @json
+      while true
+        byte = json.getbyte(index)
+        break unless byte && 48 <= byte && byte <= 57 # '0'..'9'
+        index += 1
+      end
+      index
+    end
+
+    # start/end_index are byte offsets
     def parse_integer(start, end_index)
+      json = @json
       result = 0
-      is_negative = @json[start] == '-'
+      is_negative = json.getbyte(start) == 45 # '-'
       start += 1 if is_negative
 
       i = start
       while i < end_index
-        # start/end_index are character indices (consistent with @index and
-        # Regexp match offsets), so index by character here. getbyte takes a
-        # byte offset and would read the wrong byte once a multibyte character
-        # appears earlier in the string.
-        char = @json[i] or raise JSON::ParserError.new("Invalid number format")
-        result = result * 10 + (char.ord - 48) # '0'.ord is 48
+        result = result * 10 + (json.getbyte(i).to_i - 48) # '0'.ord is 48
         i += 1
       end
 
       is_negative ? -result : result
     end
 
+    # start/end_index are byte offsets
     def parse_float(start, end_index)
+      json = @json
       result = 0.0
       decimal_divider = 1.0
       exponent = 0
-      is_negative = @json[start] == '-'
+      is_negative = json.getbyte(start) == 45 # '-'
       exponent_negative = false
       parsing_exponent = false
       start += 1 if is_negative
 
       i = start
       while i < end_index
-        case @json[i]
-        when '0'..'9'
-          # Index by character: start/end_index are character indices, so
-          # getbyte (byte offset) would misread once a multibyte character
-          # appears earlier in the string.
-          byte = @json[i]&.ord or raise "Invalid number format"
+        byte = json.getbyte(i).to_i
+        if 48 <= byte && byte <= 57 # '0'..'9'
           if parsing_exponent
-            exponent = exponent * 10 + (byte - 48) # '0'.ord is 48
+            exponent = exponent * 10 + (byte - 48)
           elsif decimal_divider == 1.0
             result = result * 10 + (byte - 48)
           else
             result += (byte - 48) / decimal_divider
             decimal_divider *= 10
           end
-        when '.'
+        elsif byte == 46 # '.'
           decimal_divider = 10.0
-        when 'e', 'E'
+        elsif byte == 101 || byte == 69 # 'e', 'E'
           parsing_exponent = true
-        when '-'
+        elsif byte == 45 # '-'
           exponent_negative = true if parsing_exponent
-        when '+'
-          # Do nothing for positive exponent
         end
         i += 1
       end
@@ -703,11 +683,5 @@ module JSON
       is_negative ? -result : result
     end
 
-    def is_digit?(char)
-      return false unless char
-      '0' <= char && char <= '9'
-    end
-
   end
 end
-
