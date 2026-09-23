@@ -291,6 +291,7 @@ module JSON
       expect('[')
       skip_whitespace
       current_array_pos = 0
+      found = false
       @start_index = @index if array_pos
       while char = @json[@index]
         case char
@@ -309,12 +310,16 @@ module JSON
               current_array_pos += 1
             end
           end
+        when ' ', "\t", "\n", "\r"
+          # dig_value would take a ',' after whitespace for a value
+          @index += 1
         else
+          found = true if current_array_pos == array_pos
           dig_value
         end
       end
-      if array_pos && current_array_pos < array_pos
-        JSON::DiggerError.new("Array index out of range")
+      if array_pos && !found
+        raise JSON::DiggerError.new("Array index out of range")
       end
     end
   end

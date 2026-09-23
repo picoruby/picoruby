@@ -26,6 +26,15 @@ class JsonTest < Picotest::Test
     assert_equal("Post 2", digger.dig("posts", 1, "title").parse)
   end
 
+  def test_digger_array_index
+    assert_equal(2, JSON::Digger.new('[1,2]').dig(1).parse)
+    assert_equal(2, JSON::Digger.new('[1 , 2]').dig(1).parse)
+    assert_equal(1, JSON::Digger.new('[ 1 ,2 ]').dig(0).parse)
+    assert_raise(JSON::DiggerError) { JSON::Digger.new('[1,2]').dig(2) }
+    assert_raise(JSON::DiggerError) { JSON::Digger.new('[]').dig(0) }
+    assert_raise(JSON::DiggerError) { JSON::Digger.new('[[1,2]]').dig(0, 2) }
+  end
+
   def test_parse_with_escaped_characters
     assert_equal('"', JSON.parse('"\\""'))
     assert_equal('\\', JSON.parse('"\\\\"'))
