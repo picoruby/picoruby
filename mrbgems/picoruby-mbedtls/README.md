@@ -94,3 +94,16 @@ pkey = MbedTLS::PKey.new
 - Used internally by `picoruby-socket` for HTTPS/TLS
 - Suitable for secure communications and data protection
 - Memory-efficient implementations for embedded systems
+
+## nRF52 notes
+
+- Entropy comes from the nRF52 RNG peripheral by way of picoruby-rng, which
+  leaves the hardware's bias correction on. `MBEDTLS_ENTROPY_HARDWARE_ALT`
+  is enabled, so this is the library's only entropy source.
+- The DTLS retransmission timer reads the wall clock through
+  `gettimeofday`, so it is exactly as good as the platform's clock. It
+  measures intervals with unsigned arithmetic and therefore survives a
+  wrapping clock, as long as a single timeout is shorter than the wrap
+  period.
+- Hardware acceleration is not used. The nRF52840 has a CryptoCell CC310,
+  but nothing here is routed through it yet.
