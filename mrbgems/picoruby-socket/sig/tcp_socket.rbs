@@ -1,6 +1,4 @@
 class TCPSocket < BasicSocket
-  @event_queue: Task::Queue?
-
   def self.new: (String host, Integer port) -> TCPSocket
   def self.open: (String host, Integer port) -> TCPSocket
   def self.gethostbyname: (String host) -> [String, Array[String], Integer, String]
