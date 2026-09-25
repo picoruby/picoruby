@@ -141,7 +141,8 @@ mrb_tcp_server_close(mrb_state *mrb, mrb_value self)
 
   server = (picorb_tcp_server_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_server_type);
   if (!server) {
-    mrb_raise(mrb, E_RUNTIME_ERROR, "server is not initialized");
+    /* Already closed. Match mruby/c and CRuby's idempotent close behavior. */
+    return mrb_nil_value();
   }
 
   if (!TCPServer_close(mrb, server)) {
@@ -152,6 +153,16 @@ mrb_tcp_server_close(mrb_state *mrb, mrb_value self)
   DATA_PTR(self) = NULL;
 
   return mrb_nil_value();
+}
+
+/* server.closed? -> true or false */
+static mrb_value
+mrb_tcp_server_closed_p(mrb_state *mrb, mrb_value self)
+{
+  picorb_tcp_server_t *server;
+
+  server = (picorb_tcp_server_t *)mrb_data_get_ptr(mrb, self, &mrb_tcp_server_type);
+  return mrb_bool_value(server == NULL);
 }
 
 void
@@ -165,4 +176,5 @@ tcp_server_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method_id(mrb, tcp_server_class, MRB_SYM(initialize), mrb_tcp_server_initialize, MRB_ARGS_ARG(1, 2));
   mrb_define_method_id(mrb, tcp_server_class, MRB_SYM(accept_nonblock), mrb_tcp_server_accept_nonblock, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, tcp_server_class, MRB_SYM(close), mrb_tcp_server_close, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, tcp_server_class, MRB_SYM_Q(closed), mrb_tcp_server_closed_p, MRB_ARGS_NONE());
 }

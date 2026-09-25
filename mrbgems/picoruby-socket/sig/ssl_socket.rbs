@@ -1,6 +1,4 @@
 class SSLSocket < BasicSocket
-  @event_queue: Task::Queue?
-
   attr_reader tcp_socket: TCPSocket
   attr_reader ssl_context: SSLContext
 

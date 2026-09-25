@@ -58,6 +58,10 @@ class Sandbox
           puts "^C"
           Signal.raise(:INT)
           self.stop
+          # stop does not unwind the task, so an INT handler the program
+          # installed (and did not remove from inside the handler) would
+          # otherwise outlive its frame and fire again on the next Ctrl-C.
+          Signal.trap(:INT, "DEFAULT")
           return true # should be false?
         when :TSTP
           Signal.raise(:TSTP)

@@ -34,22 +34,16 @@ class TCPServer
   # Accept an incoming client connection (blocking, interruptible)
   #
   # This method blocks until a client connects to the server.
-  # Can be interrupted by raising Interrupt exception from another task or Ctrl-C.
+  # Ctrl-C closes the server and raises Interrupt here; a close from
+  # another task raises IOError instead.
   #
   # @return [TCPSocket] Connected client socket
-  # @raise [Interrupt] if interrupted by signal or external task
+  # @raise [Interrupt] if interrupted by Ctrl-C
+  # @raise [IOError] if the server was closed by another task
   def accept
-    event_queue = @event_queue
-    Signal.trap(:INT) do
-      self.close
-    end
-    while true
-      client = accept_nonblock
-      break if client
-      event_queue ? event_queue.pop : sleep_ms(10)
-    end
+    client = __wait_interruptible { accept_nonblock }
     # @type var client: TCPSocket
-    return client
+    client
   end
 
   # Accept an incoming client connection (non-blocking)
@@ -66,9 +60,14 @@ class TCPServer
   # This is a convenience method for the common pattern of accepting
   # connections in an infinite loop.
   #
+  # The INT handler is kept installed for the whole loop, so Ctrl-C while
+  # the block is still handling a client closes the listening socket too.
+  #
   # @yield [client] Passes each accepted client to the block
   # @yieldparam client [TCPSocket] Connected client socket
   # @return [void] Never returns (infinite loop)
+  # @raise [Interrupt] if interrupted by Ctrl-C
+  # @raise [IOError] if the server was closed by another task
   #
   # Example:
   #   server.accept_loop do |client|
@@ -77,9 +76,14 @@ class TCPServer
   #     client.close
   #   end
   def accept_loop
-    while true
-      client = accept
-      yield client
+    owner = __install_int_handler
+    begin
+      while true
+        client = accept
+        yield client
+      end
+    ensure
+      __restore_int_handler if owner
     end
   end
 

@@ -42,6 +42,14 @@ begin
           client = @server.accept
           handle_client(client)
         end
+      rescue Interrupt
+        # Ctrl-C closed the server; not a StandardError, so name it here or
+        # the task dies silently.
+        puts "DRb server interrupted"
+      rescue IOError => e
+        # accept raises IOError when stop closed the server from another
+        # task, which is the normal way to end this loop.
+        puts "Server error: #{e.message}" if @running
       rescue => e
         puts "Server error: #{e.message}"
       ensure
