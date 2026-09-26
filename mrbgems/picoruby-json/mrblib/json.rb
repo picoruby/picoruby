@@ -184,8 +184,8 @@ module JSON
       json = @json
       index = @index
       while byte = json.getbyte(index)
-        # '-', '.', 'e', 'E', '0'..'9'
-        if byte == 45 || byte == 46 || byte == 101 || byte == 69 || (48 <= byte && byte <= 57)
+        # '-', '+', '.', 'e', 'E', '0'..'9'
+        if byte == 45 || byte == 43 || byte == 46 || byte == 101 || byte == 69 || (48 <= byte && byte <= 57)
           index += 1
         else
           break
@@ -198,6 +198,7 @@ module JSON
       push_stack(:object)
       skip_whitespace
       expect(123) # '{'
+      skip_whitespace
       while byte = @json.getbyte(@index)
         if byte == 125 # '}'
           @index += 1
@@ -265,11 +266,13 @@ module JSON
       expect(91) # '['
       skip_whitespace
       current_array_pos = 0
+      found = false
       @start_index = @index if array_pos
       while byte = @json.getbyte(@index)
         case byte
         when 93 # ']'
           @index += 1
+          pop_stack
           break
         when 44 # ','
           @index += 1
@@ -283,12 +286,16 @@ module JSON
               current_array_pos += 1
             end
           end
+        when 32, 9, 10, 13 # ' ', "\t", "\n", "\r"
+          # dig_value would take a ',' after whitespace for a value
+          @index += 1
         else
+          found = true if current_array_pos == array_pos
           dig_value
         end
       end
-      if array_pos && current_array_pos < array_pos
-        JSON::DiggerError.new("Array index out of range")
+      if array_pos && !found
+        raise JSON::DiggerError.new("Array index out of range")
       end
     end
   end
@@ -394,7 +401,6 @@ module JSON
       obj.to_s
     end
   end
-
 
   class Parser
     include JSON::Common
