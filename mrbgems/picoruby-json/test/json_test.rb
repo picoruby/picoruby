@@ -33,6 +33,26 @@ class JsonTest < Picotest::Test
     assert_raise(JSON::DiggerError) { JSON::Digger.new('[1,2]').dig(2) }
     assert_raise(JSON::DiggerError) { JSON::Digger.new('[]').dig(0) }
     assert_raise(JSON::DiggerError) { JSON::Digger.new('[[1,2]]').dig(0, 2) }
+    assert_equal(7, JSON::Digger.new('[false , 7]').dig(1).parse)
+    assert_equal("b", JSON::Digger.new("[\n\t\"a\"\r\n,\n\"b\"\n]").dig(1).parse)
+  end
+
+  def test_digger_whitespace_in_object
+    assert_equal(2, JSON::Digger.new('{"a":{ },"b":2}').dig("b").parse)
+    assert_equal(2, JSON::Digger.new('{ "a" : [ ] , "b" : 2 }').dig("b").parse)
+    assert_equal(1, JSON::Digger.new("{\n\"a\"\n:\n1\n}").dig("a").parse)
+  end
+
+  def test_digger_array_after_nested_array_in_object
+    assert_equal(2, JSON::Digger.new('[{"a":[1]},2]').dig(1).parse)
+    assert_equal(3, JSON::Digger.new('[{"a":[1]},{ },3]').dig(2).parse)
+    assert_equal("x", JSON::Digger.new('{"a":{"b":[1,2]},"c":"x"}').dig("c").parse)
+  end
+
+  def test_digger_number_with_signed_exponent
+    assert_equal(150.0, JSON::Digger.new('{"a":1.5e+2}').dig("a").parse)
+    assert_equal(2, JSON::Digger.new('{"a":1.5e+2,"b":2}').dig("b").parse)
+    assert_equal(2, JSON::Digger.new('[1.5E-2,2]').dig(1).parse)
   end
 
   def test_parse_with_escaped_characters

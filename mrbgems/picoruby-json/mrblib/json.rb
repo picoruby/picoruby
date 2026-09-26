@@ -184,8 +184,8 @@ module JSON
       json = @json
       index = @index
       while byte = json.getbyte(index)
-        # '-', '.', 'e', 'E', '0'..'9'
-        if byte == 45 || byte == 46 || byte == 101 || byte == 69 || (48 <= byte && byte <= 57)
+        # '-', '+', '.', 'e', 'E', '0'..'9'
+        if byte == 45 || byte == 43 || byte == 46 || byte == 101 || byte == 69 || (48 <= byte && byte <= 57)
           index += 1
         else
           break
@@ -198,6 +198,7 @@ module JSON
       push_stack(:object)
       skip_whitespace
       expect(123) # '{'
+      skip_whitespace
       while byte = @json.getbyte(@index)
         if byte == 125 # '}'
           @index += 1
@@ -271,6 +272,7 @@ module JSON
         case byte
         when 93 # ']'
           @index += 1
+          pop_stack
           break
         when 44 # ','
           @index += 1
@@ -284,7 +286,7 @@ module JSON
               current_array_pos += 1
             end
           end
-        when ' ', "\t", "\n", "\r"
+        when 32, 9, 10, 13 # ' ', "\t", "\n", "\r"
           # dig_value would take a ',' after whitespace for a value
           @index += 1
         else
@@ -399,7 +401,6 @@ module JSON
       obj.to_s
     end
   end
-
 
   class Parser
     include JSON::Common
