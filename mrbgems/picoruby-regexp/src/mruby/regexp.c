@@ -5,6 +5,7 @@
 #include "mruby/string.h"
 #include "mruby/variable.h"
 #include "mruby/array.h"
+#include "mruby/proc.h"
 
 #include <string.h>
 #include <stdio.h>
@@ -218,14 +219,26 @@ match_data_new(mrb_state *mrb, mrb_value re_obj, mrb_value str, const int32_t *c
   return obj;
 }
 
-/* the whole match: MatchData or nil */
+/* $~: one global, not per frame as in CRuby. The compiler reads $&,
+ * $1, $` and $' through it (MatchData#__group and friends below). */
+static void
+set_last_match(mrb_state *mrb, mrb_value md)
+{
+  mrb_gv_set(mrb, mrb_intern_lit(mrb, "$~"), md);
+}
+
+/* the whole match: MatchData or nil, and $~ follows */
 static mrb_value
 regexp_match_at(mrb_state *mrb, mrb_value re_obj, mrb_value str, mrb_int cpos)
 {
   picorb_regexp *re = get_regexp(mrb, re_obj);
   int32_t caps[PICORB_RX_MAX_NSAVE];
-  if (!regexp_run(re, str, cpos, caps, FALSE)) return mrb_nil_value();
-  return match_data_new(mrb, re_obj, str, caps, (int)re->prog[1]);
+  mrb_value md = mrb_nil_value();
+  if (regexp_run(re, str, cpos, caps, FALSE)) {
+    md = match_data_new(mrb, re_obj, str, caps, (int)re->prog[1]);
+  }
+  set_last_match(mrb, md);
+  return md;
 }
 
 /* yes or no, without capture positions */
@@ -237,14 +250,14 @@ regexp_test_at(mrb_state *mrb, mrb_value re_obj, mrb_value str, mrb_int cpos)
   return regexp_run(re, str, cpos, caps, TRUE);
 }
 
-/* the character offset where the match starts, or nil */
+/* the character offset where the match starts, or nil; $~ follows */
 static mrb_value
 regexp_index_of(mrb_state *mrb, mrb_value re_obj, mrb_value str)
 {
-  picorb_regexp *re = get_regexp(mrb, re_obj);
-  int32_t caps[PICORB_RX_MAX_NSAVE];
-  if (!regexp_run(re, str, 0, caps, FALSE)) return mrb_nil_value();
-  long c = picorb_utf8_byte_to_char((const uint8_t *)RSTRING_PTR(str), (size_t)RSTRING_LEN(str), caps[0]);
+  mrb_value md = regexp_match_at(mrb, re_obj, str, 0);
+  if (mrb_nil_p(md)) return md;
+  picorb_match_data *m = get_match_data(mrb, md);
+  long c = picorb_utf8_byte_to_char((const uint8_t *)RSTRING_PTR(str), (size_t)RSTRING_LEN(str), m->caps[0]);
   return mrb_int_value(mrb, (mrb_int)c);
 }
 
@@ -280,7 +293,7 @@ mrb_regexp_eqq(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "o", &obj);
   if (mrb_symbol_p(obj)) obj = mrb_sym_str(mrb, mrb_symbol(obj));
   if (!mrb_string_p(obj)) return mrb_false_value();
-  return mrb_bool_value(regexp_test_at(mrb, self, obj, 0));
+  return mrb_bool_value(!mrb_nil_p(regexp_match_at(mrb, self, obj, 0)));
 }
 
 /* Regexp#=~(str) -> Integer or nil */
@@ -628,9 +641,11 @@ mrb_string_sub_c(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "oSb", &re_obj, &repl, &global);
   picorb_regexp *re = get_regexp(mrb, re_obj);
   build_ctx c = { mrb, mrb_str_new_capa(mrb, RSTRING_LEN(self)), self };
+  int32_t last[PICORB_RX_MAX_NSAVE];
   int n = picorb_rx_sub(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self),
-                        (const uint8_t *)RSTRING_PTR(repl), (size_t)RSTRING_LEN(repl), global,
+                        (const uint8_t *)RSTRING_PTR(repl), (size_t)RSTRING_LEN(repl), global, last,
                         emit_to_str, &c);
+  set_last_match(mrb, n ? match_data_new(mrb, re_obj, self, last, (int)re->prog[1]) : mrb_nil_value());
   return n ? c.out : mrb_nil_value();
 }
 
@@ -660,7 +675,9 @@ mrb_string_scan_c(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "o", &re_obj);
   picorb_regexp *re = get_regexp(mrb, re_obj);
   build_ctx c = { mrb, mrb_ary_new(mrb), self };
-  picorb_rx_scan(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self), scan_match, &c);
+  int32_t last[PICORB_RX_MAX_NSAVE];
+  int n = picorb_rx_scan(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self), last, scan_match, &c);
+  set_last_match(mrb, n ? match_data_new(mrb, re_obj, self, last, (int)re->prog[1]) : mrb_nil_value());
   return c.out;
 }
 
@@ -688,6 +705,224 @@ mrb_string_split_c(mrb_state *mrb, mrb_value self)
     }
   }
   return c.out;
+}
+
+/* ---- the readings of $~ the compiler emits: $& $1 $` $' $+ ---- */
+
+/* MatchData#__group(n) -> String or nil */
+static mrb_value
+mrb_match_data_group_ref(mrb_state *mrb, mrb_value self)
+{
+  mrb_int idx;
+  mrb_get_args(mrb, "i", &idx);
+  picorb_match_data *md = get_match_data(mrb, self);
+  if (!md_index(md, &idx)) return mrb_nil_value();
+  return md_group(mrb, self, md, idx);
+}
+
+/* MatchData#__last_group -> the highest group that took part, or nil */
+static mrb_value
+mrb_match_data_last_group(mrb_state *mrb, mrb_value self)
+{
+  picorb_match_data *md = get_match_data(mrb, self);
+  for (mrb_int i = md->nsave / 2 - 1; i >= 1; i--) {
+    if (md->caps[2 * i] >= 0) return md_group(mrb, self, md, i);
+  }
+  return mrb_nil_value();
+}
+
+/* ---- index, rindex, [], slice, partition, rpartition ---- */
+
+/* The VM's own method, kept under another name at init, takes every
+ * pattern that is not a Regexp. */
+static mrb_value
+fallback(mrb_state *mrb, mrb_value self, mrb_sym name)
+{
+  const mrb_value *argv;
+  mrb_int argc;
+  mrb_value blk;
+  mrb_get_args(mrb, "*&", &argv, &argc, &blk);
+  return mrb_funcall_with_block(mrb, self, name, argc, argv, blk);
+}
+
+/* true and *re when the first argument is a Regexp */
+static mrb_bool
+regexp_first(mrb_state *mrb, mrb_value *re)
+{
+  const mrb_value *argv;
+  mrb_int argc;
+  mrb_get_args(mrb, "*", &argv, &argc);
+  if (argc < 1 || !regexp_p(mrb, argv[0])) return FALSE;
+  *re = argv[0];
+  return TRUE;
+}
+
+/* the character offset of byte offset boff in str */
+static mrb_value
+char_offset(mrb_state *mrb, mrb_value str, int32_t boff)
+{
+  long c = picorb_utf8_byte_to_char((const uint8_t *)RSTRING_PTR(str), (size_t)RSTRING_LEN(str), boff);
+  return mrb_int_value(mrb, (mrb_int)c);
+}
+
+/* String#index(re, pos = 0) -> character offset or nil */
+static mrb_value
+mrb_string_index(mrb_state *mrb, mrb_value self)
+{
+  mrb_value re;
+  if (!regexp_first(mrb, &re)) return fallback(mrb, self, MRB_SYM(__index_str));
+  mrb_value pat;
+  mrb_int pos = 0;
+  mrb_get_args(mrb, "o|i", &pat, &pos);
+  mrb_value md = regexp_match_at(mrb, re, self, pos);
+  if (mrb_nil_p(md)) return md;
+  return char_offset(mrb, self, get_match_data(mrb, md)->caps[0]);
+}
+
+/* the last match starting at character offset cpos or before: MatchData or nil; $~ follows */
+static mrb_value
+regexp_rmatch_at(mrb_state *mrb, mrb_value re_obj, mrb_value str, mrb_int cpos)
+{
+  picorb_regexp *re = get_regexp(mrb, re_obj);
+  const uint8_t *s = (const uint8_t *)RSTRING_PTR(str);
+  size_t len = (size_t)RSTRING_LEN(str);
+  long chars = picorb_utf8_length(s, len);
+  if (cpos < 0) cpos += chars;
+  mrb_value md = mrb_nil_value();
+  if (cpos >= 0) {
+    if (cpos > chars) cpos = chars;
+    long b = picorb_utf8_char_to_byte(s, len, (long)cpos);
+    int32_t caps[PICORB_RX_MAX_NSAVE];
+    if (picorb_rx_rindex(re->prog, re->scratch, s, len, (size_t)b, caps)) {
+      md = match_data_new(mrb, re_obj, str, caps, (int)re->prog[1]);
+    }
+  }
+  set_last_match(mrb, md);
+  return md;
+}
+
+/* String#rindex(re, pos = length) -> character offset or nil */
+static mrb_value
+mrb_string_rindex(mrb_state *mrb, mrb_value self)
+{
+  mrb_value re;
+  if (!regexp_first(mrb, &re)) return fallback(mrb, self, MRB_SYM(__rindex_str));
+  mrb_value pat;
+  mrb_int pos = RSTRING_LEN(self);
+  mrb_get_args(mrb, "o|i", &pat, &pos);
+  mrb_value md = regexp_rmatch_at(mrb, re, self, pos);
+  if (mrb_nil_p(md)) return md;
+  return char_offset(mrb, self, get_match_data(mrb, md)->caps[0]);
+}
+
+/* String#[](re, capture = 0), #slice -> String or nil */
+static mrb_value
+aref_common(mrb_state *mrb, mrb_value self, mrb_sym fallback_name)
+{
+  mrb_value re;
+  if (!regexp_first(mrb, &re)) return fallback(mrb, self, fallback_name);
+  mrb_value pat;
+  mrb_value cap = mrb_nil_value();
+  mrb_get_args(mrb, "o|o", &pat, &cap);
+  mrb_int idx = 0;
+  if (!mrb_nil_p(cap)) {
+    if (!mrb_integer_p(cap)) mrb_raise(mrb, E_INDEX_ERROR, "named groups are not supported");
+    idx = mrb_integer(cap);
+  }
+  mrb_value md = regexp_match_at(mrb, re, self, 0);
+  if (mrb_nil_p(md)) return md;
+  picorb_match_data *m = get_match_data(mrb, md);
+  if (!md_index(m, &idx)) return mrb_nil_value();
+  return md_group(mrb, md, m, idx);
+}
+
+static mrb_value
+mrb_string_aref(mrb_state *mrb, mrb_value self)
+{
+  return aref_common(mrb, self, MRB_SYM(__aref_str));
+}
+
+static mrb_value
+mrb_string_slice(mrb_state *mrb, mrb_value self)
+{
+  return aref_common(mrb, self, MRB_SYM(__slice_str));
+}
+
+/* [before, match, after] for the match at bytes b..e, or the no-match
+ * triple [str, "", ""] (["", "", str] from the right) */
+static mrb_value
+partition_result(mrb_state *mrb, mrb_value str, mrb_int b, mrb_int e, mrb_bool from_right)
+{
+  mrb_value parts[3];
+  if (b < 0) {
+    parts[0] = from_right ? mrb_str_new_lit(mrb, "") : mrb_str_dup(mrb, str);
+    parts[1] = mrb_str_new_lit(mrb, "");
+    parts[2] = from_right ? mrb_str_dup(mrb, str) : mrb_str_new_lit(mrb, "");
+  } else {
+    parts[0] = mrb_str_new(mrb, RSTRING_PTR(str), b);
+    parts[1] = mrb_str_new(mrb, RSTRING_PTR(str) + b, e - b);
+    parts[2] = mrb_str_new(mrb, RSTRING_PTR(str) + e, RSTRING_LEN(str) - e);
+  }
+  return mrb_ary_new_from_values(mrb, 3, parts);
+}
+
+/* the last occurrence of needle in str as a byte offset, or -1 */
+static mrb_int
+rindex_bytes(mrb_value str, mrb_value needle)
+{
+  mrb_int nlen = RSTRING_LEN(needle);
+  for (mrb_int b = RSTRING_LEN(str) - nlen; b >= 0; b--) {
+    if (memcmp(RSTRING_PTR(str) + b, RSTRING_PTR(needle), (size_t)nlen) == 0) return b;
+  }
+  return -1;
+}
+
+/* String#partition(pattern), #rpartition(pattern), for a Regexp or a
+ * String. Both are implemented here in full: mruby has them only with
+ * mruby-string-ext, which a build may leave out. */
+static mrb_value
+partition_common(mrb_state *mrb, mrb_value self, mrb_bool from_right)
+{
+  mrb_value pat;
+  mrb_get_args(mrb, "o", &pat);
+  mrb_int b = -1, e = -1;
+  if (regexp_p(mrb, pat)) {
+    mrb_value md = from_right ? regexp_rmatch_at(mrb, pat, self, RSTRING_LEN(self))
+                              : regexp_match_at(mrb, pat, self, 0);
+    if (!mrb_nil_p(md)) {
+      picorb_match_data *m = get_match_data(mrb, md);
+      b = m->caps[0];
+      e = m->caps[1];
+    }
+  } else {
+    mrb_ensure_string_type(mrb, pat);
+    b = from_right ? rindex_bytes(self, pat)
+                   : mrb_str_index(mrb, self, RSTRING_PTR(pat), RSTRING_LEN(pat), 0);
+    if (b >= 0) e = b + RSTRING_LEN(pat);
+  }
+  return partition_result(mrb, self, b, e, from_right);
+}
+
+static mrb_value
+mrb_string_partition(mrb_state *mrb, mrb_value self)
+{
+  return partition_common(mrb, self, FALSE);
+}
+
+static mrb_value
+mrb_string_rpartition(mrb_state *mrb, mrb_value self)
+{
+  return partition_common(mrb, self, TRUE);
+}
+
+/* keep the VM's method under alias_name when it exists */
+static void
+keep_original(mrb_state *mrb, struct RClass *c, mrb_sym alias_name, mrb_sym name)
+{
+  struct RClass *found = c;
+  mrb_method_t m = mrb_method_search_vm(mrb, &found, name);
+  if (MRB_METHOD_UNDEF_P(m)) return;
+  mrb_alias_method(mrb, c, alias_name, name);
 }
 
 /* ---- init ---- */
@@ -742,6 +977,25 @@ mrb_picoruby_regexp_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, string_class, MRB_SYM(__sub), mrb_string_sub_c, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, string_class, MRB_SYM(__scan), mrb_string_scan_c, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, string_class, MRB_SYM(__split), mrb_string_split_c, MRB_ARGS_REQ(2));
+
+  /* $& $1 $` $' $+ read $~ through these */
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(__group), mrb_match_data_group_ref, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(__pre_match), mrb_match_data_pre_match, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(__post_match), mrb_match_data_post_match, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(__last_group), mrb_match_data_last_group, MRB_ARGS_NONE());
+
+  /* index, rindex, [], slice, partition and rpartition take a Regexp;
+   * the VM's own versions stay behind for every other pattern */
+  keep_original(mrb, string_class, MRB_SYM(__index_str), MRB_SYM(index));
+  keep_original(mrb, string_class, MRB_SYM(__rindex_str), MRB_SYM(rindex));
+  keep_original(mrb, string_class, MRB_SYM(__aref_str), MRB_OPSYM(aref));
+  keep_original(mrb, string_class, MRB_SYM(__slice_str), MRB_SYM(slice));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(index), mrb_string_index, MRB_ARGS_ARG(1, 1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(rindex), mrb_string_rindex, MRB_ARGS_ARG(1, 1));
+  mrb_define_method_id(mrb, string_class, MRB_OPSYM(aref), mrb_string_aref, MRB_ARGS_ARG(1, 1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(slice), mrb_string_slice, MRB_ARGS_ARG(1, 1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(partition), mrb_string_partition, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(rpartition), mrb_string_rpartition, MRB_ARGS_REQ(1));
 }
 
 void

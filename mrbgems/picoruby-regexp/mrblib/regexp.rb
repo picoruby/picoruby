@@ -8,6 +8,34 @@ class Regexp
   IGNORECASE = 1
   EXTENDED   = 2
   MULTILINE  = 4
+
+  # One Regexp that matches any of the patterns. A String matches
+  # itself. Regexps must all carry the same options, since the engine
+  # has no inline option groups. With no pattern the result never
+  # matches.
+  def self.union(*patterns)
+    list = patterns #: Array[untyped]
+    list = list[0] if list.size == 1 && list[0].is_a?(Array)
+    return Regexp.new(".\\A") if list.empty?
+    options = nil
+    source = ""
+    i = 0
+    while i < list.size
+      pat = list[i]
+      source << "|" if 0 < i
+      if pat.is_a?(Regexp)
+        options ||= pat.options
+        raise ArgumentError, "Regexp.union: the options differ" if options != pat.options
+        source << "(?:" << pat.source << ")"
+      elsif pat.is_a?(String)
+        source << Regexp.escape(pat)
+      else
+        raise TypeError, "no implicit conversion of #{pat.class} into Regexp"
+      end
+      i += 1
+    end
+    Regexp.new(source, options || 0)
+  end
 end
 
 class String
@@ -51,10 +79,12 @@ class String
     pos = 0
     last = 0
     matched = false
+    last_md = nil
     while pos <= len
       md = re.__bmatch(src, pos)
       break unless md
       matched = true
+      last_md = md
       pair = md.byteoffset(0) #: [Integer, Integer]
       b = pair[0]
       e = pair[1]
@@ -77,6 +107,7 @@ class String
       end
       break unless global
     end
+    $~ = last_md
     return nil unless matched
     result << src.byteslice(last, len - last).to_s
     result

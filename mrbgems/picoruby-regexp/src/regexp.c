@@ -216,7 +216,7 @@ picorb_rx_expand(const uint8_t *repl, size_t rlen, const uint8_t *s,
  * character is copied and the search resumes behind it. */
 static int
 picorb_rx_sub(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t len,
-              const uint8_t *repl, size_t rlen, bool global,
+              const uint8_t *repl, size_t rlen, bool global, int32_t *last_caps,
               picorb_rx_emit emit, void *ctx)
 {
   int32_t caps[PICORB_RX_MAX_NSAVE];
@@ -227,6 +227,7 @@ picorb_rx_sub(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t 
     if (!regex_exec(prog, s, len, pos, caps, false, scratch)) break;
     size_t b = (size_t)caps[0], e = (size_t)caps[1];
     count++;
+    if (last_caps) memcpy(last_caps, caps, sizeof(int32_t) * (size_t)nsave);
     emit(ctx, s + last, b - last);
     picorb_rx_expand(repl, rlen, s, caps, nsave, emit, ctx);
     if (e == b) {
@@ -246,7 +247,7 @@ picorb_rx_sub(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t 
 /* scan: every match in order, the same stepping as gsub */
 static int
 picorb_rx_scan(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t len,
-               picorb_rx_on_match on_match, void *ctx)
+               int32_t *last_caps, picorb_rx_on_match on_match, void *ctx)
 {
   int32_t caps[PICORB_RX_MAX_NSAVE];
   int nsave = (int)prog[1];
@@ -256,6 +257,7 @@ picorb_rx_scan(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t
     if (!regex_exec(prog, s, len, pos, caps, false, scratch)) break;
     size_t b = (size_t)caps[0], e = (size_t)caps[1];
     count++;
+    if (last_caps) memcpy(last_caps, caps, sizeof(int32_t) * (size_t)nsave);
     on_match(ctx, caps, nsave);
     if (e == b) {
       if (b >= len) break;
@@ -265,6 +267,31 @@ picorb_rx_scan(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t
     }
   }
   return count;
+}
+
+/* rindex: the last match that starts at byte offset max_start or
+ * before it. Matches are enumerated forward, each search resuming
+ * one character behind the start of the last one found, so every
+ * start that has a match is seen once. Fills caps and returns true
+ * when there is one. */
+static bool
+picorb_rx_rindex(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t len,
+                 size_t max_start, int32_t *caps)
+{
+  int32_t found[PICORB_RX_MAX_NSAVE];
+  int nsave = (int)prog[1];
+  bool hit = false;
+  size_t pos = 0;
+  while (pos <= len && pos <= max_start) {
+    if (!regex_exec(prog, s, len, pos, found, false, scratch)) break;
+    size_t b = (size_t)found[0];
+    if (b > max_start) break;
+    memcpy(caps, found, sizeof(int32_t) * (size_t)nsave);
+    hit = true;
+    if (b >= len) break;
+    pos = b + picorb_utf8_charlen(s, len, b);
+  }
+  return hit;
 }
 
 /* split: the pieces between matches, then the groups of each match

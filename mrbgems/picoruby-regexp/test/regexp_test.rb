@@ -498,6 +498,34 @@ class RegexpTest < Picotest::Test
     assert_false(/(a|aa)+$/.match?(s + "c"))
   end
 
+  # ---- Route constraint use-case ----
+
+  def test_numeric_id_constraint
+    re = /\d+/
+    assert_true  re.match?("123")
+    assert_false re.match?("abc")
+    assert_true  re.match?("12abc")
+  end
+
+  def test_exact_numeric_constraint
+    re = /\A\d+\z/
+    assert_true  re.match?("123")
+    assert_false re.match?("abc")
+    assert_false re.match?("12abc")
+  end
+
+end
+
+# The String side: sub, gsub, scan, split, index, [], partition,
+# Regexp.escape, Regexp.union and $~. A second class, because picotest
+# runs one class per generated file and the compiler's jump range does
+# not reach across all tests in one file.
+class RegexpStringTest < Picotest::Test
+
+  def setup
+    require 'regexp'
+  end
+
   # ---- Regexp.escape ----
 
   def test_escape
@@ -672,20 +700,149 @@ class RegexpTest < Picotest::Test
     assert_raise(IndexError) { md.byteoffset(5) }
   end
 
-  # ---- Route constraint use-case ----
+  # ---- $~ and its readings ----
 
-  def test_numeric_id_constraint
-    re = /\d+/
-    assert_true  re.match?("123")
-    assert_false re.match?("abc")
-    assert_true  re.match?("12abc")
+  def test_last_match_after_match
+    /(\w+) (\w+)/.match("hello world")
+    assert_equal "hello world", $~[0]
+    assert_equal "hello", $1
+    assert_equal "world", $2
+    assert_nil $3
+    assert_equal "hello world", $&
+    assert_equal "world", $+
   end
 
-  def test_exact_numeric_constraint
-    re = /\A\d+\z/
-    assert_true  re.match?("123")
-    assert_false re.match?("abc")
-    assert_false re.match?("12abc")
+  def test_last_match_pre_and_post
+    "say hello world!" =~ /hello/
+    assert_equal "say ", $`
+    assert_equal " world!", $'
+    assert_equal 4, $~.begin(0)
+  end
+
+  def test_last_match_nil_on_failure
+    /a/.match("a")
+    assert_not_nil $~
+    /z/.match("a")
+    assert_nil $~
+    assert_nil $1
+  end
+
+  def test_last_match_after_string_methods
+    "a1b2".gsub(/\d/, "-")
+    assert_equal "2", $&
+    "x9".scan(/(\d)/)
+    assert_equal "9", $1
+    "ab".gsub(/b/) { |m| m }
+    assert_equal "b", $&
+    "hello".index(/l+/)
+    assert_equal "ll", $&
+    "hello"[/e(l)/]
+    assert_equal "l", $1
+  end
+
+  def test_match_p_leaves_last_match
+    /a/.match("a")
+    /z/.match?("a")
+    assert_equal "a", $&
+  end
+
+  # ---- Regexp.union ----
+
+  def test_union
+    re = Regexp.union("a.b", "c*")
+    assert_true re.match?("xa.by")
+    assert_false re.match?("axb")
+    assert_true re.match?("c*")
+    assert_equal "dog", Regexp.union(/cat/, /dog/).match("hotdog")[0]
+    assert_equal "cat|(?:d+)", Regexp.union("cat", /d+/).source
+    assert_true Regexp.union(["x", "y"]).match?("y")
+  end
+
+  def test_union_options
+    re = Regexp.union(/a/i, /b/i)
+    assert_true re.casefold?
+    assert_true re.match?("B")
+    assert_raise(ArgumentError) { Regexp.union(/a/i, /b/) }
+  end
+
+  def test_union_empty_never_matches
+    re = Regexp.union
+    assert_false re.match?("")
+    assert_false re.match?("anything")
+  end
+
+  # ---- String#index / rindex ----
+
+  def test_index_with_regexp
+    assert_equal 2, "hello".index(/l+/)
+    assert_equal 3, "hello".index(/l/, 3)
+    assert_nil "hello".index(/z/)
+    assert_equal 2, "あいu".index(/u/)
+    assert_equal 4, "hello".index(/o/, -1)
+  end
+
+  def test_index_with_string_still_works
+    assert_equal 2, "hello".index("l")
+    assert_equal 3, "hello".index("l", 3)
+    assert_nil "hello".index("z")
+  end
+
+  def test_rindex_with_regexp
+    assert_equal 3, "hello".rindex(/l/)
+    assert_equal 2, "hello".rindex(/l/, 2)
+    assert_equal 0, "hello".rindex(/h/)
+    assert_nil "hello".rindex(/z/)
+    assert_equal 3, "a1b2c3".rindex(/\d/, -2)
+    assert_equal 5, "hello".rindex(//)
+  end
+
+  def test_rindex_with_string
+    assert_equal 3, "hello".rindex("l")
+    assert_equal 2, "hello".rindex("l", 2)
+    assert_equal 3, "a.b.c".rindex(".")
+    assert_nil "hello".rindex("z")
+    assert_equal 1, "あいあ".rindex("い")
+  end
+
+  # ---- String#[] / slice ----
+
+  def test_aref_with_regexp
+    assert_equal "ll", "hello"[/l+/]
+    assert_equal "l", "hello"[/e(l)/, 1]
+    assert_nil "hello"[/z/]
+    assert_nil "hello"[/e(l)/, 3]
+    assert_equal "ll", "hello".slice(/l+/)
+    assert_equal "い", "あいう"[/い/]
+  end
+
+  def test_aref_with_other_arguments_still_works
+    assert_equal "e", "hello"[1]
+    assert_equal "ell", "hello"[1, 3]
+    assert_equal "ll", "hello"["ll"]
+    assert_nil "hello"["z"]
+    assert_equal "o", "hello"[-1]
+    assert_equal "ell", "hello".slice(1, 3)
+  end
+
+  # ---- String#partition / rpartition ----
+
+  def test_partition_with_regexp
+    assert_equal ["he", "ll", "o"], "hello".partition(/l+/)
+    assert_equal ["hello", "", ""], "hello".partition(/z/)
+    assert_equal ["", "h", "ello"], "hello".partition(/h/)
+  end
+
+  def test_rpartition_with_regexp
+    assert_equal ["hel", "l", "o"], "hello".rpartition(/l/)
+    assert_equal ["", "", "hello"], "hello".rpartition(/z/)
+    assert_equal ["a1b", "2", "c"], "a1b2c".rpartition(/\d/)
+  end
+
+  def test_partition_with_string
+    assert_equal ["a", ".", "b.c"], "a.b.c".partition(".")
+    assert_equal ["a.b", ".", "c"], "a.b.c".rpartition(".")
+    assert_equal ["abc", "", ""], "abc".partition("x")
+    assert_equal ["", "", "abc"], "abc".rpartition("x")
   end
 
 end
