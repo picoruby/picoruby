@@ -17,6 +17,25 @@ void mrb_irep_incref(mrb_state *, struct mrb_irep *);
 void mrb_irep_decref(mrb_state *, struct mrb_irep *);
 void mrb_irep_cutref(mrb_state *, struct mrb_irep *);
 
+/* Counterpart of the allocation in mrb_sandbox_result(): everything in
+   ss->options is on the mrb heap. */
+static void
+free_options(mrb_state *mrb, SandboxState *ss)
+{
+  pm_options_t *options = ss->options;
+  if (!options) return;
+  for (size_t s = 0; s < options->scopes_count; s++) {
+    pm_options_scope_t *scope = &options->scopes[s];
+    for (size_t l = 0; l < scope->locals_count; l++) {
+      mrb_free(mrb, (void *)scope->locals[l].source);
+    }
+    mrb_free(mrb, scope->locals);
+  }
+  mrb_free(mrb, options->scopes);
+  mrb_free(mrb, options);
+  ss->options = NULL;
+}
+
 static void
 mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
   SandboxState *ss = (SandboxState *)ptr;
@@ -27,6 +46,7 @@ mrb_sandbox_state_free(mrb_state *mrb, void *ptr) {
      hold their own refs and the irep is freed when the last one dies. */
   if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
   free_ccontext(ss);
+  free_options(mrb, ss);
   mrb_free(mrb, ss);
 }
 struct mrb_data_type mrb_sandbox_state_type = {
@@ -184,32 +204,40 @@ mrb_sandbox_state(mrb_state *mrb, mrb_value self)
   return mrb_task_status(mrb, ss->task);
 }
 
+/* The local variable names of the last run, handed to the next compile so
+   that an irb line sees the locals of the lines before it. */
 static mrb_value
 mrb_sandbox_result(mrb_state *mrb, mrb_value self)
 {
   SS();
 
-  pm_options_t *options = (pm_options_t *)mrc_calloc(ss->cc, 1, sizeof(pm_options_t));
-  pm_options_scopes_init(options, 1);
+  /* Built on the mrb heap, not through pm_options_scopes_init() and
+     friends: those take from Prism's allocator, which is the arena of the
+     compiler context that is current, and that arena is freed with its
+     context while these options must outlive it (they are used by the
+     next compile, after the previous context is gone). */
+  pm_options_t *options = (pm_options_t *)mrb_calloc(mrb, 1, sizeof(pm_options_t));
+  options->scopes_count = 1;
+  options->scopes = (pm_options_scope_t *)mrb_calloc(mrb, 1, sizeof(pm_options_scope_t));
   pm_options_scope_t *scope = &options->scopes[0];
   const struct mrc_irep *ir = ss->irep;
   size_t nlocals = ir->nlocals - 1; // exclude self
-  pm_options_scope_init(scope, nlocals);
+  scope->locals_count = nlocals;
+  scope->locals = (pm_string_t *)mrb_calloc(mrb, nlocals ? nlocals : 1, sizeof(pm_string_t));
+  scope->forwarding = PM_OPTIONS_SCOPE_FORWARDING_NONE;
   const mrc_sym *v = ir->lv;
   if (v) {
-    const char *name;
     for (size_t j = 0; j < nlocals; j++, v++) {
-      name = mrb_sym_name(ss->cc->mrb, *v);
-      pm_string_constant_init(&scope->locals[j], name, strlen(name));
-      if (name == ss->cc->mrb->symbuf) {
-        pm_string_ensure_owned(&scope->locals[j]); // copy name
-      }
+      const char *name = mrb_sym_name(mrb, *v);
+      size_t len = strlen(name);
+      /* Always a copy: mrb_sym_name() may answer from mrb->symbuf, which
+         the next call overwrites. */
+      char *copy = (char *)mrb_malloc(mrb, len + 1);
+      memcpy(copy, name, len + 1);
+      pm_string_constant_init(&scope->locals[j], copy, len);
     }
   }
-  if (ss->options) {
-    pm_options_free(ss->options);
-    mrc_free(ss->cc, ss->options);
-  }
+  free_options(mrb, ss);
   ss->options = options;
 
   return mrb_task_value(mrb, ss->task);
