@@ -5,6 +5,11 @@ class BasicSocket
   CONNECTION_TIMEOUT_MS: Integer
   READ_TIMEOUT_MS: Integer
 
+  @event_queue: Task::Queue?
+  @interrupted: bool?
+  @int_handler: Proc?
+  @previous_int_handler: Signal::handler_t
+
   def puts: (*untyped args) -> nil
   def gets: (?String sep) -> String?
   def print: (*untyped args) -> nil
@@ -26,4 +31,10 @@ class BasicSocket
   private def __wait_for_event: (untyped event_queue, String timeout_message) -> void
   private def __readpartial_poll: (Integer maxlen) -> String
   private def __readpartial_event_queue: (Integer maxlen, String timeout_message) -> String
+  private def __wait_interruptible: () { () -> untyped } -> untyped
+  private def __raise_closed: () -> bot
+  private def __install_int_handler: () -> bool
+  private def __build_int_handler: () -> Proc
+  private def __handle_int_signal: () -> void
+  private def __restore_int_handler: () -> void
 end

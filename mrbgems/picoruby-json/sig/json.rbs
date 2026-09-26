@@ -12,21 +12,8 @@ module JSON
   class DiggerError < JSONError
   end
 
-  @wasm_build: bool?
-  @use_regexp: bool?
-  @ws_pattern: Regexp?
-  @string_content_pattern: Regexp?
-  @number_pattern: Regexp?
-
-  def self.wasm_build?: () -> bool
-  def self.use_regexp?: () -> bool
-  def self.use_regexp=: (bool) -> bool
-  def self.ws_pattern: () -> Regexp
-  def self.string_content_pattern: () -> Regexp
-  def self.number_pattern: () -> Regexp
-
   module Common
-    private def expect: (String?) -> void
+    private def expect: (Integer) -> void
     private def skip_whitespace: () -> void
     private def parse_true: () -> true
     private def parse_false: () -> false
@@ -84,13 +71,15 @@ module JSON
 
     def initialize: (String) -> void
     def parse: () -> untyped
-    private def parse_object: () -> void
-    private def parse_array: () -> void
+    private def parse_object: () -> Hash[String, untyped]
+    private def parse_array: () -> Array[untyped]
     private def parse_string: () -> String
-    private def parse_number: () -> void
-    private def parse_integer: (Integer, Integer) -> void
-    private def parse_float: (Integer, Integer) -> void
-    private def is_digit?: (String | nil) -> bool
-    private def replace_escape_sequence: (String) -> String
+    private def parse_number: () -> (Integer | Float)
+    private def parse_escape: (String, Integer) -> Integer
+    private def parse_hex4: (Integer) -> Integer
+    private def utf8_encode: (Integer) -> String
+    private def skip_digits: (Integer) -> Integer
+    private def parse_integer: (Integer, Integer) -> Integer
+    private def parse_float: (Integer, Integer) -> Float
   end
 end

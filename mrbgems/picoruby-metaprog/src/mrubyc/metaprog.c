@@ -178,6 +178,7 @@ c_object_instance_variable_set(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   mrbc_instance_setiv(&v[0], mrbc_str_to_symid(name + 1), &v[2]);
 RETURN:
+  mrbc_incref(&v[2]);
   SET_RETURN(v[2]);
 }
 

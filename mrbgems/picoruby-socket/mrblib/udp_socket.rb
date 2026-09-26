@@ -21,22 +21,13 @@ class UDPSocket
     end
   end
 
-  # Receive data with blocking behavior
+  # Receive data with blocking behavior.
+  # Ctrl-C closes the socket and raises Interrupt; a close from another
+  # task raises IOError.
   def recvfrom(maxlen, flags = 0)
-    Signal.trap(:INT) do
-      self.close
-    end
-    while true
-      result = recvfrom_nonblock(maxlen, flags)
-      break if result
-      if event_queue = @event_queue
-        event_queue.pop
-      else
-        sleep_ms 10
-      end
-    end
+    result = __wait_interruptible { recvfrom_nonblock(maxlen, flags) }
     # @type var result: [String, Array[String | Integer]]
-    return result
+    result
   end
 
   # Read data from any source (simplified version of recvfrom)
