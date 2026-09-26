@@ -22,15 +22,33 @@ simulation that carries capture positions) runs the program.
 
 | Class | Methods |
 |-------|---------|
-| `Regexp` (class) | `compile(pattern, options = nil, encoding = nil)`, `new` (the same) |
+| `Regexp` (class) | `compile(pattern, options = nil, encoding = nil)`, `new` (the same), `escape(str)` |
 | `Regexp` | `match(str, pos = 0)`, `match?(str, pos = 0)`, `===`, `=~`, `source`, `to_s`, `inspect`, `casefold?`, `options` |
-| `MatchData` | `[]`, `to_a`, `captures`, `length`, `size`, `string`, `regexp`, `pre_match`, `post_match`, `begin(n)`, `end(n)`, `to_s`, `inspect` |
-| `String` | `match(pattern, pos = 0)`, `match?(pattern, pos = 0)`, `=~` |
+| `MatchData` | `[]`, `to_a`, `captures`, `length`, `size`, `string`, `regexp`, `pre_match`, `post_match`, `begin(n)`, `end(n)`, `byteoffset(n)`, `to_s`, `inspect` |
+| `String` | `match(pattern, pos = 0)`, `match?(pattern, pos = 0)`, `=~`, `sub`, `sub!`, `gsub`, `gsub!`, `scan`, `split` |
 
 `options` is a String of letters (`"im"`) or an Integer built from
 `Regexp::IGNORECASE`, `Regexp::EXTENDED` and `Regexp::MULTILINE`. The
-`encoding` argument is accepted and ignored. A String given to a `String`
-method as the pattern is compiled as a regular expression.
+`encoding` argument is accepted and ignored.
+
+The `String` methods take a Regexp or a String as the pattern. `match`,
+`match?` and `=~` compile a String pattern as a regular expression. `sub`,
+`gsub`, `scan` and `split` take a String pattern as literal text, as CRuby
+does. `split` with a String or nil pattern keeps the VM's own behavior.
+
+`sub` and `gsub` take a replacement String, a Hash or a block. A replacement
+String expands `\0`, `\&`, `\1` to `\9` and `\\`. The block receives the
+matched text. The receiver must not change while the block runs, or the
+method raises `RuntimeError`. `gsub` without a replacement and without a
+block raises `ArgumentError`; it does not return an Enumerator.
+
+`scan` returns the matched texts, or Arrays of the groups when the pattern has
+groups. `split` puts the groups of each match into the result, drops trailing
+empty pieces when `limit` is 0 and keeps them when `limit` is negative.
+
+On mruby/c the block forms run in Ruby (`mrblib/regexp.rb`) over byte
+offsets that the C side reports, because C code cannot call a block there.
+Everything else runs in C on both VMs.
 
 A pattern the engine does not accept raises `RegexpError`. The message names
 the reason and the byte offset in the pattern.
@@ -67,7 +85,9 @@ the reason and the byte offset in the pattern.
   boundaries (`\b`), lookahead and lookbehind, named groups, possessive
   quantifiers, `\x`, `\u`, `\p{...}` and POSIX classes.
 - `$~`, `$1` and the other match globals are not set.
-- `String#sub`, `gsub`, `scan` and `split` do not take a Regexp yet.
+- `sub` and `gsub` do not expand `` \` ``, `\'` or `\k<name>`.
+- `String#index`, `rindex`, `[]`, `slice`, `start_with?` and `partition` do not
+  take a Regexp.
 
 ## Example
 

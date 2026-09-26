@@ -498,6 +498,180 @@ class RegexpTest < Picotest::Test
     assert_false(/(a|aa)+$/.match?(s + "c"))
   end
 
+  # ---- Regexp.escape ----
+
+  def test_escape
+    assert_equal "a\\.b\\*c", Regexp.escape("a.b*c")
+    assert_equal "\\(x\\)\\[y\\]\\{z\\}\\|\\^\\$\\\\", Regexp.escape("(x)[y]{z}|^$\\")
+    assert_equal "a\\nb\\tc d", Regexp.escape("a\nb\tc d")
+    assert_true Regexp.new(Regexp.escape("1+1=2?")).match?("is 1+1=2? yes")
+    assert_false Regexp.new(Regexp.escape("1+1")).match?("11")
+  end
+
+  # ---- String#sub / gsub with a String replacement ----
+
+  def test_sub_with_regexp
+    assert_equal "hexlo", "hello".sub(/l/, "x")
+    assert_equal "hello", "hello".sub(/z/, "x")
+    assert_equal "b-c", "abc".sub(/a(.)/, "\\1-")
+  end
+
+  def test_gsub_with_regexp
+    assert_equal "hexxo", "hello".gsub(/l/, "x")
+    assert_equal "h_ll_", "hello".gsub(/[aeiou]/, "_")
+    assert_equal "hello", "hello".gsub(/z/, "x")
+  end
+
+  def test_gsub_backreferences
+    assert_equal "b:a", "a:b".gsub(/(\w):(\w)/, "\\2:\\1")
+    assert_equal "[hello] [world]", "hello world".gsub(/\w+/, "[\\0]")
+    assert_equal "<hi>", "hi".gsub(/\w+/, "<\\&>")
+    assert_equal "a\\b", "ab".sub(/a/, "a\\\\")
+    assert_equal "x\\qy", "xy".sub(/x/, "x\\q")
+    assert_equal "-b", "ab".sub(/(a)|(b)/, "-\\2")
+  end
+
+  def test_gsub_empty_matches
+    assert_equal "-a-b-c-", "abc".gsub(/x*/, "-")
+    assert_equal "--", "aaa".gsub(/a*/, "-")
+    assert_equal "-あ-い-", "あい".gsub(//, "-")
+  end
+
+  def test_gsub_with_string_pattern_is_literal
+    assert_equal "a-b", "a.b".gsub(".", "-")
+    assert_equal "1+1", "1*1".gsub("*", "+")
+    assert_equal "&lt;b&gt;", "<b>".gsub("<", "&lt;").gsub(">", "&gt;")
+    assert_equal "a''b", "a'b".gsub("'", "''")
+    assert_equal "x-x", "xax".sub("a", "-")
+    assert_equal "[a]", "a".gsub("a", "[\\0]")
+  end
+
+  def test_sub_gsub_utf8
+    assert_equal "私は日本人", "私はRuby人".sub(/Ruby/, "日本")
+    assert_equal "a_b", "aあb".gsub(/あ/, "_")
+    assert_equal "-x-", "あxい".gsub(/[あい]/, "-")
+  end
+
+  # ---- String#sub / gsub with a block or a Hash ----
+
+  def test_gsub_with_block
+    assert_equal "HELLO world", "hello world".gsub(/hello/) { |m| m.upcase }
+    assert_equal "1 4 9", "1 2 3".gsub(/\d/) { |d| (d.to_i * d.to_i).to_s }
+    assert_equal "hello", "hello".gsub(/z/) { |m| "x" }
+    assert_equal "-a-b-", "ab".gsub(/x*/) { "-" }
+  end
+
+  def test_sub_with_block
+    assert_equal "Hello world", "hello world".sub(/h/) { |m| m.upcase }
+  end
+
+  def test_gsub_with_hash
+    assert_equal "1 2 c", "a b c".gsub(/[ab]/, { "a" => "1", "b" => "2" })
+    assert_equal "x  z", "x y z".gsub(/y/, {})
+  end
+
+  def test_gsub_string_modified_raises
+    s = "hello"
+    assert_raise(RuntimeError) { s.gsub(/l/) { |m| s << "!"; m } }
+  end
+
+  def test_gsub_bad_arguments
+    assert_raise(ArgumentError) { "a".gsub(/a/) }
+    assert_raise(TypeError) { "a".gsub(/a/, 1) }
+    assert_raise(TypeError) { "a".gsub(1, "b") }
+  end
+
+  # ---- String#sub! / gsub! ----
+
+  def test_sub_bang
+    s = "hello"
+    assert_equal "hexlo", s.sub!(/l/, "x")
+    assert_equal "hexlo", s
+    assert_nil s.sub!(/z/, "x")
+    assert_equal "hexlo", s
+  end
+
+  def test_gsub_bang
+    s = "hello"
+    assert_equal "hexxo", s.gsub!(/l/, "x")
+    assert_equal "hexxo", s
+    assert_nil s.gsub!(/l/, "x")
+    s2 = "aaa"
+    assert_equal "aaa", s2.gsub!(/a/, "a")
+    s3 = "hello"
+    assert_equal "HELLO", s3.gsub!(/./) { |c| c.upcase }
+  end
+
+  # ---- String#scan ----
+
+  def test_scan_without_groups
+    assert_equal ["1", "22", "333"], "a1 b22 c333".scan(/\d+/)
+    assert_equal [], "abc".scan(/\d/)
+    assert_equal ["", "", "", ""], "abc".scan(//)
+    assert_equal ["あ", "い"], "あxい".scan(/[^x]/)
+  end
+
+  def test_scan_with_groups
+    assert_equal [["a", "1"], ["b", "2"]], "a1 b2".scan(/(\w)(\d)/)
+    assert_equal [["a", nil], [nil, "1"]], "a1".scan(/(a)|(1)/)
+  end
+
+  def test_scan_with_block
+    seen = []
+    ret = "a1 b2".scan(/\d/) { |d| seen << d }
+    assert_equal ["1", "2"], seen
+    assert_equal "a1 b2", ret
+  end
+
+  def test_scan_with_string_pattern
+    assert_equal [".", "."], "a.b.c".scan(".")
+  end
+
+  # ---- String#split ----
+
+  def test_split_with_regexp
+    assert_equal ["a", "b", "c"], "a, b,c".split(/,\s*/)
+    assert_equal ["a", "b", "c"], "a1b22c".split(/\d+/)
+    assert_equal ["abc"], "abc".split(/x/)
+    assert_equal [], "".split(/,/)
+  end
+
+  def test_split_empty_regexp_and_edges
+    assert_equal ["a", "b", "c"], "abc".split(//)
+    assert_equal ["あ", "い"], "あい".split(//)
+    assert_equal ["", "a", "b"], ",a,b".split(/,/)
+    assert_equal ["a", "b"], "a,b,,".split(/,/)
+    assert_equal ["a", "b", "", ""], "a,b,,".split(/,/, -1)
+  end
+
+  def test_split_with_limit
+    assert_equal ["a", "b,c"], "a,b,c".split(/,/, 2)
+    assert_equal ["a,b,c"], "a,b,c".split(/,/, 1)
+    assert_equal ["a", "b", "c"], "a,b,c".split(/,/, 10)
+  end
+
+  def test_split_with_captures
+    assert_equal ["a", "1", "b", "2", "c"], "a1b2c".split(/(\d)/)
+    assert_equal ["a", "1", "b"], "a1b".split(/(\d)|(x)/)
+  end
+
+  def test_split_with_string_still_works
+    assert_equal ["a", "b", "c"], "a,b,c".split(",")
+    assert_equal ["a", "b"], "a b".split(" ")
+    assert_equal ["a", "b"], "a b".split
+    assert_equal ["a", "b,c"], "a,b,c".split(",", 2)
+  end
+
+  # ---- MatchData#byteoffset ----
+
+  def test_byteoffset
+    md = /b/.match("あb")
+    assert_equal [3, 4], md.byteoffset(0)
+    assert_equal 1, md.begin(0)
+    assert_nil(/(a)|(b)/.match("b").byteoffset(1))
+    assert_raise(IndexError) { md.byteoffset(5) }
+  end
+
   # ---- Route constraint use-case ----
 
   def test_numeric_id_constraint

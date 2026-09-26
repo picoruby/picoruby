@@ -29,9 +29,6 @@ typedef struct {
   int32_t caps[];
 } picorb_match_data;
 
-/* RX_MAX_GROUPS in the engine is 16, so nsave is at most 32 */
-#define PICORB_RX_MAX_NSAVE 32
-
 static mrbc_class *class_Regexp;
 static mrbc_class *class_MatchData;
 static mrbc_class *class_RegexpError;
@@ -621,6 +618,188 @@ c_string_match_op(mrbc_vm *vm, mrbc_value v[], int argc)
   if (c < 0) SET_NIL_RETURN(); else SET_INT_RETURN((mrbc_int_t)c);
 }
 
+/* ---- sub, scan, split: the C side of mrblib/regexp.rb ---- */
+
+/* Run re over str from byte offset bpos. */
+static int
+regexp_run_bytes(picorb_regexp *re, const mrbc_value *str, mrbc_int_t bpos, int32_t *caps, int first_only)
+{
+  size_t len = (size_t)mrbc_string_size(str);
+  if (bpos < 0 || (size_t)bpos > len) return 0;
+  return regex_exec(re->prog, (const uint8_t *)mrbc_string_cstr(str), len, (size_t)bpos, caps, first_only != 0, re->scratch);
+}
+
+/* Regexp#__bmatch(str, byte_pos) -> MatchData or nil */
+static void
+c_regexp_bmatch(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc < 2 || v[1].tt != MRBC_TT_STRING || v[2].tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "__bmatch wants a String and an Integer");
+    return;
+  }
+  picorb_regexp *re = get_regexp(&v[0]);
+  int32_t caps[PICORB_RX_MAX_NSAVE];
+  if (!regexp_run_bytes(re, &v[1], v[2].i, caps, 0)) { SET_NIL_RETURN(); return; }
+  mrbc_value md = match_data_new(vm, &v[0], &v[1], caps, (int)re->prog[1]);
+  SET_RETURN(md);
+}
+
+/* MatchData#byteoffset(idx) -> [begin, end] in bytes, or nil */
+static void
+c_match_data_byteoffset(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  picorb_match_data *md = get_match_data(&v[0]);
+  mrbc_int_t idx;
+  if (!md_index(vm, md, v, argc, &idx)) {
+    if (!mrbc_israised(vm)) mrbc_raise(vm, MRBC_CLASS(IndexError), "index out of matches");
+    return;
+  }
+  int32_t b = md->caps[2 * idx];
+  if (b < 0) { SET_NIL_RETURN(); return; }
+  mrbc_value pair = mrbc_array_new(vm, 2);
+  mrbc_value vb = mrbc_integer_value(b), ve = mrbc_integer_value(md->caps[2 * idx + 1]);
+  mrbc_array_push(&pair, &vb);
+  mrbc_array_push(&pair, &ve);
+  SET_RETURN(pair);
+}
+
+typedef struct {
+  mrbc_vm *vm;
+  mrbc_value out;            /* the String or Array being built */
+  const mrbc_value *subject; /* the String scanned */
+} build_ctx;
+
+static void
+emit_to_str(void *p, const uint8_t *s, size_t n)
+{
+  build_ctx *c = (build_ctx *)p;
+  if (n) mrbc_string_append_cbuf(&c->out, s, (int)n);
+}
+
+/* Regexp.escape(str) -> String */
+static void
+c_regexp_escape(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc < 1 || v[1].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into String");
+    return;
+  }
+  build_ctx c = { vm, mrbc_string_new(vm, NULL, 0), &v[1] };
+  picorb_rx_escape((const uint8_t *)mrbc_string_cstr(&v[1]), (size_t)mrbc_string_size(&v[1]), emit_to_str, &c);
+  SET_RETURN(c.out);
+}
+
+/* the Regexp in v[1], or NULL after raising */
+static picorb_regexp *
+regexp_arg(mrbc_vm *vm, mrbc_value v[], int argc, int need)
+{
+  if (argc < need || !regexp_p(&v[1])) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "wrong argument type (expected Regexp)");
+    return NULL;
+  }
+  return get_regexp(&v[1]);
+}
+
+/* String#__sub(re, replacement, global) -> String, or nil without a match */
+static void
+c_string_sub_c(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  picorb_regexp *re = regexp_arg(vm, v, argc, 3);
+  if (!re) return;
+  if (v[2].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into String");
+    return;
+  }
+  int global = v[3].tt == MRBC_TT_TRUE;
+  build_ctx c = { vm, mrbc_string_new(vm, NULL, 0), &v[0] };
+  int n = picorb_rx_sub(re->prog, re->scratch, (const uint8_t *)mrbc_string_cstr(&v[0]), (size_t)mrbc_string_size(&v[0]),
+                        (const uint8_t *)mrbc_string_cstr(&v[2]), (size_t)mrbc_string_size(&v[2]), global != 0,
+                        emit_to_str, &c);
+  if (n) {
+    SET_RETURN(c.out);
+  } else {
+    mrbc_decref(&c.out);
+    SET_NIL_RETURN();
+  }
+}
+
+/* one scan match: the text, or the Array of groups when there are any */
+static void
+scan_match(void *p, const int32_t *caps, int nsave)
+{
+  build_ctx *c = (build_ctx *)p;
+  const char *s = mrbc_string_cstr(c->subject);
+  if (nsave <= 2) {
+    mrbc_value m = mrbc_string_new(c->vm, s + caps[0], caps[1] - caps[0]);
+    mrbc_array_push(&c->out, &m);
+    return;
+  }
+  mrbc_value groups = mrbc_array_new(c->vm, nsave / 2 - 1);
+  for (int g = 1; 2 * g + 1 < nsave; g++) {
+    int32_t b = caps[2 * g], e = caps[2 * g + 1];
+    mrbc_value item = b < 0 ? mrbc_nil_value() : mrbc_string_new(c->vm, s + b, e - b);
+    mrbc_array_push(&groups, &item);
+  }
+  mrbc_array_push(&c->out, &groups);
+}
+
+/* String#__scan(re) -> Array */
+static void
+c_string_scan_c(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  picorb_regexp *re = regexp_arg(vm, v, argc, 1);
+  if (!re) return;
+  build_ctx c = { vm, mrbc_array_new(vm, 0), &v[0] };
+  picorb_rx_scan(re->prog, re->scratch, (const uint8_t *)mrbc_string_cstr(&v[0]), (size_t)mrbc_string_size(&v[0]), scan_match, &c);
+  SET_RETURN(c.out);
+}
+
+static void
+split_piece(void *p, size_t b, size_t e)
+{
+  build_ctx *c = (build_ctx *)p;
+  mrbc_value piece = mrbc_string_new(c->vm, mrbc_string_cstr(c->subject) + b, (int)(e - b));
+  mrbc_array_push(&c->out, &piece);
+}
+
+/* String#__split(re, limit) -> Array */
+static void
+c_string_split_c(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  picorb_regexp *re = regexp_arg(vm, v, argc, 2);
+  if (!re) return;
+  if (v[2].tt != MRBC_TT_INTEGER) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into Integer");
+    return;
+  }
+  mrbc_int_t limit = v[2].i;
+  build_ctx c = { vm, mrbc_array_new(vm, 0), &v[0] };
+  picorb_rx_split(re->prog, re->scratch, (const uint8_t *)mrbc_string_cstr(&v[0]), (size_t)mrbc_string_size(&v[0]), (long)limit, split_piece, &c);
+  if (limit == 0) {
+    /* trailing empty pieces go, as in CRuby */
+    while (mrbc_array_size(&c.out) > 0) {
+      mrbc_value *last = mrbc_array_get_p(&c.out, mrbc_array_size(&c.out) - 1);
+      if (last->tt != MRBC_TT_STRING || mrbc_string_size(last) != 0) break;
+      mrbc_value gone = mrbc_array_pop(&c.out);
+      mrbc_decref(&gone);
+    }
+  }
+  SET_RETURN(c.out);
+}
+
+/* String#replace(str) -> self; mruby/c has none of its own */
+static void
+c_string_replace(mrbc_vm *vm, mrbc_value v[], int argc)
+{
+  if (argc < 1 || v[1].tt != MRBC_TT_STRING) {
+    mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into String");
+    return;
+  }
+  mrbc_string_clear(&v[0]);
+  mrbc_string_append(&v[0], &v[1]);
+  /* v[0] stays the return value: self */
+}
+
 /* ---- init ---- */
 
 void
@@ -662,4 +841,13 @@ mrbc_regexp_init(mrbc_vm *vm)
   mrbc_define_method(vm, string_class, "match",  c_string_match);
   mrbc_define_method(vm, string_class, "match?", c_string_match_p);
   mrbc_define_method(vm, string_class, "=~",     c_string_match_op);
+
+  /* the C side of mrblib/regexp.rb */
+  mrbc_define_method(vm, class_Regexp, "escape", c_regexp_escape);
+  mrbc_define_method(vm, class_Regexp, "__bmatch", c_regexp_bmatch);
+  mrbc_define_method(vm, class_MatchData, "byteoffset", c_match_data_byteoffset);
+  mrbc_define_method(vm, string_class, "__sub",   c_string_sub_c);
+  mrbc_define_method(vm, string_class, "__scan",  c_string_scan_c);
+  mrbc_define_method(vm, string_class, "__split", c_string_split_c);
+  mrbc_define_method(vm, string_class, "replace", c_string_replace);
 }

@@ -131,6 +131,182 @@ picorb_utf8_length(const uint8_t *s, size_t len)
   return picorb_utf8_byte_to_char(s, len, (long)len);
 }
 
+/* Bytes of the character that starts at s[i]: at least 1, never past len */
+static size_t
+picorb_utf8_charlen(const uint8_t *s, size_t len, size_t i)
+{
+  size_t n = 1;
+  while (i + n < len && picorb_utf8_cont(s[i + n])) n++;
+  return n;
+}
+
+/* ---- the loops behind sub, gsub, scan and split ----
+ * The VM bindings cannot share String or Array construction, so the
+ * loops below take a callback: emit appends bytes to the result the
+ * binding is building, on_match hands over one match, on_piece one
+ * byte range. What the loops share is the part that is easy to get
+ * wrong: where the next search starts after an empty match, and how
+ * pieces and limits fall out of split. */
+
+typedef void (*picorb_rx_emit)(void *ctx, const uint8_t *p, size_t n);
+typedef void (*picorb_rx_on_match)(void *ctx, const int32_t *caps, int nsave);
+typedef void (*picorb_rx_on_piece)(void *ctx, size_t b, size_t e);
+
+/* RX_MAX_GROUPS in the engine is 16, so nsave is at most 32 */
+#define PICORB_RX_MAX_NSAVE 32
+
+/* Regexp.escape: a backslash before every byte the engine reads as
+ * syntax, and \n \t \r \f \v spelled out. A space stays a space. */
+static void
+picorb_rx_escape(const uint8_t *s, size_t len, picorb_rx_emit emit, void *ctx)
+{
+  static const char syntax[] = ".*+?()[]{}|^$\\/#-";
+  for (size_t i = 0; i < len; i++) {
+    uint8_t c = s[i];
+    const char *spelled = NULL;
+    switch (c) {
+    case '\n': spelled = "\\n"; break;
+    case '\t': spelled = "\\t"; break;
+    case '\r': spelled = "\\r"; break;
+    case '\f': spelled = "\\f"; break;
+    case '\v': spelled = "\\v"; break;
+    default: break;
+    }
+    if (spelled) {
+      emit(ctx, (const uint8_t *)spelled, 2);
+    } else if (c && strchr(syntax, (char)c)) {
+      emit(ctx, (const uint8_t *)"\\", 1);
+      emit(ctx, s + i, 1);
+    } else {
+      emit(ctx, s + i, 1);
+    }
+  }
+}
+
+/* Expand a replacement template against one match: \0 and \& are
+ * the whole match, \1..\9 a group (nothing when it did not take part
+ * or does not exist), \\ a backslash. Any other \x stays as written. */
+static void
+picorb_rx_expand(const uint8_t *repl, size_t rlen, const uint8_t *s,
+                 const int32_t *caps, int nsave, picorb_rx_emit emit, void *ctx)
+{
+  size_t run = 0;
+  for (size_t i = 0; i < rlen; i++) {
+    if (repl[i] != '\\' || i + 1 >= rlen) continue;
+    uint8_t c = repl[i + 1];
+    int group = -1;
+    if (c == '0' || c == '&') group = 0;
+    else if ('1' <= c && c <= '9') group = c - '0';
+    else if (c != '\\') continue;
+    emit(ctx, repl + run, i - run);
+    if (group < 0) {
+      emit(ctx, (const uint8_t *)"\\", 1);
+    } else if (2 * group + 1 < nsave && caps[2 * group] >= 0) {
+      emit(ctx, s + caps[2 * group], (size_t)(caps[2 * group + 1] - caps[2 * group]));
+    }
+    i++;
+    run = i + 1;
+  }
+  emit(ctx, repl + run, rlen - run);
+}
+
+/* sub (global false) or gsub (global true) with a template. Emits
+ * the whole result and returns the number of matches; with 0 the
+ * caller keeps the subject as it was. After an empty match one
+ * character is copied and the search resumes behind it. */
+static int
+picorb_rx_sub(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t len,
+              const uint8_t *repl, size_t rlen, bool global,
+              picorb_rx_emit emit, void *ctx)
+{
+  int32_t caps[PICORB_RX_MAX_NSAVE];
+  int nsave = (int)prog[1];
+  size_t pos = 0, last = 0;
+  int count = 0;
+  while (pos <= len) {
+    if (!regex_exec(prog, s, len, pos, caps, false, scratch)) break;
+    size_t b = (size_t)caps[0], e = (size_t)caps[1];
+    count++;
+    emit(ctx, s + last, b - last);
+    picorb_rx_expand(repl, rlen, s, caps, nsave, emit, ctx);
+    if (e == b) {
+      if (b >= len) { last = len; break; }
+      size_t w = picorb_utf8_charlen(s, len, b);
+      emit(ctx, s + b, w);
+      pos = last = b + w;
+    } else {
+      pos = last = e;
+    }
+    if (!global) break;
+  }
+  if (count) emit(ctx, s + last, len - last);
+  return count;
+}
+
+/* scan: every match in order, the same stepping as gsub */
+static int
+picorb_rx_scan(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t len,
+               picorb_rx_on_match on_match, void *ctx)
+{
+  int32_t caps[PICORB_RX_MAX_NSAVE];
+  int nsave = (int)prog[1];
+  size_t pos = 0;
+  int count = 0;
+  while (pos <= len) {
+    if (!regex_exec(prog, s, len, pos, caps, false, scratch)) break;
+    size_t b = (size_t)caps[0], e = (size_t)caps[1];
+    count++;
+    on_match(ctx, caps, nsave);
+    if (e == b) {
+      if (b >= len) break;
+      pos = b + picorb_utf8_charlen(s, len, b);
+    } else {
+      pos = e;
+    }
+  }
+  return count;
+}
+
+/* split: the pieces between matches, then the groups of each match
+ * that took part, as CRuby does. An empty subject gives no piece. An
+ * empty match splits between characters and never at the ends. With
+ * limit > 0 at most limit pieces come out, the last one holding the
+ * rest; the caller drops trailing empty pieces when limit is 0. */
+static void
+picorb_rx_split(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t len,
+                long limit, picorb_rx_on_piece on_piece, void *ctx)
+{
+  int32_t caps[PICORB_RX_MAX_NSAVE];
+  int nsave = (int)prog[1];
+  size_t pos = 0, beg = 0;
+  long count = 0;
+  if (len == 0) return;
+  while (pos <= len) {
+    if (limit > 0 && count >= limit - 1) break;
+    if (!regex_exec(prog, s, len, pos, caps, false, scratch)) break;
+    size_t b = (size_t)caps[0], e = (size_t)caps[1];
+    if (e == b) {
+      if (b >= len) break;
+      if (b == beg) {
+        pos = b + picorb_utf8_charlen(s, len, b);
+        continue;
+      }
+      on_piece(ctx, beg, b);
+      count++;
+      beg = b;
+      pos = b + picorb_utf8_charlen(s, len, b);
+    } else {
+      on_piece(ctx, beg, b);
+      count++;
+      for (int g = 1; 2 * g + 1 < nsave; g++) {
+        if (caps[2 * g] >= 0) on_piece(ctx, (size_t)caps[2 * g], (size_t)caps[2 * g + 1]);
+      }
+      pos = beg = e;
+    }
+  }
+  on_piece(ctx, beg, len);
+}
+
 #if defined(PICORB_VM_MRUBY)
 #include "mruby/regexp.c"
 #elif defined(PICORB_VM_MRUBYC)

@@ -1,0 +1,19 @@
+# @sidebar builtin
+# @added_by picoruby-regexp
+class Regexp
+  # MatchData for a match that starts at byte offset byte_pos or later
+  def __bmatch: (String str, Integer byte_pos) -> MatchData?
+end
+
+# @added_by picoruby-regexp
+class String
+  # the helpers behind sub, gsub, scan and split (mrblib/regexp.rb)
+  def __regexp_for: (untyped pattern) -> Regexp
+  def __sub_common: (untyped pattern, Array[untyped] args, Proc? block, bool global) -> String?
+  def __sub_each: (Regexp re, bool global) { (String matched) -> String } -> String?
+  def __charlen_at: (String str, Integer byte_pos) -> Integer
+  def __sub: (Regexp re, String replacement, bool global) -> String?
+  def __scan: (Regexp re) -> Array[untyped]
+  def __split: (Regexp re, Integer limit) -> Array[String]
+  def __split_str: (*untyped args) -> Array[String]
+end

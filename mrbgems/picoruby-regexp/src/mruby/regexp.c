@@ -30,9 +30,6 @@ typedef struct {
   int nsave;
 } picorb_match_data;
 
-/* RX_MAX_GROUPS in the engine is 16, so nsave is at most 32 */
-#define PICORB_RX_MAX_NSAVE 32
-
 static struct RClass *class_Regexp;
 static struct RClass *class_MatchData;
 
@@ -560,6 +557,139 @@ mrb_string_match_op(mrb_state *mrb, mrb_value self)
   return regexp_index_of(mrb, ensure_regexp(mrb, pattern), self);
 }
 
+/* ---- sub, scan, split: the C side of mrblib/regexp.rb ---- */
+
+/* Run re over str from byte offset bpos. */
+static mrb_bool
+regexp_run_bytes(picorb_regexp *re, mrb_value str, mrb_int bpos, int32_t *caps, mrb_bool first_only)
+{
+  size_t len = (size_t)RSTRING_LEN(str);
+  if (bpos < 0 || (size_t)bpos > len) return FALSE;
+  return regex_exec(re->prog, (const uint8_t *)RSTRING_PTR(str), len, (size_t)bpos, caps, first_only, re->scratch);
+}
+
+/* Regexp#__bmatch(str, byte_pos) -> MatchData or nil */
+static mrb_value
+mrb_regexp_bmatch(mrb_state *mrb, mrb_value self)
+{
+  mrb_value str;
+  mrb_int bpos;
+  mrb_get_args(mrb, "Si", &str, &bpos);
+  picorb_regexp *re = get_regexp(mrb, self);
+  int32_t caps[PICORB_RX_MAX_NSAVE];
+  if (!regexp_run_bytes(re, str, bpos, caps, FALSE)) return mrb_nil_value();
+  return match_data_new(mrb, self, str, caps, (int)re->prog[1]);
+}
+
+/* MatchData#byteoffset(idx) -> [begin, end] in bytes, or nil */
+static mrb_value
+mrb_match_data_byteoffset(mrb_state *mrb, mrb_value self)
+{
+  mrb_int idx;
+  mrb_get_args(mrb, "i", &idx);
+  picorb_match_data *md = get_match_data(mrb, self);
+  if (!md_index(md, &idx)) mrb_raisef(mrb, E_INDEX_ERROR, "index %i out of matches", idx);
+  int32_t b = md->caps[2 * idx];
+  if (b < 0) return mrb_nil_value();
+  mrb_value pair[2] = { mrb_int_value(mrb, b), mrb_int_value(mrb, md->caps[2 * idx + 1]) };
+  return mrb_ary_new_from_values(mrb, 2, pair);
+}
+
+typedef struct {
+  mrb_state *mrb;
+  mrb_value out;      /* the String or Array being built */
+  mrb_value subject;  /* the String scanned */
+} build_ctx;
+
+static void
+emit_to_str(void *p, const uint8_t *s, size_t n)
+{
+  build_ctx *c = (build_ctx *)p;
+  mrb_str_cat(c->mrb, c->out, (const char *)s, n);
+}
+
+/* Regexp.escape(str) -> String */
+static mrb_value
+mrb_regexp_escape(mrb_state *mrb, mrb_value self)
+{
+  mrb_value str;
+  mrb_get_args(mrb, "S", &str);
+  build_ctx c = { mrb, mrb_str_new_capa(mrb, RSTRING_LEN(str)), str };
+  picorb_rx_escape((const uint8_t *)RSTRING_PTR(str), (size_t)RSTRING_LEN(str), emit_to_str, &c);
+  return c.out;
+}
+
+/* String#__sub(re, replacement, global) -> String, or nil without a match */
+static mrb_value
+mrb_string_sub_c(mrb_state *mrb, mrb_value self)
+{
+  mrb_value re_obj, repl;
+  mrb_bool global;
+  mrb_get_args(mrb, "oSb", &re_obj, &repl, &global);
+  picorb_regexp *re = get_regexp(mrb, re_obj);
+  build_ctx c = { mrb, mrb_str_new_capa(mrb, RSTRING_LEN(self)), self };
+  int n = picorb_rx_sub(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self),
+                        (const uint8_t *)RSTRING_PTR(repl), (size_t)RSTRING_LEN(repl), global,
+                        emit_to_str, &c);
+  return n ? c.out : mrb_nil_value();
+}
+
+/* one scan match: the text, or the Array of groups when there are any */
+static void
+scan_match(void *p, const int32_t *caps, int nsave)
+{
+  build_ctx *c = (build_ctx *)p;
+  const char *s = RSTRING_PTR(c->subject);
+  if (nsave <= 2) {
+    mrb_ary_push(c->mrb, c->out, mrb_str_new(c->mrb, s + caps[0], caps[1] - caps[0]));
+    return;
+  }
+  mrb_value groups = mrb_ary_new_capa(c->mrb, nsave / 2 - 1);
+  for (int g = 1; 2 * g + 1 < nsave; g++) {
+    int32_t b = caps[2 * g], e = caps[2 * g + 1];
+    mrb_ary_push(c->mrb, groups, b < 0 ? mrb_nil_value() : mrb_str_new(c->mrb, s + b, e - b));
+  }
+  mrb_ary_push(c->mrb, c->out, groups);
+}
+
+/* String#__scan(re) -> Array */
+static mrb_value
+mrb_string_scan_c(mrb_state *mrb, mrb_value self)
+{
+  mrb_value re_obj;
+  mrb_get_args(mrb, "o", &re_obj);
+  picorb_regexp *re = get_regexp(mrb, re_obj);
+  build_ctx c = { mrb, mrb_ary_new(mrb), self };
+  picorb_rx_scan(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self), scan_match, &c);
+  return c.out;
+}
+
+static void
+split_piece(void *p, size_t b, size_t e)
+{
+  build_ctx *c = (build_ctx *)p;
+  mrb_ary_push(c->mrb, c->out, mrb_str_new(c->mrb, RSTRING_PTR(c->subject) + b, (mrb_int)(e - b)));
+}
+
+/* String#__split(re, limit) -> Array */
+static mrb_value
+mrb_string_split_c(mrb_state *mrb, mrb_value self)
+{
+  mrb_value re_obj;
+  mrb_int limit;
+  mrb_get_args(mrb, "oi", &re_obj, &limit);
+  picorb_regexp *re = get_regexp(mrb, re_obj);
+  build_ctx c = { mrb, mrb_ary_new(mrb), self };
+  picorb_rx_split(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self), (long)limit, split_piece, &c);
+  if (limit == 0) {
+    /* trailing empty pieces go, as in CRuby */
+    while (RARRAY_LEN(c.out) > 0 && RSTRING_LEN(RARRAY_PTR(c.out)[RARRAY_LEN(c.out) - 1]) == 0) {
+      mrb_ary_pop(mrb, c.out);
+    }
+  }
+  return c.out;
+}
+
 /* ---- init ---- */
 
 void
@@ -604,6 +734,14 @@ mrb_picoruby_regexp_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, string_class, MRB_SYM(match), mrb_string_match, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, string_class, MRB_SYM_Q(match), mrb_string_match_p, MRB_ARGS_ARG(1, 1));
   mrb_define_method_id(mrb, string_class, mrb_intern_lit(mrb, "=~"), mrb_string_match_op, MRB_ARGS_REQ(1));
+
+  /* the C side of mrblib/regexp.rb */
+  mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(escape), mrb_regexp_escape, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(__bmatch), mrb_regexp_bmatch, MRB_ARGS_REQ(2));
+  mrb_define_method_id(mrb, class_MatchData, MRB_SYM(byteoffset), mrb_match_data_byteoffset, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(__sub), mrb_string_sub_c, MRB_ARGS_REQ(3));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(__scan), mrb_string_scan_c, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, string_class, MRB_SYM(__split), mrb_string_split_c, MRB_ARGS_REQ(2));
 }
 
 void
