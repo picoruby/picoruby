@@ -5,6 +5,9 @@ MRuby::Gem::Specification.new('picoruby-regexp_light') do |spec|
 
   spec.require_name = 'regexp'
 
+  # both gems define Regexp and MatchData
+  spec.add_conflict 'picoruby-regexp'
+
   spec.cc.include_paths << "#{dir}/lib/regex_light/src"
 
   Dir.glob("#{dir}/lib/regex_light/src/*.c").each do |src|

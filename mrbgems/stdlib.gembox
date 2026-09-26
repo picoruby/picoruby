@@ -42,6 +42,7 @@ MRuby::GemBox.new do |conf|
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
   end
   unless wasm?
-    conf.gem core: "picoruby-regexp_light"
+    # WASM has its own Regexp over the JavaScript RegExp (picoruby-wasm)
+    conf.gem core: "picoruby-regexp"
   end
 end
