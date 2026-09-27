@@ -75,6 +75,45 @@ c_esp32_wifi_tcpip_link_status(mrbc_vm *vm, mrbc_value *v, int argc)
   SET_INT_RETURN(status);
 }
 
+static void
+c_esp32_wifi_dhcp_supplied_q(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  SET_BOOL_RETURN(ESP32_WIFI_dhcp_supplied());
+}
+
+static void
+c_esp32_wifi_ipv4_address(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char buf[16] = {0};
+  if (!ESP32_WIFI_ipv4_address(buf, sizeof(buf))) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_RETURN(mrbc_string_new_cstr(vm, buf));
+}
+
+static void
+c_esp32_wifi_ipv4_netmask(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char buf[16] = {0};
+  if (!ESP32_WIFI_ipv4_netmask(buf, sizeof(buf))) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_RETURN(mrbc_string_new_cstr(vm, buf));
+}
+
+static void
+c_esp32_wifi_ipv4_gateway(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  char buf[16] = {0};
+  if (!ESP32_WIFI_ipv4_gateway(buf, sizeof(buf))) {
+    SET_NIL_RETURN();
+    return;
+  }
+  SET_RETURN(mrbc_string_new_cstr(vm, buf));
+}
+
 #endif
 
 void
@@ -91,5 +130,9 @@ mrbc_esp32_init(mrbc_vm *vm)
   mrbc_define_method(vm, class_WiFi, "connect_timeout", c_esp32_wifi_connect_timeout);
   mrbc_define_method(vm, class_WiFi, "disconnect", c_esp32_wifi_disconnect);
   mrbc_define_method(vm, class_WiFi, "tcpip_link_status", c_esp32_wifi_tcpip_link_status);
+  mrbc_define_method(vm, class_WiFi, "dhcp_supplied?", c_esp32_wifi_dhcp_supplied_q);
+  mrbc_define_method(vm, class_WiFi, "ipv4_address", c_esp32_wifi_ipv4_address);
+  mrbc_define_method(vm, class_WiFi, "ipv4_netmask", c_esp32_wifi_ipv4_netmask);
+  mrbc_define_method(vm, class_WiFi, "ipv4_gateway", c_esp32_wifi_ipv4_gateway);
   #endif
 }

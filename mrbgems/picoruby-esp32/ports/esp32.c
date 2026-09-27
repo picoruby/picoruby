@@ -13,9 +13,16 @@ static const char *TAG = "ESP32_WIFI";
 static bool wifi_initialized = false;
 static bool wifi_connected = false;
 static EventGroupHandle_t wifi_event_group = NULL;
+static esp_netif_t *sta_netif = NULL;
 
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT      BIT1
+
+typedef enum {
+  ESP32_WIFI_IPV4_ADDRESS,
+  ESP32_WIFI_IPV4_NETMASK,
+  ESP32_WIFI_IPV4_GATEWAY,
+} esp32_wifi_ipv4_field_t;
 
 static void
 wifi_event_handler(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data)
@@ -71,7 +78,11 @@ ESP32_WIFI_init()
     return -1;
   }
 
-  esp_netif_create_default_wifi_sta();
+  sta_netif = esp_netif_create_default_wifi_sta();
+  if (sta_netif == NULL) {
+    ESP_LOGE(TAG, "esp_netif_create_default_wifi_sta failed");
+    return -1;
+  }
 
   wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
   ret = esp_wifi_init(&cfg);
@@ -190,6 +201,67 @@ ESP32_WIFI_tcpip_link_status()
     // Not connected to an AP
     return 0; // LINK_DOWN
   }
+}
+
+bool
+ESP32_WIFI_dhcp_supplied(void)
+{
+  if (sta_netif == NULL) {
+    return false;
+  }
+  esp_netif_dhcp_status_t status;
+  if (esp_netif_dhcpc_get_status(sta_netif, &status) != ESP_OK) {
+    return false;
+  }
+  if (status != ESP_NETIF_DHCP_STARTED) {
+    return false;
+  }
+  esp_netif_ip_info_t ip_info;
+  if (esp_netif_get_ip_info(sta_netif, &ip_info) != ESP_OK) {
+    return false;
+  }
+  return ip_info.ip.addr != 0;
+}
+
+static const char *
+ESP32_WIFI_ipv4_field(esp32_wifi_ipv4_field_t field, char *buf, size_t buflen)
+{
+  if (sta_netif == NULL) {
+    return NULL;
+  }
+  esp_netif_ip_info_t ip_info;
+  if (esp_netif_get_ip_info(sta_netif, &ip_info) != ESP_OK) {
+    return NULL;
+  }
+  esp_ip4_addr_t *addr;
+  switch (field) {
+    case ESP32_WIFI_IPV4_ADDRESS: addr = &ip_info.ip; break;
+    case ESP32_WIFI_IPV4_NETMASK: addr = &ip_info.netmask; break;
+    case ESP32_WIFI_IPV4_GATEWAY: addr = &ip_info.gw; break;
+    default: return NULL;
+  }
+  if (addr->addr == 0) {
+    return NULL;
+  }
+  return esp_ip4addr_ntoa(addr, buf, (int)buflen);
+}
+
+const char *
+ESP32_WIFI_ipv4_address(char *buf, size_t buflen)
+{
+  return ESP32_WIFI_ipv4_field(ESP32_WIFI_IPV4_ADDRESS, buf, buflen);
+}
+
+const char *
+ESP32_WIFI_ipv4_netmask(char *buf, size_t buflen)
+{
+  return ESP32_WIFI_ipv4_field(ESP32_WIFI_IPV4_NETMASK, buf, buflen);
+}
+
+const char *
+ESP32_WIFI_ipv4_gateway(char *buf, size_t buflen)
+{
+  return ESP32_WIFI_ipv4_field(ESP32_WIFI_IPV4_GATEWAY, buf, buflen);
 }
 
 #endif
