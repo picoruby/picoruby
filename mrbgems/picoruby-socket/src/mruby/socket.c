@@ -185,6 +185,14 @@ mrb_socket_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
     picorb_socket_t *sock = (picorb_socket_t *)ptr;
+    /* This runs inside the GC sweep. The close below would notify the
+     * Task::Queue held in @event_queue, but that object may already have
+     * been swept and the VM must not be re-entered here, so detach the
+     * queue first (the close then skips the notification). */
+    if (sock->event_queue) {
+      mrb_free(mrb, sock->event_queue);
+      sock->event_queue = NULL;
+    }
     if (!sock->closed) {
       /* Close socket based on socket type */
       if (sock->socktype == SOCK_DGRAM) {

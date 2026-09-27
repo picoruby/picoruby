@@ -27,6 +27,13 @@ mrb_tcp_server_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
     picorb_tcp_server_t *server = (picorb_tcp_server_t *)ptr;
+    /* GC sweep: detach the accept notification queue before closing so
+     * TCPServer_close does not push into a possibly swept Task::Queue. */
+    void *queue = TCPServer_event_queue(server);
+    if (queue) {
+      mrb_free(mrb, queue);
+      TCPServer_set_event_queue(server, mrb, NULL);
+    }
     TCPServer_close(mrb, server);
   }
 }
