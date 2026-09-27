@@ -165,10 +165,13 @@ elseif(PICO_BOARD STREQUAL "pico2" OR PICO_BOARD STREQUAL "pico2_w")
   pico_set_linker_script(${PROJECT_NAME} ${CMAKE_CURRENT_BINARY_DIR}/memmap_rp2350.ld)
 endif()
 
+# The newlib heap is not the crt0 .heap dummy section: ports/rp2040/main.c
+# overrides _sbrk and carves it out of the top of RAM, and the Ruby heap
+# takes all RAM between the end of .bss and that strip. So the dummy is 0.
 target_compile_definitions(${PROJECT_NAME} PRIVATE
   PICO_STACK_SIZE=${PICORB_STACK_SIZE}
   PICO_CORE1_STACK_SIZE=${PICORB_CORE1_STACK_SIZE}
-  PICO_HEAP_SIZE=0x0400        # 1KB
+  PICO_HEAP_SIZE=0
 )
 
 option(PICORUBY_PSG_MCP4922_DMA "Use DMA for PSG MCP4922 output" ON)
