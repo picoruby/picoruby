@@ -13,7 +13,12 @@ class Sandbox
   def load_file(path, join: true)
     f = File.open(path, "r")
     begin
-      return nil unless rb = f.read
+      # An empty file has nothing to run, like `require` of an empty file
+      # in CRuby. Return without starting the task: an empty program never
+      # reaches DORMANT on the mruby VM and wait would block forever. A
+      # caller that needs content (an executable) checks the size itself.
+      rb = f.read.to_s
+      return nil if rb.empty?
       # exec_mrb keeps only a pointer into this string's data (it is not copied),
       # so retain it on the instance to keep it alive for the task's lifetime and
       # prevent GC from freeing the bytecode while the task is still running.
@@ -30,9 +35,13 @@ class Sandbox
         end
         execute
       end
-      if join && started
-        wait(timeout: nil)
+      # exec_mrb and execute return false when the VM rejects the bytecode.
+      # Returning quietly here made a broken file look like a program that
+      # ran and printed nothing.
+      unless started
+        raise RuntimeError, "#{path}: failed to load bytecode"
       end
+      wait(timeout: nil) if join
     ensure
       f.close
     end

@@ -51,6 +51,14 @@ class Shell
         i += 1
       end
       trap
+      # A 0-byte executable is a broken install (the system files are
+      # written at boot and a full filesystem leaves empty files behind).
+      # Sandbox#load_file would run it as an empty program and print
+      # nothing, so refuse it here with a message that names the file.
+      size = File.open(@exefile, "r") { |f| f.size }
+      if size == 0
+        raise "#{@exefile}: empty executable"
+      end
       before = task_ids
       begin
         @sandbox.load_file(@exefile)

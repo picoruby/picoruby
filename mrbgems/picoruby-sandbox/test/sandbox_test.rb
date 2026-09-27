@@ -30,6 +30,13 @@ class SandboxTest < Picotest::Test
     assert_equal "/myscript.rb", sandbox.result
   end
 
+  def test_load_file_returns_without_running_an_empty_file
+    stub(File).open { FileDouble.new("") }
+    sandbox = Sandbox.new
+    assert_nil sandbox.load_file("/empty.rb")
+    assert_nil sandbox.error
+  end
+
   def test_stop_is_idempotent_after_task_finishes
     sandbox = Sandbox.new
     sandbox.compile(":done")
