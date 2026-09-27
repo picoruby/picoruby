@@ -189,10 +189,12 @@ mrb_socket_free(mrb_state *mrb, void *ptr)
      * Task::Queue held in @event_queue, but that object may already have
      * been swept and the VM must not be re-entered here, so detach the
      * queue first (the close then skips the notification). */
+#ifdef PICO_CYW43_ARCH_POLL
     if (sock->event_queue) {
       mrb_free(mrb, sock->event_queue);
       sock->event_queue = NULL;
     }
+#endif
     if (!sock->closed) {
       /* Close socket based on socket type */
       if (sock->socktype == SOCK_DGRAM) {
