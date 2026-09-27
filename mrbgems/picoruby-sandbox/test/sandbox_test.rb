@@ -35,6 +35,9 @@ class SandboxTest < Picotest::Test
     sandbox = Sandbox.new
     assert_nil sandbox.load_file("/empty.rb")
     assert_nil sandbox.error
+    # The task was never run. On the mruby VM the host process does not
+    # exit while such a task exists, so release it explicitly.
+    sandbox.terminate
   end
 
   def test_stop_is_idempotent_after_task_finishes
