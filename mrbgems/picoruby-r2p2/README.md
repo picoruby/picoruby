@@ -116,9 +116,8 @@ rake r2p2:picoruby:pico2:debug
 rake r2p2:picoruby:pico2_w:prod
 ```
 
-By default, R2P2 shares Estalloc with the libc-backed WiFi stack. Set
-`R2P2_NO_SHARED_ALLOC` to make LwIP/mbedTLS use newlib `malloc`/`free`
-instead.
+R2P2 routes libc `malloc`/`free` to Estalloc, so LwIP and mbedTLS share
+the Ruby heap.
 
 ### RAM layout
 
@@ -136,10 +135,9 @@ scratch RAM. On RP2350 it lives in a `STACK` region above the heap, which
 `cmake/CMakeLists.txt` sizes per build mode. Core 1 uses `SCRATCH_X`.
 
 The newlib heap is a strip at the top of RAM that `_sbrk` in `main.c`
-hands out. The reserve is 4 KB by default and 64 KB with
-`R2P2_NO_SHARED_ALLOC`. Set `R2P2_NEWLIB_HEAP_RESERVE` (bytes) to change it.
-A `malloc` that does not fit the strip returns NULL instead of writing
-into the Ruby heap.
+hands out. The reserve is 4 KB by default. Set `R2P2_NEWLIB_HEAP_RESERVE`
+(bytes) to change it. A `malloc` that does not fit the strip returns NULL
+instead of writing into the Ruby heap.
 
 The output `.uf2` file is generated in:
 ```

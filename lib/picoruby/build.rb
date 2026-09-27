@@ -119,8 +119,7 @@ module MRuby
       if alloc_libc && alloc_estalloc
         add_define_once "PICORB_ALLOC_ESTALLOC"
         add_define_once "PICORB_ALLOC_ALIGN=#{alloc_align}"
-        no_shared_alloc = ENV.key?("R2P2_NO_SHARED_ALLOC")
-        if cc.defines.include?("PICORB_PLATFORM_RP2") && !no_shared_alloc
+        if cc.defines.include?("PICORB_PLATFORM_RP2")
           add_define_once "PICORB_WRAP_LIBC_ALLOC"
         end
       end
