@@ -9,7 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
 
 /* PicoRuby */
 #include "picoruby.h"
@@ -48,54 +47,97 @@ heap_exit_critical(void)
   critical_section_exit(&heap_critsec);
 }
 
-#if !defined(HEAP_SIZE)
-  #if defined(PICO_RP2040)
-    /*
-     * Both CPU stacks live in scratch RAM. The sizes below leave regular RAM
-     * for static pico-sdk state and, when requested, its separate allocator.
-     */
-    #if defined(USE_WIFI) && defined(R2P2_NO_SHARED_ALLOC)
-      #define HEAP_SIZE_KB 152
-    #elif defined(USE_WIFI)
-      #define HEAP_SIZE_KB 164
-    #else
-      #define HEAP_SIZE_KB 184
-    #endif
-  #elif defined(PICO_RP2350)
-    /*
-     * The production build uses a 16KB core 0 stack and a larger Estalloc
-     * heap. Debug builds use a 24KB stack for unoptimized Prism frames. A
-     * separate allocator needs its own 64KB reserve.
-     */
-    #if defined(USE_WIFI) && defined(R2P2_NO_SHARED_ALLOC)
-      #define HEAP_SIZE_KB 320
-    #elif defined(PICORB_DEBUG)
-      #if defined(PICORB_VM_MRUBYC)
-        #define HEAP_SIZE_KB 374
-      #else
-        #define HEAP_SIZE_KB 384
-      #endif
-    #else
-      #if defined(PICORB_VM_MRUBYC)
-        #define HEAP_SIZE_KB 388
-      #else
-        #define HEAP_SIZE_KB 396
-      #endif
-    #endif
+/*
+ * RAM layout
+ *
+ * The Ruby heap is not a fixed array. It takes all the RAM the linker left
+ * between the end of .bss (the linker symbol `end`) and the top of general
+ * RAM (`__StackLimit`), minus a reserve at the top for the newlib heap:
+ *
+ *   .data/.bss | Estalloc heap (auto-sized) | newlib reserve | core 0 stack
+ *   ^end                                    ^__StackLimit - reserve
+ *
+ * Static data that a build links in (the CYW43 driver, lwIP pools, a new
+ * gem) shrinks the heap by itself, so no per-board size table is needed.
+ * The core 0 stack is placed by the linker script: on RP2040 in scratch
+ * RAM, on RP2350 in the STACK region above `__StackLimit`. Core 1 always
+ * uses SCRATCH_X.
+ *
+ * The newlib reserve receives everything libc allocates through _sbrk.
+ * With the default shared allocation (heap_wrap.c) that is only what is
+ * allocated before the Ruby heap exists; measured on a Pico 2 W nothing
+ * is, so the reserve is insurance. With R2P2_NO_SHARED_ALLOC the pico-sdk
+ * and its libraries keep using newlib, so the reserve has to hold their
+ * whole working set.
+ */
+extern char end;          /* first byte past .bss */
+extern char __StackLimit; /* top of general RAM */
+
+#if !defined(R2P2_NEWLIB_HEAP_RESERVE)
+  #if defined(R2P2_NO_SHARED_ALLOC)
+    #define R2P2_NEWLIB_HEAP_RESERVE (64 * 1024)
   #else
-    #error "PICO_RP2040 or PICO_RP2350 must be defined"
+    #define R2P2_NEWLIB_HEAP_RESERVE (4 * 1024)
   #endif
-  #define HEAP_SIZE (HEAP_SIZE_KB * 1024)
 #endif
 
-static uint8_t heap_pool[HEAP_SIZE] __attribute__((aligned(8)));
+/* Refuse to start with less than this. It means the static data grew so
+ * much that the board cannot run Ruby anyway; fail loudly instead of
+ * dying in the first allocation. */
+#if !defined(R2P2_HEAP_MIN_SIZE)
+  #define R2P2_HEAP_MIN_SIZE (64 * 1024)
+#endif
+
+/*
+ * Replace the weak pico-sdk _sbrk, which grows the newlib heap from `end`
+ * straight through the Ruby heap. The newlib heap is a bounded strip at
+ * the top of RAM instead. A request that does not fit returns -1, so
+ * malloc returns NULL rather than corrupting the Ruby heap.
+ *
+ * newlib_heap_end is not static so a debugger can read how much of the
+ * reserve is in use: p newlib_heap_end - (&__StackLimit - reserve)
+ */
+char *newlib_heap_end;
+
+void *
+_sbrk(int incr)
+{
+  char *limit = &__StackLimit;
+  char *base = limit - R2P2_NEWLIB_HEAP_RESERVE;
+  if (newlib_heap_end == NULL) {
+    newlib_heap_end = base;
+  }
+  char *prev = newlib_heap_end;
+  char *next = newlib_heap_end + incr;
+  if (next > limit || next < base) {
+    return (void *)-1;
+  }
+  newlib_heap_end = next;
+  return prev;
+}
+
+static void *heap_base;
+static size_t heap_size;
+
+/* Compute the Ruby heap window. Estalloc needs an 8-byte aligned base. */
+static void
+heap_locate(void)
+{
+  uintptr_t lo = ((uintptr_t)&end + 7u) & ~(uintptr_t)7u;
+  uintptr_t hi = (uintptr_t)&__StackLimit - R2P2_NEWLIB_HEAP_RESERVE;
+  hi &= ~(uintptr_t)7u;
+  if (hi <= lo || hi - lo < R2P2_HEAP_MIN_SIZE) {
+    printf("R2P2 FATAL: only %u bytes left for the Ruby heap (need %u)\n",
+           (unsigned)(hi > lo ? hi - lo : 0), (unsigned)R2P2_HEAP_MIN_SIZE);
+    panic("Ruby heap too small");
+  }
+  heap_base = (void *)lo;
+  heap_size = (size_t)(hi - lo);
+}
 
 #if defined(PICORB_VM_MRUBY)
   extern mrb_state *global_mrb; /* defined in mruby-compiler (ccontext.c) */
 #endif
-
-/* Linker symbol: bottom of C stack (top of heap region) */
-extern uint8_t __StackBottom[];
 
 static void
 gpio_set_in_pull_up(uint pin)
@@ -185,18 +227,19 @@ main(void)
   stdio_init_all();
   // printf() goes to Picoprobe UART
   printf("R2P2 PicoRuby starting...\n");
-  printf("Heap size: %d KB\n", HEAP_SIZE_KB);
+  heap_locate();
+  printf("Heap size: %u KB (%p-%p), newlib reserve %u KB\n",
+         (unsigned)(heap_size / 1024), heap_base,
+         (void *)((char *)heap_base + heap_size),
+         (unsigned)(R2P2_NEWLIB_HEAP_RESERVE / 1024));
   board_init();
 
   gpio_init_safe();
 
-  assert((uint8_t *)heap_pool + HEAP_SIZE <= (uint8_t *)__StackBottom
-         && "heap_pool overlaps with C stack");
-
   int ret = 0;
 
 #if defined(PICORB_VM_MRUBY)
-  mrb_state *mrb = mrb_open_with_custom_alloc(heap_pool, HEAP_SIZE);
+  mrb_state *mrb = mrb_open_with_custom_alloc(heap_base, heap_size);
   if (mrb == NULL) {
     /* Heap init or mrb_state allocation failed: there is no VM to print with. */
     const char *msg = "[R2P2] FATAL: mrb_open_with_custom_alloc failed\n";
@@ -249,10 +292,10 @@ main(void)
     mrc_ccontext_free(cc);
   }
 #elif defined(PICORB_VM_MRUBYC)
-  PICORB_ESTALLOC_MRUBYC_INIT(heap_pool, HEAP_SIZE);
+  PICORB_ESTALLOC_MRUBYC_INIT(heap_base, heap_size);
   critical_section_init(&heap_critsec);
   picorb_heap_set_critical_section(heap_enter_critical, heap_exit_critical);
-  mrbc_init(heap_pool, HEAP_SIZE);
+  mrbc_init(heap_base, heap_size);
   mrbc_tcb *main_tcb = mrbc_create_task(main_task, 0);
   if (!main_tcb) {
     const char *msg = "mrbc_create_task failed\n";

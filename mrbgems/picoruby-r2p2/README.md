@@ -120,6 +120,27 @@ By default, R2P2 shares Estalloc with the libc-backed WiFi stack. Set
 `R2P2_NO_SHARED_ALLOC` to make LwIP/mbedTLS use newlib `malloc`/`free`
 instead.
 
+### RAM layout
+
+The Ruby heap has no fixed size. At boot, `ports/rp2040/main.c` gives
+Estalloc all the RAM between the end of `.bss` and the top of general RAM,
+minus a small reserve for the newlib heap. Static data that a build links
+in shrinks the heap by itself. The boot log shows the result:
+
+```
+Heap size: 386 KB (0x2001a510-0x2007b000), newlib reserve 4 KB
+```
+
+The core 0 stack is placed by the linker script. On RP2040 it lives in
+scratch RAM. On RP2350 it lives in a `STACK` region above the heap, which
+`cmake/CMakeLists.txt` sizes per build mode. Core 1 uses `SCRATCH_X`.
+
+The newlib heap is a strip at the top of RAM that `_sbrk` in `main.c`
+hands out. The reserve is 4 KB by default and 64 KB with
+`R2P2_NO_SHARED_ALLOC`. Set `R2P2_NEWLIB_HEAP_RESERVE` (bytes) to change it.
+A `malloc` that does not fit the strip returns NULL instead of writing
+into the Ruby heap.
+
 The output `.uf2` file is generated in:
 ```
 build/r2p2/{vm}/{board}/{mode}/R2P2-{VM}-{BOARD}-{VERSION}-{DATE}-{REV}.uf2
