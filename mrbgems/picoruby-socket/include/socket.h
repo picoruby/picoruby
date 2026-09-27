@@ -60,7 +60,21 @@ typedef struct {
   void *vm;                   /* Owning VM for callback notification */
   void *event_queue;          /* VM-specific Task::Queue value (RP2040 only) */
   bool event_pending;         /* A readable notification is already queued */
+  /* Received LwIP pbuf chain that did not fit into recv_buf yet (RP2040
+   * only). The bytes before pending_offset are already in recv_buf. */
+  void *pending_pbuf;
+  size_t pending_offset;
 } picorb_socket_t;
+
+/* Receive-side helpers shared by the RP2040 TCP client and server ports
+ * (implemented in ports/rp2040/tcp_socket.c). */
+struct pbuf;
+/* Take ownership of pbuf: copy what fits into recv_buf, keep the rest in
+ * sock->pending_pbuf. Call from the LwIP recv callback. */
+void TCPSocket_store_pbuf(picorb_socket_t *sock, struct pbuf *pbuf);
+/* Move pending bytes into recv_buf after the application drained it.
+ * Call from task context. */
+void TCPSocket_drain_pending(picorb_socket_t *sock);
 
 /* LwIP helper functions - implemented in ports/rp2040/ */
 #ifndef PICORB_NO_LWIP_HELPERS
