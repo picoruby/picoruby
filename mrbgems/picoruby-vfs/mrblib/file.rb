@@ -4,6 +4,7 @@ class File
 
   class Stat
     def initialize(path)
+      # @type var path: String
       volume, _path = VFS.sanitize_and_split(path)
       @stat = volume[:driver].class::Stat.new(volume[:driver].prefix, _path) # steep:ignore
     end
