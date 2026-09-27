@@ -48,7 +48,13 @@ c_sandbox_error(mrbc_vm *vm, mrbc_value *v, int argc)
   if (sandbox_vm->exception.tt == MRBC_TT_NIL) {
     SET_NIL_RETURN();
   } else {
-    SET_RETURN(sandbox_vm->exception);
+    /* The sandbox VM keeps its own reference to the exception and drops it
+     * in mrbc_vm_end, so the caller must get a reference of its own.
+     * Without this incref the object was freed as soon as the caller
+     * released it and then freed again when the sandbox closed. */
+    mrbc_value error = sandbox_vm->exception;
+    mrbc_incref(&error);
+    SET_RETURN(error);
   }
 }
 
