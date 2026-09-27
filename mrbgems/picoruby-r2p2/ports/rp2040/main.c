@@ -64,21 +64,15 @@ heap_exit_critical(void)
  * uses SCRATCH_X.
  *
  * The newlib reserve receives everything libc allocates through _sbrk.
- * With the default shared allocation (heap_wrap.c) that is only what is
- * allocated before the Ruby heap exists; measured on a Pico 2 W nothing
- * is, so the reserve is insurance. With R2P2_NO_SHARED_ALLOC the pico-sdk
- * and its libraries keep using newlib, so the reserve has to hold their
- * whole working set.
+ * libc allocation is routed to Estalloc (heap_wrap.c), so that is only
+ * what is allocated before the Ruby heap exists; measured on a Pico 2 W
+ * and a Pico W nothing is, so the reserve is insurance.
  */
 extern char end;          /* first byte past .bss */
 extern char __StackLimit; /* top of general RAM */
 
 #if !defined(R2P2_NEWLIB_HEAP_RESERVE)
-  #if defined(R2P2_NO_SHARED_ALLOC)
-    #define R2P2_NEWLIB_HEAP_RESERVE (64 * 1024)
-  #else
-    #define R2P2_NEWLIB_HEAP_RESERVE (4 * 1024)
-  #endif
+  #define R2P2_NEWLIB_HEAP_RESERVE (4 * 1024)
 #endif
 
 /* Refuse to start with less than this. It means the static data grew so
