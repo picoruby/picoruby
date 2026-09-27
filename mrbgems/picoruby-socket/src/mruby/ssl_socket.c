@@ -276,7 +276,17 @@ static void
 mrb_ssl_socket_free(mrb_state *mrb, void *ptr)
 {
   if (ptr) {
-    SSLSocket_close(mrb, (picorb_ssl_socket_t *)ptr);
+    picorb_ssl_socket_t *ssl_sock = (picorb_ssl_socket_t *)ptr;
+#ifdef PICO_CYW43_ARCH_POLL
+    /* GC sweep: detach the notification queue of the base socket first so
+     * SSLSocket_close does not push into a possibly swept Task::Queue. */
+    picorb_socket_t *base = SSLSocket_event_socket(ssl_sock);
+    if (base && base->event_queue) {
+      mrb_free(mrb, base->event_queue);
+      base->event_queue = NULL;
+    }
+#endif
+    SSLSocket_close(mrb, ssl_sock);
   }
 }
 

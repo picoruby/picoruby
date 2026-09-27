@@ -23,9 +23,10 @@
 #endif
 
 /* Upper bound for the number of accept slots. The backlog argument of
- * TCPServer.new selects the actual number (clamped to this value). Each
- * slot pre-allocates a picorb_socket_t plus a TCP_SERVER_RECV_BUF_SIZE
- * receive buffer, so a slot costs about 4.8 KB of heap. */
+ * TCPServer.new selects the actual number (clamped to this value). A slot
+ * pre-allocates only the picorb_socket_t (about 0.7 KB); the receive
+ * buffer is allocated when Ruby picks the connection up, because data that
+ * arrives before that is held in LwIP pbufs (see TCPSocket_store_pbuf). */
 #ifndef TCP_SERVER_MAX_BACKLOG
 #define TCP_SERVER_MAX_BACKLOG 8
 #endif
@@ -51,7 +52,8 @@ struct picorb_tcp_server {
   int port;
 };
 
-/* Allocate one pre-initialized socket with its receive buffer. */
+/* Allocate one zeroed socket slot. recv_buf stays NULL (capacity 0) until
+ * accept_nonblock hands the socket to Ruby. */
 static picorb_socket_t *
 server_socket_alloc(picorb_state *vm)
 {
@@ -60,13 +62,25 @@ server_socket_alloc(picorb_state *vm)
     return NULL;
   }
   memset(sock, 0, sizeof(picorb_socket_t));
+  return sock;
+}
+
+/* Give an accepted socket its receive buffer. Returns false when the heap
+ * is exhausted; the socket then stays queued and the caller retries later. */
+static bool
+server_socket_attach_recv_buf(picorb_state *vm, picorb_socket_t *sock)
+{
+  if (sock->recv_buf) {
+    return true;
+  }
   sock->recv_buf = (char *)picorb_alloc(vm, TCP_SERVER_RECV_BUF_SIZE + 1);
   if (!sock->recv_buf) {
-    picorb_free(vm, sock);
-    return NULL;
+    return false;
   }
   sock->recv_capacity = TCP_SERVER_RECV_BUF_SIZE;
-  return sock;
+  sock->recv_len = 0;
+  sock->recv_buf[0] = '\0';
+  return true;
 }
 
 static void
@@ -351,11 +365,21 @@ TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server)
     return NULL; /* No pending connection */
   }
 
-  /* Hand the oldest accepted socket to Ruby. It now owns the socket. */
+  /* The oldest accepted socket needs its receive buffer before Ruby can
+   * read from it. Leave it queued if the heap cannot provide one now. */
   picorb_socket_t *sock = server->accepted[server->accepted_head];
+  if (!server_socket_attach_recv_buf(vm, sock)) {
+    D("TCPServer_accept_nonblock: recv_buf allocation failed");
+    return NULL;
+  }
+
+  /* Hand it to Ruby. It now owns the socket. */
   server->accepted_head = (server->accepted_head + 1) % server->slots;
   server->accepted_count--;
   server->event_pending = false;
+
+  /* Data that arrived before the buffer existed is waiting in pending_pbuf. */
+  TCPSocket_drain_pending(sock);
 
   /* Refill the slot that was just released. */
   server_replenish(vm, server);
