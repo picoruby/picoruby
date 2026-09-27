@@ -78,6 +78,42 @@ c_esp32_wifi_tcpip_link_status(mrb_state *mrb, mrb_value self)
   return mrb_fixnum_value(status);
 }
 
+static mrb_value
+c_esp32_wifi_dhcp_supplied_p(mrb_state *mrb, mrb_value self)
+{
+  return mrb_bool_value(ESP32_WIFI_dhcp_supplied());
+}
+
+static mrb_value
+c_esp32_wifi_ipv4_address(mrb_state *mrb, mrb_value self)
+{
+  char buf[16] = {0};
+  if (!ESP32_WIFI_ipv4_address(buf, sizeof(buf))) {
+    return mrb_nil_value();
+  }
+  return mrb_str_new_cstr(mrb, buf);
+}
+
+static mrb_value
+c_esp32_wifi_ipv4_netmask(mrb_state *mrb, mrb_value self)
+{
+  char buf[16] = {0};
+  if (!ESP32_WIFI_ipv4_netmask(buf, sizeof(buf))) {
+    return mrb_nil_value();
+  }
+  return mrb_str_new_cstr(mrb, buf);
+}
+
+static mrb_value
+c_esp32_wifi_ipv4_gateway(mrb_state *mrb, mrb_value self)
+{
+  char buf[16] = {0};
+  if (!ESP32_WIFI_ipv4_gateway(buf, sizeof(buf))) {
+    return mrb_nil_value();
+  }
+  return mrb_str_new_cstr(mrb, buf);
+}
+
 #endif
 
 void
@@ -94,6 +130,10 @@ mrb_picoruby_esp32_gem_init(mrb_state *mrb)
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(connect_timeout), c_esp32_wifi_connect_timeout, MRB_ARGS_ARG(3, 1));
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(disconnect), c_esp32_wifi_disconnect, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(tcpip_link_status), c_esp32_wifi_tcpip_link_status, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM_Q(dhcp_supplied), c_esp32_wifi_dhcp_supplied_p, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(ipv4_address), c_esp32_wifi_ipv4_address, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(ipv4_netmask), c_esp32_wifi_ipv4_netmask, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, class_WiFi, MRB_SYM(ipv4_gateway), c_esp32_wifi_ipv4_gateway, MRB_ARGS_NONE());
   #endif
 }
 

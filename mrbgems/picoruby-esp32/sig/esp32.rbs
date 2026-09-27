@@ -27,6 +27,10 @@ class ESP32
     def self.tcpip_link_status: () -> Integer
     def self.tcpip_link_status_name: () -> String
     def self.link_connected?: () -> bool
+    def self.ipv4_address: () -> (String | nil)
+    def self.ipv4_netmask: () -> (String | nil)
+    def self.ipv4_gateway: () -> (String | nil)
+    def self.dhcp_supplied?: () -> bool
 
     private def self._init: () -> bool
   end
