@@ -157,7 +157,6 @@ c_tcp_server_accept_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 #endif
 
-  mrbc_incref(&v[0]);
   SET_RETURN(client_obj);
 }
 
@@ -186,7 +185,6 @@ c_tcp_server_close(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Clear the pointer */
   wrapper->ptr = NULL;
 
-  mrbc_incref(&v[0]);
   SET_NIL_RETURN();
 }
 
@@ -202,7 +200,6 @@ c_tcp_server_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
   }
 
   tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)v[0].instance->data;
-  mrbc_incref(&v[0]);
   if (wrapper->ptr) {
     SET_FALSE_RETURN();
   } else {

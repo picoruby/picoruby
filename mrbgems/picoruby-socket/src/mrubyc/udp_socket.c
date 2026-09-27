@@ -107,7 +107,6 @@ c_udp_socket_bind(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_incref(&v[0]);
   SET_NIL_RETURN();
 }
 
@@ -159,7 +158,6 @@ c_udp_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_incref(&v[0]);
   SET_NIL_RETURN();
 }
 
@@ -225,7 +223,6 @@ c_udp_socket_send(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  mrbc_incref(&v[0]);
   SET_INT_RETURN(sent);
 }
 
@@ -315,7 +312,6 @@ c_udp_socket_recvfrom_nonblock(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_incref(&addr_info);
   mrbc_array_set(&result, 1, &addr_info);
 
-  mrbc_incref(&v[0]);
   SET_RETURN(result);
 }
 
@@ -341,7 +337,6 @@ c_udp_socket_close(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Close socket */
   UDPSocket_close(vm, sock);
 
-  mrbc_incref(&v[0]);
   SET_NIL_RETURN();
 }
 
@@ -365,7 +360,6 @@ c_udp_socket_closed_q(mrbc_vm *vm, mrbc_value *v, int argc)
 
   /* Check if socket is closed */
   bool is_closed = UDPSocket_closed(vm, sock);
-  mrbc_incref(&v[0]);
   if (is_closed) {
     SET_TRUE_RETURN();
   } else {
