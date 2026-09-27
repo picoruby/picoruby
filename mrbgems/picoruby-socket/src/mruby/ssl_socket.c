@@ -463,8 +463,8 @@ mrb_ssl_socket_set_connect_hostname(mrb_state *mrb, mrb_value self)
 
   return mrb_true_value();
 }
-#endif
 
+/* Only the RP2040 poll mode registers these (see ssl_socket_init). */
 static mrb_value
 mrb_ssl_socket_connection_state(mrb_state *mrb, mrb_value self)
 {
@@ -488,12 +488,11 @@ static mrb_value
 mrb_ssl_socket_error_message(mrb_state *mrb, mrb_value self)
 {
   (void)self;
-#if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
   const char *message = Net_get_last_error();
   if (message && message[0]) return mrb_str_new_cstr(mrb, message);
-#endif
   return mrb_nil_value();
 }
+#endif
 
 /* ssl_socket.send(data, flags) */
 static mrb_value
