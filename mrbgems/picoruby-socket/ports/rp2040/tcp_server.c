@@ -139,8 +139,12 @@ tcp_accept_callback(void *arg, struct altcp_pcb *newpcb, err_t err)
   /* Use pre-allocated socket to avoid heap allocation in callback context. */
   picorb_socket_t *sock = server->pending_socket;
   if (!sock) {
+    /* No free slot: abort the connection. The callback must return
+     * ERR_ABRT after aborting, otherwise LwIP aborts the same PCB again
+     * (tcp_in.c: tcp_process) and frees it twice, which corrupts the
+     * TCP_PCB pool free list and makes tcp_input loop forever. */
     altcp_abort(newpcb);
-    return ERR_MEM;
+    return ERR_ABRT;
   }
   server->pending_socket = NULL;
 
