@@ -76,6 +76,12 @@ unless country_code
   puts "Country code not found in configuration file"
   return
 end
+
+if check_auto_connect && !config["wifi"]["auto_connect"]
+  puts "Auto connect is disabled"
+  return
+end
+
 if Network::WiFi.initialized?
   puts "Network::WiFi already initialized. Skipping country code setting."
 else
@@ -84,11 +90,6 @@ else
     puts "Failed to initialize Network::WiFi"
     return # raising an exception here may cause a crash
   end
-end
-
-if check_auto_connect && !config["wifi"]["auto_connect"]
-  puts "Auto connect is disabled"
-  return
 end
 
 puts "Setting up WiFi as a station"
