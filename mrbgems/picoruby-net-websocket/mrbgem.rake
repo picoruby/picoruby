@@ -6,7 +6,7 @@ MRuby::Gem::Specification.new('picoruby-net-websocket') do |spec|
   spec.require_name = 'net/websocket'
 
   if build.picoruby?
-    spec.add_dependency 'mruby-pack', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/picoruby-pack"
+    spec.add_dependency 'mruby-pack', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
   elsif build.femtoruby?
     spec.add_dependency 'picoruby-pack'
   end
