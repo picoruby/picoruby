@@ -48,12 +48,14 @@ c_sandbox_error(mrbc_vm *vm, mrbc_value *v, int argc)
   if (sandbox_vm->exception.tt == MRBC_TT_NIL) {
     SET_NIL_RETURN();
   } else {
-    /* The sandbox VM keeps its own reference to the exception and drops it
-     * in mrbc_vm_end, so the caller must get a reference of its own.
-     * Without this incref the object was freed as soon as the caller
-     * released it and then freed again when the sandbox closed. */
+    /* Hand the VM's own reference over to the caller and detach the
+     * exception from the VM.  Sandbox#error consumes the error: a second
+     * call returns nil, and mrbc_vm_end no longer sees an exception that
+     * the caller has already reported.  Leaving it attached made the
+     * shell print the same exception twice, once from Sandbox#error and
+     * once from mrbc_vm_end when the finished job was closed. */
     mrbc_value error = sandbox_vm->exception;
-    mrbc_incref(&error);
+    sandbox_vm->exception = mrbc_nil_value();
     SET_RETURN(error);
   }
 }
@@ -183,6 +185,8 @@ reset_vm(mrbc_vm *vm)
   vm->target_class    = mrbc_class_object;
   vm->callinfo_tail   = NULL;
   vm->ret_blk         = NULL;
+  /* An unread exception of the previous run is still referenced here. */
+  mrbc_decref(&vm->exception);
   vm->exception       = mrbc_nil_value();
   vm->flag_preemption = 0;
   vm->flag_stop       = 0;
