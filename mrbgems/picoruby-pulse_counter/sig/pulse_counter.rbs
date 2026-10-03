@@ -1,0 +1,10 @@
+class PulseCounter
+  @unit: Integer
+
+  def initialize: (Integer pin_a, Integer pin_b, ?glitch_ns: Integer, ?pull_up: bool) -> void
+  def count: () -> Integer
+  def clear: () -> nil
+  private def _init: (Integer pin_a, Integer pin_b, Integer glitch_ns, bool pull_up) -> Integer
+  private def _count: (Integer unit) -> Integer
+  private def _clear: (Integer unit) -> Integer
+end
