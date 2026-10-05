@@ -34,6 +34,29 @@ BLE_heartbeat(void)
   }
 }
 
+#ifndef PICORB_PLATFORM_RP2
+#include "../../../picoruby-machine/include/hal.h"
+
+static void
+ble_scheduler_pump(void *ud)
+{
+  (void)ud;
+  if (event_queue.tt == MRBC_TT_NIL) return;
+  BLE_poll(BLE_MAX_PENDING_EVENTS - pending_event_count);
+}
+
+static void
+ble_pump_attach(void)
+{
+  picorb_scheduler_service_add(ble_scheduler_pump, NULL);
+}
+#else
+static void
+ble_pump_attach(void)
+{
+}
+#endif
+
 static void
 c_event_popped(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -186,6 +209,7 @@ c__init(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_decref(&prev_event_queue);
   mrbc_decref(&prev_write_values);
   mrbc_decref(&prev_read_values);
+  ble_pump_attach();
 
   Machine_tud_task();
 }

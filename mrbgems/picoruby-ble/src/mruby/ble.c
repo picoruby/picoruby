@@ -5,10 +5,6 @@
 #include "mruby/array.h"
 #include "task.h"
 
-#ifdef PICORB_PLATFORM_ESP32
-#include "../../ports/esp32/nimble_owner.h"
-#endif
-
 /*
  * GC strategy: only the current BLE instance is pinned with
  * mrb_gc_register (BTstack is a hardware singleton, so there is at
@@ -56,19 +52,60 @@ BLE_heartbeat(void)
   }
 }
 
+#ifndef PICORB_PLATFORM_RP2
+#include "mruby/error.h"
+#include "../../../picoruby-machine/include/hal.h"
+
+static mrb_value
+ble_pump_body(mrb_state *mrb, void *ud)
+{
+  (void)mrb;
+  (void)ud;
+  BLE_poll(BLE_MAX_PENDING_EVENTS - pending_event_count);
+  return mrb_nil_value();
+}
+
+static void
+ble_scheduler_pump(mrb_state *mrb, void *ud)
+{
+  (void)ud;
+  if (mrb != _mrb || mrb_nil_p(event_queue)) return;
+  mrb_bool error = FALSE;
+  int ai = mrb_gc_arena_save(mrb);
+  mrb_protect_error(mrb, ble_pump_body, NULL, &error);
+  mrb_gc_arena_restore(mrb, ai);
+  if (error) write_values_mutex = false;
+}
+
+static void
+ble_pump_attach(mrb_state *mrb)
+{
+  picorb_scheduler_service_add(mrb, ble_scheduler_pump, NULL);
+}
+
+static void
+ble_pump_detach(mrb_state *mrb)
+{
+  picorb_scheduler_service_remove(mrb, ble_scheduler_pump, NULL);
+}
+#else
+static void
+ble_pump_attach(mrb_state *mrb)
+{
+  (void)mrb;
+}
+
+static void
+ble_pump_detach(mrb_state *mrb)
+{
+  (void)mrb;
+}
+#endif
+
 static mrb_value
 mrb_event_popped(mrb_state *mrb, mrb_value self)
 {
   if (0 < pending_event_count) pending_event_count--;
-#ifdef PICORB_PLATFORM_ESP32
-  /* NimBLE fills a plain ring buffer from its own FreeRTOS task. BLE_push_event
-   * touches the GC heap, so it must run here, on the thread owning mrb_state. */
-  {
-    uint8_t buf[PICORUBY_NIMBLE_EVT_MAX];
-    uint16_t n = picoruby_nimble_dequeue_event(buf, sizeof(buf));
-    if (n > 0) BLE_push_event(buf, n);
-  }
-#endif
   return mrb_nil_value();
 }
 
@@ -209,6 +246,7 @@ mrb__init(mrb_state *mrb, mrb_value self)
   write_values = new_write_values;
   read_values = new_read_values;
   pending_event_count = 0;
+  ble_pump_attach(mrb);
 
   if (release_prev) {
     mrb_gc_unregister(mrb, prev_ble);
@@ -253,6 +291,7 @@ mrb_picoruby_ble_gem_init(mrb_state* mrb)
 void
 mrb_picoruby_ble_gem_final(mrb_state* mrb)
 {
+  ble_pump_detach(mrb);
   if (profile_buf) {
     mrb_free(mrb, profile_buf);
     profile_buf = NULL;

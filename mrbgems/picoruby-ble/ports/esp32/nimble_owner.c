@@ -58,6 +58,7 @@ static uint8_t own_addr_type = BLE_OWN_ADDR_PUBLIC;
 static SemaphoreHandle_t sync_sem = NULL;
 static esp_timer_handle_t heartbeat_timer = NULL;
 static int heartbeat_depth = 0; // nest count: only the outermost disable actually stops it
+static volatile bool heartbeat_pending = false;
 
 void
 picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_adv)
@@ -96,6 +97,7 @@ picoruby_nimble_reset_events(void)
   evq_head = 0;
   evq_count = 0;
   taskEXIT_CRITICAL(&evq_mux);
+  heartbeat_pending = false;
 }
 
 int
@@ -155,11 +157,9 @@ flush_writes(void)
   }
 }
 
-uint16_t
-picoruby_nimble_dequeue_event(uint8_t *out, uint16_t cap)
+static uint16_t
+dequeue_event(uint8_t *out, uint16_t cap)
 {
-  flush_writes();
-  picoruby_ble_refresh_read_mirrors();
   evq_entry_t entry;
   taskENTER_CRITICAL(&evq_mux);
   if (evq_count == 0) {
@@ -179,7 +179,31 @@ static void
 heartbeat_timer_cb(void *arg)
 {
   (void)arg;
-  BLE_heartbeat();
+  heartbeat_pending = true;
+}
+
+static bool
+take_heartbeat(void)
+{
+  if (!heartbeat_pending) return false;
+  heartbeat_pending = false;
+  return true;
+}
+
+void
+BLE_poll(int budget)
+{
+  flush_writes();
+  picoruby_ble_refresh_read_mirrors();
+  uint8_t buf[EVQ_PKT_MAX];
+  uint16_t n;
+  while (budget > 0 && (n = dequeue_event(buf, sizeof(buf))) > 0) {
+    BLE_push_event(buf, n);
+    budget--;
+  }
+  if (budget > 0 && take_heartbeat()) {
+    BLE_heartbeat();
+  }
 }
 
 void
