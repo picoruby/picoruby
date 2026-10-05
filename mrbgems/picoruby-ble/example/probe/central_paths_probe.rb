@@ -40,7 +40,6 @@ class CentralPathsProbe < BLE
     "\x00\x00" + [(uuid16 >> 8) & 0xff, uuid16 & 0xff].pack("CC") + BT_BASE_SUFFIX
   end
 
-  # Matches on uuid128.
   def pick(list, uuid16)
     want = uuid128_for(uuid16)
     found = nil
@@ -81,7 +80,6 @@ class CentralPathsProbe < BLE
       puts "[probe] C2 write_characteristic_descriptor_using_descriptor_handle rc=#{rc}"
       @subscribed = true
     else
-      # Dumping here saves a device round-trip vs. rediscovering.
       puts "[probe] CCCD descriptor not discovered on the notify characteristic"
       puts "[probe] descriptors=#{nt[:descriptors].inspect}"
     end
@@ -95,5 +93,4 @@ class CentralPathsProbe < BLE
 end
 
 probe = CentralPathsProbe.new
-# debug: pass it to scan; scan assigns @debug itself.
 probe.scan(timeout_ms: 120_000, stop_state: :no_stop, debug: true)

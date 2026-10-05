@@ -7,15 +7,15 @@ against the table below.
 | Probe | Role | Peer it needs | PASS when |
 |---|---|---|---|
 | `peripheral_paths_probe.rb` | Peripheral | A Central that connects, subscribes, writes, then disconnects twice | All of P1-P7 appear |
-| `central_paths_probe.rb` | Central | A Peripheral advertising as `PBLE-DARWIN` with a notify and a write characteristic | C1, C2 and C3 appear |
+| `central_paths_probe.rb` | Central | A Peripheral advertising as the probe's `TARGET_NAME` with a notify and a write characteristic | C1, C2 and C3 appear |
 | `dynamic_read_probe.rb` | Peripheral | A Central reading the characteristic repeatedly | Every read returns the value pushed for that tick |
-| `write_flood_probe.rb` | Peripheral | A Central that writes a known number of frames back to back | Write Request: the arrival count equals the count the peer saw accepted. Write Command: no abort, and any dropped frames appear in the log as a write-queue-full count |
+| `write_flood_probe.rb` | Peripheral | A Central that writes a known number of frames back to back | Write Request: the arrival count equals the count the peer saw accepted. Write Command: no abort; the first dropped frame logs one write-queue-full line, and the drop count is the peer's sent count minus the arrival count |
 | `adv_report_padding_probe.rb` | Central | None; ambient advertising traffic is the input | `raised=yes`, `dlen0 + dlen1 > 0`, `badpad=0`, `fail=0` |
 | `reinit_probe.rb` | Peripheral/Central, alternating | None | `SUMMARY completed=20 cycles without crash` |
 
 ## Usage
 
-Deploy the file to `/home/app.mrb` and capture the serial output.
+Deploy the file as `/home/app.rb` (or compile it to `/home/app.mrb` for a board that cannot compile on the device) and capture the serial output.
 
 - `peripheral_paths_probe.rb`, `central_paths_probe.rb`,
   `dynamic_read_probe.rb`, `write_flood_probe.rb`: start the peer's half

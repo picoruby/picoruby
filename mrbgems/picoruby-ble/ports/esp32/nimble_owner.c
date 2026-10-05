@@ -21,9 +21,7 @@ static const char *TAG = "prb_ble_evq";
 
 #define EVQ_DEPTH 32
 #define EVQ_PKT_MAX PICORUBY_NIMBLE_EVT_MAX
-#ifndef WRQ_DEPTH
 #define WRQ_DEPTH 32
-#endif
 #define WRQ_PKT_MAX 256
 #define WRQ_RUBY_PENDING_MAX 16
 #define HEARTBEAT_PERIOD_US (1000 * 1000)
@@ -216,9 +214,7 @@ picoruby_nimble_heartbeat_enable(bool enable)
   if (heartbeat_timer == NULL) return;
   if (enable) {
     if (heartbeat_depth++ > 0) return;
-    esp_err_t err = esp_timer_start_periodic(heartbeat_timer, HEARTBEAT_PERIOD_US);
-    ESP_LOGI(TAG, "esp_timer_start_periodic(heartbeat) -> %s, is_active=%d",
-             esp_err_to_name(err), esp_timer_is_active(heartbeat_timer));
+    esp_timer_start_periodic(heartbeat_timer, HEARTBEAT_PERIOD_US);
   } else {
     if (heartbeat_depth > 0) heartbeat_depth--;
     if (heartbeat_depth > 0) return;
@@ -268,8 +264,7 @@ ensure_timers(void)
       .callback = heartbeat_timer_cb,
       .name = "prb_ble_hb",
     };
-    esp_err_t err = esp_timer_create(&hargs, &heartbeat_timer);
-    ESP_LOGI(TAG, "esp_timer_create(heartbeat) -> %s", esp_err_to_name(err));
+    esp_timer_create(&hargs, &heartbeat_timer);
   }
 }
 

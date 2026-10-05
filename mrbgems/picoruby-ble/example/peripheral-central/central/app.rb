@@ -16,7 +16,6 @@ end
 
 central = DemoCentral.new
 central.scan(timeout_ms: 30_000, debug: true)
-
 central.services.each do |service|
   puts sprintf("Service 0x%04X", service[:uuid32] || 0)
   service[:characteristics].each do |chara|

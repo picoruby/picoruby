@@ -37,7 +37,7 @@ void
 BLE_central_start_scan(void)
 {
   ble_gap_disc(picoruby_nimble_own_addr_type(), BLE_HS_FOREVER,
-              &scan_params, picoruby_ble_gap_event, NULL);
+               &scan_params, picoruby_ble_gap_event, NULL);
 }
 
 void

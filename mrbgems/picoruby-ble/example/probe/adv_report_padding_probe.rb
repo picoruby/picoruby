@@ -59,6 +59,5 @@ rescue => e
   puts "[probe] NEGCTL bytes=#{unpadded.bytesize} raised=yes msg=#{e.message}"
 end
 
-# Active scan (not the default) is what makes short reports arrive.
 probe = AdvProbe.new
 probe.scan(scan_type: :active, stop_state: :no_stop)

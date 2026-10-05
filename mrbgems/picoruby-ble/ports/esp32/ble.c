@@ -49,9 +49,7 @@ static const char *BLE_TAG = "prb_ble_evq";
 #define GATT_EVENT_PAYLOAD_OFFSET 8
 #define VALUE_EVENT_DATA_MAX (PICORUBY_NIMBLE_EVT_MAX - GATT_EVENT_PAYLOAD_OFFSET - 4)
 
-#ifndef RDM_SLOTS
 #define RDM_SLOTS 16
-#endif
 #define RDM_MAX 256
 
 static enum BLE_role_t role = BLE_ROLE_NONE;
@@ -96,7 +94,6 @@ uuid_to_le128(const ble_uuid_any_t *u, uint8_t out[16])
 typedef struct {
   uint16_t ruby_handle;
   uint16_t nimble_handle;
-  uint16_t blob_flags;
   const uint8_t *static_value;
   uint16_t static_len;
   uint16_t cccd_ruby_handle;
@@ -275,7 +272,6 @@ alloc_dsc(void)
   return &dsc_slots[dsc_slot_count++];
 }
 
-// No fallback to BLE_read_data from the host task here: touching the GC heap off the VM thread is the defect this fixes.
 static void
 mirror_assign(attr_map_t *e, uint16_t flags)
 {
@@ -354,7 +350,6 @@ parse_att_db(const uint8_t *db, size_t db_len)
       cur_chr->val_handle = &cur_chr_map->nimble_handle;
     } else if (cur_chr_map && handle == expected_value_handle && expected_value_handle != 0
                && uuid_len == cur_chr_uuid_len && memcmp(uuid, cur_chr_uuid, uuid_len) == 0) {
-      cur_chr_map->blob_flags = flags;
       cur_chr_map->static_value = value;
       cur_chr_map->static_len = value_len;
       mirror_assign(cur_chr_map, flags);
@@ -365,7 +360,6 @@ parse_att_db(const uint8_t *db, size_t db_len)
       struct ble_gatt_dsc_def *dsc = alloc_dsc();
       attr_map_t *m = alloc_map(handle);
       if (dsc == NULL || m == NULL) return -1;
-      m->blob_flags = flags;
       m->static_value = value;
       m->static_len = value_len;
       mirror_assign(m, flags);
@@ -394,11 +388,10 @@ register_services(void)
   return rc;
 }
 
-void
+static void
 picoruby_ble_synth_state_working(void)
 {
   uint8_t p[3] = { EVT_BTSTACK_STATE, 1, HCI_STATE_WORKING };
-  ESP_LOGI(BLE_TAG, "picoruby_ble_synth_state_working: enqueueing EVT_BTSTACK_STATE/HCI_STATE_WORKING");
   picoruby_nimble_enqueue_event(p, sizeof(p), false);
 }
 
@@ -469,7 +462,6 @@ synth_mtu_exchange_complete(uint16_t conn, uint16_t mtu)
 static void
 synth_advertising_report(const struct ble_gap_disc_desc *d)
 {
-  // Pad to >=14 bytes: mrblib/ble_advertising_report.rb requires it and NimBLE can report shorter adverts; safe since inspect_reports() only reads the declared data_length.
   uint8_t p[14 + 31];
   uint8_t dlen = d->length_data > 31 ? 31 : d->length_data;
   p[0] = EVT_GAP_ADVERTISING_REPORT;
@@ -508,7 +500,6 @@ picoruby_ble_gap_event(struct ble_gap_event *event, void *arg)
       break;
     case BLE_GAP_EVENT_DISCONNECT:
       con_handle = 0xffff;
-      // Write queue is NOT reset on disconnect: entries are per-attribute-handle, and the peer was already told the write succeeded; BLE restart staleness is handled by picoruby_nimble_start.
       if (role == BLE_ROLE_PERIPHERAL || role == BLE_ROLE_CENTRAL) {
         synth_disconnection_complete(event->disconnect.conn.conn_handle,
                                      (uint8_t)event->disconnect.reason);
@@ -593,7 +584,6 @@ BLE_init(const uint8_t *profile_data, int ble_role)
 void
 BLE_hci_power_control(uint8_t power_mode)
 {
-  ESP_LOGI(BLE_TAG, "BLE_hci_power_control(%u): started=%d", power_mode, picoruby_nimble_started());
   if (!picoruby_nimble_started()) return;
   if (power_mode == 1) {
     picoruby_nimble_reset_events();
