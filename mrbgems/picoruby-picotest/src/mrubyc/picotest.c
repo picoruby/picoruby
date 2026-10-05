@@ -207,14 +207,15 @@ c_double_remove_singleton(struct VM *vm, mrbc_value v[], int argc)
         mrbc_raisef(vm, MRBC_CLASS(TypeError), "Invalid target object: %d", doubled_obj.tt);
         return;
     }
-    mrbc_method **method = &cls->method_link;
-    while ((*method)->sym_id != method_id.i) {
-      method = &(*method)->next;
-      if (!(*method)) goto not_found;
+    for (int i = 0; i < cls->num_methods; i++) {
+      if (cls->methods[i].sym_id != method_id.i) continue;
+      for (int j = i + 1; j < cls->num_methods; j++) {
+        cls->methods[j - 1] = cls->methods[j];
+      }
+      cls->num_methods--;
+      break;
     }
-    *method = (*method)->next;
   }
-not_found:
   SET_NIL_RETURN();
 }
 
@@ -317,7 +318,7 @@ c_double_define_method(struct VM *vm, mrbc_value v[], int argc)
     SET_RETURN(singleton_class_name);
   }
   else {
-    // modifying method_link instead of modifying class
+    // adding to the method table of the class instead of replacing the class
     mrbc_define_method(vm, super_class, method_name, c__double_method);
     SET_NIL_RETURN();
   }

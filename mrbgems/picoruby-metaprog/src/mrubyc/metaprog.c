@@ -69,21 +69,20 @@ c_object_methods(mrbc_vm *vm, mrbc_value *v, int argc)
         mrbc_raisef(vm, MRBC_CLASS(Exception), "Unknown vtype: %d", object.tt);
         return;
     }
-    mrbc_method *method;
     if (cls) {
       /* When flag_alias==1, the union holds 'aliased' (a class pointer) instead
-         of method_link. Resolve one level of alias to get the actual class.
-         When flag_builtin==1 and num_builtin_method==0 (RBuiltinNoMethodClass),
-         there is no method_link field - skip the dynamic method loop. */
+         of the method table. Resolve one level of alias to get the actual class.
+         When flag_nomethod==1 (RBuiltinNoMethodClass), there is no method table
+         field - skip the dynamic method loop. */
       mrbc_class *mcls = cls->flag_alias ? cls->aliased : cls;
       if (mcls && !mcls->flag_alias) {
-        if (!mcls->flag_builtin || mcls->num_builtin_method > 0) {
-          for( method = mcls->method_link; method != 0; method = method->next ) {
-            mrbc_array_push(&methods, &mrbc_symbol_value(method->sym_id));
+        if (!mcls->flag_nomethod) {
+          for (int i = 0; i < mcls->num_methods; i++) {
+            mrbc_array_push(&methods, &mrbc_symbol_value(mcls->methods[i].sym_id));
           }
         }
-        if (0 < mcls->num_builtin_method) {
-          for (int i = 0; i < mcls->num_builtin_method; i++) {
+        if (0 < mcls->num_builtin_methods) {
+          for (int i = 0; i < mcls->num_builtin_methods; i++) {
             mrbc_array_push(&methods, &mrbc_symbol_value(((struct RBuiltinClass *)mcls)->method_symbols[i]));
           }
         }
@@ -373,31 +372,6 @@ sub_irep_incref(mrbc_irep *irep, int inc_dec)
 }
 
 static void
-sub_def_alias(mrbc_class *cls, mrbc_method *method, mrbc_sym sym_id)
-{
-  method->next = cls->method_link;
-  cls->method_link = method;
-
-  if (!method->c_func) sub_irep_incref(method->irep, +1);
-
-  // checking same method
-  for (; method->next != NULL; method = method->next) {
-    if (method->next->sym_id == sym_id) {
-      // Found it. Unchain it in linked list and remove.
-      mrbc_method *del_method = method->next;
-
-      method->next = del_method->next;
-      if (del_method->type == 'M') {
-        if (!del_method->c_func) sub_irep_incref(del_method->irep, -1);
-        mrbc_raw_free(del_method);
-      }
-
-      break;
-    }
-  }
-}
-
-static void
 c_alias_method(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   if (argc != 2) {
@@ -435,26 +409,23 @@ c_alias_method(mrbc_vm *vm, mrbc_value *v, int argc)
     cls = vm->target_class;
   }
 
-  // Allocate new method structure
-  mrbc_method *method = (vm->vm_id == 0) ?
-    mrbc_raw_alloc_no_free(sizeof(mrbc_method)) :
-    mrbc_raw_alloc(sizeof(mrbc_method));
-  if (!method) return; // ENOMEM
-
   // Find original method
-  if (mrbc_find_method(method, cls, sym_id_org) == 0) {
+  mrbc_method method;
+  if (mrbc_find_method(&method, cls, sym_id_org) == NULL) {
     mrbc_raisef(vm, MRBC_CLASS(NameError), "undefined method '%s'",
       mrbc_symid_to_str(sym_id_org));
-    if (vm->vm_id != 0) mrbc_raw_free(method);
     return;
   }
 
-  // Set new method name
-  method->type = (vm->vm_id == 0) ? 'm' : 'M';
-  method->sym_id = sym_id_new;
-
-  // Add to class method list
-  sub_def_alias(cls, method, sym_id_new);
+  // Insert into the sorted method table, replacing a same-name entry
+  mrbc_method *m = mrbc_method_table_insert_entry(vm, cls, sym_id_new);
+  if (m->sym_id == sym_id_new) {
+    // Duplicate method name found.
+    if (!m->c_func) sub_irep_incref(m->irep, -1);
+  }
+  *m = method;
+  m->sym_id = sym_id_new;
+  if (!m->c_func) sub_irep_incref(m->irep, +1);
 
   mrbc_value return_sym = mrbc_symbol_value(sym_id_new);
   SET_RETURN(return_sym);
