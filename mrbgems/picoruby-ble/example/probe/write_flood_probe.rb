@@ -51,11 +51,35 @@ class WriteFloodProbe < BLE
   end
 
   def heartbeat_callback
+  end
+
+  def drain
     while (v = pop_write_value(@write_handle))
       @received += 1
       @bytes += v.bytesize
       puts "[flood-probe] received=#{@received} bytes=#{@bytes}" if @received % 50 == 0
     end
+  end
+
+  def start(timeout_ms = nil, stop_state = :no_stop)
+    started_at = Machine.board_millis
+    @event_queue.clear
+    _event_queue_cleared
+    hci_power_control(HCI_POWER_ON)
+    while true
+      break if timeout_ms && timeout_ms <= Machine.board_millis - started_at
+      event = @event_queue.pop(timeout_ms: 20)
+      _event_popped if event
+      if event.is_a?(String)
+        packet_callback(event)
+      elsif event
+        heartbeat_callback
+      end
+      drain
+    end
+    Machine.board_millis - started_at
+  ensure
+    hci_power_control(HCI_POWER_OFF)
   end
 end
 

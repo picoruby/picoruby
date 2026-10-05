@@ -25,6 +25,7 @@ static const char *TAG = "prb_ble_evq";
 #define WRQ_DEPTH 32
 #endif
 #define WRQ_PKT_MAX 256
+#define WRQ_RUBY_PENDING_MAX 16
 #define HEARTBEAT_PERIOD_US (1000 * 1000)
 #define SYNC_TIMEOUT_TICKS pdMS_TO_TICKS(2000)
 
@@ -150,10 +151,13 @@ flush_writes(void)
     handle = wrq[wrq_head].ruby_handle;
     len = wrq[wrq_head].len;
     memcpy(buf, wrq[wrq_head].data, len);
+    taskEXIT_CRITICAL(&wrq_mux);
+    if (BLE_write_pending(handle) >= WRQ_RUBY_PENDING_MAX) return;
+    if (BLE_write_data(handle, buf, len) != 0) return;
+    taskENTER_CRITICAL(&wrq_mux);
     wrq_head = (wrq_head + 1) % WRQ_DEPTH;
     wrq_count--;
     taskEXIT_CRITICAL(&wrq_mux);
-    BLE_write_data(handle, buf, len);
   }
 }
 

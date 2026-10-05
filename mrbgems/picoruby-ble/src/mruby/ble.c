@@ -138,6 +138,15 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
 }
 
 int
+BLE_write_pending(uint16_t att_handle)
+{
+  if (_mrb == NULL || mrb_hash_p(write_values) == false) return 0;
+  mrb_value queue = mrb_hash_get(_mrb, write_values, mrb_fixnum_value(att_handle));
+  if (!mrb_array_p(queue)) return 0;
+  return (int)RARRAY_LEN(queue);
+}
+
+int
 BLE_read_data(BLE_read_value_t *read_value)
 {
   if (_mrb == NULL || mrb_hash_p(read_values) == false) return -1;

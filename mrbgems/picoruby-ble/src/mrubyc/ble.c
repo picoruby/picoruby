@@ -91,6 +91,16 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
 }
 
 int
+BLE_write_pending(uint16_t att_handle)
+{
+  if (write_values.tt != MRBC_TT_HASH) return 0;
+  mrbc_value key = mrbc_integer_value(att_handle);
+  mrbc_value queue = mrbc_hash_get(&write_values, &key);
+  if (queue.tt != MRBC_TT_ARRAY) return 0;
+  return mrbc_array_size(&queue);
+}
+
+int
 BLE_read_data(BLE_read_value_t *read_value)
 {
   if (read_values.tt == MRBC_TT_NIL) {
