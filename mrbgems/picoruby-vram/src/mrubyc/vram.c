@@ -13,7 +13,7 @@ mrbc_vram_free(mrb_value *self)
   for (int i = 0; i < disp->page_count; i++) {
     display_page_t *page = &disp->pages[i];
     if (page->buffer.string) {
-      mrbc_string_delete(&page->buffer);
+      mrbc_decref(&page->buffer);
     }
   }
 }
@@ -84,7 +84,6 @@ c_vram_new(mrbc_vm *vm, mrbc_value *v, int argc)
       memset(page->buffer.string->data, 0, page_size);
       page->raw_data = (uint8_t *)page->buffer.string->data;
       page->raw_size = page_size;
-      /* TODO: memory leak of page->buffer happens */
 
       page->dirty = false;
       display_page_init_format(page, horizontal);
@@ -116,9 +115,9 @@ vram_pages_sub(mrbc_vm *vm, mrbc_value *v, int argc, bool dirty)
       int col = i % cols;
       int row = i / cols;
       mrbc_value entry = mrbc_array_new(vm, 3);
-      mrbc_incref(&entry);
       mrbc_array_set(&entry, 0, &mrbc_integer_value(col));
       mrbc_array_set(&entry, 1, &mrbc_integer_value(row));
+      mrbc_incref(&page->buffer);
       mrbc_array_set(&entry, 2, &page->buffer);
       mrbc_array_push(&result, &entry);
       if (clear_dirty) page->dirty = false;
