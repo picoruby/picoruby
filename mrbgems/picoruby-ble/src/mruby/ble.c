@@ -5,6 +5,10 @@
 #include "mruby/array.h"
 #include "task.h"
 
+#ifdef PICORB_PLATFORM_ESP32
+#include "../../ports/esp32/nimble_owner.h"
+#endif
+
 /*
  * GC strategy: only the current BLE instance is pinned with
  * mrb_gc_register (BTstack is a hardware singleton, so there is at
@@ -27,80 +31,32 @@ static uint8_t pending_event_count;
 
 #define BLE_MAX_PENDING_EVENTS 16
 
-void
+int
 BLE_push_event(uint8_t *data, uint16_t size)
 {
   if (_mrb == NULL || mrb_nil_p(event_queue) ||
-      BLE_MAX_PENDING_EVENTS <= pending_event_count) return;
+      BLE_MAX_PENDING_EVENTS <= pending_event_count) return -1;
   int ai = mrb_gc_arena_save(_mrb);
   mrb_value event = mrb_str_new(_mrb, (const char *)data, size);
   if (mrb_task_queue_push(_mrb, event_queue, event) == MRB_TASK_QUEUE_PUSH_OK) {
     pending_event_count++;
   }
   mrb_gc_arena_restore(_mrb, ai);
+  return 0;
 }
 
-void
+int
 BLE_heartbeat(void)
 {
   if (_mrb == NULL || mrb_nil_p(event_queue) ||
-      BLE_MAX_PENDING_EVENTS <= pending_event_count) return;
+      BLE_MAX_PENDING_EVENTS <= pending_event_count) return -1;
   mrb_state *mrb = _mrb;
   if (mrb_task_queue_push(mrb, event_queue, mrb_symbol_value(MRB_SYM(heartbeat))) ==
       MRB_TASK_QUEUE_PUSH_OK) {
     pending_event_count++;
   }
+  return 0;
 }
-
-#ifndef PICORB_PLATFORM_RP2
-#include "mruby/error.h"
-#include "../../../picoruby-machine/include/hal.h"
-
-static mrb_value
-ble_pump_body(mrb_state *mrb, void *ud)
-{
-  (void)mrb;
-  (void)ud;
-  BLE_poll(BLE_MAX_PENDING_EVENTS - pending_event_count);
-  return mrb_nil_value();
-}
-
-static void
-ble_scheduler_pump(mrb_state *mrb, void *ud)
-{
-  (void)ud;
-  if (mrb != _mrb || mrb_nil_p(event_queue)) return;
-  mrb_bool error = FALSE;
-  int ai = mrb_gc_arena_save(mrb);
-  mrb_protect_error(mrb, ble_pump_body, NULL, &error);
-  mrb_gc_arena_restore(mrb, ai);
-  if (error) write_values_mutex = false;
-}
-
-static void
-ble_pump_attach(mrb_state *mrb)
-{
-  picorb_scheduler_service_add(mrb, ble_scheduler_pump, NULL);
-}
-
-static void
-ble_pump_detach(mrb_state *mrb)
-{
-  picorb_scheduler_service_remove(mrb, ble_scheduler_pump, NULL);
-}
-#else
-static void
-ble_pump_attach(mrb_state *mrb)
-{
-  (void)mrb;
-}
-
-static void
-ble_pump_detach(mrb_state *mrb)
-{
-  (void)mrb;
-}
-#endif
 
 static mrb_value
 mrb_event_popped(mrb_state *mrb, mrb_value self)
@@ -125,14 +81,12 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   mrb_value key = mrb_fixnum_value(att_handle);
   int ai = mrb_gc_arena_save(_mrb);
   mrb_value write_value = mrb_str_new(_mrb, (const char *)data, size);
-  write_values_mutex = true;
   mrb_value queue = mrb_hash_get(_mrb, write_values, key);
   if (!mrb_array_p(queue)) {
     queue = mrb_ary_new_capa(_mrb, 4);
     mrb_hash_set(_mrb, write_values, key, queue);
   }
   mrb_ary_push(_mrb, queue, write_value);
-  write_values_mutex = false;
   mrb_gc_arena_restore(_mrb, ai);
   return 0;
 }
@@ -161,7 +115,6 @@ BLE_read_data(BLE_read_value_t *read_value)
 static mrb_value
 mrb_pop_write_value(mrb_state *mrb, mrb_value self)
 {
-  if (write_values_mutex) return mrb_nil_value();
   mrb_int handle;
   mrb_get_args(mrb, "i", &handle);
   mrb_value key = mrb_fixnum_value(handle);
@@ -255,7 +208,9 @@ mrb__init(mrb_state *mrb, mrb_value self)
   write_values = new_write_values;
   read_values = new_read_values;
   pending_event_count = 0;
-  ble_pump_attach(mrb);
+#ifdef PICORB_PLATFORM_ESP32
+  picoruby_nimble_attach_vm(mrb);
+#endif
 
   if (release_prev) {
     mrb_gc_unregister(mrb, prev_ble);
@@ -300,7 +255,6 @@ mrb_picoruby_ble_gem_init(mrb_state* mrb)
 void
 mrb_picoruby_ble_gem_final(mrb_state* mrb)
 {
-  ble_pump_detach(mrb);
   if (profile_buf) {
     mrb_free(mrb, profile_buf);
     profile_buf = NULL;

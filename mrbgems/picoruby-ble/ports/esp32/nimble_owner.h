@@ -21,6 +21,8 @@ void picoruby_nimble_reset_events(void);
 int picoruby_nimble_enqueue_write(uint16_t ruby_handle, const uint8_t *data, uint16_t len);
 void picoruby_nimble_reset_writes(void);
 void picoruby_nimble_heartbeat_enable(bool enable);
+void picoruby_nimble_pump(void);
+void picoruby_nimble_attach_vm(void *vm);
 
 #ifdef __cplusplus
 }

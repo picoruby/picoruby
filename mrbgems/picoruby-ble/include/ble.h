@@ -37,10 +37,10 @@ typedef struct {
 int BLE_init(const uint8_t *profile, int ble_role);
 void BLE_hci_power_control(uint8_t power_mode);
 void BLE_gap_local_bd_addr(uint8_t *local_addr);
-void BLE_push_event(uint8_t *data, uint16_t size);
-void BLE_heartbeat(void);
-void BLE_poll(int budget);
+int BLE_push_event(uint8_t *data, uint16_t size);
+int BLE_heartbeat(void);
 int BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size);
+/* only the esp32 port calls this */
 int BLE_write_pending(uint16_t att_handle);
 int BLE_read_data(BLE_read_value_t *read_value);
 uint8_t BLE_discover_primary_services(uint16_t conn_handle);

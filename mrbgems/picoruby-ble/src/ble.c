@@ -6,12 +6,6 @@
 
 #include "../../picoruby-machine/include/machine.h"
 
-/*
- * Workaround: To avoid deadlock
- * TODO: Maybe we need a critical section instead of these simple mutex
- */
-static bool write_values_mutex = false;
-
 #if defined(PICORB_VM_MRUBY)
 
 #include "mruby/ble.c"

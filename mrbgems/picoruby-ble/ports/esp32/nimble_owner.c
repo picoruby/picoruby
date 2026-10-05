@@ -36,6 +36,7 @@ typedef struct {
 static evq_entry_t evq[EVQ_DEPTH];
 static int evq_head = 0;
 static int evq_count = 0;
+static uint32_t evq_gen = 0;
 static portMUX_TYPE evq_mux = portMUX_INITIALIZER_UNLOCKED;
 
 typedef struct {
@@ -71,6 +72,7 @@ picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_ad
     int tail = (evq_head + evq_count - 1) % EVQ_DEPTH;
     if (evq[tail].is_adv) slot = tail;
   }
+  if (slot == evq_head) evq_gen++;
   if (slot < 0) {
     if (evq_count == EVQ_DEPTH) {
       if (coalesce_adv) {
@@ -79,6 +81,7 @@ picoruby_nimble_enqueue_event(const uint8_t *pkt, uint16_t len, bool coalesce_ad
       }
       evq_head = (evq_head + 1) % EVQ_DEPTH;
       evq_count--;
+      evq_gen++;
     }
     slot = (evq_head + evq_count) % EVQ_DEPTH;
     evq_count++;
@@ -95,6 +98,7 @@ picoruby_nimble_reset_events(void)
   taskENTER_CRITICAL(&evq_mux);
   evq_head = 0;
   evq_count = 0;
+  evq_gen++;
   taskEXIT_CRITICAL(&evq_mux);
   heartbeat_pending = false;
 }
@@ -159,22 +163,30 @@ flush_writes(void)
   }
 }
 
-static uint16_t
-dequeue_event(uint8_t *out, uint16_t cap)
+static void
+drain_events(void)
 {
-  evq_entry_t entry;
-  taskENTER_CRITICAL(&evq_mux);
-  if (evq_count == 0) {
+  static uint8_t buf[EVQ_PKT_MAX];
+  for (;;) {
+    uint16_t len;
+    uint32_t gen;
+    taskENTER_CRITICAL(&evq_mux);
+    if (evq_count == 0) {
+      taskEXIT_CRITICAL(&evq_mux);
+      return;
+    }
+    len = evq[evq_head].len;
+    memcpy(buf, evq[evq_head].data, len);
+    gen = evq_gen;
     taskEXIT_CRITICAL(&evq_mux);
-    return 0;
+    if (BLE_push_event(buf, len) != 0) return;
+    taskENTER_CRITICAL(&evq_mux);
+    if (gen == evq_gen) {
+      evq_head = (evq_head + 1) % EVQ_DEPTH;
+      evq_count--;
+    }
+    taskEXIT_CRITICAL(&evq_mux);
   }
-  entry = evq[evq_head];
-  evq_head = (evq_head + 1) % EVQ_DEPTH;
-  evq_count--;
-  taskEXIT_CRITICAL(&evq_mux);
-  if (entry.len > cap) return 0;
-  memcpy(out, entry.data, entry.len);
-  return entry.len;
 }
 
 static void
@@ -184,27 +196,15 @@ heartbeat_timer_cb(void *arg)
   heartbeat_pending = true;
 }
 
-static bool
-take_heartbeat(void)
-{
-  if (!heartbeat_pending) return false;
-  heartbeat_pending = false;
-  return true;
-}
-
 void
-BLE_poll(int budget)
+picoruby_nimble_pump(void)
 {
   flush_writes();
   picoruby_ble_refresh_read_mirrors();
-  uint8_t buf[EVQ_PKT_MAX];
-  uint16_t n;
-  while (budget > 0 && (n = dequeue_event(buf, sizeof(buf))) > 0) {
-    BLE_push_event(buf, n);
-    budget--;
-  }
-  if (budget > 0 && take_heartbeat()) {
-    BLE_heartbeat();
+  drain_events();
+  if (heartbeat_pending) {
+    heartbeat_pending = false;
+    if (BLE_heartbeat() != 0) heartbeat_pending = true;
   }
 }
 
@@ -300,6 +300,7 @@ picoruby_nimble_start(picoruby_nimble_setup_fn setup)
   }
 
   ensure_timers();
+  picoruby_nimble_attach_vm(NULL);
   picoruby_nimble_reset_events();
   picoruby_nimble_reset_writes();
 
