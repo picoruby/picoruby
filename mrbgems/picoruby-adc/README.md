@@ -33,4 +33,9 @@ puts "Raw ADC: #{raw}"
 ## Notes
 
 - Pin number depends on the target board (e.g., RP2040 has ADC on pins 26-29)
+- On nRF52840 only P0.02-P0.05 and P0.28-P0.31 reach the converter; there
+  is no mux to point another GPIO at it, so any other pin is rejected.
+  Full scale is 3.6 V (internal 0.6 V reference at 1/6 gain) and readings
+  are 12-bit. `ADC.new(:temperature)` is not available: the die sensor is
+  a separate peripheral reporting quarter-degrees, not a voltage.
 - The `additional_params` hash can contain platform-specific configuration
