@@ -18,7 +18,9 @@ EM_JS(double, emscripten_date_now, (), {
 typedef struct
 {
   struct tm   tm;
-  mrb_int     unixtime_us;
+  /* int64_t, not mrb_int: with MRB_INT32 a microsecond count overflows
+     mrb_int in about 35 minutes */
+  int64_t     unixtime_us;
   long int    timezone;
 } PICORB_TIME;
 
@@ -85,11 +87,11 @@ static time_t unixtime_offset = 0;
 static mrb_value
 mrb_s_unixtime_offset(mrb_state *mrb, mrb_value klass)
 {
-  return mrb_int_value(mrb, (mrb_int)unixtime_offset);
+  return mrb_int64_value(mrb, (int64_t)unixtime_offset);
 }
 
 static mrb_value
-new_from_unixtime_us(mrb_state *mrb, mrb_value klass, mrb_int unixtime_us)
+new_from_unixtime_us(mrb_state *mrb, mrb_value klass, int64_t unixtime_us)
 {
   struct RClass *cls;
   if (mrb_class_p(klass)) {
@@ -101,7 +103,7 @@ new_from_unixtime_us(mrb_state *mrb, mrb_value klass, mrb_int unixtime_us)
   PICORB_TIME *data = (PICORB_TIME *)mrb_malloc(mrb, sizeof(PICORB_TIME));
   mrb_value self = mrb_obj_value(Data_Wrap_Struct(mrb, cls, &mrb_time_type, data));
 
-  data->unixtime_us = unixtime_us + unixtime_offset * USEC;
+  data->unixtime_us = unixtime_us + (int64_t)unixtime_offset * USEC;
   time_t unixtime = data->unixtime_us / USEC;
 #if defined(PICORB_PLATFORM_POSIX)
   localtime_r(&unixtime, &data->tm);
@@ -126,7 +128,7 @@ new_from_tm(mrb_state *mrb, mrb_value klass, struct tm *tm)
 #if !defined(PICORB_PLATFORM_POSIX)
   unixtime += ENV_get_timezone_offset();
 #endif
-  data->unixtime_us = unixtime * USEC;
+  data->unixtime_us = (int64_t)unixtime * USEC;
   memcpy(&data->tm, tm, sizeof(struct tm));
 #if defined(PICORB_PLATFORM_POSIX)
   data->timezone = timezone;
@@ -208,9 +210,12 @@ mrb_s_local(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_s_at(mrb_state *mrb, mrb_value klass)
 {
-  mrb_int unixtime;
-  mrb_get_args(mrb, "i", &unixtime);
-  return new_from_unixtime_us(mrb, klass, (mrb_int)((time_t)unixtime - unixtime_offset) * USEC);
+  mrb_value arg;
+  mrb_get_args(mrb, "o", &arg);
+  /* mrb_as_int64() accepts a Bignum, which a timestamp past the fixnum
+     range becomes under MRB_INT32 */
+  int64_t unixtime = mrb_as_int64(mrb, arg);
+  return new_from_unixtime_us(mrb, klass, (unixtime - (int64_t)unixtime_offset) * USEC);
 }
 
 static mrb_value
@@ -218,16 +223,16 @@ mrb_s_now(mrb_state *mrb, mrb_value klass)
 {
 #ifdef __EMSCRIPTEN__
   double ms = emscripten_date_now();
-  mrb_int unixtime_us = (mrb_int)(ms * 1000.0);
+  int64_t unixtime_us = (int64_t)(ms * 1000.0);
   return new_from_unixtime_us(mrb, klass, unixtime_us);
 #elif defined(NO_CLOCK_GETTIME)
   struct timeval tv;
   gettimeofday(&tv, 0);
-  return new_from_unixtime_us(mrb, klass, (mrb_int)(tv.tv_sec * USEC + tv.tv_usec));
+  return new_from_unixtime_us(mrb, klass, (int64_t)tv.tv_sec * USEC + tv.tv_usec);
 #else
   struct timespec ts;
   clock_gettime(CLOCK_REALTIME, &ts);
-  return new_from_unixtime_us(mrb, klass, (mrb_int)(ts.tv_sec * USEC + ts.tv_nsec / 1000));
+  return new_from_unixtime_us(mrb, klass, (int64_t)ts.tv_sec * USEC + ts.tv_nsec / 1000);
 #endif
 }
 
@@ -256,7 +261,7 @@ static mrb_value
 mrb_to_i(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_int_value(mrb, (mrb_int)data->unixtime_us / USEC);
+  return mrb_int64_value(mrb, data->unixtime_us / USEC);
 }
 
 static mrb_value
@@ -381,7 +386,7 @@ static mrb_value
 mrb_usec(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_int_value(mrb, data->unixtime_us % USEC);
+  return mrb_int_value(mrb, (mrb_int)(data->unixtime_us % USEC));
 }
 
 static mrb_value
@@ -397,8 +402,8 @@ mrb_time_compare(mrb_state *mrb, mrb_value self, mrb_value other)
   if (!mrb_obj_is_instance_of(mrb, other, mrb_obj_class(mrb, self))) {
     return -2;
   }
-  mrb_int other_unixtime_us = ((PICORB_TIME *)DATA_PTR(other))->unixtime_us;
-  mrb_int self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
+  int64_t other_unixtime_us = ((PICORB_TIME *)DATA_PTR(other))->unixtime_us;
+  int64_t self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
   if (self_unixtime_us < other_unixtime_us) {
     return -1;
   } else if (other_unixtime_us < self_unixtime_us) {
@@ -509,14 +514,14 @@ mrb_sub(mrb_state *mrb, mrb_value self)
   mrb_value other;
   mrb_get_args(mrb, "o", &other);
 
-  mrb_int self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
+  int64_t self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
 
   if (mrb_integer_p(other)) {
-    return new_from_unixtime_us(mrb, self, self_unixtime_us - mrb_integer(other) * USEC);
+    return new_from_unixtime_us(mrb, self, self_unixtime_us - mrb_as_int64(mrb, other) * USEC);
   } else if (mrb_float_p(other)) {
-    return new_from_unixtime_us(mrb, self, self_unixtime_us - (mrb_int)(mrb_float(other) * USEC));
+    return new_from_unixtime_us(mrb, self, self_unixtime_us - (int64_t)(mrb_float(other) * USEC));
   } else if (mrb_obj_is_instance_of(mrb, other, mrb_obj_class(mrb, self))) {
-    mrb_int other_unixtime_us = ((PICORB_TIME *)DATA_PTR(other))->unixtime_us;
+    int64_t other_unixtime_us = ((PICORB_TIME *)DATA_PTR(other))->unixtime_us;
     mrb_float result = (mrb_float)(self_unixtime_us - other_unixtime_us) / (mrb_float)USEC;
     return mrb_float_value(mrb, result);
   } else {
@@ -531,12 +536,12 @@ mrb_add(mrb_state *mrb, mrb_value self)
   mrb_value other;
   mrb_get_args(mrb, "o", &other);
 
-  mrb_int self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
+  int64_t self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
 
   if (mrb_integer_p(other)) {
-    return new_from_unixtime_us(mrb, self, self_unixtime_us + mrb_integer(other) * USEC);
+    return new_from_unixtime_us(mrb, self, self_unixtime_us + mrb_as_int64(mrb, other) * USEC);
   } else if (mrb_float_p(other)) {
-    return new_from_unixtime_us(mrb, self, self_unixtime_us + (mrb_int)(mrb_float(other) * USEC));
+    return new_from_unixtime_us(mrb, self, self_unixtime_us + (int64_t)(mrb_float(other) * USEC));
   } else {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong argument type");
     return mrb_nil_value();
