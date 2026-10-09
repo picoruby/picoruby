@@ -11,7 +11,7 @@ pin_num(mrb_state *mrb)
   int pin_number;
   switch (mrb_type(pin)) {
     case MRB_TT_INTEGER: {
-      pin_number = mrb_fixnum(pin);
+      pin_number = mrb_integer(pin);
       break;
     }
     case MRB_TT_STRING: {
@@ -39,14 +39,14 @@ mrb_adc__init(mrb_state *mrb, mrb_value self)
   if (input < 0) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "Wrong ADC pin value");
   }
-  return mrb_fixnum_value(input);
+  return mrb_int_value(mrb, input);
 }
 
 static mrb_value
 mrb_read_raw(mrb_state *mrb, mrb_value self)
 {
   mrb_value ivar_input = mrb_iv_get(mrb, self, MRB_IVSYM(input));
-  return mrb_fixnum_value(ADC_read_raw(mrb_fixnum(ivar_input)));
+  return mrb_int_value(mrb, ADC_read_raw(mrb_integer(ivar_input)));
 }
 
 static mrb_value
@@ -54,7 +54,7 @@ mrb_read_voltage(mrb_state *mrb, mrb_value self)
 {
 #ifndef PICORB_NO_FLOAT
   mrb_value ivar_input = mrb_iv_get(mrb, self, MRB_IVSYM(input));
-  return mrb_float_value(mrb, ADC_read_voltage(mrb_fixnum(ivar_input)));
+  return mrb_float_value(mrb, ADC_read_voltage(mrb_integer(ivar_input)));
 #else
   mrb_notimplement(mrb);
   return mrb_nil_value();

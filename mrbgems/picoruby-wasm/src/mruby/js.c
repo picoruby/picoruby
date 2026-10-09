@@ -15,6 +15,7 @@
 
 #include "task.h"
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1257,8 +1258,11 @@ js_ref_to_ruby_value(mrb_state *mrb, int ref_id)
       return get_boolean_value(ref_id) ? mrb_true_value() : mrb_false_value();
     case JS_TYPE_NUMBER: {
       double num = get_number_value(ref_id);
-      if (num == (double)(mrb_int)num) {
-        return mrb_fixnum_value((mrb_int)num);
+      /* Cast only inside the mrb_int range; the cast is undefined outside it.
+         mrb_int_value() boxes a value past the fixnum range on the heap. */
+      if (num == floor(num) &&
+          (double)MRB_INT_MIN <= num && num < -(double)MRB_INT_MIN) {
+        return mrb_int_value(mrb, (mrb_int)num);
       }
       return mrb_float_value(mrb, num);
     }
@@ -1424,7 +1428,7 @@ push_event_to_callback_queue(mrb_state *mrb, uintptr_t callback_id, mrb_value ev
   mrb_value queues = mrb_const_get(mrb, mrb_obj_value(class_JS_Object),
     mrb_intern_lit(mrb, "EVENT_QUEUES"));
   if (!mrb_hash_p(queues)) return;
-  mrb_value q = mrb_hash_get(mrb, queues, mrb_fixnum_value((mrb_int)callback_id));
+  mrb_value q = mrb_hash_get(mrb, queues, mrb_int_value(mrb, (mrb_int)callback_id));
   if (mrb_nil_p(q)) return;
   mrb_funcall_id(mrb, q, mrb_intern_lit(mrb, "push"), 1, event);
 }
@@ -1436,7 +1440,7 @@ close_event_queue(mrb_state *mrb, uintptr_t callback_id)
   mrb_value queues = mrb_const_get(mrb, mrb_obj_value(class_JS_Object),
     mrb_intern_lit(mrb, "EVENT_QUEUES"));
   if (!mrb_hash_p(queues)) return;
-  mrb_value q = mrb_hash_get(mrb, queues, mrb_fixnum_value((mrb_int)callback_id));
+  mrb_value q = mrb_hash_get(mrb, queues, mrb_int_value(mrb, (mrb_int)callback_id));
   if (mrb_nil_p(q)) return;
   mrb_funcall_id(mrb, q, mrb_intern_lit(mrb, "close"), 0);
 }
@@ -1505,7 +1509,7 @@ sync_dispatch_body(mrb_state *mrb, void *ud)
 {
   sync_dispatch_args *a = (sync_dispatch_args *)ud;
   mrb_value argv[3];
-  argv[0] = mrb_fixnum_value(a->callback_id);
+  argv[0] = mrb_int_value(mrb, a->callback_id);
   argv[1] = a->event;
   argv[2] = mrb_bool_value(a->once);
   return mrb_funcall_argv(mrb, mrb_obj_value(class_JS_Object),
@@ -1578,7 +1582,7 @@ resume_promise_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id
 
   mrb_value response = js_ref_to_ruby_value(mrb, result_id);
 
-  mrb_hash_set(mrb, responses, mrb_fixnum_value(callback_id), response);
+  mrb_hash_set(mrb, responses, mrb_int_value(mrb, callback_id), response);
 
   mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
   mrb_resume_task(mrb, task);
@@ -1600,7 +1604,7 @@ resume_promise_error_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callb
     mrb_gv_set(mrb, MRB_GVSYM(promise_errors), errors);
   }
 
-  mrb_hash_set(mrb, errors, mrb_fixnum_value(callback_id), mrb_str_new_cstr(mrb, errmsg));
+  mrb_hash_set(mrb, errors, mrb_int_value(mrb, callback_id), mrb_str_new_cstr(mrb, errmsg));
   free(errmsg);
 
   mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
@@ -1624,7 +1628,7 @@ resume_binary_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id,
   }
 
   mrb_value str = mrb_str_new(mrb, (const char *)binary, length);
-  mrb_hash_set(mrb, responses, mrb_fixnum_value(callback_id), str);
+  mrb_hash_set(mrb, responses, mrb_int_value(mrb, callback_id), str);
   free(binary);
 
   mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);
@@ -1651,7 +1655,7 @@ generic_dispatch_body(mrb_state *mrb, void *ud)
   mrb_value callbacks = mrb_const_get(mrb, mrb_obj_value(class_JS_Object),
                                       mrb_intern_lit(mrb, "CALLBACKS"));
   if (!mrb_hash_p(callbacks)) return mrb_nil_value();
-  mrb_value block = mrb_hash_get(mrb, callbacks, mrb_fixnum_value(a->callback_id));
+  mrb_value block = mrb_hash_get(mrb, callbacks, mrb_int_value(mrb, a->callback_id));
   if (mrb_nil_p(block)) return mrb_nil_value();
   return mrb_funcall_argv(mrb, block, MRB_SYM(call),
                           RARRAY_LEN(a->args), RARRAY_PTR(a->args));
@@ -2073,7 +2077,7 @@ register_ruby_block_as_js_callback(mrb_state *mrb, mrb_value blk)
   if (!mrb_hash_p(callbacks)) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "JS::Object::CALLBACKS is not Hash");
   }
-  mrb_hash_set(mrb, callbacks, mrb_fixnum_value(callback_id), blk);
+  mrb_hash_set(mrb, callbacks, mrb_int_value(mrb, callback_id), blk);
 
   int callback_ref_id = js_create_callback_function((uintptr_t)callback_id);
   if (callback_ref_id < 0) {
@@ -2287,7 +2291,7 @@ static mrb_value
 mrb_object_to_i(mrb_state *mrb, mrb_value self)
 {
   (void)self;
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 
@@ -2388,7 +2392,7 @@ mrb_object__set_timeout(mrb_state *mrb, mrb_value self)
   mrb_int delay_ms;
   mrb_get_args(mrb, "ii", &callback_id, &delay_ms);
   int timer_id = js_set_timeout((uintptr_t)callback_id, (int)delay_ms);
-  return mrb_fixnum_value(timer_id);
+  return mrb_int_value(mrb, timer_id);
 }
 
 /*
@@ -2602,7 +2606,7 @@ mrb_js_refcount(mrb_state *mrb, mrb_value self)
 {
   // mruby doesn't expose refcount in the same way as mruby/c
   // Return a placeholder value
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 EM_JS(int, js_eval, (const char* script), {

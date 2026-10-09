@@ -110,7 +110,7 @@ mrb_mbedtls_pkey_rsa_s_new(mrb_state *mrb, mrb_value klass)
   mrb_value arg1;
   mrb_get_args(mrb, "o", &arg1);
 
-  if (mrb_fixnum_p(arg1)) {
+  if (mrb_integer_p(arg1)) {
     // For backward compatibility: RSA.new(2048) should work like RSA.generate(2048)
     return mrb_funcall(mrb, klass, "generate", 1, arg1);
   }

@@ -49,7 +49,7 @@ c_esp32_wifi_connect_timeout(mrb_state *mrb, mrb_value self)
   if (mrb_nil_p(timeout)) {
     timeout_ms = 60 * 1000;
   } else {
-    timeout_ms = mrb_fixnum(timeout) * 1000;
+    timeout_ms = mrb_integer(timeout) * 1000;
   }
 
   int result = ESP32_WIFI_connect_timeout(ssid, password, (int)auth, (int)timeout_ms);
@@ -75,7 +75,7 @@ static mrb_value
 c_esp32_wifi_tcpip_link_status(mrb_state *mrb, mrb_value self)
 {
   int status = ESP32_WIFI_tcpip_link_status();
-  return mrb_fixnum_value(status);
+  return mrb_int_value(mrb, status);
 }
 
 static mrb_value

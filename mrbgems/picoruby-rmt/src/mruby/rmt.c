@@ -18,7 +18,7 @@ mrb_rmt__init(mrb_state *mrb, mrb_value self)
   };
 
   int ret = RMT_init((uint32_t)pin, &rmt_symbol_dulation);
-  return mrb_fixnum_value(ret);
+  return mrb_int_value(mrb, ret);
 }
 
 static mrb_value
@@ -34,7 +34,7 @@ mrb_rmt__write(mrb_state *mrb, mrb_value self)
   }
 
   int ret = RMT_write(txdata, len);
-  return mrb_fixnum_value(ret);
+  return mrb_int_value(mrb, ret);
 }
 
 void

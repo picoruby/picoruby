@@ -194,7 +194,7 @@ mrb_Statement_readonly_p(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_column_count(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(sqlite3_column_count(open_statement(mrb, self)->st));
+  return mrb_int_value(mrb, sqlite3_column_count(open_statement(mrb, self)->st));
 }
 
 /*

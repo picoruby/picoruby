@@ -7,7 +7,7 @@ static mrb_value
 mrb_start(mrb_state *mrb, mrb_value self)
 {
   mrb_value adc_input = mrb_iv_get(mrb, self, MRB_SYM(adc_input));
-  PITCHDETECTOR_start((uint8_t)mrb_fixnum(adc_input));
+  PITCHDETECTOR_start((uint8_t)mrb_integer(adc_input));
   return mrb_nil_value();
 }
 
@@ -17,7 +17,7 @@ mrb_volume_threshold_set(mrb_state *mrb, mrb_value self)
   mrb_int value;
   mrb_get_args(mrb, "i", &value);
   PITCHDETECTOR_set_volume_threshold((uint16_t)value);
-  return mrb_fixnum_value(value);
+  return mrb_int_value(mrb, value);
 }
 
 static mrb_value

@@ -85,7 +85,7 @@ static time_t unixtime_offset = 0;
 static mrb_value
 mrb_s_unixtime_offset(mrb_state *mrb, mrb_value klass)
 {
-  return mrb_fixnum_value((mrb_int)unixtime_offset);
+  return mrb_int_value(mrb, (mrb_int)unixtime_offset);
 }
 
 static mrb_value
@@ -339,56 +339,56 @@ static mrb_value
 mrb_year(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value(data->tm.tm_year + 1900);
+  return mrb_int_value(mrb, data->tm.tm_year + 1900);
 }
 
 static mrb_value
 mrb_mon(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value(data->tm.tm_mon + 1);
+  return mrb_int_value(mrb, data->tm.tm_mon + 1);
 }
 
 static mrb_value
 mrb_mday(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value(data->tm.tm_mday);
+  return mrb_int_value(mrb, data->tm.tm_mday);
 }
 
 static mrb_value
 mrb_hour(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value(data->tm.tm_hour);
+  return mrb_int_value(mrb, data->tm.tm_hour);
 }
 
 static mrb_value
 mrb_min(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value(data->tm.tm_min);
+  return mrb_int_value(mrb, data->tm.tm_min);
 }
 
 static mrb_value
 mrb_sec(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value(data->tm.tm_sec);
+  return mrb_int_value(mrb, data->tm.tm_sec);
 }
 
 static mrb_value
 mrb_usec(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value(data->unixtime_us % USEC);
+  return mrb_int_value(mrb, data->unixtime_us % USEC);
 }
 
 static mrb_value
 mrb_wday(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_fixnum_value(data->tm.tm_wday);
+  return mrb_int_value(mrb, data->tm.tm_wday);
 }
 
 static int
@@ -419,7 +419,7 @@ mrb_compare(mrb_state *mrb, mrb_value self)
 {
   mrb_value other;
   mrb_get_args(mrb, "o", &other);
-  return mrb_fixnum_value(mrb_time_compare(mrb, self, other));
+  return mrb_int_value(mrb, mrb_time_compare(mrb, self, other));
 }
 
 static mrb_value

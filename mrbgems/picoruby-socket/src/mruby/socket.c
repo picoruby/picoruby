@@ -120,7 +120,7 @@ mrb_dns_resolver_status(mrb_state *mrb, mrb_value self)
 {
   mrb_dns_resolver *resolver = (mrb_dns_resolver *)
     mrb_data_get_ptr(mrb, self, &mrb_dns_resolver_type);
-  return mrb_fixnum_value(Net_dns_status(resolver->request));
+  return mrb_int_value(mrb, Net_dns_status(resolver->request));
 }
 
 static mrb_value

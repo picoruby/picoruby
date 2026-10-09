@@ -9,14 +9,14 @@ mrb_s_enable(mrb_state *mrb, mrb_value klass)
   mrb_bool pause_on_debug = TRUE;
   mrb_get_args(mrb, "i|b", &delay_ms, &pause_on_debug);
   Watchdog_enable(delay_ms, pause_on_debug);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
 mrb_s_disable(mrb_state *mrb, mrb_value klass)
 {
   Watchdog_disable();
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -41,7 +41,7 @@ mrb_s_start_tick(mrb_state *mrb, mrb_value klass)
   mrb_int cycle;
   mrb_get_args(mrb, "i", &cycle);
   Watchdog_start_tick(cycle);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 /*
@@ -51,7 +51,7 @@ static mrb_value
 mrb_s_update(mrb_state *mrb, mrb_value klass)
 {
   Watchdog_update();
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -77,7 +77,7 @@ mrb_s_enable_caused_reboot_q(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_s_get_count(mrb_state *mrb, mrb_value klass)
 {
-  return mrb_fixnum_value(Watchdog_get_count());
+  return mrb_int_value(mrb, Watchdog_get_count());
 }
 
 void

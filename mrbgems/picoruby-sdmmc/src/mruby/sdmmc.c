@@ -18,49 +18,49 @@ static mrb_value
 mrb_clk_pin(mrb_state *mrb, mrb_value self)
 {
   sdmmc_unit_info_t *unit_info = (sdmmc_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_sdmmc_type);
-  return mrb_fixnum_value(unit_info->clk_pin);
+  return mrb_int_value(mrb, unit_info->clk_pin);
 }
 
 static mrb_value
 mrb_cmd_pin(mrb_state *mrb, mrb_value self)
 {
   sdmmc_unit_info_t *unit_info = (sdmmc_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_sdmmc_type);
-  return mrb_fixnum_value(unit_info->cmd_pin);
+  return mrb_int_value(mrb, unit_info->cmd_pin);
 }
 
 static mrb_value
 mrb_d0_pin(mrb_state *mrb, mrb_value self)
 {
   sdmmc_unit_info_t *unit_info = (sdmmc_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_sdmmc_type);
-  return mrb_fixnum_value(unit_info->d0_pin);
+  return mrb_int_value(mrb, unit_info->d0_pin);
 }
 
 static mrb_value
 mrb_d1_pin(mrb_state *mrb, mrb_value self)
 {
   sdmmc_unit_info_t *unit_info = (sdmmc_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_sdmmc_type);
-  return mrb_fixnum_value(unit_info->d1_pin);
+  return mrb_int_value(mrb, unit_info->d1_pin);
 }
 
 static mrb_value
 mrb_d2_pin(mrb_state *mrb, mrb_value self)
 {
   sdmmc_unit_info_t *unit_info = (sdmmc_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_sdmmc_type);
-  return mrb_fixnum_value(unit_info->d2_pin);
+  return mrb_int_value(mrb, unit_info->d2_pin);
 }
 
 static mrb_value
 mrb_d3_pin(mrb_state *mrb, mrb_value self)
 {
   sdmmc_unit_info_t *unit_info = (sdmmc_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_sdmmc_type);
-  return mrb_fixnum_value(unit_info->d3_pin);
+  return mrb_int_value(mrb, unit_info->d3_pin);
 }
 
 static mrb_value
 mrb_width(mrb_state *mrb, mrb_value self)
 {
   sdmmc_unit_info_t *unit_info = (sdmmc_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_sdmmc_type);
-  return mrb_fixnum_value(unit_info->width);
+  return mrb_int_value(mrb, unit_info->width);
 }
 
 static mrb_value

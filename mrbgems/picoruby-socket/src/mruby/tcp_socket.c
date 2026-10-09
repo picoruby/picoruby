@@ -63,7 +63,7 @@ mrb_tcp_socket_connection_state(mrb_state *mrb, mrb_value self)
   if (!sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "socket is not initialized");
   }
-  return mrb_fixnum_value(TCPSocket_connection_state(mrb, sock));
+  return mrb_int_value(mrb, TCPSocket_connection_state(mrb, sock));
 }
 
 static mrb_value
@@ -99,7 +99,7 @@ mrb_tcp_socket_send(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "send failed");
   }
 
-  return mrb_fixnum_value(sent);
+  return mrb_int_value(mrb, sent);
 }
 
 /* socket.readpartial(maxlen) */
@@ -272,7 +272,7 @@ mrb_tcp_socket_remote_port(mrb_state *mrb, mrb_value self)
     return mrb_nil_value();
   }
 
-  return mrb_fixnum_value(port);
+  return mrb_int_value(mrb, port);
 }
 
 /* socket.ready? */

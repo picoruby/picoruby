@@ -172,9 +172,9 @@ mrb_psg_s_note_to_period(mrb_state *mrb, mrb_value klass)
       period_q8 = (uint32_t)((int32_t)period_q8 + (int32_t)(((int32_t)psg_period_q8[index + 1] - (int32_t)period_q8) * (note - (double)index)));
     }
     if (round) {
-      return mrb_fixnum_value((period_q8 + 128) >> 8);
+      return mrb_int_value(mrb, (period_q8 + 128) >> 8);
     } else {
-      return mrb_fixnum_value(period_q8 >> 8);
+      return mrb_int_value(mrb, period_q8 >> 8);
     }
   }
 
@@ -183,7 +183,7 @@ mrb_psg_s_note_to_period(mrb_state *mrb, mrb_value klass)
   if (round) {
     period += 0.5;
   }
-  return mrb_fixnum_value((mrb_int)period);
+  return mrb_int_value(mrb, (mrb_int)period);
 }
 
 static mrb_value
@@ -429,16 +429,16 @@ mrb_picoruby_psg_gem_init(mrb_state* mrb)
 
   mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(note_to_period), mrb_psg_s_note_to_period, MRB_ARGS_REQ(1) | MRB_ARGS_KEY(1, 0));
   mrb_define_module_function_id(mrb, module_PSG, MRB_SYM(set_tuning), mrb_psg_s_set_tuning, MRB_ARGS_OPT(1) | MRB_ARGS_KEY(1, 0));
-  mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUM_CHANNEL), mrb_fixnum_value(PSG_DRUM_CHANNEL));
+  mrb_define_const_id(mrb, module_PSG, MRB_SYM(DRUM_CHANNEL), mrb_int_value(mrb, PSG_DRUM_CHANNEL));
 
-  mrb_define_const_id(mrb, class_Driver, MRB_SYM(CHIP_CLOCK), mrb_fixnum_value(CHIP_CLOCK));
-  mrb_define_const_id(mrb, class_Driver, MRB_SYM(SAMPLE_RATE), mrb_fixnum_value(SAMPLE_RATE));
+  mrb_define_const_id(mrb, class_Driver, MRB_SYM(CHIP_CLOCK), mrb_int_value(mrb, CHIP_CLOCK));
+  mrb_define_const_id(mrb, class_Driver, MRB_SYM(SAMPLE_RATE), mrb_int_value(mrb, SAMPLE_RATE));
 
   mrb_value timbres = mrb_hash_new(mrb);
-  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(square)), mrb_fixnum_value(PSG_TIMBRE_SQUARE));
-  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(triangle)), mrb_fixnum_value(PSG_TIMBRE_TRIANGLE));
-  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(sawtooth)), mrb_fixnum_value(PSG_TIMBRE_SAWTOOTH));
-  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(invsawtooth)), mrb_fixnum_value(PSG_TIMBRE_INVSAWTOOTH));
+  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(square)), mrb_int_value(mrb, PSG_TIMBRE_SQUARE));
+  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(triangle)), mrb_int_value(mrb, PSG_TIMBRE_TRIANGLE));
+  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(sawtooth)), mrb_int_value(mrb, PSG_TIMBRE_SAWTOOTH));
+  mrb_hash_set(mrb, timbres, mrb_symbol_value(MRB_SYM(invsawtooth)), mrb_int_value(mrb, PSG_TIMBRE_INVSAWTOOTH));
   mrb_define_const_id(mrb, class_Driver, MRB_SYM(TIMBRES), timbres);
 
   mrb_define_class_method_id(mrb, class_Driver, MRB_SYM(select_pwm), mrb_driver_s_select_pwm, MRB_ARGS_REQ(2));

@@ -20,11 +20,11 @@ mrb_alloc_statistics(mrb_state *mrb)
   picorb_heap_stat(&mem);
   mrb_value hash = mrb_hash_new_capa(mrb, 6);
   mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(allocator)), mrb_symbol_value(MRB_SYM(ESTALLOC)));
-  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(total)), mrb_fixnum_value(mem.total));
-  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(used)), mrb_fixnum_value(mem.used));
-  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(free)), mrb_fixnum_value(mem.free));
-  mrb_hash_set(mrb, hash, mrb_symbol_value(mrb_intern_lit(mrb, "max_free")), mrb_fixnum_value(mem.max_free));
-  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(frag)), mrb_fixnum_value(mem.frag));
+  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(total)), mrb_int_value(mrb, mem.total));
+  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(used)), mrb_int_value(mrb, mem.used));
+  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(free)), mrb_int_value(mrb, mem.free));
+  mrb_hash_set(mrb, hash, mrb_symbol_value(mrb_intern_lit(mrb, "max_free")), mrb_int_value(mrb, mem.max_free));
+  mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(frag)), mrb_int_value(mrb, mem.frag));
   return hash;
 }
 

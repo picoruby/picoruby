@@ -57,7 +57,7 @@ mrb_s_delay_ms(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "delay time must be positive");
   }
   Machine_delay_ms((uint32_t)ms);
-  return mrb_fixnum_value(ms);
+  return mrb_int_value(mrb, ms);
 }
 
 static mrb_value
@@ -69,7 +69,7 @@ mrb_s_busy_wait_ms(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "delay time must be positive");
   }
   Machine_busy_wait_ms(ms);
-  return mrb_fixnum_value(ms);
+  return mrb_int_value(mrb, ms);
 }
 
 /* The Ruby-visible Machine.sleep lives in mrblib; these two private
@@ -163,7 +163,7 @@ mrb_s_stack_usage(mrb_state *mrb, mrb_value klass)
 {
   mrb_int usage = Machine_stack_usage();
   if (0 < usage) {
-    return mrb_fixnum_value(usage);
+    return mrb_int_value(mrb, usage);
   } else {
     return mrb_nil_value();
   }
@@ -350,7 +350,7 @@ mrb_io_write(mrb_state *mrb, mrb_value self)
   for (mrb_int i = 0; i < argc; i++) {
     total += print_sub(mrb, argv[i]);
   }
-  return mrb_fixnum_value(total);
+  return mrb_int_value(mrb, total);
 }
 #endif
 

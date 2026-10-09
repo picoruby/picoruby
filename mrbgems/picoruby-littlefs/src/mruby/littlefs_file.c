@@ -76,7 +76,7 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
 static mrb_value
 mrb_sector_size(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(littlefs_get_config()->block_size);
+  return mrb_int_value(mrb, littlefs_get_config()->block_size);
 }
 
 static mrb_value
@@ -87,7 +87,7 @@ mrb_tell(mrb_state *mrb, mrb_value self)
   if (pos < 0) {
     mrb_raise_iff_lfs_error(mrb, (int)pos, "lfs_file_tell");
   }
-  return mrb_fixnum_value(pos);
+  return mrb_int_value(mrb, pos);
 }
 
 static mrb_value
@@ -114,7 +114,7 @@ mrb_seek(mrb_state *mrb, mrb_value self)
   if (new_pos < 0) {
     mrb_raise_iff_lfs_error(mrb, (int)new_pos, "lfs_file_seek");
   }
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -165,7 +165,7 @@ mrb_getbyte(mrb_state *mrb, mrb_value self)
   char buff[1];
   lfs_ssize_t br = lfs_file_read(littlefs_get_lfs(), &fd->file, buff, 1);
   if (br == 1) {
-    return mrb_fixnum_value((unsigned char)buff[0]);
+    return mrb_int_value(mrb, (unsigned char)buff[0]);
   }
   return mrb_nil_value();
 }
@@ -183,7 +183,7 @@ mrb_write(mrb_state *mrb, mrb_value self)
   }
   int err = lfs_file_sync(littlefs_get_lfs(), &fd->file);
   mrb_raise_iff_lfs_error(mrb, err, "lfs_file_sync");
-  return mrb_fixnum_value(bw);
+  return mrb_int_value(mrb, bw);
 }
 
 static mrb_value
@@ -212,7 +212,7 @@ mrb_expand(mrb_state *mrb, mrb_value self)
   /* no-op: littlefs does not support pre-allocation */
   mrb_int size;
   mrb_get_args(mrb, "i", &size);
-  return mrb_fixnum_value(size);
+  return mrb_int_value(mrb, size);
 }
 
 static mrb_value
@@ -221,7 +221,7 @@ mrb_fsync(mrb_state *mrb, mrb_value self)
   lfs_file_data_t *fd = (lfs_file_data_t *)mrb_data_get_ptr(mrb, self, &mrb_lfs_file_type);
   int err = lfs_file_sync(littlefs_get_lfs(), &fd->file);
   mrb_raise_iff_lfs_error(mrb, err, "lfs_file_sync");
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static void

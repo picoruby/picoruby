@@ -78,7 +78,7 @@ static mrb_value
 mrb_mbedtls_cipher_key_len(mrb_state *mrb, mrb_value self)
 {
   uint8_t *cipher_instance = mrb_data_get_ptr(mrb, self, &mrb_cipher_type);
-  return mrb_fixnum_value(MbedTLS_cipher_get_key_len((const uint8_t *)cipher_instance));
+  return mrb_int_value(mrb, MbedTLS_cipher_get_key_len((const uint8_t *)cipher_instance));
 }
 
 static mrb_value
@@ -108,7 +108,7 @@ static mrb_value
 mrb_mbedtls_cipher_iv_len(mrb_state *mrb, mrb_value self)
 {
   uint8_t *cipher_instance = mrb_data_get_ptr(mrb, self, &mrb_cipher_type);
-  return mrb_fixnum_value(MbedTLS_cipher_get_iv_len(cipher_instance));
+  return mrb_int_value(mrb, MbedTLS_cipher_get_iv_len(cipher_instance));
 }
 
 static mrb_value

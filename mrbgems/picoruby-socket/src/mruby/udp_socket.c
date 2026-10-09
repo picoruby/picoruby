@@ -127,7 +127,7 @@ mrb_udp_socket_send(mrb_state *mrb, mrb_value self)
     }
   }
 
-  return mrb_fixnum_value(sent);
+  return mrb_int_value(mrb, sent);
 }
 
 /* socket.recvfrom_nonblock(maxlen, flags=0) -> [data, [family, port, host, host]] or nil */
@@ -181,7 +181,7 @@ mrb_udp_socket_recvfrom_nonblock(mrb_state *mrb, mrb_value self)
   /* Create address info array [family, port, host, host] */
   addr_info = mrb_ary_new(mrb);
   mrb_ary_push(mrb, addr_info, mrb_str_new_cstr(mrb, "AF_INET"));
-  mrb_ary_push(mrb, addr_info, mrb_fixnum_value(port));
+  mrb_ary_push(mrb, addr_info, mrb_int_value(mrb, port));
   mrb_ary_push(mrb, addr_info, mrb_str_new_cstr(mrb, host));
   mrb_ary_push(mrb, addr_info, mrb_str_new_cstr(mrb, host));
 

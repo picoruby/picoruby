@@ -50,10 +50,10 @@ bdffont_render(mrb_state *mrb, const char *text,
     total_width += scaled_w;
 
     if (32 < scaled_w) {
-      mrb_ary_push(mrb, widths, mrb_fixnum_value(scaled_w - 32));
-      mrb_ary_push(mrb, widths, mrb_fixnum_value(32));
+      mrb_ary_push(mrb, widths, mrb_int_value(mrb, scaled_w - 32));
+      mrb_ary_push(mrb, widths, mrb_int_value(mrb, 32));
     } else {
-      mrb_ary_push(mrb, widths, mrb_fixnum_value(scaled_w));
+      mrb_ary_push(mrb, widths, mrb_int_value(mrb, scaled_w));
     }
 
     mrb_value ch = mrb_ary_new_capa(mrb, scaled_h);
@@ -89,8 +89,8 @@ bdffont_render(mrb_state *mrb, const char *text,
     }
   }
 
-  mrb_ary_push(mrb, result, mrb_fixnum_value(scaled_h));
-  mrb_ary_push(mrb, result, mrb_fixnum_value(total_width));
+  mrb_ary_push(mrb, result, mrb_int_value(mrb, scaled_h));
+  mrb_ary_push(mrb, result, mrb_int_value(mrb, total_width));
   mrb_ary_push(mrb, result, widths);
   mrb_ary_push(mrb, result, glyphs);
   return result;

@@ -72,7 +72,7 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   if (att_handle == 0 || size == 0 || _mrb == NULL || mrb_hash_p(write_values) == false) {
     return -1;
   }
-  mrb_value key = mrb_fixnum_value(att_handle);
+  mrb_value key = mrb_int_value(_mrb, att_handle);
   int ai = mrb_gc_arena_save(_mrb);
   mrb_value write_value = mrb_str_new(_mrb, (const char *)data, size);
   write_values_mutex = true;
@@ -91,7 +91,7 @@ int
 BLE_read_data(BLE_read_value_t *read_value)
 {
   if (_mrb == NULL || mrb_hash_p(read_values) == false) return -1;
-  mrb_value value = mrb_hash_get(_mrb, read_values, mrb_fixnum_value(read_value->att_handle));
+  mrb_value value = mrb_hash_get(_mrb, read_values, mrb_int_value(_mrb, read_value->att_handle));
   if (mrb_string_p(value) == false) return -1;
   read_value->data = (uint8_t *)RSTRING_PTR(value);
   read_value->size = (uint16_t)RSTRING_LEN(value);
@@ -105,7 +105,7 @@ mrb_pop_write_value(mrb_state *mrb, mrb_value self)
   if (write_values_mutex) return mrb_nil_value();
   mrb_int handle;
   mrb_get_args(mrb, "i", &handle);
-  mrb_value key = mrb_fixnum_value(handle);
+  mrb_value key = mrb_int_value(mrb, handle);
   mrb_value queue = mrb_hash_get(mrb, write_values, key);
   if (!mrb_array_p(queue) || RARRAY_LEN(queue) == 0) {
     return mrb_nil_value();
@@ -119,7 +119,7 @@ mrb_push_read_value(mrb_state *mrb, mrb_value self)
   mrb_int handle;
   mrb_value read_value;
   mrb_get_args(mrb, "iS", &handle, &read_value);
-  mrb_hash_set(mrb, read_values, mrb_fixnum_value(handle), read_value);
+  mrb_hash_set(mrb, read_values, mrb_int_value(mrb, handle), read_value);
   return read_value;
 }
 
@@ -209,7 +209,7 @@ mrb_hci_power_control(mrb_state *mrb, mrb_value self)
   mrb_int power_mode;
   mrb_get_args(mrb, "i", &power_mode);
   BLE_hci_power_control((uint8_t)power_mode);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value

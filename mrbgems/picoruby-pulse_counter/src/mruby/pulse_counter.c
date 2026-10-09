@@ -9,7 +9,7 @@ mrb_pulse_counter__init(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "iiib", &pin_a, &pin_b, &glitch_ns, &pull_up);
 
   int ret = PulseCounter_init((uint32_t)pin_a, (uint32_t)pin_b, (uint32_t)glitch_ns, pull_up);
-  return mrb_fixnum_value(ret);
+  return mrb_int_value(mrb, ret);
 }
 
 static mrb_value
@@ -22,7 +22,7 @@ mrb_pulse_counter__count(mrb_state *mrb, mrb_value self)
   if (PulseCounter_get_count((int)unit_id, &count) != 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "PulseCounter: failed to get count");
   }
-  return mrb_fixnum_value(count);
+  return mrb_int_value(mrb, count);
 }
 
 static mrb_value
@@ -30,7 +30,7 @@ mrb_pulse_counter__clear(mrb_state *mrb, mrb_value self)
 {
   mrb_int unit_id;
   mrb_get_args(mrb, "i", &unit_id);
-  return mrb_fixnum_value(PulseCounter_clear((int)unit_id));
+  return mrb_int_value(mrb, PulseCounter_clear((int)unit_id));
 }
 
 void

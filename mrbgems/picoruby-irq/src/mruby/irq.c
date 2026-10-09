@@ -41,7 +41,7 @@ mrb_s_register_gpio(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to register GPIO IRQ");
   }
 
-  return mrb_fixnum_value(irq_id);
+  return mrb_int_value(mrb, irq_id);
 }
 
 /*
@@ -68,11 +68,11 @@ mrb_s_peek_event(mrb_state *mrb, mrb_value self)
 
   mrb_value result = mrb_ary_new_capa(mrb, 2);
   if (has_event) {
-    mrb_ary_push(mrb, result, mrb_fixnum_value(irq_id));
+    mrb_ary_push(mrb, result, mrb_int_value(mrb, irq_id));
   } else {
     mrb_ary_push(mrb, result, mrb_nil_value());
   }
-  mrb_ary_push(mrb, result, mrb_fixnum_value(event_type));
+  mrb_ary_push(mrb, result, mrb_int_value(mrb, event_type));
 
   return result;
 }
@@ -157,7 +157,7 @@ irq_drain(mrb_state *mrb, void *ud)
       IRQ_clear_ready(id);
       continue;
     }
-    switch (mrb_task_queue_push(mrb, queue, mrb_fixnum_value(id))) {
+    switch (mrb_task_queue_push(mrb, queue, mrb_int_value(mrb, id))) {
       case MRB_TASK_QUEUE_PUSH_OK:
         IRQ_mark_enqueued(id);
         break;
@@ -244,7 +244,7 @@ mrb_s_take(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "i", &id);
   irq_check_id(mrb, id);
-  return mrb_fixnum_value((mrb_int)IRQ_take_bits((int)id));
+  return mrb_int_value(mrb, (mrb_int)IRQ_take_bits((int)id));
 }
 
 /*
@@ -376,7 +376,7 @@ irq_bridge_init(mrb_state *mrb, struct RClass *module_IRQ)
      peripheral objects hand out their own via #event_source_id. */
   {
     struct RClass *source_mod = mrb_define_module_under_id(mrb, module_IRQ, MRB_SYM(SOURCE));
-    mrb_define_const_id(mrb, source_mod, MRB_SYM(GPIO), mrb_fixnum_value(IRQ_SRC_GPIO));
+    mrb_define_const_id(mrb, source_mod, MRB_SYM(GPIO), mrb_int_value(mrb, IRQ_SRC_GPIO));
   }
   /* Private singleton methods, not module functions: module_function
      would also mix them into every includer as private instance
@@ -386,7 +386,7 @@ irq_bridge_init(mrb_state *mrb, struct RClass *module_IRQ)
   irq_singleton = mrb_singleton_class_ptr(mrb, mrb_obj_value(module_IRQ));
   mrb_define_private_method_id(mrb, irq_singleton, MRB_SYM(_bind_if_unbound), mrb_s_bind_if_unbound, MRB_ARGS_REQ(2));
   mrb_define_private_method_id(mrb, irq_singleton, MRB_SYM(_unbind_if_bound), mrb_s_unbind_if_bound, MRB_ARGS_REQ(2));
-  mrb_define_const(mrb, module_IRQ, "MAX_SOURCES", mrb_fixnum_value(IRQ_MAX_SOURCES));
+  mrb_define_const(mrb, module_IRQ, "MAX_SOURCES", mrb_int_value(mrb, IRQ_MAX_SOURCES));
 
   irq_bindings_ = bindings;
   IRQ_reset();

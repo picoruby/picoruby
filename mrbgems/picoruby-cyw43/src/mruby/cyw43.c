@@ -89,7 +89,7 @@ mrb_s_connect_timeout(mrb_state *mrb, mrb_value klass)
   if (mrb_nil_p(timeout)) {
     timeout_ms = 60 * 1000;
   } else {
-    timeout_ms = mrb_fixnum(timeout) * 1000;
+    timeout_ms = mrb_integer(timeout) * 1000;
   }
   if (strlen(ssid) > 32) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "SSID too long (max 32 bytes)");
@@ -140,7 +140,7 @@ mrb_s_tcpip_link_status(mrb_state *mrb, mrb_value klass)
   if (!cyw43_arch_init_flag) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "CYW43 not initialized");
   }
-  return mrb_fixnum_value(CYW43_tcpip_link_status());
+  return mrb_int_value(mrb, CYW43_tcpip_link_status());
 }
 
 static mrb_value
@@ -201,15 +201,15 @@ mrb_GPIO_write(mrb_state *mrb, mrb_value self)
   mrb_value pin = mrb_iv_get(mrb, self, MRB_IVSYM(pin));
   mrb_int val;
   mrb_get_args(mrb, "i", &val);
-  CYW43_GPIO_write(mrb_fixnum(pin), val);
-  return mrb_fixnum_value(val);
+  CYW43_GPIO_write(mrb_integer(pin), val);
+  return mrb_int_value(mrb, val);
 }
 
 static mrb_value
 mrb_GPIO_read(mrb_state *mrb, mrb_value self)
 {
   mrb_value pin = mrb_iv_get(mrb, self, MRB_IVSYM(pin));
-  return mrb_fixnum_value(CYW43_GPIO_read(mrb_fixnum(pin)));
+  return mrb_int_value(mrb, CYW43_GPIO_read(mrb_integer(pin)));
 }
 
 void
@@ -231,13 +231,13 @@ mrb_picoruby_cyw43_gem_init(mrb_state* mrb)
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_address), mrb_cyw43_s_ipv4_address, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_netmask), mrb_cyw43_s_ipv4_netmask, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_CYW43, MRB_SYM(ipv4_gateway), mrb_cyw43_s_ipv4_gateway, MRB_ARGS_NONE());
-  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_DOWN), mrb_fixnum_value(CYW43_CONST_link_down()));
-  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_JOIN), mrb_fixnum_value(CYW43_CONST_link_join()));
-  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_NOIP), mrb_fixnum_value(CYW43_CONST_link_noip()));
-  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_UP), mrb_fixnum_value(CYW43_CONST_link_up()));
-  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_FAIL), mrb_fixnum_value(CYW43_CONST_link_fail()));
-  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_NONET), mrb_fixnum_value(CYW43_CONST_link_nonet()));
-  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_BADAUTH), mrb_fixnum_value(CYW43_CONST_link_badauth()));
+  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_DOWN), mrb_int_value(mrb, CYW43_CONST_link_down()));
+  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_JOIN), mrb_int_value(mrb, CYW43_CONST_link_join()));
+  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_NOIP), mrb_int_value(mrb, CYW43_CONST_link_noip()));
+  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_UP), mrb_int_value(mrb, CYW43_CONST_link_up()));
+  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_FAIL), mrb_int_value(mrb, CYW43_CONST_link_fail()));
+  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_NONET), mrb_int_value(mrb, CYW43_CONST_link_nonet()));
+  mrb_define_const_id(mrb, class_CYW43, MRB_SYM(LINK_BADAUTH), mrb_int_value(mrb, CYW43_CONST_link_badauth()));
 #endif
 
   struct RClass *class_CYW43_GPIO = mrb_define_class_under_id(mrb, class_CYW43, MRB_SYM(GPIO), mrb->object_class);

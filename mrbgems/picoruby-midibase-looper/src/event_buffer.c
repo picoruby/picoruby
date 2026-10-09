@@ -171,7 +171,7 @@ event_buffer_tick_at(mrb_state *mrb, mrb_value self)
   size_t offset = checked_offset(mrb, buffer, index);
   uint16_t tick = (uint16_t)(buffer->data[offset] |
                              ((uint16_t)buffer->data[offset + 1] << 8));
-  return mrb_fixnum_value(tick);
+  return mrb_int_value(mrb, tick);
 }
 
 static mrb_value
@@ -199,9 +199,9 @@ event_buffer_event_at(mrb_state *mrb, mrb_value self)
   uint8_t status = buffer->data[offset + 2];
   mrb_value values[4] = {
     mrb_symbol_value((status & 0xf0) == MIDI_NOTE_ON ? MRB_SYM(note_on) : MRB_SYM(note_off)),
-    mrb_fixnum_value(status & 0x0f),
-    mrb_fixnum_value(buffer->data[offset + 3]),
-    mrb_fixnum_value(buffer->data[offset + 4])
+    mrb_int_value(mrb, status & 0x0f),
+    mrb_int_value(mrb, buffer->data[offset + 3]),
+    mrb_int_value(mrb, buffer->data[offset + 4])
   };
   return mrb_ary_new_from_values(mrb, 4, values);
 }
@@ -262,7 +262,7 @@ mrb_picoruby_midibase_looper_gem_init(mrb_state *mrb)
   );
   MRB_SET_INSTANCE_TT(event_buffer_class, MRB_TT_DATA);
 
-  mrb_define_const_id(mrb, event_buffer_class, MRB_SYM(RECORD_SIZE), mrb_fixnum_value(EVENT_RECORD_SIZE));
+  mrb_define_const_id(mrb, event_buffer_class, MRB_SYM(RECORD_SIZE), mrb_int_value(mrb, EVENT_RECORD_SIZE));
   mrb_define_method_id(mrb, event_buffer_class, MRB_SYM(initialize), event_buffer_initialize, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, event_buffer_class, MRB_SYM(count), event_buffer_count, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, event_buffer_class, MRB_SYM(max_events), event_buffer_max_events, MRB_ARGS_NONE());

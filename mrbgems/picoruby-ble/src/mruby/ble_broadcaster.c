@@ -15,7 +15,7 @@ mrb_advertise(mrb_state *mrb, mrb_value self)
   } else {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "advertise data must be a string");
   }
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 void

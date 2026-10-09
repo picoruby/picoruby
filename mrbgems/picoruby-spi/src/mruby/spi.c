@@ -51,15 +51,15 @@ mrb_spi_fill_buffer(mrb_state *mrb, uint8_t *buffer, mrb_value *args, mrb_int ar
         mrb_int ary_len = RARRAY_LEN(arg);
         for (mrb_int j = 0; j < ary_len; j++) {
           mrb_value data = RARRAY_PTR(arg)[j];
-          if (!mrb_fixnum_p(data)) {
+          if (!mrb_integer_p(data)) {
             mrb_raise(mrb, E_TYPE_ERROR, "array element must be Fixnum");
           }
-          buffer[pos++] = (uint8_t)mrb_fixnum(data);
+          buffer[pos++] = (uint8_t)mrb_integer(data);
         }
         break;
       }
       case MRB_TT_FIXNUM: {
-        buffer[pos++] = (uint8_t)mrb_fixnum(arg);
+        buffer[pos++] = (uint8_t)mrb_integer(arg);
         break;
       }
       case MRB_TT_STRING: {
@@ -126,7 +126,7 @@ mrb_write(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, IOError, "SPI write failed");
   }
 
-  return mrb_fixnum_value(total_bytes);
+  return mrb_int_value(mrb, total_bytes);
 }
 
 static mrb_value
@@ -162,7 +162,7 @@ mrb_transfer(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "*:", &args, &argc, &kwargs);
 
   if (!mrb_undef_p(kw_values[0])) {
-    additional_read_bytes = mrb_fixnum(kw_values[0]);
+    additional_read_bytes = mrb_integer(kw_values[0]);
   }
 
   size_t total_size = mrb_spi_calculate_buffer_size(mrb, args, argc, additional_read_bytes);
@@ -207,28 +207,28 @@ static mrb_value
 mrb_sck_pin(mrb_state *mrb, mrb_value self)
 {
   spi_unit_info_t *unit_info = (spi_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_spi_type);
-  return mrb_fixnum_value(unit_info->sck_pin);
+  return mrb_int_value(mrb, unit_info->sck_pin);
 }
 
 static mrb_value
 mrb_copi_pin(mrb_state *mrb, mrb_value self)
 {
   spi_unit_info_t *unit_info = (spi_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_spi_type);
-  return mrb_fixnum_value(unit_info->copi_pin);
+  return mrb_int_value(mrb, unit_info->copi_pin);
 }
 
 static mrb_value
 mrb_cipo_pin(mrb_state *mrb, mrb_value self)
 {
   spi_unit_info_t *unit_info = (spi_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_spi_type);
-  return mrb_fixnum_value(unit_info->cipo_pin);
+  return mrb_int_value(mrb, unit_info->cipo_pin);
 }
 
 static mrb_value
 mrb_cs_pin(mrb_state *mrb, mrb_value self)
 {
   spi_unit_info_t *unit_info = (spi_unit_info_t *)mrb_data_get_ptr(mrb, self, &mrb_spi_type);
-  return mrb_fixnum_value(unit_info->cs_pin);
+  return mrb_int_value(mrb, unit_info->cs_pin);
 }
 
 static mrb_value

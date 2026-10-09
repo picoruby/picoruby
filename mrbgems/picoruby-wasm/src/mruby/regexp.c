@@ -305,9 +305,9 @@ mrb_regexp_compile(mrb_state *mrb, mrb_value self)
   char js_flags[16];
   if (mrb_string_p(flags_val)) {
     build_js_flags(RSTRING_PTR(flags_val), RSTRING_LEN(flags_val), js_flags, sizeof(js_flags));
-  } else if (mrb_fixnum_p(flags_val)) {
+  } else if (mrb_integer_p(flags_val)) {
     /* Integer flags: IGNORECASE=1, EXTENDED=2, MULTILINE=4 */
-    mrb_int opts = mrb_fixnum(flags_val);
+    mrb_int opts = mrb_integer(flags_val);
     char ruby_flags[4];
     int k = 0;
     if (opts & 1) ruby_flags[k++] = 'i';
@@ -431,7 +431,7 @@ mrb_regexp_match_op(mrb_state *mrb, mrb_value self)
   }
 
   int idx = regexp_match_char_begin(match_ref, 0);
-  return mrb_fixnum_value(idx);
+  return mrb_int_value(mrb, idx);
 }
 
 /* Regexp#source -> String */
@@ -560,7 +560,7 @@ mrb_regexp_options(mrb_state *mrb, mrb_value self)
   }
 
   char *flags = regexp_flags(re->ref_id);
-  if (!flags) return mrb_fixnum_value(0);
+  if (!flags) return mrb_int_value(mrb, 0);
 
   int opts = 0;
   size_t i = 0;
@@ -573,7 +573,7 @@ mrb_regexp_options(mrb_state *mrb, mrb_value self)
     i++;
   }
   free(flags);
-  return mrb_fixnum_value(opts);
+  return mrb_int_value(mrb, opts);
 }
 
 /* ---- MatchData class methods ---- */
@@ -644,7 +644,7 @@ mrb_match_data_length(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "MatchData not initialized");
   }
 
-  return mrb_fixnum_value(regexp_match_length(md->ref_id));
+  return mrb_int_value(mrb, regexp_match_length(md->ref_id));
 }
 
 /* MatchData#string -> String (frozen) */
@@ -714,7 +714,7 @@ mrb_match_data_begin(mrb_state *mrb, mrb_value self)
 
   int char_begin = regexp_match_char_begin(md->ref_id, (int)idx);
   if (char_begin < 0) return mrb_nil_value();
-  return mrb_fixnum_value(char_begin);
+  return mrb_int_value(mrb, char_begin);
 }
 
 /* MatchData#end(idx) -> Integer (character offset) */
@@ -731,7 +731,7 @@ mrb_match_data_end(mrb_state *mrb, mrb_value self)
 
   int char_end = regexp_match_char_end(md->ref_id, (int)idx);
   if (char_end < 0) return mrb_nil_value();
-  return mrb_fixnum_value(char_end);
+  return mrb_int_value(mrb, char_end);
 }
 
 /* MatchData#captures -> Array (excluding [0]) */
@@ -920,7 +920,7 @@ mrb_string_match_op(mrb_state *mrb, mrb_value self)
   }
 
   int idx = regexp_match_char_begin(match_ref, 0);
-  return mrb_fixnum_value(idx);
+  return mrb_int_value(mrb, idx);
 }
 
 /* Helper: width in bytes of the UTF-8 character starting at byte_pos. */
@@ -1269,9 +1269,9 @@ mrb_regexp_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(casefold), mrb_regexp_casefold_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(options), mrb_regexp_options, MRB_ARGS_NONE());
 
-  mrb_define_const_id(mrb, class_Regexp, MRB_SYM(IGNORECASE), mrb_fixnum_value(1));
-  mrb_define_const_id(mrb, class_Regexp, MRB_SYM(EXTENDED), mrb_fixnum_value(2));
-  mrb_define_const_id(mrb, class_Regexp, MRB_SYM(MULTILINE), mrb_fixnum_value(4));
+  mrb_define_const_id(mrb, class_Regexp, MRB_SYM(IGNORECASE), mrb_int_value(mrb, 1));
+  mrb_define_const_id(mrb, class_Regexp, MRB_SYM(EXTENDED), mrb_int_value(mrb, 2));
+  mrb_define_const_id(mrb, class_Regexp, MRB_SYM(MULTILINE), mrb_int_value(mrb, 4));
 
   /* MatchData class */
   class_MatchData = mrb_define_class_id(mrb, MRB_SYM(MatchData), mrb->object_class);

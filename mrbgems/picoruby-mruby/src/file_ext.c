@@ -37,7 +37,7 @@ mrb_file_fsync(mrb_state *mrb, mrb_value self)
     mrb_raisef(mrb, E_IO_ERROR, "fsync failed: %s", strerror(errno));
   }
 
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 void

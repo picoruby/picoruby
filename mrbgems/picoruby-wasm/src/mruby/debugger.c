@@ -1108,7 +1108,7 @@ debug_create_binding(mrb_state *mrb, const mrb_irep *irep,
   /* Store PC offset */
   uint32_t pc_offset = (uint32_t)(pc - irep->iseq);
   mrb_obj_iv_set(mrb, binding, MRB_SYM(pc),
-                 mrb_fixnum_value(pc_offset));
+                 mrb_int_value(mrb, pc_offset));
 
   /* Create lvspace proc wrapping the actual proc.
    * This mirrors binding_wrap_lvspace from mruby-binding. */
