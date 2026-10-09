@@ -1,5 +1,7 @@
 MRuby::CrossBuild.new('picoruby-32bit') do |conf|
   conf.toolchain :gcc
+  # A CrossBuild selects no gem port by itself
+  conf.ports :posix
 
   conf.cc.defines << "PICORB_PLATFORM_POSIX"
   conf.cc.defines << "MRB_TICK_UNIT=4"
@@ -12,6 +14,11 @@ MRuby::CrossBuild.new('picoruby-32bit') do |conf|
   conf.cc.defines << "MRB_32BIT"
 
   conf.cc.defines << "MRB_UTF8_STRING"
+
+  # glibc on i386 keeps a 32-bit time_t unless asked; Time past 2038
+  # would break down into the wrong calendar fields.
+  conf.cc.defines << "_TIME_BITS=64"
+  conf.cc.defines << "_FILE_OFFSET_BITS=64"
 
   conf.cc.flags << '-m32'
   conf.cc.flags << '-static'
