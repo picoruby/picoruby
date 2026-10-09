@@ -18,9 +18,9 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
   spec.require_name = 'js'
 
+  # The mrb_int width and the boxing come from the build config, which every
+  # gem inherits; repeating them here would shadow a different choice.
   spec.cc.defines << "MRB_32BIT"
-  spec.cc.defines << "MRB_INT64"
-  spec.cc.defines << "MRB_NO_BOXING"
   spec.cc.defines << "MRB_UTF8_STRING"
 
   # Ensure EM_NODE_JS is set for Emscripten
