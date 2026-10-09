@@ -13,8 +13,10 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
   conf.cc.defines << "MRB_TIMESLICE_TICK_COUNT=10"
 
   conf.cc.defines << "MRB_UTF8_STRING"
-  conf.cc.defines << "MRB_INT64"
-  conf.cc.defines << "MRB_NO_BOXING"
+  # 32-bit word boxing: mrb_value is 4 bytes. An Integer past 31 bits is a
+  # heap RInteger, and one past mrb_int is a Bignum from mruby-bigint.
+  conf.cc.defines << "MRB_INT32"
+  conf.cc.defines << "MRB_WORD_BOXING"
   conf.cc.defines << "MRB_32BIT"
   conf.cc.defines << "USE_WIFI"
   conf.cc.defines << "MRB_USE_CUSTOM_RO_DATA_P"
@@ -52,6 +54,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
 
   conf.picoruby
 
+  conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-bigint"
   conf.gembox "minimum"
   conf.gembox "core"
   conf.gembox "stdlib"

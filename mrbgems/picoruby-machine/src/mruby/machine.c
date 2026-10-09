@@ -3,6 +3,7 @@
 #include "mruby/string.h"
 #include "mruby/presym.h"
 #include "mruby/array.h"
+#include "mruby/numeric.h"
 #include "../../include/machine.h"
 #include "../../include/hal.h"
 #include "../../../picoruby-io-console/include/io-console.h"
@@ -100,19 +101,16 @@ static mrb_value
 mrb_s__sleep_timer(mrb_state *mrb, mrb_value klass)
 {
   mrb_bool deep;
-  mrb_int ms;
-  mrb_get_args(mrb, "bi", &deep, &ms);
+  mrb_value msv;
+  mrb_get_args(mrb, "bo", &deep, &msv);
   /* The mrblib wrapper validates too; this is the authority for a
    * direct private call. The port takes uint32_t: reject rather than
-   * wrap. */
-  if (ms < 1) {
+   * wrap. Taken as int64_t so that a Bignum past mrb_int (the case for
+   * 2**32 under MRB_INT32) is range-checked here, not refused by "i". */
+  int64_t ms = mrb_as_int64(mrb, msv);
+  if (ms < 1 || 4294967295LL < ms) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "ms out of range");
   }
-#if defined(MRB_INT64)
-  if (4294967295LL < ms) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "ms out of range");
-  }
-#endif
   machine_sleep_raise_unless_ok(mrb, Machine_sleep_timer(deep, (uint32_t)ms));
   return mrb_nil_value();
 }
@@ -121,19 +119,15 @@ static mrb_value
 mrb_s__sleep_gpio(mrb_state *mrb, mrb_value klass)
 {
   mrb_bool deep, edge, high;
-  mrb_int pin;
-  mrb_get_args(mrb, "bibb", &deep, &pin, &edge, &high);
-  /* Range-check BEFORE narrowing to int: with MRB_INT64, 2**32 would
-   * otherwise truncate to 0 and sleep on the wrong pin. The port
-   * checks the platform pin count. */
-  if (pin < 0) {
+  mrb_value pinv;
+  mrb_get_args(mrb, "bobb", &deep, &pinv, &edge, &high);
+  /* Range-check BEFORE narrowing to int: 2**32 would otherwise truncate
+   * to 0 and sleep on the wrong pin. Taken as int64_t for the same reason
+   * as ms above. The port checks the platform pin count. */
+  int64_t pin = mrb_as_int64(mrb, pinv);
+  if (pin < 0 || 2147483647LL < pin) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "pin out of range");
   }
-#if defined(MRB_INT64)
-  if (2147483647LL < pin) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "pin out of range");
-  }
-#endif
   machine_sleep_raise_unless_ok(mrb, Machine_sleep_gpio(deep, (int)pin, edge, high));
   return mrb_nil_value();
 }
