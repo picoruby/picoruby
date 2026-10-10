@@ -1,3 +1,4 @@
+/bin/bitbench
 /bin/cat
 /bin/cp
 /bin/date
