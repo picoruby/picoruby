@@ -62,6 +62,33 @@ jobs:
     - name: Test PicoRuby
       run: rake test:gems:picoruby
 
+  test-picoruby32:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '4.0.1'
+        bundler-cache: true
+
+    - name: Setup 32-bit toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib
+
+    - name: Test PicoRuby (32-bit, MRB_INT32 + word boxing)
+      run: rake test:gems:picoruby32
+
   test-femtoruby:
 
     runs-on: ubuntu-latest
