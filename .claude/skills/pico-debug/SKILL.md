@@ -150,6 +150,44 @@ Give a compact status table: openocd pane + chip, build target + result, gdb
 pane + attach status, and the ELF path. Tell the user gdb is interactive in
 their pane.
 
+### 7. Reflash and restart from an open gdb session
+
+Use this when the firmware was rebuilt and gdb is already attached.
+
+```bash
+tmux send-keys -t <gdb_pane_id> C-c; sleep 2            # halt the target
+tmux send-keys -t <gdb_pane_id> "file <ABS_ELF_PATH>" Enter; sleep 2   # only if the ELF name changed
+tmux send-keys -t <gdb_pane_id> "y" Enter; sleep 1      # answers "change the file?"
+tmux send-keys -t <gdb_pane_id> "load" Enter; sleep 30  # about 2.4 MB at 110 KB/s
+tmux capture-pane -p -t <gdb_pane_id> | tail -3         # wait for "Transfer rate:"
+tmux send-keys -t <gdb_pane_id> "run" Enter; sleep 3
+tmux capture-pane -p -t <gdb_pane_id> | tail -2         # wait for "Start it from the beginning? (y or n)"
+tmux send-keys -t <gdb_pane_id> "y" Enter; sleep 8
+```
+
+Send each answer only after its prompt is on screen. An answer sent before
+the prompt is discarded, and gdb then waits at the prompt with the target
+halted. The symptom is a USB serial port that does not answer. Send `C-c`
+(gdb prints `Quit`), then send `run` and `y` again with the waits above.
+
+After `run`, the USB CDC device re-enumerates. Wait for a new timestamp on
+`/dev/ttyACM0` (`ls -la /dev/ttyACM0`) and about 10 s for the shell to boot
+before you open the serial port.
+
+**Shell executables are cached in the flash file system.** At boot, R2P2
+copies `shell_executables/*.rb` into `/bin` only when `/etc/ruby-description`
+on the board differs from `RUBY_DESCRIPTION` of the firmware. That string
+holds the build date and the commit, so a rebuild on the same day from the
+same commit does not refresh `/bin`, and the board runs the old script. The
+C code and mrblib are in the firmware image and do change. Before the
+restart, delete the marker over the serial console:
+
+```
+rm /etc/ruby-description
+```
+
+Then do the `run` and `y` steps. The next boot rewrites `/bin`.
+
 ## Troubleshooting
 
 - **"Operation not permitted" on any tmux call**: you forgot
@@ -163,6 +201,11 @@ their pane.
   step 2's capture.
 - **prod build, values optimized out / can't step**: expected. Offer to rebuild
   as debug.
+- **Serial port opens but the shell does not answer**: gdb is waiting at a
+  `(y or n)` prompt with the target halted. See step 7.
+- **A rebuilt shell executable still runs the old version**: the flash file
+  system cache. Delete `/etc/ruby-description` on the board and restart. See
+  step 7.
 
 ## Cleanup (only when the user asks to end the session)
 
