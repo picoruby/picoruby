@@ -198,7 +198,7 @@ mrb_s_get_hwclock(mrb_state *mrb, mrb_value self)
   struct timespec ts = {0};
   if (Machine_get_hwclock(&ts)) {
     mrb_value ary = mrb_ary_new_capa(mrb, 2);
-    mrb_ary_set(mrb, ary, 0, mrb_int_value(mrb, (mrb_int)ts.tv_sec));
+    mrb_ary_set(mrb, ary, 0, mrb_int64_value(mrb, (int64_t)ts.tv_sec));
     mrb_ary_set(mrb, ary, 1, mrb_int_value(mrb, (mrb_int)ts.tv_nsec));
     return ary;
   } else {
@@ -210,13 +210,15 @@ mrb_s_get_hwclock(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_s_uptime_us(mrb_state *mrb, mrb_value self)
 {
-  return mrb_int_value(mrb, (mrb_int)Machine_uptime_us());
+  /* 64-bit counters: past mrb_int they become a Bignum instead of
+     wrapping (a 32-bit mrb_int holds about 35 minutes of microseconds). */
+  return mrb_uint64_value(mrb, Machine_uptime_us());
 }
 
 static mrb_value
 mrb_s_board_millis(mrb_state *mrb, mrb_value self)
 {
-  return mrb_int_value(mrb, (mrb_int)(Machine_uptime_us() / 1000));
+  return mrb_uint64_value(mrb, Machine_uptime_us() / 1000);
 }
 
 static mrb_value

@@ -1,6 +1,7 @@
 #include <string.h>
 #include "mruby/data.h"
 #include "mruby/class.h"
+#include "mruby/numeric.h"
 #include "mruby/hash.h"
 #include "mruby/string.h"
 #include "mruby/presym.h"
@@ -174,7 +175,7 @@ mrb__stat(mrb_state *mrb, mrb_value self)
     mrb_int_value(mrb, info.type == LFS_TYPE_DIR ? 0 : (mrb_int)info.size));
   mrb_hash_set(mrb, stat,
     mrb_symbol_value(MRB_SYM(unixtime)),
-    mrb_int_value(mrb, (mrb_int)mtime));
+    mrb_uint64_value(mrb, mtime));
   mrb_hash_set(mrb, stat,
     mrb_symbol_value(MRB_SYM(mode)),
     mrb_int_value(mrb, info.type));

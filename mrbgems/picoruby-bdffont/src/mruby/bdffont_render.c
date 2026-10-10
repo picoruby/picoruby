@@ -1,4 +1,5 @@
 #include <mruby.h>
+#include <mruby/numeric.h>
 #include <mruby/presym.h>
 #include <mruby/string.h>
 #include <mruby/array.h>
@@ -61,16 +62,18 @@ bdffont_render(mrb_state *mrb, const char *text,
     if (scale == 1) {
       int i = 1;
       while (i <= cell_h) {
-        mrb_ary_push(mrb, ch, mrb_int_value(mrb, (mrb_int)lines[i]));
+        /* A row is a 32-bit bit pattern; keep it non-negative on a 32-bit
+           mrb_int too (it becomes a Bignum when bit 31 is set). */
+        mrb_ary_push(mrb, ch, mrb_uint64_value(mrb, (uint32_t)lines[i]));
         i++;
       }
     } else {
       int i = 0;
       while (i < (int)scaled_h) {
         if (32 < scaled_w) {
-          mrb_ary_push(mrb, ch, mrb_int_value(mrb, (mrb_int)(uint32_t)(output[i] >> 32)));
+          mrb_ary_push(mrb, ch, mrb_uint64_value(mrb, (uint32_t)(output[i] >> 32)));
         } else {
-          mrb_ary_push(mrb, ch, mrb_int_value(mrb, (mrb_int)(uint32_t)output[i]));
+          mrb_ary_push(mrb, ch, mrb_uint64_value(mrb, (uint32_t)output[i]));
         }
         i++;
       }
@@ -82,7 +85,7 @@ bdffont_render(mrb_state *mrb, const char *text,
       mrb_value ch2 = mrb_ary_new_capa(mrb, scaled_h);
       int i = 0;
       while (i < (int)scaled_h) {
-        mrb_ary_push(mrb, ch2, mrb_int_value(mrb, (mrb_int)(uint32_t)output[i]));
+        mrb_ary_push(mrb, ch2, mrb_uint64_value(mrb, (uint32_t)output[i]));
         i++;
       }
       mrb_ary_push(mrb, glyphs, ch2);

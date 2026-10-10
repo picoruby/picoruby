@@ -1,4 +1,5 @@
 #include <mruby.h>
+#include <mruby/numeric.h>
 #include <mruby/presym.h>
 #include <mruby/variable.h>
 #include <mruby/string.h>
@@ -244,7 +245,8 @@ mrb_s_take(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "i", &id);
   irq_check_id(mrb, id);
-  return mrb_int_value(mrb, (mrb_int)IRQ_take_bits((int)id));
+  /* A 32-bit mask; keep it non-negative on a 32-bit mrb_int */
+  return mrb_uint64_value(mrb, IRQ_take_bits((int)id));
 }
 
 /*

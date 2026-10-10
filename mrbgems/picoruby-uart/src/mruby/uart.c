@@ -1,6 +1,7 @@
 #include <stddef.h>
 
 #include <mruby.h>
+#include <mruby/numeric.h>
 #include <mruby/presym.h>
 #include <mruby/string.h>
 #include <mruby/data.h>
@@ -180,7 +181,9 @@ mrb_last_read_timestamp_us(mrb_state *mrb, mrb_value self)
   if (!UART_lastReadTimestamp(mrb_uart_unit_num(mrb, self), &timestamp_us)) {
     return mrb_nil_value();
   }
-  return mrb_int_value(mrb, (mrb_int)timestamp_us);
+  /* A microsecond count does not fit a 32-bit mrb_int; let it become a
+     Bignum rather than wrap negative. */
+  return mrb_uint64_value(mrb, timestamp_us);
 }
 
 static mrb_value
