@@ -138,7 +138,7 @@ jobs:
     - name: Setup Emscripten
       uses: mymindstorm/setup-emsdk@v14
       with:
-        version: '3.1.64'
+        version: '6.0.12'
 
     - name: Test WASM
       run: rake test:gems:wasm
