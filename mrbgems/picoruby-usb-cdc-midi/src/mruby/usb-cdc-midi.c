@@ -28,7 +28,7 @@ mrb_usb_cdc_midi_write(mrb_state *mrb, mrb_value self)
     (const uint8_t *)RSTRING_PTR(bytes) + offset,
     (size_t)(length - offset)
   );
-  return mrb_fixnum_value((mrb_int)written);
+  return mrb_int_value(mrb, (mrb_int)written);
 }
 
 void

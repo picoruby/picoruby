@@ -106,7 +106,7 @@ mrb_backup_step(mrb_state *mrb, mrb_value self)
     case SQLITE_DONE:
     case SQLITE_BUSY:
     case SQLITE_LOCKED:
-      return mrb_fixnum_value(rc);
+      return mrb_int_value(mrb, rc);
     default:
       prb_sqlite3_raise(mrb, NULL, rc);
       return mrb_nil_value();
@@ -127,13 +127,13 @@ mrb_backup_finish(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_backup_remaining(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(sqlite3_backup_remaining(open_backup(mrb, self)->bk));
+  return mrb_int_value(mrb, sqlite3_backup_remaining(open_backup(mrb, self)->bk));
 }
 
 static mrb_value
 mrb_backup_pagecount(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(sqlite3_backup_pagecount(open_backup(mrb, self)->bk));
+  return mrb_int_value(mrb, sqlite3_backup_pagecount(open_backup(mrb, self)->bk));
 }
 
 void
@@ -144,10 +144,10 @@ mrb_init_class_SQLite3_Backup(mrb_state *mrb, struct RClass *class_SQLite3)
   MRB_SET_INSTANCE_TT(class_SQLite3_Backup, MRB_TT_CDATA);
 
   /* step() return codes, so callers can drive the loop CRuby style */
-  mrb_define_const_id(mrb, class_SQLite3_Backup, MRB_SYM(OK), mrb_fixnum_value(SQLITE_OK));
-  mrb_define_const_id(mrb, class_SQLite3_Backup, MRB_SYM(DONE), mrb_fixnum_value(SQLITE_DONE));
-  mrb_define_const_id(mrb, class_SQLite3_Backup, MRB_SYM(BUSY), mrb_fixnum_value(SQLITE_BUSY));
-  mrb_define_const_id(mrb, class_SQLite3_Backup, MRB_SYM(LOCKED), mrb_fixnum_value(SQLITE_LOCKED));
+  mrb_define_const_id(mrb, class_SQLite3_Backup, MRB_SYM(OK), mrb_int_value(mrb, SQLITE_OK));
+  mrb_define_const_id(mrb, class_SQLite3_Backup, MRB_SYM(DONE), mrb_int_value(mrb, SQLITE_DONE));
+  mrb_define_const_id(mrb, class_SQLite3_Backup, MRB_SYM(BUSY), mrb_int_value(mrb, SQLITE_BUSY));
+  mrb_define_const_id(mrb, class_SQLite3_Backup, MRB_SYM(LOCKED), mrb_int_value(mrb, SQLITE_LOCKED));
 
   mrb_define_class_method_id(mrb, class_SQLite3_Backup, MRB_SYM(new), mrb_s_backup_new, MRB_ARGS_REQ(4));
   mrb_define_method_id(mrb, class_SQLite3_Backup, MRB_SYM(step), mrb_backup_step, MRB_ARGS_REQ(1));

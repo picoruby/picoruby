@@ -42,7 +42,7 @@ static mrb_value c_keyboard_release(mrb_state *mrb, mrb_value self)
 static mrb_value c_keyboard_led_state(mrb_state *mrb, mrb_value self)
 {
   uint8_t state = usb_hid_keyboard_get_led_state();
-  return mrb_fixnum_value(state);
+  return mrb_int_value(mrb, state);
 }
 
 static mrb_value c_mouse_move(mrb_state *mrb, mrb_value self)

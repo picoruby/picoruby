@@ -1,6 +1,7 @@
 #include <stddef.h>
 
 #include <mruby.h>
+#include <mruby/numeric.h>
 #include <mruby/presym.h>
 #include <mruby/string.h>
 #include <mruby/data.h>
@@ -18,8 +19,8 @@ mrb_open_connection(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "ziio", &unit_name, &txd_pin, &rxd_pin, &buffer_size);
   if (mrb_nil_p(buffer_size)) {
     rx_buffer_size = 0; // let the unit table pick the default
-  } else if (mrb_fixnum_p(buffer_size)) {
-    mrb_int requested = mrb_fixnum(buffer_size);
+  } else if (mrb_integer_p(buffer_size)) {
+    mrb_int requested = mrb_integer(buffer_size);
     if (requested <= 0) {
       struct RClass *IOError = mrb_exc_get_id(mrb, MRB_SYM(IOError));
       mrb_raise(mrb, IOError, "UART: rx_buffer_size is not power of two");
@@ -59,22 +60,22 @@ mrb_open_connection(mrb_state *mrb, mrb_value self)
     }
   }
   UART_open(unit_num, txd_pin, rxd_pin);
-  return mrb_fixnum_value(unit_num);
+  return mrb_int_value(mrb, unit_num);
 }
 
 static mrb_value
 mrb__set_baudrate(mrb_state *mrb, mrb_value self)
 {
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   mrb_int baudrate;
   mrb_get_args(mrb, "i", &baudrate);
-  return mrb_fixnum_value(UART_set_baudrate(unit_num, (uint32_t)baudrate));
+  return mrb_int_value(mrb, UART_set_baudrate(unit_num, (uint32_t)baudrate));
 }
 
 static mrb_value
 mrb__set_flow_control(mrb_state *mrb, mrb_value self)
 {
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   mrb_bool cts, rts;
   mrb_get_args(mrb, "bb", &cts, &rts);
   UART_set_flow_control(unit_num, cts, rts);
@@ -84,7 +85,7 @@ mrb__set_flow_control(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb__set_format(mrb_state *mrb, mrb_value self)
 {
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   mrb_int data_bits, stop_bit, parity;
   mrb_get_args(mrb, "iii", &data_bits, &stop_bit, &parity);
   UART_set_format(unit_num, (int32_t)data_bits, (int32_t)stop_bit, (int32_t)parity);
@@ -103,7 +104,7 @@ mrb__set_function(mrb_state *mrb, mrb_value self)
 static int
 mrb_uart_unit_num(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  return mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
 }
 
 static mrb_value
@@ -152,7 +153,7 @@ mrb_getbyte(mrb_state *mrb, mrb_value self)
   if (!UART_getbyte(mrb_uart_unit_num(mrb, self), &byte)) {
     return mrb_nil_value();
   }
-  return mrb_fixnum_value(byte);
+  return mrb_int_value(mrb, byte);
 }
 
 static mrb_value
@@ -170,7 +171,7 @@ mrb_ungetbyte(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_bytes_available(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(UART_bytes_available(mrb_uart_unit_num(mrb, self)));
+  return mrb_int_value(mrb, UART_bytes_available(mrb_uart_unit_num(mrb, self)));
 }
 
 static mrb_value
@@ -180,7 +181,9 @@ mrb_last_read_timestamp_us(mrb_state *mrb, mrb_value self)
   if (!UART_lastReadTimestamp(mrb_uart_unit_num(mrb, self), &timestamp_us)) {
     return mrb_nil_value();
   }
-  return mrb_int_value(mrb, (mrb_int)timestamp_us);
+  /* A microsecond count does not fit a 32-bit mrb_int; let it become a
+     Bignum rather than wrap negative. */
+  return mrb_uint64_value(mrb, timestamp_us);
 }
 
 static mrb_value
@@ -195,9 +198,9 @@ mrb_write(mrb_state *mrb, mrb_value self)
   mrb_value str;
   mrb_get_args(mrb, "S", &str);
   size_t len = RSTRING_LEN(str);
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   UART_write_blocking(unit_num, (const uint8_t *)RSTRING_PTR(str), len);
-  return mrb_fixnum_value(len);
+  return mrb_int_value(mrb, len);
 }
 
 static mrb_value
@@ -206,7 +209,7 @@ mrb_putc(mrb_state *mrb, mrb_value self)
   mrb_value ch;
   mrb_get_args(mrb, "o", &ch);
 
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   if (mrb_integer_p(ch)) {
     uint8_t byte = (uint8_t)(mrb_integer(ch) & 0xff);
     UART_write_blocking(unit_num, &byte, 1);
@@ -246,7 +249,7 @@ mrb_gets(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_flush(mrb_state *mrb, mrb_value self)
 {
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   UART_flush(unit_num);
   return self;
 }
@@ -254,7 +257,7 @@ mrb_flush(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_clear_tx_buffer(mrb_state *mrb, mrb_value self)
 {
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   UART_clear_tx_buffer(unit_num);
   return self;
 }
@@ -278,7 +281,7 @@ mrb_event_source_id(mrb_state *mrb, mrb_value self)
   if (source < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "UART: this unit has no event source");
   }
-  return mrb_fixnum_value(source);
+  return mrb_int_value(mrb, source);
 }
 
 #endif /* PICORB_UART_EVENT_BRIDGE */
@@ -291,7 +294,7 @@ mrb_inject_rx(mrb_state *mrb, mrb_value self)
 {
   mrb_value str;
   mrb_get_args(mrb, "S", &str);
-  return mrb_fixnum_value(UART_inject_rx(mrb_uart_unit_num(mrb, self),
+  return mrb_int_value(mrb, UART_inject_rx(mrb_uart_unit_num(mrb, self),
                                          (const uint8_t *)RSTRING_PTR(str),
                                          (size_t)RSTRING_LEN(str)));
 }
@@ -307,13 +310,13 @@ mrb_break(mrb_state *mrb, mrb_value self)
   } else {
     if (mrb_float_p(break_ms_val)) {
       break_ms = (uint32_t)(mrb_float(break_ms_val) * 1000);
-    } else if (mrb_fixnum_p(break_ms_val)) {
-      break_ms = (uint32_t)(mrb_fixnum(break_ms_val) * 1000);
+    } else if (mrb_integer_p(break_ms_val)) {
+      break_ms = (uint32_t)(mrb_integer(break_ms_val) * 1000);
     } else {
       mrb_raise(mrb, E_TYPE_ERROR, "can't convert into time interval");
     }
   }
-  int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   UART_break(unit_num, break_ms);
   return self;
 }
@@ -327,11 +330,11 @@ mrb_picoruby_uart_gem_init(mrb_state* mrb)
      ring out from under the ISR. */
   struct RClass *class_UART = mrb_define_class_id(mrb, MRB_SYM(UART), mrb->object_class);
 
-  mrb_define_const_id(mrb, class_UART, MRB_SYM(PARITY_NONE), mrb_fixnum_value(PARITY_NONE));
-  mrb_define_const_id(mrb, class_UART, MRB_SYM(PARITY_EVEN), mrb_fixnum_value(PARITY_EVEN));
-  mrb_define_const_id(mrb, class_UART, MRB_SYM(PARITY_ODD), mrb_fixnum_value(PARITY_ODD));
-  mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_NONE), mrb_fixnum_value(FLOW_CONTROL_NONE));
-  mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_RTS_CTS), mrb_fixnum_value(FLOW_CONTROL_RTS_CTS));
+  mrb_define_const_id(mrb, class_UART, MRB_SYM(PARITY_NONE), mrb_int_value(mrb, PARITY_NONE));
+  mrb_define_const_id(mrb, class_UART, MRB_SYM(PARITY_EVEN), mrb_int_value(mrb, PARITY_EVEN));
+  mrb_define_const_id(mrb, class_UART, MRB_SYM(PARITY_ODD), mrb_int_value(mrb, PARITY_ODD));
+  mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_NONE), mrb_int_value(mrb, FLOW_CONTROL_NONE));
+  mrb_define_const_id(mrb, class_UART, MRB_SYM(FLOW_CONTROL_RTS_CTS), mrb_int_value(mrb, FLOW_CONTROL_RTS_CTS));
 
   mrb_define_private_method_id(mrb, class_UART, MRB_SYM(open_connection), mrb_open_connection, MRB_ARGS_REQ(4));
   mrb_define_private_method_id(mrb, class_UART, MRB_SYM(_set_baudrate), mrb__set_baudrate, MRB_ARGS_REQ(1));

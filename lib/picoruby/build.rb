@@ -186,8 +186,19 @@ module MRuby
       cc.flags.reject! { |f| %w(-g -g1 -g2 -g3 -O0 -O1 -O2 -O3).include? f }
       if ENV["PICORB_DEBUG"]
         cc.defines << "PICORB_DEBUG=1"
-        cc.flags << "-O0"
-        cc.flags << "-g3"
+        if cc.command == "emcc"
+          # At -O0 every temporary of mrb_vm_exec() is a wasm local, and with
+          # word boxing (mrb_value is one word) that is about 46k of them;
+          # binaryen refuses a function past 50k locals before wasm-opt gets
+          # to shrink it. -O1 keeps the count small. No C-level debugger is
+          # used on wasm; PICORB_DEBUG is about assertions and the mruby
+          # debug hook, which -O1 leaves intact.
+          cc.flags << "-O1"
+          cc.flags << "-g"
+        else
+          cc.flags << "-O0"
+          cc.flags << "-g3"
+        end
         cc.flags << "-fno-inline"
       else
         cc.defines << "NDEBUG=1"

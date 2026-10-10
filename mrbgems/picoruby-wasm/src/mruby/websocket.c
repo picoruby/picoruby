@@ -274,7 +274,7 @@ mrb_websocket_ready_state(mrb_state *mrb, mrb_value self)
   }
 
   int state = ws_ready_state(ws->ref_id);
-  return mrb_fixnum_value(state);
+  return mrb_int_value(mrb, state);
 }
 
 static mrb_value
@@ -387,8 +387,8 @@ mrb_websocket_init(mrb_state *mrb)
   mrb_define_private_method_id(mrb, class_WebSocket, MRB_SYM(_set_onerror), mrb_websocket_set_onerror, MRB_ARGS_REQ(1));
   mrb_define_private_method_id(mrb, class_WebSocket, MRB_SYM(_set_onclose), mrb_websocket_set_onclose, MRB_ARGS_REQ(1));
 
-  mrb_define_const_id(mrb, class_WebSocket, MRB_SYM(CONNECTING), mrb_fixnum_value(0));
-  mrb_define_const_id(mrb, class_WebSocket, MRB_SYM(OPEN), mrb_fixnum_value(1));
-  mrb_define_const_id(mrb, class_WebSocket, MRB_SYM(CLOSING), mrb_fixnum_value(2));
-  mrb_define_const_id(mrb, class_WebSocket, MRB_SYM(CLOSED), mrb_fixnum_value(3));
+  mrb_define_const_id(mrb, class_WebSocket, MRB_SYM(CONNECTING), mrb_int_value(mrb, 0));
+  mrb_define_const_id(mrb, class_WebSocket, MRB_SYM(OPEN), mrb_int_value(mrb, 1));
+  mrb_define_const_id(mrb, class_WebSocket, MRB_SYM(CLOSING), mrb_int_value(mrb, 2));
+  mrb_define_const_id(mrb, class_WebSocket, MRB_SYM(CLOSED), mrb_int_value(mrb, 3));
 }

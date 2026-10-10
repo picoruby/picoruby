@@ -1,6 +1,7 @@
 #include <mruby/array.h>
 #include <mruby/class.h>
 #include <mruby/data.h>
+#include <mruby/numeric.h>
 #include <mruby/presym.h>
 #include <mruby/string.h>
 #include <mruby/variable.h>
@@ -131,7 +132,7 @@ mrb_step(mrb_state *mrb, mrb_value self)
     mrb_value value;
     switch (sqlite3_column_type(cxt->st, i)) {
       case SQLITE_INTEGER:
-        value = mrb_int_value(mrb, (mrb_int)sqlite3_column_int64(cxt->st, i));
+        value = mrb_int64_value(mrb, sqlite3_column_int64(cxt->st, i));
         break;
       case SQLITE_FLOAT:
         value = mrb_float_value(mrb, sqlite3_column_double(cxt->st, i));
@@ -194,7 +195,7 @@ mrb_Statement_readonly_p(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_column_count(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(sqlite3_column_count(open_statement(mrb, self)->st));
+  return mrb_int_value(mrb, sqlite3_column_count(open_statement(mrb, self)->st));
 }
 
 /*

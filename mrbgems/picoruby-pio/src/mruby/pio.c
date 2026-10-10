@@ -1,4 +1,5 @@
 #include <mruby.h>
+#include <mruby/numeric.h>
 #include <mruby/presym.h>
 #include <mruby/variable.h>
 #include <mruby/string.h>
@@ -177,7 +178,8 @@ mrb_sm_get(mrb_state *mrb, mrb_value self)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
   uint32_t value = PIO_get_blocking(config);
-  return mrb_fixnum_value((mrb_int)value);
+  /* A FIFO word uses all 32 bits; keep it non-negative on a 32-bit mrb_int */
+  return mrb_uint64_value(mrb, value);
 }
 
 static mrb_value
@@ -187,7 +189,7 @@ mrb_sm_get_nonblocking(mrb_state *mrb, mrb_value self)
   uint32_t value;
   bool ok = PIO_get_nonblocking(config, &value);
   if (ok) {
-    return mrb_fixnum_value((mrb_int)value);
+    return mrb_uint64_value(mrb, value);
   }
   return mrb_nil_value();
 }
@@ -196,42 +198,42 @@ static mrb_value
 mrb_sm_tx_level(mrb_state *mrb, mrb_value self)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
-  return mrb_fixnum_value(PIO_tx_level(config));
+  return mrb_int_value(mrb, PIO_tx_level(config));
 }
 
 static mrb_value
 mrb_sm_rx_level(mrb_state *mrb, mrb_value self)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
-  return mrb_fixnum_value(PIO_rx_level(config));
+  return mrb_int_value(mrb, PIO_rx_level(config));
 }
 
 static mrb_value
 mrb_sm_tx_full(mrb_state *mrb, mrb_value self)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
-  return mrb_fixnum_value(PIO_tx_full(config) ? 1 : 0);
+  return mrb_int_value(mrb, PIO_tx_full(config) ? 1 : 0);
 }
 
 static mrb_value
 mrb_sm_tx_empty(mrb_state *mrb, mrb_value self)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
-  return mrb_fixnum_value(PIO_tx_empty(config) ? 1 : 0);
+  return mrb_int_value(mrb, PIO_tx_empty(config) ? 1 : 0);
 }
 
 static mrb_value
 mrb_sm_rx_full(mrb_state *mrb, mrb_value self)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
-  return mrb_fixnum_value(PIO_rx_full(config) ? 1 : 0);
+  return mrb_int_value(mrb, PIO_rx_full(config) ? 1 : 0);
 }
 
 static mrb_value
 mrb_sm_rx_empty(mrb_state *mrb, mrb_value self)
 {
   pio_sm_config_t *config = (pio_sm_config_t *)mrb_data_get_ptr(mrb, self, &mrb_pio_sm_type);
-  return mrb_fixnum_value(PIO_rx_empty(config) ? 1 : 0);
+  return mrb_int_value(mrb, PIO_rx_empty(config) ? 1 : 0);
 }
 
 static mrb_value

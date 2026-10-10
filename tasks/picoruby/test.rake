@@ -59,6 +59,13 @@ namespace :test do
       end
     end
 
+    desc "run test for a gem on PicoRuby built as 32-bit (-m32, MRB_INT32 + word boxing)"
+    task :picoruby32, [:specified_gem] do |t, args|
+      unless run_test_for_gems('picoruby32', args[:specified_gem])
+        exit 1
+      end
+    end
+
   end
 end
 
@@ -74,6 +81,9 @@ def run_test_for_gems(vm_type, specified_gem)
     # WASM uses Node.js runner
     wasm_runner = File.expand_path("#{MRUBY_ROOT}/mrbgems/picoruby-wasm/tools/wasm-runner.mjs")
     ENV['PICORB_TEST_TARGET_VM'] = "node #{wasm_runner}"
+  elsif vm_type == 'picoruby32'
+    # A cross build of the host (picoruby32-test.rb) lands under its own name
+    ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/picoruby32-test/bin/picoruby")
   else
     ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
   end
@@ -312,6 +322,9 @@ def gem_supported_for_test_target?(spec, vm_type)
   return false if vm_type == 'femtoruby' && depends_on_gem?(spec.build, spec, 'picoruby-mruby')
   return false if vm_type == 'femtoruby' && conflicts_with_gem?(spec.build, spec, 'picoruby-mrubyc')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-socket')
+  # The socket POSIX port links OpenSSL, which the 32-bit test build has no
+  # library for (libssl-dev:i386 is rarely installed).
+  return false if vm_type == 'picoruby32' && depends_on_gem?(spec.build, spec, 'picoruby-socket')
   # Only test gems that actually ship in the production WASM binary. The set is
   # derived from build_config/picoruby-wasm.rb (its gemboxes and transitive
   # dependencies included), so hardware gems (uart, gpio, ...) that never build

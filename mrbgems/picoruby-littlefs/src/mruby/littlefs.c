@@ -1,6 +1,7 @@
 #include <string.h>
 #include "mruby/data.h"
 #include "mruby/class.h"
+#include "mruby/numeric.h"
 #include "mruby/hash.h"
 #include "mruby/string.h"
 #include "mruby/presym.h"
@@ -33,7 +34,7 @@ mrb_unixtime_offset_e(mrb_state *mrb, mrb_value klass)
   mrb_int offset;
   mrb_get_args(mrb, "i", &offset);
   unixtime_offset = (time_t)offset;
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -44,7 +45,7 @@ mrb__erase(mrb_state *mrb, mrb_value self)
     lfs_mounted = false;
   }
   littlefs_hal_erase_all();
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -57,7 +58,7 @@ mrb__mkfs(mrb_state *mrb, mrb_value self)
   littlefs_hal_init_config(&lfs_cfg);
   int err = lfs_format(&lfs, &lfs_cfg);
   mrb_raise_iff_lfs_error(mrb, err, "lfs_format");
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -72,7 +73,7 @@ mrb_getfree(mrb_state *mrb, mrb_value self)
   mrb_int total = (mrb_int)lfs_cfg.block_count;
   mrb_int free_blocks = total - (mrb_int)used;
   if (free_blocks < 0) free_blocks = 0;
-  return mrb_fixnum_value((total << 16) | (free_blocks & 0xFFFF));
+  return mrb_int_value(mrb, (total << 16) | (free_blocks & 0xFFFF));
 }
 
 static mrb_value
@@ -82,14 +83,14 @@ mrb__mount(mrb_state *mrb, mrb_value self)
   DATA_TYPE(self) = &mrb_littlefs_type;
   int err = littlefs_ensure_mounted();
   mrb_raise_iff_lfs_error(mrb, err, "lfs_mount");
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
 mrb__unmount(mrb_state *mrb, mrb_value self)
 {
   /* no-op: keep filesystem mounted */
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -109,7 +110,7 @@ mrb__chdir(mrb_state *mrb, mrb_value self)
       mrb_raise(mrb, E_RUNTIME_ERROR, "Not a directory");
     }
   }
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -123,7 +124,7 @@ mrb__utime(mrb_state *mrb, mrb_value self)
   uint32_t ts = (uint32_t)unixtime;
   err = lfs_setattr(&lfs, path, LFS_ATTR_MTIME, &ts, sizeof(ts));
   mrb_raise_iff_lfs_error(mrb, err, "lfs_setattr");
-  return mrb_fixnum_value(1);
+  return mrb_int_value(mrb, 1);
 }
 
 static mrb_value
@@ -137,7 +138,7 @@ mrb__mkdir(mrb_state *mrb, mrb_value self)
   mrb_raise_iff_lfs_error(mrb, err, "lfs_mount");
   err = lfs_mkdir(&lfs, path);
   mrb_raise_iff_lfs_error(mrb, err, "lfs_mkdir");
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -149,7 +150,7 @@ mrb__chmod(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "iz", &attr, &path);
   (void)attr;
   (void)path;
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -174,10 +175,10 @@ mrb__stat(mrb_state *mrb, mrb_value self)
     mrb_int_value(mrb, info.type == LFS_TYPE_DIR ? 0 : (mrb_int)info.size));
   mrb_hash_set(mrb, stat,
     mrb_symbol_value(MRB_SYM(unixtime)),
-    mrb_int_value(mrb, (mrb_int)mtime));
+    mrb_uint64_value(mrb, mtime));
   mrb_hash_set(mrb, stat,
     mrb_symbol_value(MRB_SYM(mode)),
-    mrb_fixnum_value(info.type));
+    mrb_int_value(mrb, info.type));
   return stat;
 }
 
@@ -203,7 +204,7 @@ mrb__setlabel(mrb_state *mrb, mrb_value self)
   const char *label;
   mrb_get_args(mrb, "z", &label);
   (void)label;
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -247,7 +248,7 @@ mrb__unlink(mrb_state *mrb, mrb_value self)
   mrb_raise_iff_lfs_error(mrb, err, "lfs_mount");
   err = lfs_remove(&lfs, path);
   mrb_raise_iff_lfs_error(mrb, err, "lfs_remove");
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 mrb_value
@@ -259,7 +260,7 @@ mrb__rename(mrb_state *mrb, mrb_value self)
   mrb_raise_iff_lfs_error(mrb, err, "lfs_mount");
   err = lfs_rename(&lfs, from, to);
   mrb_raise_iff_lfs_error(mrb, err, "lfs_rename");
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 void

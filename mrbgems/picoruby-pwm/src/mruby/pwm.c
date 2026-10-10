@@ -8,14 +8,14 @@ mrb__init(mrb_state *mrb, mrb_value self)
   mrb_int pin;
   mrb_get_args(mrb, "i", &pin);
   PWM_init(pin);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static void
 set_freq_and_start(mrb_state *mrb, mrb_value self, picorb_float_t freq)
 {
   mrb_iv_set(mrb, self, MRB_IVSYM(frequency), mrb_float_value(mrb, freq));
-  uint32_t pin = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(pin)));
+  uint32_t pin = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(pin)));
   picorb_float_t duty = mrb_float(mrb_iv_get(mrb, self, MRB_IVSYM(duty)));
   /* Zero means stop: the settings are not pushed at all, or the port
    * would have to divide by it. */
@@ -36,9 +36,9 @@ mrb_frequency(mrb_state *mrb, mrb_value self)
   if (mrb_float_p(freq)) {
     set_freq_and_start(mrb, self, mrb_float(freq));
     return freq;
-  } else if (mrb_fixnum_p(freq)) {
-    set_freq_and_start(mrb, self, (picorb_float_t)mrb_fixnum(freq));
-    return mrb_float_value(mrb, (picorb_float_t)mrb_fixnum(freq));
+  } else if (mrb_integer_p(freq)) {
+    set_freq_and_start(mrb, self, (picorb_float_t)mrb_integer(freq));
+    return mrb_float_value(mrb, (picorb_float_t)mrb_integer(freq));
   } else {
     mrb_raise(mrb, E_TYPE_ERROR, "wrong argument type");
   }
@@ -71,7 +71,7 @@ set_duty(mrb_state *mrb, mrb_value self, picorb_float_t duty)
   mrb_value pin = mrb_iv_get(mrb, self, MRB_IVSYM(pin));
   picorb_float_t freq = mrb_float(mrb_iv_get(mrb, self, MRB_IVSYM(frequency)));
   if (0 < freq) {
-    PWM_set_frequency_and_duty(mrb_fixnum(pin), freq, duty);
+    PWM_set_frequency_and_duty(mrb_integer(pin), freq, duty);
   }
   return duty;
 }
@@ -83,9 +83,9 @@ mrb_duty(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "o", &duty);
   if (mrb_float_p(duty)) {
     return mrb_float_value(mrb, set_duty(mrb, self, mrb_float(duty)));
-  } else if (mrb_fixnum_p(duty)) {
+  } else if (mrb_integer_p(duty)) {
     return mrb_float_value(mrb,
-                           set_duty(mrb, self, (picorb_float_t)mrb_fixnum(duty)));
+                           set_duty(mrb, self, (picorb_float_t)mrb_integer(duty)));
   } else {
     mrb_raise(mrb, E_TYPE_ERROR, "wrong argument type");
   }

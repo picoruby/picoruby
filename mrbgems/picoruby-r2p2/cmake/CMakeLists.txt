@@ -233,8 +233,11 @@ add_compile_definitions(PICORB_ALLOC_ALIGN=8)
 
 if(PICORB_VM_MRUBY)
   add_compile_definitions(PICORB_VM_MRUBY=1)
-  add_compile_definitions(MRB_INT64=1)
-  add_compile_definitions(MRB_NO_BOXING=1)
+  # Must match build_config/r2p2-picoruby-*.rb: these fix sizeof(mrb_value)
+  # and the mrb_state layout that the port sources share with libmruby. A
+  # mismatch boots into a HardFault in the first mrb_* call from main().
+  add_compile_definitions(MRB_INT32=1)
+  add_compile_definitions(MRB_WORD_BOXING=1)
   add_compile_definitions(MRB_32BIT=1)
   add_compile_definitions(MRB_UTF8_STRING=1)
   # Match the mruby core build (mruby-task adds this via spec.build.defines) so

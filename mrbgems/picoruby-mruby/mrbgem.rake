@@ -13,8 +13,16 @@ MRuby::Gem::Specification.new('picoruby-mruby') do |spec|
   end
   spec.add_dependency 'mruby-task', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task"
 
-  build.cc.defines << "MRB_INT64"
-  build.cc.defines << "MRB_NO_BOXING"
+  # Default to a 64-bit mrb_int without boxing unless the build config has
+  # chosen both itself. The 32-bit targets pick MRB_INT32 with
+  # MRB_WORD_BOXING, and mrbconf.h rejects MRB_INT64 beside a boxing on
+  # a 32-bit build.
+  unless build.cc.defines.any? { |d| d =~ /\AMRB_INT(32|64)\z/ }
+    build.cc.defines << "MRB_INT64"
+  end
+  unless build.cc.defines.any? { |d| d =~ /\AMRB_(NO|WORD|NAN)_BOXING\z/ }
+    build.cc.defines << "MRB_NO_BOXING"
+  end
   build.cc.defines << "MRB_UTF8_STRING"
 
   # MRB_BASELINE_PROFILE and MRB_CONSTRAINED_BASELINE_PROFILE define MRB_NO_METHOD_CACHE

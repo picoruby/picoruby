@@ -51,16 +51,16 @@ mrb_i2c_write_outputs(mrb_state *mrb, mrb_int unit_num, mrb_int i2c_adrs_7, mrb_
         mrb_int ary_len = RARRAY_LEN(arg);
         for (mrb_int j = 0; j < ary_len; j++) {
           mrb_value data = RARRAY_PTR(arg)[j];
-          if (!mrb_fixnum_p(data)) {
+          if (!mrb_integer_p(data)) {
             if (needs_free) mrb_free(mrb, buffer);
             mrb_raise(mrb, E_TYPE_ERROR, "array element must be Fixnum");
           }
-          buffer[pos++] = (uint8_t)mrb_fixnum(data);
+          buffer[pos++] = (uint8_t)mrb_integer(data);
         }
         break;
       }
       case MRB_TT_FIXNUM: {
-        buffer[pos++] = (uint8_t)mrb_fixnum(arg);
+        buffer[pos++] = (uint8_t)mrb_integer(arg);
         break;
       }
       case MRB_TT_STRING: {
@@ -108,19 +108,19 @@ mrb_i2c_write(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "i*:", &i2c_adrs_7, &args, &argc, &kwargs);
 
   if (mrb_undef_p(kw_values[0])) {
-    timeout_ms = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(timeout)));
+    timeout_ms = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(timeout)));
   } else {
-    timeout_ms = mrb_fixnum(kw_values[0]);
+    timeout_ms = mrb_integer(kw_values[0]);
   }
 
-  mrb_int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  mrb_int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   mrb_int total_bytes = mrb_i2c_write_outputs(mrb, unit_num, i2c_adrs_7, args, argc, timeout_ms, false);
 
   if (total_bytes < 0) {
     mrb_raise(mrb, IOError, "I2C write failed");
   }
 
-  return mrb_fixnum_value(total_bytes);
+  return mrb_int_value(mrb, total_bytes);
 }
 
 static mrb_value
@@ -138,12 +138,12 @@ mrb_i2c_read(mrb_state *mrb, mrb_value self)
   mrb_kwargs kwargs = { kw_num, kw_req, kw_names, kw_values, NULL };
   mrb_get_args(mrb, "ii*:", &i2c_adrs_7, &len, &args, &argc, &kwargs);
 
-  mrb_int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
+  mrb_int unit_num = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
 
   if (mrb_undef_p(kw_values[0])) {
-    timeout_ms = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(timeout)));
+    timeout_ms = mrb_integer(mrb_iv_get(mrb, self, MRB_IVSYM(timeout)));
   } else {
-    timeout_ms = mrb_fixnum(kw_values[0]);
+    timeout_ms = mrb_integer(kw_values[0]);
   }
 
   if (0 < argc) {
@@ -195,7 +195,7 @@ mrb_i2c__init(mrb_state *mrb, mrb_value self)
     }
     mrb_raise(mrb, IOError, message);
   }
-  return mrb_fixnum_value(unit_num);
+  return mrb_int_value(mrb, unit_num);
 }
 
 void

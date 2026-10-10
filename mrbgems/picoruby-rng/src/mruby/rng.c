@@ -1,4 +1,5 @@
 #include "mruby.h"
+#include "mruby/numeric.h"
 #include "mruby/presym.h"
 
 static mrb_value
@@ -8,7 +9,8 @@ mrb_s_random_int(mrb_state *mrb, mrb_value klass)
   for (int i = 0; i < 4; i++) {
     ret = (ret << 8) | rng_random_byte_impl();
   }
-  return mrb_int_value(mrb, (mrb_int)ret);
+  /* Keep the full 0..2**32-1 range on a 32-bit mrb_int as well */
+  return mrb_uint64_value(mrb, ret);
 }
 
 static mrb_value

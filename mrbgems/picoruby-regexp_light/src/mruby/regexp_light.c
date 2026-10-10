@@ -235,9 +235,9 @@ mrb_regexp_light_compile(mrb_state *mrb, mrb_value self)
   if (mrb_string_p(flags_val)) {
     flags = RSTRING_PTR(flags_val);
     flen = (int)RSTRING_LEN(flags_val);
-  } else if (mrb_fixnum_p(flags_val)) {
+  } else if (mrb_integer_p(flags_val)) {
     /* Integer flags: IGNORECASE=1, EXTENDED=2, MULTILINE=4 */
-    mrb_int opts = mrb_fixnum(flags_val);
+    mrb_int opts = mrb_integer(flags_val);
     char ruby_flags[4];
     int k = 0;
     if (opts & 1) ruby_flags[k++] = 'i';
@@ -301,7 +301,7 @@ mrb_regexp_light_match_op(mrb_state *mrb, mrb_value self)
   regmatch_t pmatch[1];
   int r = regexec(&re->regex, RSTRING_PTR(str_val), 1, pmatch, 0);
   if (r != 0 || pmatch[0].rm_so < 0) return mrb_nil_value();
-  return mrb_fixnum_value(pmatch[0].rm_so);
+  return mrb_int_value(mrb, pmatch[0].rm_so);
 }
 
 /* Regexp#source -> String */
@@ -374,7 +374,7 @@ mrb_regexp_light_options(mrb_state *mrb, mrb_value self)
   int opts = 0;
   if (re->flags & REG_ICASE)   opts |= 1; /* IGNORECASE */
   if (re->flags & REG_NEWLINE) opts |= 4; /* MULTILINE  */
-  return mrb_fixnum_value(opts);
+  return mrb_int_value(mrb, opts);
 }
 
 /* ---- MatchData instance methods ---- */
@@ -427,7 +427,7 @@ mrb_match_data_length(mrb_state *mrb, mrb_value self)
 {
   picorb_match_data_light *md = (picorb_match_data_light *)DATA_PTR(self);
   if (!md) mrb_raise(mrb, E_RUNTIME_ERROR, "MatchData not initialized");
-  return mrb_fixnum_value((mrb_int)md->nmatch);
+  return mrb_int_value(mrb, (mrb_int)md->nmatch);
 }
 
 /* MatchData#string -> String (frozen original) */
@@ -491,7 +491,7 @@ mrb_match_data_begin(mrb_state *mrb, mrb_value self)
 
   regmatch_t *m = &md->pmatch[idx];
   if (m->rm_so < 0) return mrb_nil_value();
-  return mrb_fixnum_value(m->rm_so);
+  return mrb_int_value(mrb, m->rm_so);
 }
 
 /* MatchData#end(idx) -> Integer or nil */
@@ -510,7 +510,7 @@ mrb_match_data_end(mrb_state *mrb, mrb_value self)
 
   regmatch_t *m = &md->pmatch[idx];
   if (m->rm_eo < 0) return mrb_nil_value();
-  return mrb_fixnum_value(m->rm_eo);
+  return mrb_int_value(mrb, m->rm_eo);
 }
 
 /* MatchData#captures -> Array (groups without index 0) */
@@ -621,7 +621,7 @@ mrb_string_match_op_light(mrb_state *mrb, mrb_value self)
   regmatch_t pmatch[1];
   int r = regexec(&re_data->regex, RSTRING_PTR(self), 1, pmatch, 0);
   if (r != 0 || pmatch[0].rm_so < 0) return mrb_nil_value();
-  return mrb_fixnum_value(pmatch[0].rm_so);
+  return mrb_int_value(mrb, pmatch[0].rm_so);
 }
 
 /* ---- Gem init ---- */

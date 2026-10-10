@@ -102,7 +102,7 @@ mrb_pat_e(mrb_state *mrb, mrb_value self)
   mrb_value pat;
   mrb_get_args(mrb, "S", &pat);
   mrb_iv_set(mrb, self, MRB_IVSYM(pat), pat);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value

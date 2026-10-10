@@ -248,7 +248,7 @@ mrb_ssl_context_set_verify_mode(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set verify mode");
   }
 
-  return mrb_fixnum_value(mode);
+  return mrb_int_value(mrb, mode);
 }
 
 /* ssl_context.verify_mode */
@@ -268,7 +268,7 @@ mrb_ssl_context_get_verify_mode(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to get verify mode");
   }
 
-  return mrb_fixnum_value(mode);
+  return mrb_int_value(mrb, mode);
 }
 
 /* Data type for SSLSocket */
@@ -325,7 +325,7 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "TCPSocket must have remote_host");
   }
 
-  if (!mrb_fixnum_p(port)) {
+  if (!mrb_integer_p(port)) {
     SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_ARGUMENT_ERROR, "TCPSocket must have remote_port");
   }
@@ -336,7 +336,7 @@ mrb_ssl_socket_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set hostname");
   }
 
-  if (!SSLSocket_set_port(mrb, ssl_sock, (int)mrb_fixnum(port))) {
+  if (!SSLSocket_set_port(mrb, ssl_sock, (int)mrb_integer(port))) {
     SSLSocket_close(mrb, ssl_sock);
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to set port");
   }
@@ -473,7 +473,7 @@ mrb_ssl_socket_connection_state(mrb_state *mrb, mrb_value self)
   if (!ssl_sock) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
-  return mrb_fixnum_value(SSLSocket_connection_state(mrb, ssl_sock));
+  return mrb_int_value(mrb, SSLSocket_connection_state(mrb, ssl_sock));
 }
 
 static mrb_value
@@ -517,7 +517,7 @@ mrb_ssl_socket_send(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL send failed");
   }
 
-  return mrb_fixnum_value(sent);
+  return mrb_int_value(mrb, sent);
 }
 
 /* ssl_socket.readpartial(maxlen) */
@@ -694,7 +694,7 @@ mrb_ssl_socket_remote_port(mrb_state *mrb, mrb_value self)
     return mrb_nil_value();
   }
 
-  return mrb_fixnum_value(port);
+  return mrb_int_value(mrb, port);
 }
 
 /* ssl_socket.ready? */
@@ -735,8 +735,8 @@ ssl_socket_init(mrb_state *mrb, struct RClass *basic_socket_class)
   mrb_define_method_id(mrb, ssl_context_class, MRB_SYM(verify_mode), mrb_ssl_context_get_verify_mode, MRB_ARGS_NONE());
 
   /* SSLContext constants */
-  mrb_define_const_id(mrb, ssl_context_class, MRB_SYM(VERIFY_NONE), mrb_fixnum_value(SSL_VERIFY_NONE));
-  mrb_define_const_id(mrb, ssl_context_class, MRB_SYM(VERIFY_PEER), mrb_fixnum_value(SSL_VERIFY_PEER));
+  mrb_define_const_id(mrb, ssl_context_class, MRB_SYM(VERIFY_NONE), mrb_int_value(mrb, SSL_VERIFY_NONE));
+  mrb_define_const_id(mrb, ssl_context_class, MRB_SYM(VERIFY_PEER), mrb_int_value(mrb, SSL_VERIFY_PEER));
 
   /* SSLSocket class */
   ssl_socket_class = mrb_define_class_id(mrb, MRB_SYM(SSLSocket), basic_socket_class);

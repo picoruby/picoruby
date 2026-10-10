@@ -68,8 +68,8 @@ mrb_scan(mrb_state *mrb, mrb_value self)
   key_event_t event;
   if (keyboard_matrix_scan(&event)) {
     mrb_value hash = mrb_hash_new_capa(mrb, 3);
-    mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(row)), mrb_fixnum_value(event.row));
-    mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(col)), mrb_fixnum_value(event.col));
+    mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(row)), mrb_int_value(mrb, event.row));
+    mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(col)), mrb_int_value(mrb, event.col));
     mrb_hash_set(mrb, hash, mrb_symbol_value(MRB_SYM(pressed)), mrb_bool_value(event.pressed));
     return hash;
   }
@@ -81,7 +81,7 @@ static mrb_value
 mrb_get_debounce_ms(mrb_state *mrb, mrb_value self)
 {
   uint32_t time = keyboard_matrix_get_debounce_ms();
-  return mrb_fixnum_value(time);
+  return mrb_int_value(mrb, time);
 }
 
 static mrb_value
@@ -90,7 +90,7 @@ mrb_set_debounce_ms(mrb_state *mrb, mrb_value self)
   mrb_int ms;
   mrb_get_args(mrb, "i", &ms);
   keyboard_matrix_set_debounce_ms(ms);
-  return mrb_fixnum_value(ms);
+  return mrb_int_value(mrb, ms);
 }
 
 void

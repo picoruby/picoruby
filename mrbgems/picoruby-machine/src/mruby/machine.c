@@ -3,6 +3,7 @@
 #include "mruby/string.h"
 #include "mruby/presym.h"
 #include "mruby/array.h"
+#include "mruby/numeric.h"
 #include "../../include/machine.h"
 #include "../../include/hal.h"
 #include "../../../picoruby-io-console/include/io-console.h"
@@ -57,7 +58,7 @@ mrb_s_delay_ms(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "delay time must be positive");
   }
   Machine_delay_ms((uint32_t)ms);
-  return mrb_fixnum_value(ms);
+  return mrb_int_value(mrb, ms);
 }
 
 static mrb_value
@@ -69,7 +70,7 @@ mrb_s_busy_wait_ms(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "delay time must be positive");
   }
   Machine_busy_wait_ms(ms);
-  return mrb_fixnum_value(ms);
+  return mrb_int_value(mrb, ms);
 }
 
 /* The Ruby-visible Machine.sleep lives in mrblib; these two private
@@ -100,19 +101,16 @@ static mrb_value
 mrb_s__sleep_timer(mrb_state *mrb, mrb_value klass)
 {
   mrb_bool deep;
-  mrb_int ms;
-  mrb_get_args(mrb, "bi", &deep, &ms);
+  mrb_value msv;
+  mrb_get_args(mrb, "bo", &deep, &msv);
   /* The mrblib wrapper validates too; this is the authority for a
    * direct private call. The port takes uint32_t: reject rather than
-   * wrap. */
-  if (ms < 1) {
+   * wrap. Taken as int64_t so that a Bignum past mrb_int (the case for
+   * 2**32 under MRB_INT32) is range-checked here, not refused by "i". */
+  int64_t ms = mrb_as_int64(mrb, msv);
+  if (ms < 1 || 4294967295LL < ms) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "ms out of range");
   }
-#if defined(MRB_INT64)
-  if (4294967295LL < ms) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "ms out of range");
-  }
-#endif
   machine_sleep_raise_unless_ok(mrb, Machine_sleep_timer(deep, (uint32_t)ms));
   return mrb_nil_value();
 }
@@ -121,19 +119,15 @@ static mrb_value
 mrb_s__sleep_gpio(mrb_state *mrb, mrb_value klass)
 {
   mrb_bool deep, edge, high;
-  mrb_int pin;
-  mrb_get_args(mrb, "bibb", &deep, &pin, &edge, &high);
-  /* Range-check BEFORE narrowing to int: with MRB_INT64, 2**32 would
-   * otherwise truncate to 0 and sleep on the wrong pin. The port
-   * checks the platform pin count. */
-  if (pin < 0) {
+  mrb_value pinv;
+  mrb_get_args(mrb, "bobb", &deep, &pinv, &edge, &high);
+  /* Range-check BEFORE narrowing to int: 2**32 would otherwise truncate
+   * to 0 and sleep on the wrong pin. Taken as int64_t for the same reason
+   * as ms above. The port checks the platform pin count. */
+  int64_t pin = mrb_as_int64(mrb, pinv);
+  if (pin < 0 || 2147483647LL < pin) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "pin out of range");
   }
-#if defined(MRB_INT64)
-  if (2147483647LL < pin) {
-    mrb_raise(mrb, E_ARGUMENT_ERROR, "pin out of range");
-  }
-#endif
   machine_sleep_raise_unless_ok(mrb, Machine_sleep_gpio(deep, (int)pin, edge, high));
   return mrb_nil_value();
 }
@@ -163,7 +157,7 @@ mrb_s_stack_usage(mrb_state *mrb, mrb_value klass)
 {
   mrb_int usage = Machine_stack_usage();
   if (0 < usage) {
-    return mrb_fixnum_value(usage);
+    return mrb_int_value(mrb, usage);
   } else {
     return mrb_nil_value();
   }
@@ -204,7 +198,7 @@ mrb_s_get_hwclock(mrb_state *mrb, mrb_value self)
   struct timespec ts = {0};
   if (Machine_get_hwclock(&ts)) {
     mrb_value ary = mrb_ary_new_capa(mrb, 2);
-    mrb_ary_set(mrb, ary, 0, mrb_int_value(mrb, (mrb_int)ts.tv_sec));
+    mrb_ary_set(mrb, ary, 0, mrb_int64_value(mrb, (int64_t)ts.tv_sec));
     mrb_ary_set(mrb, ary, 1, mrb_int_value(mrb, (mrb_int)ts.tv_nsec));
     return ary;
   } else {
@@ -216,13 +210,15 @@ mrb_s_get_hwclock(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_s_uptime_us(mrb_state *mrb, mrb_value self)
 {
-  return mrb_int_value(mrb, (mrb_int)Machine_uptime_us());
+  /* 64-bit counters: past mrb_int they become a Bignum instead of
+     wrapping (a 32-bit mrb_int holds about 35 minutes of microseconds). */
+  return mrb_uint64_value(mrb, Machine_uptime_us());
 }
 
 static mrb_value
 mrb_s_board_millis(mrb_state *mrb, mrb_value self)
 {
-  return mrb_int_value(mrb, (mrb_int)(Machine_uptime_us() / 1000));
+  return mrb_uint64_value(mrb, Machine_uptime_us() / 1000);
 }
 
 static mrb_value
@@ -350,7 +346,7 @@ mrb_io_write(mrb_state *mrb, mrb_value self)
   for (mrb_int i = 0; i < argc; i++) {
     total += print_sub(mrb, argv[i]);
   }
-  return mrb_fixnum_value(total);
+  return mrb_int_value(mrb, total);
 }
 #endif
 

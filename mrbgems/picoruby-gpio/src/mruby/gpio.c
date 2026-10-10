@@ -44,7 +44,7 @@ static mrb_value
 mrb__init(mrb_state *mrb, mrb_value self)
 {
   GPIO_init(pin_num(mrb, NULL));
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 /*
@@ -56,7 +56,7 @@ mrb_s_set_function_at(mrb_state *mrb, mrb_value klass)
   int pin_number, alt_function;
   pin_number = pin_num(mrb, &alt_function);
   GPIO_set_function(pin_number, alt_function);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 
@@ -69,7 +69,7 @@ mrb_s_set_dir_at(mrb_state *mrb, mrb_value klass)
   int pin_number, flags;
   pin_number = pin_num(mrb, &flags);
   GPIO_set_dir(pin_number, flags);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 /*
@@ -79,7 +79,7 @@ static mrb_value
 mrb_s_open_drain_at(mrb_state *mrb, mrb_value klass)
 {
   GPIO_open_drain(pin_num(mrb, NULL));
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 /*
@@ -89,7 +89,7 @@ static mrb_value
 mrb_s_pull_up_at(mrb_state *mrb, mrb_value klass)
 {
   GPIO_pull_up(pin_num(mrb, NULL));
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 /*
@@ -99,7 +99,7 @@ static mrb_value
 mrb_s_pull_down_at(mrb_state *mrb, mrb_value klass)
 {
   GPIO_pull_down(pin_num(mrb, NULL));
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 /*
@@ -140,7 +140,7 @@ mrb_s_read_at(mrb_state *mrb, mrb_value klass)
 {
   mrb_int pin_number;
   pin_number = pin_num(mrb, NULL);
-  return mrb_fixnum_value(GPIO_read(pin_number));
+  return mrb_int_value(mrb, GPIO_read(pin_number));
 }
 
 /*
@@ -155,7 +155,7 @@ mrb_s_write_at(mrb_state *mrb, mrb_value klass)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "Wrong value. 0 and 1 are only valid");
   }
   GPIO_write(pin_number, value);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 /*
@@ -190,7 +190,7 @@ mrb_low_p(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_read(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(GPIO_read(IVPINNUM()));
+  return mrb_int_value(mrb, GPIO_read(IVPINNUM()));
 }
 
 /*
@@ -205,7 +205,7 @@ mrb_write(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "Wrong value. 0 and 1 are only valid");
   }
   GPIO_write(IVPINNUM(), value);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 
@@ -214,13 +214,13 @@ mrb_picoruby_gpio_gem_init(mrb_state* mrb)
 {
   struct RClass *class_GPIO = mrb_define_class_id(mrb, MRB_SYM(GPIO), mrb->object_class);
 
-  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(IN), mrb_fixnum_value(IN));
-  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(OUT), mrb_fixnum_value(OUT));
-  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(HIGH_Z), mrb_fixnum_value(HIGH_Z));
-  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(PULL_UP), mrb_fixnum_value(PULL_UP));
-  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(PULL_DOWN), mrb_fixnum_value(PULL_DOWN));
-  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(OPEN_DRAIN), mrb_fixnum_value(OPEN_DRAIN));
-  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(ALT), mrb_fixnum_value(ALT));
+  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(IN), mrb_int_value(mrb, IN));
+  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(OUT), mrb_int_value(mrb, OUT));
+  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(HIGH_Z), mrb_int_value(mrb, HIGH_Z));
+  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(PULL_UP), mrb_int_value(mrb, PULL_UP));
+  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(PULL_DOWN), mrb_int_value(mrb, PULL_DOWN));
+  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(OPEN_DRAIN), mrb_int_value(mrb, OPEN_DRAIN));
+  mrb_define_const_id(mrb, class_GPIO, MRB_SYM(ALT), mrb_int_value(mrb, ALT));
 
   mrb_define_method_id(mrb, class_GPIO, MRB_SYM(_init), mrb__init, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_GPIO, MRB_SYM(set_function_at), mrb_s_set_function_at, MRB_ARGS_REQ(2));

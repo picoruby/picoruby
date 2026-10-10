@@ -42,10 +42,10 @@ mrb_vram_s_new(mrb_state* mrb, mrb_value klass)
   mrb_kwargs kwargs = { 7, 4, kw_names, kw_values, &kw_rest };
   mrb_get_args(mrb, ":", &kwargs);
 
-  mrb_int w    = mrb_fixnum(kw_values[0]);
-  mrb_int h    = mrb_fixnum(kw_values[1]);
-  mrb_int cols = mrb_fixnum(kw_values[2]);
-  mrb_int rows = mrb_fixnum(kw_values[3]);
+  mrb_int w    = mrb_integer(kw_values[0]);
+  mrb_int h    = mrb_integer(kw_values[1]);
+  mrb_int cols = mrb_integer(kw_values[2]);
+  mrb_int rows = mrb_integer(kw_values[3]);
 
   /* Optional: layout (:vertical default, :horizontal for UC8151) */
   bool horizontal = false;
@@ -122,8 +122,8 @@ mrb_vram_pages_sub(mrb_state* mrb, mrb_value self, mrb_bool dirty)
       mrb_int col = i % cols;
       mrb_int row = i / cols;
       mrb_value entry = mrb_ary_new_capa(mrb, 3);
-      mrb_ary_push(mrb, entry, mrb_fixnum_value(col));
-      mrb_ary_push(mrb, entry, mrb_fixnum_value(row));
+      mrb_ary_push(mrb, entry, mrb_int_value(mrb, col));
+      mrb_ary_push(mrb, entry, mrb_int_value(mrb, row));
       mrb_ary_push(mrb, entry, page->buffer);
       mrb_ary_push(mrb, result, entry);
       if (clear_dirty) page->dirty = false;

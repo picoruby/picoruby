@@ -113,13 +113,13 @@ mrb_Database_last_insert_row_id(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_Database_changes(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(sqlite3_changes(open_db_state(mrb, self)->db));
+  return mrb_int_value(mrb, sqlite3_changes(open_db_state(mrb, self)->db));
 }
 
 static mrb_value
 mrb_Database_total_changes(mrb_state *mrb, mrb_value self)
 {
-  return mrb_fixnum_value(sqlite3_total_changes(open_db_state(mrb, self)->db));
+  return mrb_int_value(mrb, sqlite3_total_changes(open_db_state(mrb, self)->db));
 }
 
 static mrb_value

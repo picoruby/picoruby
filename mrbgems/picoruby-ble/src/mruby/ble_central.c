@@ -8,7 +8,7 @@ mrb_discover_primary_services(mrb_state *mrb, mrb_value self)
   mrb_int conn_handle;
   mrb_get_args(mrb, "i", &conn_handle);
   uint8_t res = BLE_discover_primary_services((uint16_t)conn_handle);
-  return mrb_fixnum_value(res);
+  return mrb_int_value(mrb, res);
 }
 
 static mrb_value
@@ -22,7 +22,7 @@ mrb_discover_characteristics_for_service(mrb_state *mrb, mrb_value self)
     (uint16_t)start_handle,
     (uint16_t)end_handle
   );
-  return mrb_fixnum_value(res);
+  return mrb_int_value(mrb, res);
 }
 
 static mrb_value
@@ -35,7 +35,7 @@ mrb_read_value_of_characteristic_using_value_handle(mrb_state *mrb, mrb_value se
     (uint16_t)conn_handle,
     (uint16_t)value_handle
   );
-  return mrb_fixnum_value(res);
+  return mrb_int_value(mrb, res);
 }
 
 static mrb_value
@@ -49,7 +49,7 @@ mrb_discover_characteristic_descriptors(mrb_state *mrb, mrb_value self)
     (uint16_t)value_handle,
     (uint16_t)end_handle
   );
-  return mrb_fixnum_value(res);
+  return mrb_int_value(mrb, res);
 }
 
 static mrb_value
@@ -64,7 +64,7 @@ mrb_write_value_of_characteristic_without_response(mrb_state *mrb, mrb_value sel
     (const uint8_t *)RSTRING_PTR(data),
     (uint16_t)RSTRING_LEN(data)
   );
-  return mrb_fixnum_value(res);
+  return mrb_int_value(mrb, res);
 }
 
 static mrb_value
@@ -79,7 +79,7 @@ mrb_write_characteristic_descriptor_using_descriptor_handle(mrb_state *mrb, mrb_
     (const uint8_t *)RSTRING_PTR(data),
     (uint16_t)RSTRING_LEN(data)
   );
-  return mrb_fixnum_value(res);
+  return mrb_int_value(mrb, res);
 }
 
 /*
@@ -108,21 +108,21 @@ mrb_set_scan_params(mrb_state *mrb, mrb_value self)
   }
   uint8_t scanning_filter_policy = 0; // TODO 1: all from whitelist
   BLE_central_set_scan_params(scan_type_num, (uint16_t)scan_interval, (uint16_t)scan_window, scanning_filter_policy);
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
 mrb_start_scan(mrb_state *mrb, mrb_value self)
 {
   BLE_central_start_scan();
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
 mrb_stop_scan(mrb_state *mrb, mrb_value self)
 {
   BLE_central_stop_scan();
-  return mrb_fixnum_value(0);
+  return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
@@ -132,7 +132,7 @@ mrb_gap_connect(mrb_state *mrb, mrb_value self)
   mrb_int addr_type;
   mrb_get_args(mrb, "zi", &addr, &addr_type);
   uint8_t res = BLE_central_gap_connect((const uint8_t *)addr, (uint8_t)addr_type);
-  return mrb_fixnum_value(res);
+  return mrb_int_value(mrb, res);
 }
 
 void

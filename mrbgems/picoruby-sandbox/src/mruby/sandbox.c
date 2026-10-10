@@ -161,10 +161,10 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
 
   mrb_get_args(mrb, "ii:", &address, &size, &kwargs);
   if (size <= 0) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid size: %S", mrb_fixnum_value(size));
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid size: %S", mrb_int_value(mrb, size));
   }
   if (address <= 0) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid address: %S", mrb_fixnum_value(address));
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "invalid address: %S", mrb_int_value(mrb, address));
   }
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
