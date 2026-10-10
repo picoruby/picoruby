@@ -149,6 +149,6 @@ MyScanner.new.scan(scan_type: :passive, timeout_ms: 10000)
 
 ## Notes
 
-- Requires BTstack library
+- Runs on BTstack (rp2040: Pico W, Pico 2 W) and on NimBLE (esp32)
 - Complex API - refer to examples for common patterns
 - Supports BLE 4.0 and above features
