@@ -1,0 +1,56 @@
+module Benchmark
+  interface _Printer
+    def print: (String str) -> untyped
+  end
+
+  CAPTION: String
+  OPTIONS: Hash[Symbol, _Printer?]
+
+  def self.output=: (_Printer? io) -> _Printer?
+  def self.output: () -> _Printer?
+  def self.emit: (String str) -> nil
+
+  class Tms
+    @real_us: Integer
+    @memory: Integer?
+    @label: String
+
+    attr_reader label: String
+    attr_reader real_us: Integer
+    attr_reader memory: Integer?
+
+    def initialize: (Integer real_us, Integer? memory, ?String label) -> void
+    def real: () -> Float
+    def format: (?Integer label_width) -> String
+    def to_s: () -> String
+  end
+
+  class Report
+    @label_width: Integer
+    @repeat: Integer
+    @list: Array[Tms]
+
+    attr_reader list: Array[Tms]
+
+    def initialize: (Integer label_width, Integer repeat) -> void
+    def report: (?String label, ?repeat: Integer?) { () -> untyped } -> Tms
+    def item: (?String label, ?repeat: Integer?) { () -> untyped } -> Tms
+  end
+
+  class Job
+    @list: Array[[String, ^() -> untyped]]
+
+    attr_reader list: Array[[String, ^() -> untyped]]
+
+    def initialize: () -> void
+    def report: (?String label) { () -> untyped } -> Job
+    def item: (?String label) { () -> untyped } -> Job
+  end
+
+  def self.memory_used: () -> Integer?
+  def self.realtime_us: () { () -> untyped } -> Integer
+  def self.realtime: () { () -> untyped } -> Float
+  def self.measure: (?String label, ?repeat: Integer) { () -> untyped } -> Tms
+  def self.bm: (?Integer label_width, ?repeat: Integer) { (Report) -> untyped } -> Array[Tms]
+  def self.bmbm: (?Integer label_width, ?repeat: Integer) { (Job) -> untyped } -> Array[Tms]
+end
