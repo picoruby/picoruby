@@ -3,17 +3,24 @@
 # One Compiler instance compiles one `def`.
 #
 # Value kinds: :int (mrb_int), :float (mrb_float), :bool (mrb_bool), :nil
-# (no storage) and :value (mrb_value). A value is unboxed only when the
-# generated C itself produced it: a literal, or arithmetic on unboxed
-# operands. Everything that arrives from the VM (arguments, instance
-# variables, constants, call results) stays an mrb_value, and arithmetic on
-# it goes through guarded helpers: an Integer/Float fast path inline, and
-# mrb_funcall for anything else (nil, a Bignum, a user-defined operator).
+# (no storage) and :value (mrb_value). A value is unboxed when the
+# generated C itself produced it (a literal, arithmetic on unboxed
+# operands) or when Spinel proved its kind and that no nil reaches it
+# (`--emit-types` "nullable":false; an Integer and an Integer? share the
+# tag "int"):
 #
-# Spinel's `int` is nullable (`--emit-types` does not say whether a slot can
-# hold nil), so the inferred types are not trusted to unbox; they decide
-# which defs are worth compiling and where a numeric fast path is worth
-# emitting. Anything the generator does not handle raises Unsupported and
+# - a parameter so proved is read with mrb_get_args "i"/"f"/"b", as a
+#   hand-written cfunc reads it (a Float for "i" truncates, anything else
+#   raises TypeError), unless the body tests the parameter's class itself,
+#   which says the author expects callers outside the analysis;
+# - an instance variable read or a call result so proved is unboxed with
+#   a checked helper: a value the analysis did not predict (a method
+#   redefined at runtime) raises TypeError instead of being reinterpreted.
+#
+# Everything else that arrives from the VM stays an mrb_value, and
+# arithmetic on it goes through guarded helpers: an Integer/Float fast path
+# inline, and mrb_funcall for anything else (nil, a Bignum, a user-defined
+# operator). Anything the generator does not handle raises Unsupported and
 # the def stays in the irep.
 
 require "prism"
@@ -22,7 +29,11 @@ require_relative "typemap"
 module PicorubyAot
   class Unsupported < StandardError; end
 
-  Val = Struct.new(:code, :kind)
+  # `proved` is :int or :float on a boxed value (kind :value) that Spinel
+  # proved a non-nil scalar: it is unboxed, with a check, at the first use
+  # that needs the C scalar, and never when it is only discarded, returned,
+  # tested for truth or passed on.
+  Val = Struct.new(:code, :kind, :proved)
 
   class Compiler
     CTYPE = { int: "mrb_int", float: "mrb_float", bool: "mrb_bool", value: "mrb_value" }.freeze
@@ -186,24 +197,58 @@ module PicorubyAot
       p.requireds.each do |r|
         unsupported("destructuring parameter") unless r.is_a?(Prism::RequiredParameterNode)
         c = "p_#{r.name}"
-        @params << { name: r.name.to_s, c: c }
-        @locals[r.name.to_s] = [c, :value]
+        kind = @types.scalar(@file, r)
+        kind = :value if kind.nil? || param_tested?(r.name)
+        @params << { name: r.name.to_s, c: c, kind: kind }
+        @locals[r.name.to_s] = [c, kind]
       end
     end
 
+    PARAM_FMT = { int: "i", float: "f", bool: "b", value: "o" }.freeze
+
     def emit_params
       return if @params.empty?
-      fmt = "o" * @params.size
+      fmt = @params.map { |p| PARAM_FMT[p[:kind]] }.join
       refs = @params.map { |p| "&#{p[:c]}" }.join(", ")
       emit "mrb_get_args(mrb, #{fmt.inspect}, #{refs});"
+    end
+
+    # Does the body ask the parameter what it is? A guard such as
+    # `value.is_a?(Integer)` or `case value when Integer` is written for a
+    # caller the analysis never saw, and the irep answers it with the
+    # method's own error; an unboxed read would answer with TypeError
+    # before the body runs. Such a parameter stays boxed.
+    CLASS_TESTS = %w[is_a? kind_of? instance_of? nil? respond_to? class].freeze
+
+    def param_tested?(name)
+      tested = false
+      walk = lambda do |node|
+        return if tested || node.nil?
+        case node
+        when Prism::CallNode
+          recv = node.receiver
+          if recv.is_a?(Prism::LocalVariableReadNode) && recv.name == name && CLASS_TESTS.include?(node.name.to_s)
+            tested = true
+          elsif node.name == :=== && node.arguments && node.arguments.arguments.size == 1 &&
+                node.arguments.arguments[0].is_a?(Prism::LocalVariableReadNode) && node.arguments.arguments[0].name == name
+            tested = true
+          end
+        when Prism::CaseNode
+          tested = true if node.predicate.is_a?(Prism::LocalVariableReadNode) && node.predicate.name == name
+        end
+        node.child_nodes.each { |c| walk.call(c) }
+      end
+      walk.call(@def.body)
+      tested
     end
 
     # ---- local kinds ---------------------------------------------------
 
     # The kind a local gets: the kind of the values written to it when the C
-    # can compute every one of them unboxed (literals, arithmetic on such
-    # values, other such locals), else mrb_value. A fixpoint over the
-    # writes, since a local can feed another.
+    # holds every one of them unboxed (literals, arithmetic on such values,
+    # other such locals, unboxed parameters, and reads Spinel proved
+    # non-nil scalars), else mrb_value. A fixpoint over the writes, since a
+    # local can feed another.
     def infer_local_kinds(body)
       writes = []
       collect_writes(body, writes)
@@ -212,7 +257,7 @@ module PicorubyAot
       3.times do
         changed = false
         writes.each do |name, value|
-          next if @locals.key?(name) # a parameter: always boxed
+          next if @locals.key?(name) # a parameter: its kind is fixed at entry
           k = static_kind(value, kinds)
           k = :value if k == :nil
           cur = kinds[name]
@@ -252,29 +297,77 @@ module PicorubyAot
       when Prism::ParenthesesNode
         node.body && node.body.body.size == 1 ? static_kind(node.body.body.first, kinds) : :value
       when Prism::LocalVariableReadNode
-        kinds.key?(node.name.to_s) ? (kinds[node.name.to_s] || :value) : :value
+        name = node.name.to_s
+        if @locals.key?(name) then @locals[name][1]
+        elsif kinds.key?(name) then kinds[name] || :value
+        else :value
+        end
       when Prism::LocalVariableOperatorWriteNode
-        l = kinds.key?(node.name.to_s) ? (kinds[node.name.to_s] || :value) : :value
+        name = node.name.to_s
+        l = if @locals.key?(name) then @locals[name][1]
+            elsif kinds.key?(name) then kinds[name] || :value
+            else :value
+            end
         numeric_result(node.binary_operator.to_s, l, static_kind(node.value, kinds))
+      when Prism::InstanceVariableReadNode
+        proved_kind(node) || :value
       when Prism::CallNode
-        return :value if node.block || node.receiver.nil?
+        return :value if node.block
+        if node.receiver.nil?
+          return :value if node.name == :raise
+          return proved_kind(node) || :value
+        end
         args = node.arguments ? node.arguments.arguments : []
         l = static_kind(node.receiver, kinds)
-        if args.size == 1
-          numeric_result(node.name.to_s, l, static_kind(args[0], kinds))
-        elsif args.empty?
-          case [l, node.name.to_s]
-          when [:int, "-@"], [:int, "to_i"], [:int, "abs"], [:float, "to_i"] then :int
-          when [:float, "-@"], [:float, "to_f"], [:int, "to_f"] then :float
-          when [:int, "zero?"], [:int, "even?"], [:int, "odd?"], [:bool, "!"] then :bool
-          else :value
-          end
-        else
-          :value
-        end
+        k = if args.size == 1
+              numeric_result(node.name.to_s, l, static_kind(args[0], kinds))
+            elsif args.empty?
+              case [l, node.name.to_s]
+              when [:int, "-@"], [:int, "to_i"], [:int, "abs"], [:float, "to_i"] then :int
+              when [:float, "-@"], [:float, "to_f"], [:int, "to_f"] then :float
+              when [:int, "zero?"], [:int, "even?"], [:int, "odd?"], [:bool, "!"] then :bool
+              else :value
+              end
+            else
+              :value
+            end
+        k == :value ? (proved_kind(node) || :value) : k
       else
         :value
       end
+    end
+
+    # :int or :float when Spinel proved the node's value a non-nil scalar
+    # (the kinds a value from the VM is unboxed to); nil otherwise. A bool
+    # from the VM stays boxed: `mrb_test` reads it where it is tested, and
+    # boxing it back would turn a truthy non-Boolean into true.
+    def proved_kind(node)
+      k = @types.scalar(@file, node)
+      k == :int || k == :float ? k : nil
+    end
+
+    # Mark a value the VM produced with the kind Spinel proved for it, so a
+    # later use that needs the scalar can unbox it; the value stays boxed
+    # here.
+    def unbox_proved(node, v)
+      return v unless v.kind == :value && v.proved.nil?
+      k = proved_kind(node)
+      k ? Val.new(v.code, :value, k) : v
+    end
+
+    # The unboxed form of a value: itself when already unboxed, a checked
+    # unbox when proved, nil when it has to stay boxed.
+    def materialize(v)
+      return v if v.kind != :value
+      return nil unless v.proved
+      t = tmp(v.proved)
+      emit "#{t} = aot_unbox_#{v.proved}(mrb, #{v.code});"
+      Val.new(t, v.proved)
+    end
+
+    # The kind a value has once materialized, or :value.
+    def use_kind(v)
+      v.kind == :value ? (v.proved || :value) : v.kind
     end
 
     def numeric_result(op, l, r)
@@ -384,7 +477,7 @@ module PicorubyAot
       when Prism::InstanceVariableReadNode
         t = tmp(:value)
         emit "#{t} = mrb_iv_get(mrb, self, #{sym(node.name)});"
-        Val.new(t, :value)
+        unbox_proved(node, Val.new(t, :value))
       when Prism::InstanceVariableWriteNode
         v = expr(node.value)
         t = tmp(:value)
@@ -549,8 +642,11 @@ module PicorubyAot
         return v if v
       end
       if node.receiver && argv.empty?
+        if recv.kind == :value && recv.proved && numeric_unop(name, Val.new("", recv.proved))
+          return numeric_unop(name, materialize(recv))
+        end
         v = numeric_unop(name, recv)
-        return v if v
+        return unbox_proved(node, v) if v
       end
 
       t = tmp(:value)
@@ -565,21 +661,23 @@ module PicorubyAot
       if node.receiver && name.end_with?("=") && !%w[== != <= >= ===].include?(name)
         return argv.last
       end
-      Val.new(t, :value)
+      unbox_proved(node, Val.new(t, :value))
     end
 
     # `l op r`. Both unboxed: pure C. Otherwise a guarded helper when the
-    # operator has one (an Integer/Float fast path, else the VM). With
-    # hint: true a nil result means "not an operator; make a normal call".
+    # operator has one (an Integer/Float fast path, else the VM), its
+    # result unboxed when Spinel proved it. With hint: true a nil result
+    # means "not an operator; make a normal call".
     def binop(name, l, r, node, hint: false)
-      if l.kind != :value && r.kind != :value
-        v = numeric_binop(name, l, r)
-        return v if v
+      lk = use_kind(l)
+      rk = use_kind(r)
+      if lk != :value && rk != :value && numeric_binop(name, Val.new("", lk), Val.new("", rk))
+        return numeric_binop(name, materialize(l), materialize(r))
       end
       if GUARDED[name]
         t = tmp(:value)
         emit "#{t} = #{GUARDED[name]}(mrb, #{box(l)}, #{box(r)});"
-        return Val.new(t, :value)
+        return unbox_proved(node, Val.new(t, :value))
       end
       return nil if hint
       t = tmp(:value)

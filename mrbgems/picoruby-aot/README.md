@@ -62,9 +62,22 @@ reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
 
 ## How the generated C behaves
 
-- Arguments, instance variables, constants and call results stay boxed
-  (`mrb_value`). Only values the C computes itself (literals, arithmetic
-  on such values) are unboxed.
+- A value is unboxed (`mrb_int`, `mrb_float`, `mrb_bool`) when the C
+  computes it itself (a literal, arithmetic on such values), or when
+  Spinel proved its kind and that no nil reaches it (`"nullable":false`
+  in `--emit-types`; an `Integer` and an `Integer?` share the tag `int`).
+- A proved argument is read with `mrb_get_args` `"i"`, `"f"` or `"b"`,
+  as a hand-written cfunc reads it: a Float for `"i"` truncates, and any
+  other class raises TypeError. The generator keeps an argument boxed
+  when the body tests its class (`is_a?`, `kind_of?`, `nil?`,
+  `respond_to?`, `case`): such a guard is written for a caller the
+  analysis never saw, and the irep answers it with the method's own error.
+- A proved instance variable read or call result is unboxed with a
+  checked helper. A value the analysis did not predict (a method
+  redefined at run time) raises TypeError instead of being
+  reinterpreted.
+- Every other argument, instance variable, constant and call result stays
+  boxed (`mrb_value`).
 - Operators on boxed values go through guarded helpers (`aot_add`, ...).
   The helper computes Integer and Float cases inline and sends everything
   else to the VM, so nil, Bignum and user-defined operators behave as in

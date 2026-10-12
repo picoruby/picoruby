@@ -44,6 +44,21 @@ module PicorubyAot
       SCALARS.fetch(r["type"], :value)
     end
 
+    # The unboxed kind the node's value can safely take: :int or :float
+    # when Spinel proved that no nil reaches it ("nullable":false; an
+    # Integer and an Integer? share the tag "int", so the type alone is not
+    # enough), :bool always (Spinel's bool has no nil form), else nil. A
+    # dump from a spinel that predates the field answers nil for every
+    # Integer and Float, which keeps the generator on its guarded path.
+    def scalar(file, node)
+      r = record(file, node)
+      return nil unless r
+      k = SCALARS[r["type"]]
+      return nil if k.nil? || k == :nil
+      return k if k == :bool
+      r["nullable"] == false ? k : nil
+    end
+
     def raw_type(file, node)
       r = record(file, node)
       r && r["type"]
