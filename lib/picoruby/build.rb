@@ -77,6 +77,26 @@ module MRuby
       cc.defines << define if cc.defines.none? { _1 == key || _1.start_with?("#{key}=") }
     end
 
+    # Spinel-typed AOT of mrblib methods into mruby cfuncs (mrbgems/picoruby-aot).
+    # This is the per-target switch; a gem still has to opt in with
+    # `conf.gem(core: 'x') { |g| g.aot = true }`. Without this call nothing
+    # about the build changes.
+    #
+    #   conf.aot                              # spinel from $SPINEL or PATH
+    #   conf.aot path: "/opt/spinel/spinel"   # an explicit binary
+    def aot(path: nil, spinel: nil)
+      @aot = { path: path || ENV["SPINEL"] || "spinel", release: spinel }
+      gem core: 'picoruby-aot' unless @gems['picoruby-aot']
+    end
+
+    def aot?
+      !@aot.nil?
+    end
+
+    def aot_spinel
+      @aot[:path]
+    end
+
     def picoruby(alloc_estalloc: true, alloc_align: 8)
       # Place picoruby-mruby at the top so that Kernel#require is defined first
       if gems.first

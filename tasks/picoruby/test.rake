@@ -408,13 +408,19 @@ def create_temp_build_config(base_config_name, gems, vm_type = nil)
   base_config_path = File.expand_path("#{MRUBY_ROOT}/build_config/#{base_config_name}")
   config_content = File.read(base_config_path)
 
+  # PICORB_AOT=1 builds the gems under test with picoruby-aot (twin run: the
+  # same picotest suite against the cfunc versions of their typed methods).
+  aot = ENV['PICORB_AOT'] && vm_type != 'femtoruby'
+  gem_line = ->(gem) { aot ? "conf.gem(core: '#{gem[:name]}') { |g| g.aot = true }" : "conf.gem core: '#{gem[:name]}'" }
   if vm_type == 'wasm'
     # For WASM, inject gems before the final 'end'
-    injection_text = gems.map { |gem| "  conf.gem core: '#{gem[:name]}'" }.join("\n") + "\n"
+    injection_text = gems.map { |gem| "  #{gem_line.call(gem)}" }.join("\n") + "\n"
+    injection_text = "  conf.aot\n" + injection_text if aot
     config_content.sub!(/^end$/, injection_text + "end")
   else
     injection_point = /conf\.(femtoruby|picoruby)/
-    injection_text = gems.map { |gem| "conf.gem core: '#{gem[:name]}'" }.join("\n  ") + "\n  "
+    injection_text = gems.map { |gem| gem_line.call(gem) }.join("\n  ") + "\n  "
+    injection_text = "conf.aot\n  " + injection_text if aot
     config_content.sub!(injection_point, injection_text + 'conf.\1')
   end
 

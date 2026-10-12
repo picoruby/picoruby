@@ -1,0 +1,70 @@
+#!/usr/bin/env ruby
+# Generate the AOT C and the remaining Ruby for one gem.
+#
+#   tools/aot-gen --gem picoruby-foo --workspace DIR --out-c FILE --out-rb DIR \
+#                 [--manifest FILE] [--exclude A#b,C.d] [--include-widened] \
+#                 [--types JSON]
+#
+# Without --types the tool runs spinel itself (SPINEL=/path/to/spinel, or
+# `spinel` on PATH) and keeps its output under the workspace.
+
+require "optparse"
+require_relative "picoruby_aot/spinel"
+require_relative "picoruby_aot/generate"
+
+mruby_root = File.expand_path("../../..", __dir__)
+opts = { workspace: "#{mruby_root}/build/aot", exclude: [], include_widened: false }
+OptionParser.new do |o|
+  o.on("--gem NAME") { |v| opts[:gem] = v }
+  o.on("--workspace DIR") { |v| opts[:workspace] = v }
+  o.on("--types JSON") { |v| opts[:types] = v }
+  o.on("--out-c FILE") { |v| opts[:out_c] = v }
+  o.on("--out-rb DIR") { |v| opts[:out_rb] = v }
+  o.on("--manifest FILE") { |v| opts[:manifest] = v }
+  o.on("--exclude LIST") { |v| opts[:exclude].concat(v.split(",")) }
+  o.on("--include-widened") { opts[:include_widened] = true }
+  o.on("--spinel PATH") { |v| ENV["SPINEL"] = v }
+end.parse!
+abort "aot-gen: --gem, --out-c and --out-rb are required" unless opts[:gem] && opts[:out_c] && opts[:out_rb]
+
+graph = PicorubyAot::GemGraph.new("#{mruby_root}/mrbgems")
+gem = graph[opts[:gem]]
+
+json =
+  if opts[:types]
+    JSON.parse(File.read(opts[:types]))
+  else
+    ws = PicorubyAot::Workspace.new(graph, opts[:workspace])
+    ws.prepare unless Dir.exist?(ws.feature_root(:stubs))
+    entry = ws.entry_file(gem.name)
+    out = "#{ws.root}/out/#{gem.name}.types.json"
+    FileUtils.mkdir_p(File.dirname(out))
+    j, log, status = PicorubyAot::SpinelRunner.new.emit_types(entry, ws, out)
+    File.write("#{ws.root}/out/#{gem.name}.log", log)
+    if j.nil?
+      warn "aot-gen: spinel produced no types for #{gem.name} (exit #{status}); every def stays in the irep"
+      warn log.lines.last(3).join
+      j = { "types" => [], "diagnostics" => [] }
+    end
+    j
+  end
+
+typemap = PicorubyAot::TypeMap.new(json)
+gen = PicorubyAot::Generator.new(gem, typemap, exclude: opts[:exclude], include_widened: opts[:include_widened])
+gen.collect.compile
+
+FileUtils.mkdir_p(File.dirname(opts[:out_c]))
+File.write(opts[:out_c], gen.c_source)
+FileUtils.mkdir_p(opts[:out_rb])
+gen.stripped_sources.each do |file, src|
+  rel = file.sub(gem.dir + "/mrblib/", "")
+  path = File.join(opts[:out_rb], rel)
+  FileUtils.mkdir_p(File.dirname(path))
+  File.write(path, src)
+end
+if opts[:manifest]
+  FileUtils.mkdir_p(File.dirname(opts[:manifest]))
+  File.write(opts[:manifest], JSON.pretty_generate(gen.manifest))
+end
+aot = gen.entries.count { |e| e.status == :aot }
+warn "aot-gen: #{gem.name}: #{aot}/#{gen.entries.size} defs compiled to C"

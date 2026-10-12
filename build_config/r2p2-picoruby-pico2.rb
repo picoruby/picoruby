@@ -57,6 +57,11 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2#{ENV['PICORB_DEBUG'] ? '-debug' : ''}
 
   conf.picoruby
 
+  # PICORB_AOT=1: compile the typed methods of the gems marked below to
+  # cfuncs with picoruby-aot (host tool `spinel`, see mrbgems/picoruby-aot).
+  aot = ENV['PICORB_AOT'] ? true : false
+  conf.aot if aot
+
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-bigint"
   conf.gembox "minimum"
   conf.gembox "core"
@@ -64,11 +69,11 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2#{ENV['PICORB_DEBUG'] ? '-debug' : ''}
   conf.gembox "shell"
   conf.gembox "peripherals"
   conf.gembox "peripheral_utils"
-  conf.gem core: 'picoruby-psg'
-  conf.gem core: 'picoruby-midibase-mml'
+  conf.gem(core: 'picoruby-psg') { |g| g.aot = aot }
+  conf.gem(core: 'picoruby-midibase-mml') { |g| g.aot = aot }
   conf.gem core: 'picoruby-midibase-looper'
   conf.gem core: 'picoruby-uart-midi'
   conf.gem core: 'picoruby-usb-cdc-midi'
   conf.gem core: 'picoruby-shinonome'
-  conf.gem core: 'picoruby-keyboard'
+  conf.gem(core: 'picoruby-keyboard') { |g| g.aot = aot }
 end
