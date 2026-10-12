@@ -637,30 +637,26 @@ module PicorubyAot
       end
     end
 
+    # `raise "msg"` and `raise Klass, "msg"` are raised directly; the class
+    # is looked up as any constant in the method (lexical scope first, so
+    # `raise WebSocketError` inside Net::WebSocket finds it). Every other
+    # form (`raise exc_object`, `raise Klass`, `raise Klass, expr`, three
+    # arguments) is Kernel#raise's to interpret, through the VM.
     def raise_call(node, args)
       unsupported("raise without arguments", node) if args.empty?
-      unsupported("raise with more than two arguments", node) if args.size > 2
-      klass = "RuntimeError"
-      msg = nil
-      if args[0].is_a?(Prism::ConstantReadNode)
-        klass = args[0].name.to_s
-        msg = args[1]
-      elsif args[0].is_a?(Prism::ConstantPathNode)
-        klass = constant_path(args[0])
-        msg = args[1]
-      elsif args.size == 1
-        msg = args[0]
-      else
-        unsupported("raise with a non-constant class", node)
+      if args.size == 1 && args[0].is_a?(Prism::StringNode)
+        emit "aot_raise(mrb, \"RuntimeError\", #{c_string(args[0].unescaped)});"
+        return Val.new("mrb_nil_value()", :nil)
       end
-      if msg.nil?
-        emit "aot_raise(mrb, #{c_string(klass)}, #{c_string(klass)});"
-      elsif msg.is_a?(Prism::StringNode)
-        emit "aot_raise(mrb, #{c_string(klass)}, #{c_string(msg.unescaped)});"
-      else
-        m = expr(msg)
-        emit "mrb_exc_raise(mrb, mrb_exc_new_str(mrb, aot_resolve_class(mrb, #{c_string(klass)}), #{box(m)}));"
+      if args.size == 2 && (args[0].is_a?(Prism::ConstantReadNode) || args[0].is_a?(Prism::ConstantPathNode)) && args[1].is_a?(Prism::StringNode)
+        k = expr(args[0])
+        emit "aot_raise_obj(mrb, #{k.code}, #{c_string(args[1].unescaped)});"
+        return Val.new("mrb_nil_value()", :nil)
       end
+      argv = args.map { |a| expr(a) }
+      a = "argv#{@tmp += 1}"
+      emit "{ mrb_value #{a}[] = { #{argv.map { |x| box(x) }.join(', ')} };"
+      emit "  mrb_funcall_argv(mrb, self, #{sym('raise')}, #{argv.size}, #{a}); }"
       Val.new("mrb_nil_value()", :nil)
     end
   end

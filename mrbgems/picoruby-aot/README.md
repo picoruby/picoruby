@@ -14,10 +14,25 @@ writes C against the mruby API. Spinel's own C and runtime are not used.
 Turn it on for a target, then opt in each gem:
 
 ```ruby
-conf.aot                                     # spinel from $SPINEL or PATH
-conf.aot path: "/path/to/spinel"             # or an explicit binary
+conf.aot                                     # the pinned Spinel release
+conf.aot spinel: "2026.09.12"                # another release
+conf.aot path: "/path/to/spinel"             # an explicit binary
 conf.gem(core: 'picoruby-psg') { |g| g.aot = true }
 ```
+
+The pinned release (`MRuby::Build::SPINEL_RELEASE`) is downloaded once
+from the Spinel releases page into `build/repos/spinel-<release>.tar.xz`,
+extracted next to it and built there with `make`. The archive carries the
+vendored parsers, so the build needs no network after the download.
+`SPINEL=/path/to/spinel` in the environment overrides the release, for a
+developer who builds Spinel from a checkout. `path:` overrides both.
+
+The generator keys on the node spans, kinds and signatures that
+`--emit-types` writes since Spinel's emit-types contract (#4522, #4557),
+and reads the `nullable` fields (matz/spinel#8637). The 2026.09.12
+release predates them: it builds and runs, but every def then stays in
+the irep, and the build says so. Until a later release is cut, set
+`SPINEL` to a current checkout.
 
 A gem can keep a method in the irep:
 

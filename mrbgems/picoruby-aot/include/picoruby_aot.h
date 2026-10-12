@@ -87,6 +87,10 @@ mrb_value aot_const_get(mrb_state *mrb, mrb_value self, const char *scope, mrb_s
    literal message. */
 void aot_raise(mrb_state *mrb, const char *class_name, const char *msg);
 
+/* Raise `klass` (a class value a constant read produced) with a literal
+   message; TypeError when it is not a class. */
+void aot_raise_obj(mrb_state *mrb, mrb_value klass, const char *msg);
+
 /* Boxing shorthands kept as macros so the generated C reads evenly. */
 #define AOT_BOX_INT(mrb, i)   mrb_int_value((mrb), (i))
 #define AOT_BOX_FLOAT(mrb, f) mrb_float_value((mrb), (f))

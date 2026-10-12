@@ -336,6 +336,15 @@ aot_raise(mrb_state *mrb, const char *class_name, const char *msg)
 }
 
 void
+aot_raise_obj(mrb_state *mrb, mrb_value klass, const char *msg)
+{
+  if (!mrb_class_p(klass)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "exception class/object expected");
+  }
+  mrb_raise(mrb, mrb_class_ptr(klass), msg);
+}
+
+void
 mrb_picoruby_aot_gem_init(mrb_state *mrb)
 {
   (void)mrb;

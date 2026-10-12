@@ -8,8 +8,9 @@ module MRuby
       # ("Klass#meth", "Klass.meth") that stay in the irep regardless.
       attr_accessor :aot, :aot_exclude
 
+      # A gem without mrblib has nothing to compile; it keeps the plain path.
       def aot?
-        !!aot && build.respond_to?(:aot?) && build.aot? && build.picoruby?
+        !!aot && build.respond_to?(:aot?) && build.aot? && build.picoruby? && !rbfiles.empty?
       end
 
       def aot_dir
@@ -34,7 +35,7 @@ module MRuby
         exclude = (aot_exclude || []).empty? ? "" : " --exclude #{(aot_exclude || []).join(',')}"
         workspace = "#{build.build_dir}/aot-workspace"
         manifest = "#{aot_dir}/manifest.json"
-        file aot_c => rbfiles + sigfiles + tool_srcs do |t|
+        file aot_c => rbfiles + sigfiles + tool_srcs + build.aot_spinel_prereqs do |t|
           _pp "AOT", aot_c.relative_path
           mkdir_p aot_dir
           sh %Q[SPINEL="#{build.aot_spinel}" ruby "#{tool}" --gem #{name} --workspace "#{workspace}" --out-c "#{aot_c}" --out-rb "#{aot_dir}/rb" --manifest "#{manifest}"#{exclude}]
@@ -92,6 +93,7 @@ module MRuby
           aot_obj = objfile("#{aot_dir}/aot_#{funcname}")
           @objs.delete(aot_obj)
           scratch = "#{aot_dir}/gem_init.scratch.c"
+          mkdir_p aot_dir
           File.open(scratch, "w") { |s| generate_gem_init(s) }
           @objs << aot_obj
           @rbfiles = original

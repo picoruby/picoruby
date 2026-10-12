@@ -8,6 +8,7 @@
 # SPINEL=/path/to/spinel selects the binary (default: `spinel` on PATH).
 
 require "optparse"
+require_relative "picoruby_aot/deps"
 require_relative "picoruby_aot/spinel"
 
 mruby_root = File.expand_path("../../..", __dir__)

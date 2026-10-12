@@ -1,3 +1,5 @@
+require "etc"
+
 module MRuby
   class Command::Compiler
     attr_accessor :host_command
@@ -82,10 +84,30 @@ module MRuby
     # `conf.gem(core: 'x') { |g| g.aot = true }`. Without this call nothing
     # about the build changes.
     #
-    #   conf.aot                              # spinel from $SPINEL or PATH
+    #   conf.aot                              # the pinned release, built under build/repos
+    #   conf.aot spinel: "2026.09.12"         # another release
     #   conf.aot path: "/opt/spinel/spinel"   # an explicit binary
+    #
+    # $SPINEL=/path/to/spinel overrides the release for a developer who
+    # builds Spinel from a checkout; `path:` overrides both.
+    #
+    # A release is a dated tag of github.com/matz/spinel whose source
+    # archive carries the vendored parsers, so it builds with `make` alone
+    # and no network once it is downloaded. The archive and the tree live in
+    # build/repos/spinel-<release>, the way mruby keeps cloned gems.
+    SPINEL_RELEASE = "2026.09.12"
+    SPINEL_RELEASE_URL = "https://github.com/matz/spinel/releases/download/%<release>s/spinel-%<release>s.tar.xz"
+
     def aot(path: nil, spinel: nil)
-      @aot = { path: path || ENV["SPINEL"] || "spinel", release: spinel }
+      release = spinel || SPINEL_RELEASE
+      path ||= ENV["SPINEL"]
+      prereqs = []
+      if path.nil?
+        path = spinel_release_binary(release)
+        prereqs << path
+        define_spinel_release_task(release, path)
+      end
+      @aot = { path: path, release: release, prereqs: prereqs }
       gem core: 'picoruby-aot' unless @gems['picoruby-aot']
     end
 
@@ -95,6 +117,43 @@ module MRuby
 
     def aot_spinel
       @aot[:path]
+    end
+
+    # File tasks the AOT generation of every gem depends on: the release
+    # binary when the build manages one, nothing for $SPINEL or `path:`.
+    def aot_spinel_prereqs
+      @aot ? @aot[:prereqs] : []
+    end
+
+    def spinel_release_dir(release)
+      "#{MRUBY_ROOT}/build/repos/spinel-#{release}"
+    end
+
+    def spinel_release_binary(release)
+      "#{spinel_release_dir(release)}/bin/spinel"
+    end
+
+    def define_spinel_release_task(release, bin)
+      return if Rake::Task.task_defined?(bin)
+      dir = spinel_release_dir(release)
+      archive = "#{dir}.tar.xz"
+      url = format(SPINEL_RELEASE_URL, release: release)
+      file archive do
+        mkdir_p File.dirname(archive)
+        _pp "GET", url
+        sh "curl -fsSL -o \"#{archive}.part\" \"#{url}\" && mv \"#{archive}.part\" \"#{archive}\""
+      end
+      file bin => archive do
+        rm_rf dir
+        sh "tar -xJf \"#{archive}\" -C \"#{File.dirname(dir)}\""
+        stamp = File.exist?("#{dir}/.spinel-dist") ? File.readlines("#{dir}/.spinel-dist", chomp: true)[1] : nil
+        unless stamp == release
+          fail "spinel: the archive #{archive} is release #{stamp.inspect}, not #{release}"
+        end
+        _pp "MAKE", dir.relative_path
+        sh "make -C \"#{dir}\" -j#{[Etc.nprocessors, 8].min} > \"#{dir}/make.log\" 2>&1 || (tail -20 \"#{dir}/make.log\"; exit 1)"
+        fail "spinel: #{bin} was not built" unless File.executable?(bin)
+      end
     end
 
     def picoruby(alloc_estalloc: true, alloc_align: 8)

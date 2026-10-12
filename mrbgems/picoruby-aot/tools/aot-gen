@@ -9,6 +9,7 @@
 # `spinel` on PATH) and keeps its output under the workspace.
 
 require "optparse"
+require_relative "picoruby_aot/deps"
 require_relative "picoruby_aot/spinel"
 require_relative "picoruby_aot/generate"
 
@@ -45,6 +46,11 @@ json =
       warn "aot-gen: spinel produced no types for #{gem.name} (exit #{status}); every def stays in the irep"
       warn log.lines.last(3).join
       j = { "types" => [], "diagnostics" => [] }
+    elsif (j["types"] || []).none? { |r| r.key?("kind") && r.key?("end_line") }
+      # The 2026.09.12 release writes {file,line,col,type,rbs} only; the
+      # spans, kinds and signatures this generator keys on came later.
+      warn "aot-gen: this spinel's --emit-types carries no node spans or kinds (a release before the emit-types contract); every def stays in the irep. Use a newer spinel (SPINEL=/path/to/spinel)."
+      j = { "types" => [], "diagnostics" => j["diagnostics"] || [] }
     end
     j
   end

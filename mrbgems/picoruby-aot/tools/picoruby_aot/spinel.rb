@@ -8,6 +8,7 @@
 
 require "fileutils"
 require "json"
+require "pathname"
 require_relative "gems"
 require_relative "stubs"
 
@@ -42,7 +43,7 @@ module PicorubyAot
         [:stubs, :source].each do |mode|
           path = File.join(feature_root(mode), g.require_name + ".rb")
           FileUtils.mkdir_p(File.dirname(path))
-          body = mode == :source ? g.rbfiles.map { |f| "require_relative #{f.inspect}\n" }.join : "# #{g.name}: provided by RBS stubs\n"
+          body = mode == :source ? g.rbfiles.map { |f| "require_relative #{rel(f, path).inspect}\n" }.join : "# #{g.name}: provided by RBS stubs\n"
           File.write(path, body)
         end
       end
@@ -77,16 +78,25 @@ module PicorubyAot
       defs = RubyDefs.new.add_files(own)
       stub_file = "#{@root}/stubs/#{gem_name}.rb"
       File.write(stub_file, StubGenerator.new(gems.flat_map(&:sigfiles), defs).generate)
-      lines = ["require_relative #{stub_file.inspect}"]
+      path = "#{@root}/entry/#{gem_name}.rb"
+      lines = ["require_relative #{rel(stub_file, path).inspect}"]
       if mode == :source
         gems.reject { |d| d.name == gem_name }.each do |d|
-          d.rbfiles.each { |f| lines << "require_relative #{f.inspect}" }
+          d.rbfiles.each { |f| lines << "require_relative #{rel(f, path).inspect}" }
         end
       end
-      g.rbfiles.each { |f| lines << "require_relative #{f.inspect}" }
-      path = "#{@root}/entry/#{gem_name}.rb"
+      g.rbfiles.each { |f| lines << "require_relative #{rel(f, path).inspect}" }
       File.write(path, lines.join("\n") + "\n")
       Entry.new(path, sig_dir, stub_file, gems)
+    end
+
+    private
+
+    # A require_relative target as a path relative to the requiring file.
+    # Spinel 2026.09.12 joins even an absolute target onto the requiring
+    # file's directory, so an absolute path is not portable across releases.
+    def rel(target, from_file)
+      Pathname.new(target).relative_path_from(Pathname.new(File.dirname(from_file))).to_s
     end
   end
 
