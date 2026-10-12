@@ -64,6 +64,7 @@ module IRQ
   private def self.off: (irq_source_t source) -> bool
   private def self._stop_locked: () -> bool
   private def self._register_bridge: (IRQInstance irq) -> irq_id_t
+  private def self._release_gpio_pin: (gpio_pin_t pin, irq_event_type_t event_type) -> nil
   private def self._unregister_bridge: (irq_id_t id, IRQInstance irq) -> bool
   private def self._bridge_activate: (irq_source_t source) -> void
   private def self._deliver_bridge: (irq_source_t source, Integer bits) -> void

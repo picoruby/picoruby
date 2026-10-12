@@ -24,6 +24,9 @@ module IRQ
       peri = irq.peripheral
       id = case peri
       when GPIO
+        # One registration per pin and event; the newest wins, so a
+        # script run again from the shell gets its pin back.
+        _release_gpio_pin(peri.pin, irq.event_type)
         register_gpio(peri.pin, irq.event_type, opts)
       else
         # The extension protocol: any peripheral that exposes its
@@ -41,6 +44,20 @@ module IRQ
       end
       HANDLER[id] = irq
       return id
+    end
+
+    def _release_gpio_pin(pin, event_type)
+      # @type var ids: Array[irq_id_t]
+      ids = []
+      HANDLER.each do |id, irq|
+        peri = irq.peripheral
+        case peri
+        when GPIO
+          ids << id if peri.pin == pin && (irq.event_type & event_type) != 0
+        end
+      end
+      ids.each { |id| unregister(id) }
+      nil
     end
 
     # Returns the number of events dispatched. The limit is checked
@@ -500,7 +517,7 @@ module IRQ
     # change without notice. _dispatch_loop stays public only because
     # the dispatcher task must call it with an explicit receiver.
     if RUBY_ENGINE == "mruby"
-      private :on, :off, :_stop_locked, :_register_bridge,
+      private :on, :off, :_stop_locked, :_register_bridge, :_release_gpio_pin,
               :_unregister_bridge, :_bridge_activate, :_deliver_bridge,
               :_with_api_lock, :_with_dispatch_lock
     end
@@ -561,7 +578,13 @@ module IRQ
       return previous
     end
 
+    # false when this registration is already gone -- unregistered
+    # before, or replaced by a newer one for the same pin and event.
+    # The id may have been handed to another registration since, so it
+    # is only acted on while it still names this instance.
     def unregister
+      current = IRQ::HANDLER[@id]
+      return false unless current && current.object_id == object_id
       IRQ.unregister(@id)
     end
   end
