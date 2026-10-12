@@ -6,7 +6,10 @@ module MRuby
       # picoruby-aot: `g.aot = true` in the build config lets this gem's typed
       # mrblib methods be compiled to cfuncs. `aot_exclude` names methods
       # ("Klass#meth", "Klass.meth") that stay in the irep regardless.
-      attr_accessor :aot, :aot_exclude
+      # `aot_include_widened = true` compiles the methods Spinel widened to
+      # untyped as well: their values stay boxed and go through the guarded
+      # helpers, so only the VM's decode and dispatch is saved.
+      attr_accessor :aot, :aot_exclude, :aot_include_widened
 
       # A gem without mrblib has nothing to compile; it keeps the plain path.
       def aot?
@@ -33,6 +36,7 @@ module MRuby
         tool_srcs = Dir.glob("#{tools_dir}/**/*.rb") + [tool]
         sigfiles = Dir.glob("#{dir}/sig/**/*.rbs").sort
         exclude = (aot_exclude || []).empty? ? "" : " --exclude #{(aot_exclude || []).join(',')}"
+        exclude << " --include-widened" if aot_include_widened
         workspace = "#{build.build_dir}/aot-workspace"
         manifest = "#{aot_dir}/manifest.json"
         file aot_c => rbfiles + sigfiles + tool_srcs + build.aot_spinel_prereqs do |t|

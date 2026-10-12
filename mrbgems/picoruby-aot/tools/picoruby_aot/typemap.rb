@@ -27,6 +27,20 @@ module PicorubyAot
         @defs << r if r["kind"] == "DefNode"
       end
       @diagnostics = json["diagnostics"] || []
+      # What Spinel's codegen decided per call site: "dispatch" (direct /
+      # switch / boxed) and, for a direct call to a user def, "callee"
+      # ("Point#dist2", "Point.make", "top_level_def").
+      @codegen = {}
+      (json["codegen"] || []).each do |r|
+        next unless r["kind"] == "CallNode"
+        key = [File.expand_path(r["file"]), r["line"], r["col"], r["end_line"], r["end_col"]]
+        @codegen[key] = r
+      end
+    end
+
+    def codegen_record(file, node)
+      loc = node.location
+      @codegen[[File.expand_path(file), loc.start_line, loc.start_column, loc.end_line, loc.end_column]]
     end
 
     def record(file, node)

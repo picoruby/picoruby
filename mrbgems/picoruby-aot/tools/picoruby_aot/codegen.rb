@@ -61,6 +61,22 @@ module PicorubyAot
       ["[]", 2] => "aot_str_aref2", ["byteslice", 2] => "aot_str_byteslice",
     }.freeze
 
+    # Likewise for an Array (Spinel type "*_array") and a Hash ("*_hash").
+    ARY_METHODS = {
+      ["[]", 1] => "aot_ary_aref", ["[]=", 2] => "aot_ary_aset",
+      ["size", 0] => "aot_ary_size", ["length", 0] => "aot_ary_length",
+      ["empty?", 0] => "aot_ary_empty_p", ["push", 1] => "aot_ary_push",
+      ["pop", 0] => "aot_ary_pop", ["shift", 0] => "aot_ary_shift",
+      ["first", 0] => "aot_ary_first", ["last", 0] => "aot_ary_last",
+      ["clear", 0] => "aot_ary_clear",
+    }.freeze
+    HASH_METHODS = {
+      ["[]", 1] => "aot_hash_aref", ["[]=", 2] => "aot_hash_aset",
+      ["key?", 1] => "aot_hash_key_p", ["has_key?", 1] => "aot_hash_key_p",
+      ["include?", 1] => "aot_hash_key_p", ["size", 0] => "aot_hash_size",
+      ["length", 0] => "aot_hash_size", ["delete", 1] => "aot_hash_delete",
+    }.freeze
+
     # Boxed binary operators with a guarded helper (picoruby_aot.h).
     GUARDED = {
       "+" => "aot_add", "-" => "aot_sub", "*" => "aot_mul", "/" => "aot_div", "%" => "aot_mod",
@@ -69,7 +85,7 @@ module PicorubyAot
       "&" => "aot_band", "|" => "aot_bor", "^" => "aot_bxor", "<<" => "aot_lshift", ">>" => "aot_rshift",
     }.freeze
 
-    def initialize(typemap, file, def_node, scope:, cfunc_name:, syms: {})
+    def initialize(typemap, file, def_node, scope:, cfunc_name:, syms: {}, paths: {}, targets: {})
       @types = typemap
       @file = file
       @def = def_node
@@ -78,30 +94,101 @@ module PicorubyAot
       @tmp = 0
       @locals = {}       # ruby name -> [c name, kind]
       @syms = syms       # ruby name -> c static name, shared by the translation unit
+      @paths = paths     # "A::B" -> c static name of its aot_path, shared likewise
+      # Spinel callee label ("Point#dist2") -> { cfunc:, kinds:, private: }
+      # for the defs of this gem that compile; a direct call goes to one.
+      @targets = targets
+      @direct_refs = []  # the labels this def calls directly
       @loop_depth = 0
     end
 
+    attr_reader :direct_refs
+
+    # The kinds the parameters take, as the impl's C signature has them;
+    # also what a direct caller passes. Decided from the types alone, so a
+    # caller can know them before the def is compiled.
+    def param_kinds
+      check_params unless @params
+      @params.map { |p| p[:kind] }
+    end
+
+    def required_count
+      check_params unless @params
+      @params.count { |p| !p[:optional] }
+    end
+
+    def impl_name
+      "#{@cfunc}_impl"
+    end
+
+    # Both functions, since a direct call site names the cfunc (for the
+    # method test) and the impl before either is defined.
+    def impl_prototype
+      "static mrb_value #{impl_name}(mrb_state *mrb, mrb_value self#{impl_params});\n" \
+      "static mrb_value #{@cfunc}(mrb_state *mrb, mrb_value self);\n"
+    end
+
+    def impl_params
+      check_params unless @params
+      @params.map { |p| ", #{CTYPE[p[:kind]]} #{p[:c]}" }.join
+    end
+
+    # The static `struct aot_path` for a constant path ("A::B::C"): the
+    # names once, the symbols interned on first use, and for a method's
+    # lexical scope the classes recorded at registration.
+    def self.path_name(paths, path)
+      paths[path] ||= "path_#{paths.size}"
+    end
+
+    def self.path_decls(paths)
+      paths.map do |path, c|
+        parts = path.split("::")
+        names = parts.map { |s| '"' + s + '"' }.join(", ")
+        "static const char *const #{c}_names[] = { #{names} };\n" \
+        "static mrb_sym #{c}_syms[#{parts.size}];\n" \
+        "static struct RClass *#{c}_klass[#{parts.size}];\n" \
+        "static struct aot_path #{c} = { #{parts.size}, #{c}_names, #{c}_syms, #{c}_klass };\n"
+      end.join
+    end
+
+    # Two C functions per def: the impl, which takes self and the
+    # parameters as C arguments (a direct call from another compiled def
+    # lands here, with no VM frame), and the mruby cfunc, which reads the
+    # arguments with mrb_get_args and calls the impl.
     def compile
-      check_params
+      check_params unless @params
       infer_local_kinds(@def.body)
       body = +""
       @out = body
-      emit_params
+      emit_defaults
       if @def.body
         last = statements(@def.body)
         emit "return #{box(last)};"
       else
         emit "return mrb_nil_value();"
       end
-      head = +""
-      head << "static mrb_value\n#{@cfunc}(mrb_state *mrb, mrb_value self)\n{\n"
+      param_names = @params.map { |p| p[:c] }
+      s = +""
+      s << "static mrb_value\n#{impl_name}(mrb_state *mrb, mrb_value self#{impl_params})\n{\n"
       @locals.each_value do |c, kind|
-        next if kind == :nil
+        next if kind == :nil || param_names.include?(c)
         init = kind == :value ? " = mrb_nil_value()" : " = 0"
-        head << "  #{CTYPE[kind]} #{c}#{init};\n"
+        s << "  #{CTYPE[kind]} #{c}#{init};\n"
       end
-      head << body << "}\n"
-      head
+      s << body << "}\n\n"
+      s << "static mrb_value\n#{@cfunc}(mrb_state *mrb, mrb_value self)\n{\n"
+      @params.each do |p|
+        init = if p[:optional] then " = mrb_undef_value()"
+               elsif p[:kind] == :value then " = mrb_nil_value()"
+               else " = 0"
+               end
+        s << "  #{CTYPE[p[:kind]]} #{p[:c]}#{init};\n"
+      end
+      @out = s
+      emit_params
+      args = param_names.map { |c| ", #{c}" }.join
+      s << "  return #{impl_name}(mrb, self#{args});\n}\n"
+      s
     end
 
     def self.sym_decls(syms)
@@ -109,7 +196,9 @@ module PicorubyAot
     end
 
     def arity_spec
-      "MRB_ARGS_REQ(#{@params.size})"
+      req = @params.count { |p| !p[:optional] }
+      opt = @params.size - req
+      opt.zero? ? "MRB_ARGS_REQ(#{req})" : "MRB_ARGS_ARG(#{req}, #{opt})"
     end
 
     private
@@ -198,7 +287,6 @@ module PicorubyAot
       p = @def.parameters
       @params = []
       return unless p
-      unsupported("optional parameters") unless p.optionals.empty?
       unsupported("rest parameter") if p.rest
       unsupported("post parameters") unless p.posts.empty?
       unsupported("keyword parameters") unless p.keywords.empty? && p.keyword_rest.nil?
@@ -211,15 +299,36 @@ module PicorubyAot
         @params << { name: r.name.to_s, c: c, kind: kind }
         @locals[r.name.to_s] = [c, kind]
       end
+      # An optional parameter stays boxed; the cfunc hands undef to the impl
+      # for an argument not given, and the impl evaluates the default (in
+      # method scope, as Ruby does: it may read the earlier parameters).
+      p.optionals.each do |o|
+        c = "p_#{o.name}"
+        @params << { name: o.name.to_s, c: c, kind: :value, optional: true, default: o.value }
+        @locals[o.name.to_s] = [c, :value]
+      end
     end
 
     PARAM_FMT = { int: "i", float: "f", bool: "b", value: "o" }.freeze
 
     def emit_params
       return if @params.empty?
-      fmt = @params.map { |p| PARAM_FMT[p[:kind]] }.join
+      req = @params.reject { |p| p[:optional] }
+      opt = @params.select { |p| p[:optional] }
+      fmt = req.map { |p| PARAM_FMT[p[:kind]] }.join
+      fmt += "|" + "o" * opt.size unless opt.empty?
       refs = @params.map { |p| "&#{p[:c]}" }.join(", ")
       emit "mrb_get_args(mrb, #{fmt.inspect}, #{refs});"
+    end
+
+    def emit_defaults
+      @params.each do |p|
+        next unless p[:optional]
+        emit "if (mrb_undef_p(#{p[:c]})) {"
+        v = expr(p[:default])
+        emit "#{p[:c]} = #{box(v)};"
+        emit "}"
+      end
     end
 
     # Does the body ask the parameter what it is? A guard such as
@@ -290,6 +399,8 @@ module PicorubyAot
         acc << [node.name.to_s, node]
       when Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode
         acc << [node.name.to_s, nil]
+      when Prism::MultiWriteNode
+        node.lefts.each { |t| acc << [t.name.to_s, nil] if t.is_a?(Prism::LocalVariableTargetNode) }
       when Prism::BlockNode, Prism::LambdaNode
         unsupported("block", node)
       end
@@ -504,7 +615,7 @@ module PicorubyAot
         Val.new(c, :value)
       when Prism::InstanceVariableReadNode
         t = tmp(:value)
-        emit "#{t} = mrb_iv_get(mrb, self, #{sym(node.name)});"
+        emit "#{t} = aot_iv_get(mrb, self, #{sym(node.name)});"
         unbox_proved(node, Val.new(t, :value))
       when Prism::InstanceVariableWriteNode
         v = expr(node.value)
@@ -514,7 +625,7 @@ module PicorubyAot
         Val.new(t, :value)
       when Prism::InstanceVariableOperatorWriteNode
         cur = tmp(:value)
-        emit "#{cur} = mrb_iv_get(mrb, self, #{sym(node.name)});"
+        emit "#{cur} = aot_iv_get(mrb, self, #{sym(node.name)});"
         v = binop(node.binary_operator.to_s, Val.new(cur, :value), expr(node.value), node)
         t = tmp(:value)
         emit "#{t} = #{box(v)};"
@@ -522,7 +633,7 @@ module PicorubyAot
         Val.new(t, :value)
       when Prism::InstanceVariableOrWriteNode
         t = tmp(:value)
-        emit "#{t} = mrb_iv_get(mrb, self, #{sym(node.name)});"
+        emit "#{t} = aot_iv_get(mrb, self, #{sym(node.name)});"
         emit "if (!mrb_test(#{t})) {"
         v = expr(node.value)
         emit "#{t} = #{box(v)};"
@@ -531,15 +642,25 @@ module PicorubyAot
         Val.new(t, :value)
       when Prism::ConstantReadNode
         t = tmp(:value)
-        emit "#{t} = aot_const_get(mrb, self, #{c_string(@scope)}, #{sym(node.name)});"
+        scope = @scope.empty? ? "NULL" : "&#{Compiler.path_name(@paths, @scope)}"
+        emit "#{t} = aot_const_get(mrb, self, #{scope}, #{sym(node.name)});"
         Val.new(t, :value)
       when Prism::ConstantPathNode
         path = constant_path(node)
         t = tmp(:value)
-        emit "#{t} = mrb_obj_value(aot_resolve_class(mrb, #{c_string(path)}));"
+        emit "#{t} = mrb_obj_value(aot_path_class(mrb, &#{Compiler.path_name(@paths, path)}));"
         Val.new(t, :value)
       when Prism::IfNode then conditional(node, false)
       when Prism::UnlessNode then conditional(node, true)
+      when Prism::CaseNode then case_when(node)
+      when Prism::MultiWriteNode then multi_write(node)
+      when Prism::RangeNode
+        unsupported("endless or beginless range", node) if node.left.nil? || node.right.nil?
+        lo = expr(node.left)
+        hi = expr(node.right)
+        t = tmp(:value)
+        emit "#{t} = mrb_range_new(mrb, #{box(lo)}, #{box(hi)}, #{node.exclude_end? ? 1 : 0});"
+        Val.new(t, :value)
       when Prism::WhileNode then loop(node, false)
       when Prism::UntilNode then loop(node, true)
       when Prism::ReturnNode
@@ -611,6 +732,114 @@ module PicorubyAot
       result ? Val.new(result, kind) : Val.new("mrb_nil_value()", :nil)
     end
 
+    # case/when as an if/else-if chain. Each arm tests `pattern === value`
+    # through aot_eqq; an Integer pattern against an unboxed Integer value
+    # is a plain C compare. The arms' values join as an if's branches do.
+    def case_when(node)
+      unsupported("case without a subject", node) if node.predicate.nil?
+      subj = expr(node.predicate)
+      sk = subj.kind == :value ? (subj.proved || :value) : subj.kind
+      sv = tmp(sk == :value ? :value : sk)
+      emit "#{sv} = #{coerce(subj, sk)};"
+      subject = Val.new(sv, sk)
+      arms = node.conditions.map do |w|
+        unsupported("when with a splat", w) if w.conditions.any? { |c| c.is_a?(Prism::SplatNode) }
+        test_code, test = capture { case_test(w.conditions, subject) }
+        body_code, v = capture { w.statements ? statements(w.statements) : Val.new("mrb_nil_value()", :nil) }
+        [test_code, test, body_code, v]
+      end
+      else_code, ev = capture do
+        node.else_clause && node.else_clause.statements ? statements(node.else_clause.statements) : Val.new("mrb_nil_value()", :nil)
+      end
+      kind = (arms.map { |a| a[3].kind } + [ev.kind]).uniq
+      kind = kind.size == 1 ? kind.first : :value
+      result = kind == :nil ? nil : tmp(kind)
+      # Nested, not chained: an arm's pattern evaluations must run only
+      # when the arms before it did not match.
+      arms.each_with_index do |(test_code, test, body_code, v), i|
+        emit "} else {" if i > 0
+        @out << test_code
+        emit "if (#{test}) {"
+        @out << body_code
+        emit "#{result} = #{coerce(v, kind)};" if result
+      end
+      emit "} else {" unless arms.empty?
+      @out << else_code
+      emit "#{result} = #{coerce(ev, kind)};" if result
+      arms.size.times { emit "}" }
+      result ? Val.new(result, kind) : Val.new("mrb_nil_value()", :nil)
+    end
+
+    # The C condition for one arm: its patterns or-ed. Emits the pattern
+    # evaluations; the test expression itself is pure.
+    def case_test(conditions, subject)
+      conditions.map do |c|
+        lo, hi, excl = int_range_literal(c)
+        if subject.kind == :int && c.is_a?(Prism::IntegerNode)
+          "(#{subject.code} == ((mrb_int)#{c.value}))"
+        elsif subject.kind == :int && lo
+          "(((mrb_int)#{lo}) <= #{subject.code} && #{subject.code} #{excl ? '<' : '<='} ((mrb_int)#{hi}))"
+        elsif subject.kind == :value && c.is_a?(Prism::IntegerNode)
+          "aot_eqq_int(#{subject.code}, ((mrb_int)#{c.value}))"
+        elsif subject.kind == :value && lo
+          "aot_eqq_int_range(#{subject.code}, ((mrb_int)#{lo}), ((mrb_int)#{hi}), #{excl ? 1 : 0})"
+        else
+          pat = expr(c)
+          t = tmp(:value)
+          emit "#{t} = aot_eqq(mrb, #{box(pat)}, #{box(subject)});"
+          "mrb_test(#{t})"
+        end
+      end.join(" || ")
+    end
+
+    # [lo, hi, exclusive] for a `1..9` / `1...9` of Integer literals, else nil.
+    def int_range_literal(node)
+      return nil unless node.is_a?(Prism::RangeNode)
+      return nil unless node.left.is_a?(Prism::IntegerNode) && node.right.is_a?(Prism::IntegerNode)
+      [node.left.value, node.right.value, node.exclude_end?]
+    end
+
+    # `a, b = x, y` and `a, b = expr`: the right side first (into temps, so
+    # `a, b = b, a` swaps), then each target. Locals and instance variables
+    # only; the value of the statement is nil here (it is rarely used).
+    def multi_write(node)
+      unsupported("splat in a multiple assignment", node) if node.rest || !node.rights.empty?
+      targets = node.lefts
+      targets.each do |t|
+        next if t.is_a?(Prism::LocalVariableTargetNode) || t.is_a?(Prism::InstanceVariableTargetNode)
+        unsupported("#{t.class.name.split('::').last} in a multiple assignment", t)
+      end
+      values =
+        if node.value.is_a?(Prism::ArrayNode) && node.value.elements.none? { |e| e.is_a?(Prism::SplatNode) }
+          node.value.elements.map do |e|
+            v = expr(e)
+            t = tmp(:value)
+            emit "#{t} = #{box(v)};"
+            Val.new(t, :value)
+          end
+        else
+          v = expr(node.value)
+          src = tmp(:value)
+          emit "#{src} = #{box(v)};"
+          targets.each_index.map do |i|
+            t = tmp(:value)
+            emit "#{t} = aot_masgn_get(mrb, #{src}, #{i});"
+            Val.new(t, :value)
+          end
+        end
+      targets.each_with_index do |t, i|
+        v = values[i] || Val.new("mrb_nil_value()", :nil)
+        case t
+        when Prism::LocalVariableTargetNode
+          c, k = local(t.name)
+          emit "#{c} = #{coerce(v, k)};"
+        when Prism::InstanceVariableTargetNode
+          emit "mrb_iv_set(mrb, self, #{sym(t.name)}, #{box(v)});"
+        end
+      end
+      Val.new("mrb_nil_value()", :nil)
+    end
+
     def loop(node, negate)
       unsupported("do-while loop", node) if node.respond_to?(:begin_modifier?) && node.begin_modifier?
       emit "for (;;) {"
@@ -677,28 +906,94 @@ module PicorubyAot
         return unbox_proved(node, v) if v
       end
 
-      if node.receiver && @types.raw_type(@file, node.receiver) == "string"
-        helper = STR_METHODS[[name, argv.size]]
+      if node.receiver
+        raw = @types.raw_type(@file, node.receiver)
+        helper = if raw == "string" then STR_METHODS[[name, argv.size]]
+                 elsif raw.to_s.end_with?("_array") then ARY_METHODS[[name, argv.size]]
+                 elsif raw.to_s.end_with?("_hash") then HASH_METHODS[[name, argv.size]]
+                 end
         if helper
           t = tmp(:value)
           emit "#{t} = #{helper}(mrb, #{([box(recv)] + argv.map { |x| box(x) }).join(', ')});"
+          return argv.last if name == "[]="
           return unbox_proved(node, Val.new(t, :value))
         end
       end
 
       t = tmp(:value)
-      if argv.empty?
-        emit "#{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, 0, NULL);"
+      target = direct_target(node, argv)
+      if target
+        # Spinel bound this call to one def of this gem that compiles too:
+        # when the receiver's method is still that cfunc, call its impl in
+        # C; a redefinition, an override or another class takes the VM.
+        @direct_refs << target[:label]
+        args = argv.zip(target[:kinds]).map { |v, k| ", #{coerce(v, k)}" }.join
+        args += ", mrb_undef_value()" * (target[:kinds].size - argv.size)
+        emit "if (aot_method_is(mrb, #{box(recv)}, #{sym(name)}, #{target[:cfunc]})) {"
+        emit "  #{t} = #{target[:cfunc]}_impl(mrb, #{box(recv)}#{args});"
+        emit "} else {"
+        emit_funcall(t, recv, name, argv)
+        emit "}"
       else
-        a = "argv#{@tmp}"
-        emit "{ mrb_value #{a}[] = { #{argv.map { |x| box(x) }.join(', ')} };"
-        emit "  #{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}); }"
+        emit_funcall(t, recv, name, argv)
       end
       # `recv.attr = v` and `recv[i] = v` evaluate to v.
       if node.receiver && name.end_with?("=") && !%w[== != <= >= ===].include?(name)
         return argv.last
       end
       unbox_proved(node, Val.new(t, :value))
+    end
+
+    def emit_funcall(t, recv, name, argv)
+      if argv.empty?
+        emit "#{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, 0, NULL);"
+      else
+        a = "argv#{@tmp += 1}"
+        emit "{ mrb_value #{a}[] = { #{argv.map { |x| box(x) }.join(', ')} };"
+        emit "  #{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}); }"
+      end
+    end
+
+    # The compiled def of this gem this call most likely lands on. The
+    # runtime test (aot_method_is) keeps the call correct whatever is
+    # chosen here, so the choice only decides where the fast path points:
+    # Spinel's codegen `callee` when it recorded one (a call Spinel
+    # inlined or folded has no record), else a def of the same name in the
+    # receiver's class (the def's scope for an implicit or `self` receiver,
+    # Spinel's `obj_X` type for an explicit one), else the one def of that
+    # name in the gem. A private target only from an implicit or `self`
+    # receiver, as the VM allows. Arity must match.
+    def direct_target(node, argv)
+      name = node.name.to_s
+      self_call = node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode)
+      rec = @types.codegen_record(@file, node)
+      label =
+        if rec && rec["dispatch"] == "direct" && rec["callee"]
+          rec["callee"]
+        elsif self_call
+          "#{@scope}##{name}"
+        else
+          raw = @types.raw_type(@file, node.receiver)
+          raw.to_s.start_with?("obj_") ? "#{raw.sub('obj_', '').gsub('__', '::')}##{name}" : nil
+        end
+      t = label && (@targets[label] || @targets[label.gsub("::", "__")])
+      if t.nil?
+        # Spinel names a nested class by its leaf ("Digger#reset") or with
+        # "__" for "::"; a method name defined once in the gem is also enough.
+        # (A method a module gives the class, `JSON::Common#expect` called
+        # from `JSON::Parser`, is found this way too.)
+        cands = @targets.select { |l, _| l.end_with?("#" + name) && !l.include?(".") }
+        if cands.size > 1 && label
+          leaf = label.split("::").last.split("__").last
+          narrowed = cands.select { |l, _| l.end_with?(leaf) }
+          cands = narrowed if narrowed.size == 1
+        end
+        t = cands.size == 1 ? cands.values.first : nil
+        label = cands.keys.first if t
+      end
+      return nil unless t && argv.size.between?(t[:required], t[:kinds].size)
+      return nil if t[:private] && !self_call
+      t.merge(label: label)
     end
 
     # `l op r`. Both unboxed: pure C. Otherwise a guarded helper when the
@@ -780,7 +1075,7 @@ module PicorubyAot
     def raise_call(node, args)
       unsupported("raise without arguments", node) if args.empty?
       if args.size == 1 && args[0].is_a?(Prism::StringNode)
-        emit "aot_raise(mrb, \"RuntimeError\", #{c_string(args[0].unescaped)});"
+        emit "mrb_raise(mrb, E_RUNTIME_ERROR, #{c_string(args[0].unescaped)});"
         return Val.new("mrb_nil_value()", :nil)
       end
       if args.size == 2 && (args[0].is_a?(Prism::ConstantReadNode) || args[0].is_a?(Prism::ConstantPathNode)) && args[1].is_a?(Prism::StringNode)

@@ -40,18 +40,28 @@ A gem can keep a method in the irep:
 spec.aot_exclude = %w[PSG::Driver#debug_dump]
 ```
 
+A gem can also compile the methods Spinel widened to untyped. Their
+values stay boxed and go through the guarded helpers, so the gain is the
+VM's decode and dispatch and the direct calls between compiled methods:
+
+```ruby
+conf.gem(core: 'picoruby-json') { |g| g.aot = true; g.aot_include_widened = true }
+```
+
 Without `conf.aot` nothing changes. FemtoRuby (mruby/c) ignores `aot`.
 
 ## What becomes a cfunc
 
 A `def` becomes a cfunc when all of these hold:
 
-- Spinel typed every parameter and the return value (not "widened").
-- The method takes only required positional parameters.
+- Spinel typed every parameter and the return value (not "widened"),
+  unless `aot_include_widened` is set.
+- The method takes only positional parameters, required or optional.
 - The body uses only the supported syntax: literals, locals, instance
-  variables, constants, `if`/`unless`/`while`/`until`, `return`, `break`,
-  `next`, `and`/`or`/`not`, method calls without blocks or keywords, and
-  `raise` with a constant class.
+  variables, constants, `if`/`unless`/`while`/`until`/`case`, `return`,
+  `break`, `next`, `and`/`or`/`not`, multiple assignment to locals and
+  instance variables, Range literals, method calls without blocks or
+  keywords, and `raise` with a constant class.
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
   `Task.pass`, `join`, a Task receiver), directly or through another
   method of the gem. A cfunc cannot yield to other tasks.
@@ -89,9 +99,39 @@ reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
   `nullable` plays no part here: the guard answers nil as the irep does.
 - A string with interpolation builds a new String and appends each part
   with `mrb_str_concat`, which converts with `to_s` as the VM does.
+- An Array or Hash method on a receiver Spinel typed so goes through a
+  guarded helper as well. `[]` and `[]=` take the test the VM's index
+  opcodes take (`mrb->idx_class`); `size`, `length`, `empty?`, `push`,
+  `<<`, `pop`, `shift`, `first`, `last`, `clear`, `key?` and `delete`
+  resolve the method as the VM would and compare it with the builtin
+  recorded at gem init, so a redefinition on Array itself is honoured.
+- Each `def` becomes two C functions: the impl, which takes `self` and the
+  parameters as C arguments, and the mruby cfunc, which reads the
+  arguments with `mrb_get_args` and calls the impl. A call to another
+  compiled method of the gem tests, with the method lookup the VM would
+  do, that the name still resolves to that cfunc, and then calls its impl
+  in C with no VM frame. A redefinition, an override in a subclass or
+  another receiver class takes `mrb_funcall_argv` as before. A private
+  method is called directly only from an implicit or `self` receiver.
+- `case/when` is an if chain. An Integer literal or an Integer Range
+  pattern compares in place; a class asks `kind_of?`; the core scalars and
+  a String compare as `==`; any other pattern is sent `===`.
+- An optional parameter is handed to the impl as undef when the argument
+  is not given, and the impl evaluates the default in method scope.
 - Other calls go through `mrb_funcall_argv`.
-- Constants resolve through the lexical scope of the `def`, then the
-  receiver's ancestors, then Object.
+- Constants resolve through the lexical scope of the `def` (its classes
+  are recorded once, at registration), then the receiver's ancestors,
+  then Object.
+- The VM's registers are GC roots; the generated C's locals are not. A
+  value the C holds is safe while its owner references it or while it is
+  in the GC arena (every allocation, every `mrb_funcall` result). A value
+  whose owner may let go of it (an instance variable read, an element
+  `[]`, `first`, `shift` or `pop` hands out, a Hash `[]` or `delete`) is
+  pushed to the arena at the read, which protects it until the outermost
+  cfunc returns to the VM. An immediate needs nothing.
+- A direct call runs on the C stack, with no mruby frame: a backtrace
+  does not list it, and deep recursion through compiled methods is
+  bounded by the C stack, not by mruby's.
 
 ## Twin test
 
@@ -100,6 +140,7 @@ The same picotest suite runs against the irep build and the AOT build:
 ```
 rake "test:gems:picoruby[picoruby-psg]"
 PICORB_AOT=1 rake "test:gems:picoruby[picoruby-psg]"
+PICORB_AOT=1 PICORB_AOT_WIDENED=1 rake "test:gems:picoruby[picoruby-psg]"
 ```
 
 ## Tools

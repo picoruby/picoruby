@@ -411,7 +411,9 @@ def create_temp_build_config(base_config_name, gems, vm_type = nil)
   # PICORB_AOT=1 builds the gems under test with picoruby-aot (twin run: the
   # same picotest suite against the cfunc versions of their typed methods).
   aot = ENV['PICORB_AOT'] && vm_type != 'femtoruby'
-  gem_line = ->(gem) { aot ? "conf.gem(core: '#{gem[:name]}') { |g| g.aot = true }" : "conf.gem core: '#{gem[:name]}'" }
+  # PICORB_AOT_WIDENED=1 also compiles the defs Spinel widened to untyped.
+  aot_flags = ENV['PICORB_AOT_WIDENED'] ? "g.aot = true; g.aot_include_widened = true" : "g.aot = true"
+  gem_line = ->(gem) { aot ? "conf.gem(core: '#{gem[:name]}') { |g| #{aot_flags} }" : "conf.gem core: '#{gem[:name]}'" }
   if vm_type == 'wasm'
     # For WASM, inject gems before the final 'end'
     injection_text = gems.map { |gem| "  #{gem_line.call(gem)}" }.join("\n") + "\n"
