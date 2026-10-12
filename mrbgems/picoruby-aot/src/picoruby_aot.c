@@ -154,6 +154,7 @@ aot_add(mrb_state *mrb, mrb_value a, mrb_value b)
     return mrb_int_value(mrb, r);
   }
   if (mrb_float_p(a) && AOT_NUM_P(b)) return mrb_float_value(mrb, mrb_float(a) + AOT_AS_F(b));
+  if (mrb_string_p(a) && mrb_string_p(b)) return mrb_str_plus(mrb, a, b);
   return aot_send1(mrb, a, "+", b);
 }
 
@@ -218,6 +219,7 @@ aot_eq(mrb_state *mrb, mrb_value a, mrb_value b)
   if (AOT_BOTH_INT(a, b)) return mrb_bool_value(mrb_integer(a) == mrb_integer(b));
   if (mrb_symbol_p(a) && mrb_symbol_p(b)) return mrb_bool_value(mrb_symbol(a) == mrb_symbol(b));
   if (mrb_nil_p(a) || mrb_true_p(a) || mrb_false_p(a)) return mrb_bool_value(mrb_obj_eq(mrb, a, b));
+  if (mrb_string_p(a) && mrb_string_p(b)) return mrb_bool_value(mrb_str_equal(mrb, a, b));
   return aot_send1(mrb, a, "==", b);
 }
 
@@ -226,6 +228,7 @@ aot_neq(mrb_state *mrb, mrb_value a, mrb_value b)
 {
   if (AOT_BOTH_INT(a, b)) return mrb_bool_value(mrb_integer(a) != mrb_integer(b));
   if (mrb_symbol_p(a) && mrb_symbol_p(b)) return mrb_bool_value(mrb_symbol(a) != mrb_symbol(b));
+  if (mrb_string_p(a) && mrb_string_p(b)) return mrb_bool_value(!mrb_str_equal(mrb, a, b));
   return aot_send1(mrb, a, "!=", b);
 }
 
@@ -256,6 +259,7 @@ aot_lshift(mrb_state *mrb, mrb_value a, mrb_value b)
       return mrb_int_value(mrb, x >> -s);
     }
   }
+  if (mrb_string_p(a) && mrb_string_p(b)) return mrb_str_cat_str(mrb, a, b);
   return aot_send1(mrb, a, "<<", b);
 }
 
@@ -275,6 +279,110 @@ aot_neg(mrb_state *mrb, mrb_value a)
   if (mrb_integer_p(a) && mrb_integer(a) != MRB_INT_MIN) return mrb_int_value(mrb, -mrb_integer(a));
   if (mrb_float_p(a)) return mrb_float_value(mrb, -mrb_float(a));
   return mrb_funcall_argv(mrb, a, mrb_intern_lit(mrb, "-@"), 0, NULL);
+}
+
+/* ---- String ------------------------------------------------------- */
+
+static mrb_value
+aot_send0(mrb_state *mrb, mrb_value a, const char *name)
+{
+  return mrb_funcall_argv(mrb, a, mrb_intern_cstr(mrb, name), 0, NULL);
+}
+
+static mrb_value
+aot_send2(mrb_state *mrb, mrb_value a, const char *name, mrb_value b, mrb_value c)
+{
+  mrb_value argv[2];
+  argv[0] = b;
+  argv[1] = c;
+  return mrb_funcall_argv(mrb, a, mrb_intern_cstr(mrb, name), 2, argv);
+}
+
+/* A String whose character count is its byte count: ASCII only, or read
+   as bytes. Any other String is counted by the VM. */
+#define AOT_STR_BYTES_P(s) (mrb_string_p(s) && RSTR_SINGLE_BYTE_P(RSTRING(s)))
+
+mrb_value
+aot_str_size(mrb_state *mrb, mrb_value s)
+{
+  if (AOT_STR_BYTES_P(s)) return mrb_int_value(mrb, RSTRING_LEN(s));
+  return aot_send0(mrb, s, "size");
+}
+
+mrb_value
+aot_str_length(mrb_state *mrb, mrb_value s)
+{
+  if (AOT_STR_BYTES_P(s)) return mrb_int_value(mrb, RSTRING_LEN(s));
+  return aot_send0(mrb, s, "length");
+}
+
+mrb_value
+aot_str_bytesize(mrb_state *mrb, mrb_value s)
+{
+  if (mrb_string_p(s)) return mrb_int_value(mrb, RSTRING_LEN(s));
+  return aot_send0(mrb, s, "bytesize");
+}
+
+mrb_value
+aot_str_empty_p(mrb_state *mrb, mrb_value s)
+{
+  if (mrb_string_p(s)) return mrb_bool_value(RSTRING_LEN(s) == 0);
+  return aot_send0(mrb, s, "empty?");
+}
+
+mrb_value
+aot_str_getbyte(mrb_state *mrb, mrb_value s, mrb_value i)
+{
+  if (mrb_string_p(s) && mrb_integer_p(i)) {
+    mrb_int pos = mrb_integer(i);
+    mrb_int len = RSTRING_LEN(s);
+    if (pos < 0) pos += len;
+    if (pos < 0 || len <= pos) return mrb_nil_value();
+    return mrb_int_value(mrb, (unsigned char)RSTRING_PTR(s)[pos]);
+  }
+  return aot_send1(mrb, s, "getbyte", i);
+}
+
+/* `s[i]`: the one-character String at i, nil past the end. mrb_str_substr
+   counts characters and answers "" at the very end, which `[]` reports as
+   nil. */
+mrb_value
+aot_str_aref1(mrb_state *mrb, mrb_value s, mrb_value i)
+{
+  if (mrb_string_p(s) && mrb_integer_p(i)) {
+    mrb_value r = mrb_str_substr(mrb, s, mrb_integer(i), 1);
+    if (mrb_string_p(r) && RSTRING_LEN(r) == 0) return mrb_nil_value();
+    return r;
+  }
+  return aot_send1(mrb, s, "[]", i);
+}
+
+mrb_value
+aot_str_aref2(mrb_state *mrb, mrb_value s, mrb_value beg, mrb_value len)
+{
+  if (mrb_string_p(s) && mrb_integer_p(beg) && mrb_integer_p(len)) {
+    return mrb_str_substr(mrb, s, mrb_integer(beg), mrb_integer(len));
+  }
+  return aot_send2(mrb, s, "[]", beg, len);
+}
+
+mrb_value
+aot_str_byteslice(mrb_state *mrb, mrb_value s, mrb_value beg, mrb_value len)
+{
+  if (mrb_string_p(s) && mrb_integer_p(beg) && mrb_integer_p(len)) {
+    mrb_int slen = RSTRING_LEN(s);
+    mrb_int b = mrb_integer(beg);
+    mrb_int l = mrb_integer(len);
+    if (slen < b || l < 0) return mrb_nil_value();
+    if (b < 0) {
+      b += slen;
+      if (b < 0) return mrb_nil_value();
+    }
+    if (l > slen - b) l = slen - b;
+    if (l < 0) l = 0;
+    return mrb_str_byte_subseq(mrb, s, b, l);
+  }
+  return aot_send2(mrb, s, "byteslice", beg, len);
 }
 
 struct RClass *

@@ -52,6 +52,15 @@ module PicorubyAot
     CMP_OPS = { "<" => "<", "<=" => "<=", ">" => ">", ">=" => ">=", "==" => "==", "!=" => "!=" }.freeze
     FLOAT_BINOPS = { "+" => "+", "-" => "-", "*" => "*", "/" => "/" }.freeze
 
+    # String methods with a guarded helper (picoruby_aot.h), emitted where
+    # Spinel typed the receiver a String; keyed by name and argument count.
+    STR_METHODS = {
+      ["size", 0] => "aot_str_size", ["length", 0] => "aot_str_length",
+      ["bytesize", 0] => "aot_str_bytesize", ["empty?", 0] => "aot_str_empty_p",
+      ["getbyte", 1] => "aot_str_getbyte", ["[]", 1] => "aot_str_aref1",
+      ["[]", 2] => "aot_str_aref2", ["byteslice", 2] => "aot_str_byteslice",
+    }.freeze
+
     # Boxed binary operators with a guarded helper (picoruby_aot.h).
     GUARDED = {
       "+" => "aot_add", "-" => "aot_sub", "*" => "aot_mul", "/" => "aot_div", "%" => "aot_mod",
@@ -431,6 +440,25 @@ module PicorubyAot
         t = tmp(:value)
         emit "#{t} = mrb_str_new_lit(mrb, #{c_string(node.unescaped)});"
         Val.new(t, :value)
+      when Prism::InterpolatedStringNode
+        # "a#{x}b": a new String, each literal part appended as bytes and
+        # each embedded expression through mrb_str_concat, which converts
+        # with to_s as the VM's OP_STRCAT does.
+        t = tmp(:value)
+        emit "#{t} = mrb_str_new(mrb, NULL, 0);"
+        node.parts.each do |part|
+          case part
+          when Prism::StringNode
+            unsupported("non-ASCII/binary string literal", part) unless part.unescaped.valid_encoding?
+            emit "mrb_str_cat_lit(mrb, #{t}, #{c_string(part.unescaped)});" unless part.unescaped.empty?
+          when Prism::EmbeddedStatementsNode
+            v = part.statements ? statements(part.statements) : Val.new("mrb_nil_value()", :nil)
+            emit "mrb_str_concat(mrb, #{t}, #{box(v)});"
+          else
+            unsupported("#{part.class.name.split('::').last} in a string", part)
+          end
+        end
+        Val.new(t, :value)
       when Prism::SymbolNode
         Val.new("mrb_symbol_value(#{sym(node.unescaped)})", :value)
       when Prism::ArrayNode
@@ -647,6 +675,15 @@ module PicorubyAot
         end
         v = numeric_unop(name, recv)
         return unbox_proved(node, v) if v
+      end
+
+      if node.receiver && @types.raw_type(@file, node.receiver) == "string"
+        helper = STR_METHODS[[name, argv.size]]
+        if helper
+          t = tmp(:value)
+          emit "#{t} = #{helper}(mrb, #{([box(recv)] + argv.map { |x| box(x) }).join(', ')});"
+          return unbox_proved(node, Val.new(t, :value))
+        end
       end
 
       t = tmp(:value)

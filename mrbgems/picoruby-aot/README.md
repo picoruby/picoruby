@@ -79,9 +79,16 @@ reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
 - Every other argument, instance variable, constant and call result stays
   boxed (`mrb_value`).
 - Operators on boxed values go through guarded helpers (`aot_add`, ...).
-  The helper computes Integer and Float cases inline and sends everything
-  else to the VM, so nil, Bignum and user-defined operators behave as in
-  the irep.
+  The helper computes Integer and Float cases inline (and the String
+  cases of `+`, `==`, `!=`, `<<`) and sends everything else to the VM,
+  so nil, Bignum and user-defined operators behave as in the irep.
+- A String method on a receiver Spinel typed a String goes through a
+  guarded helper too (`size`, `length`, `bytesize`, `empty?`, `getbyte`,
+  `[]`, `byteslice`): the String case reads the `RString` directly, any
+  other receiver is sent to the VM by name. A String is not unboxed, so
+  `nullable` plays no part here: the guard answers nil as the irep does.
+- A string with interpolation builds a new String and appends each part
+  with `mrb_str_concat`, which converts with `to_s` as the VM does.
 - Other calls go through `mrb_funcall_argv`.
 - Constants resolve through the lexical scope of the `def`, then the
   receiver's ancestors, then Object.

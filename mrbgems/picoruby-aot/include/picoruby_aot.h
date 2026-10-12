@@ -65,6 +65,20 @@ mrb_value aot_lshift(mrb_state *mrb, mrb_value a, mrb_value b);
 mrb_value aot_rshift(mrb_state *mrb, mrb_value a, mrb_value b);
 mrb_value aot_neg(mrb_state *mrb, mrb_value a);
 
+/* Guarded String methods, emitted where Spinel typed the receiver a
+   String: the String case inline, every other receiver (nil, a value a
+   redefinition handed back) sent to the VM by name, as a boxed operator
+   is. `aot_add`, `aot_eq`, `aot_neq` and `aot_lshift` above take the
+   String arms too (`+`, `==`, `!=`, `<<` of two Strings). */
+mrb_value aot_str_size(mrb_state *mrb, mrb_value s);
+mrb_value aot_str_length(mrb_state *mrb, mrb_value s);
+mrb_value aot_str_bytesize(mrb_state *mrb, mrb_value s);
+mrb_value aot_str_empty_p(mrb_state *mrb, mrb_value s);
+mrb_value aot_str_getbyte(mrb_state *mrb, mrb_value s, mrb_value i);
+mrb_value aot_str_aref1(mrb_state *mrb, mrb_value s, mrb_value i);
+mrb_value aot_str_aref2(mrb_state *mrb, mrb_value s, mrb_value beg, mrb_value len);
+mrb_value aot_str_byteslice(mrb_state *mrb, mrb_value s, mrb_value beg, mrb_value len);
+
 /* A symbol interned once per call site. `cache` is a static mrb_sym in the
    generated translation unit, 0 until first use. */
 static inline mrb_sym
