@@ -14,9 +14,17 @@ mrb_float
 aot_unbox_float(mrb_state *mrb, mrb_value v)
 {
   if (mrb_float_p(v)) return mrb_float(v);
-  if (mrb_integer_p(v)) return (mrb_float)mrb_integer(v);
   mrb_raisef(mrb, E_TYPE_ERROR, "picoruby-aot: expected Float, got %Y", v);
   return 0.0;
+}
+
+mrb_bool
+aot_unbox_bool(mrb_state *mrb, mrb_value v)
+{
+  if (mrb_true_p(v)) return TRUE;
+  if (mrb_false_p(v)) return FALSE;
+  mrb_raisef(mrb, E_TYPE_ERROR, "picoruby-aot: expected true or false, got %Y", v);
+  return FALSE;
 }
 
 static void

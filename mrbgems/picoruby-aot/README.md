@@ -76,9 +76,12 @@ reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
   computes it itself (a literal, arithmetic on such values), or when
   Spinel proved its kind and that no nil reaches it (`"nullable":false`
   in `--emit-types`; an `Integer` and an `Integer?` share the tag `int`).
-- A proved argument is read with `mrb_get_args` `"i"`, `"f"` or `"b"`,
-  as a hand-written cfunc reads it: a Float for `"i"` truncates, and any
-  other class raises TypeError. The generator keeps an argument boxed
+- A proved argument is read boxed and unboxed by a checked helper that
+  takes the proved class and nothing else: a Float where an Integer was
+  proved raises TypeError (no truncation), as does an Integer where a
+  Float was proved, or anything but `true` and `false` where a bool was
+  proved. An RBS that misstates a class thus shows up as TypeError at
+  the method's entry, never as a reinterpreted value. The generator keeps an argument boxed
   when the body tests its class (`is_a?`, `kind_of?`, `nil?`,
   `respond_to?`, `case`): such a guard is written for a caller the
   analysis never saw, and the irep answers it with the method's own error.

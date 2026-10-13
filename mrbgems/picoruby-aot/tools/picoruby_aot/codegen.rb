@@ -9,10 +9,11 @@
 # (`--emit-types` "nullable":false; an Integer and an Integer? share the
 # tag "int"):
 #
-# - a parameter so proved is read with mrb_get_args "i"/"f"/"b", as a
-#   hand-written cfunc reads it (a Float for "i" truncates, anything else
-#   raises TypeError), unless the body tests the parameter's class itself,
-#   which says the author expects callers outside the analysis;
+# - a parameter so proved is read boxed and unboxed by a checked helper
+#   that takes the proved class and nothing else (a Float for an Integer
+#   raises TypeError, as does an Integer for a Float or a non-boolean for
+#   a bool), unless the body tests the parameter's class itself, which
+#   says the author expects callers outside the analysis;
 # - an instance variable read or a call result so proved is unboxed with
 #   a checked helper: a value the analysis did not predict (a method
 #   redefined at runtime) raises TypeError instead of being reinterpreted.
@@ -183,6 +184,7 @@ module PicorubyAot
                else " = 0"
                end
         s << "  #{CTYPE[p[:kind]]} #{p[:c]}#{init};\n"
+        s << "  mrb_value #{boxed_param(p)} = mrb_nil_value();\n" if p[:kind] != :value
       end
       @out = s
       emit_params
@@ -309,16 +311,29 @@ module PicorubyAot
       end
     end
 
-    PARAM_FMT = { int: "i", float: "f", bool: "b", value: "o" }.freeze
+    # Every argument is read boxed ("o"); a proved parameter is then
+    # unboxed by the checked helper, which takes the proved class and
+    # nothing else (no Float truncation for an Integer, no truthiness for a
+    # bool, no Integer for a Float). A caller the analysis never saw, or an
+    # RBS that misstates a class, thus raises TypeError here instead of
+    # running the body on a reinterpreted value.
+    PARAM_UNBOX = { int: "aot_unbox_int", float: "aot_unbox_float", bool: "aot_unbox_bool" }.freeze
+
+    def boxed_param(p)
+      "v_#{p[:name]}"
+    end
 
     def emit_params
       return if @params.empty?
-      req = @params.reject { |p| p[:optional] }
-      opt = @params.select { |p| p[:optional] }
-      fmt = req.map { |p| PARAM_FMT[p[:kind]] }.join
-      fmt += "|" + "o" * opt.size unless opt.empty?
-      refs = @params.map { |p| "&#{p[:c]}" }.join(", ")
+      req = @params.count { |p| !p[:optional] }
+      fmt = "o" * req
+      fmt += "|" + "o" * (@params.size - req) if req < @params.size
+      refs = @params.map { |p| "&#{p[:kind] == :value ? p[:c] : boxed_param(p)}" }.join(", ")
       emit "mrb_get_args(mrb, #{fmt.inspect}, #{refs});"
+      @params.each do |p|
+        next if p[:kind] == :value
+        emit "#{p[:c]} = #{PARAM_UNBOX[p[:kind]]}(mrb, #{boxed_param(p)});"
+      end
     end
 
     def emit_defaults

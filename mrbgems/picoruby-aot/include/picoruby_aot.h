@@ -26,9 +26,10 @@
 extern "C" {
 #endif
 
-/* Checked unboxing. */
+/* Checked unboxing: the proved class and nothing else, or TypeError. */
 mrb_int aot_unbox_int(mrb_state *mrb, mrb_value v);
 mrb_float aot_unbox_float(mrb_state *mrb, mrb_value v);
+mrb_bool aot_unbox_bool(mrb_state *mrb, mrb_value v);
 
 /* Integer arithmetic with mruby's semantics on the fast path. Overflow of
    mrb_int raises RangeError: the generated code has no slot for a Bignum.
