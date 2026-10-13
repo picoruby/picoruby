@@ -21,6 +21,10 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2#{ENV['PICORB_DEBUG'] ? '-debug' : ''}
   conf.cc.defines << "MRB_USE_CUSTOM_RO_DATA_P"
   conf.cc.defines << "MRB_LINK_TIME_RO_DATA_P"
   conf.cc.defines << "NO_CLOCK_GETTIME=1"
+  # The VM checks the machine stack where C enters it and raises
+  # SystemStackError before the 16KB core 0 stack overruns (a block called
+  # from a C method, a C method that recurses). main.c sets the floor.
+  conf.cc.defines << "MRB_USE_C_STACK_CHECK"
 
   # Prism arena block size. The 64KB default in mruby-compiler is host-sized;
   # a parse of a REPL line uses about 4KB on a 32-bit target, so small blocks

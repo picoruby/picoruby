@@ -70,9 +70,18 @@ heap_exit_critical(void)
  */
 extern char end;          /* first byte past .bss */
 extern char __StackLimit; /* top of general RAM */
+extern char __StackBottom; /* bottom of the core 0 stack */
 
 #if !defined(R2P2_NEWLIB_HEAP_RESERVE)
   #define R2P2_NEWLIB_HEAP_RESERVE (4 * 1024)
+#endif
+
+/* With MRB_USE_C_STACK_CHECK the VM raises SystemStackError when C enters
+ * it with the machine stack past a floor. The floor is the bottom of the
+ * core 0 stack plus this headroom, which the raise itself and an interrupt
+ * handler (it runs on the same stack) use below the point the check saw. */
+#if !defined(R2P2_C_STACK_HEADROOM)
+  #define R2P2_C_STACK_HEADROOM (2 * 1024)
 #endif
 
 /* Refuse to start with less than this. It means the static data grew so
@@ -243,6 +252,9 @@ main(void)
   critical_section_init(&heap_critsec);
   picorb_heap_set_critical_section(heap_enter_critical, heap_exit_critical);
   global_mrb = mrb;
+#if defined(MRB_USE_C_STACK_CHECK)
+  mrb_c_stack_limit_set(mrb, &__StackBottom + R2P2_C_STACK_HEADROOM);
+#endif
 
   mrc_ccontext *cc = NULL;
   if (mrb->exc) {

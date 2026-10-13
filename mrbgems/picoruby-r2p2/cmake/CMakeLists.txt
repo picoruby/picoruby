@@ -245,6 +245,10 @@ if(PICORB_VM_MRUBY)
   # include <task.h>. The task field is last in mrb_state, so exposing it does
   # not shift any earlier field offsets.
   add_compile_definitions(MRB_USE_TASK_SCHEDULER=1)
+  # Same reason: mrb_state carries c_stack_limit behind this macro (after the
+  # task member), and main.c calls mrb_c_stack_limit_set, which is a no-op
+  # macro without it.
+  add_compile_definitions(MRB_USE_C_STACK_CHECK=1)
   target_include_directories(${PROJECT_NAME} PRIVATE
     ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include
     ${PICORUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-task/include
