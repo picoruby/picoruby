@@ -46,17 +46,26 @@ module IRQ
       return id
     end
 
+    # An earlier registration that shares even one event with the new
+    # one is released whole: registering EDGE_FALL over
+    # EDGE_FALL | EDGE_RISE leaves nobody on EDGE_RISE.
     def _release_gpio_pin(pin, event_type)
-      # @type var ids: Array[irq_id_t]
-      ids = []
-      HANDLER.each do |id, irq|
-        peri = irq.peripheral
+      # A snapshot of the keys, so unregistering inside the walk is safe.
+      ids = HANDLER.keys
+      ids_size = ids.size
+      i = 0
+      while i < ids_size
+        id = ids[i]
+        irq = HANDLER[id]
+        peri = irq ? irq.peripheral : nil
         case peri
         when GPIO
-          ids << id if peri.pin == pin && (irq.event_type & event_type) != 0
+          if peri.pin == pin && 0 < (irq.event_type & event_type)
+            unregister(id)
+          end
         end
+        i += 1
       end
-      ids.each { |id| unregister(id) }
       nil
     end
 

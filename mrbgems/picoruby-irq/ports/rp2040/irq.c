@@ -121,6 +121,17 @@ IRQ_unregister_gpio(int irq_id)
   /* Disable GPIO IRQ */
   gpio_set_irq_enabled(irq_handlers[slot].pin, irq_handlers[slot].event_mask, false);
 
+  /* The slot, and so the ID, is handed to the next registration. Events
+     still queued for this ID would reach that registration, so turn
+     them into ID 0, which no registration has; IRQ.process skips them. */
+  uint32_t status = save_and_disable_interrupts();
+  for (int i = queue_head; i != queue_tail; i = (i + 1) & (IRQ_EVENT_QUEUE_SIZE - 1)) {
+    if (event_queue[i].irq_id == irq_id) {
+      event_queue[i].irq_id = 0;
+    }
+  }
+  restore_interrupts(status);
+
   /* Clear handler */
   memset(&irq_handlers[slot], 0, sizeof(mrb_irq_handler_t));
 

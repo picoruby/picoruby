@@ -98,10 +98,13 @@ irq_instance.unregister
 
 A GPIO pin holds one registration per event. Registering the pin again
 for an event it is already registered for replaces the previous
-registration, whose `unregister` then returns `false`; registrations for
-other events on the same pin, such as `EDGE_FALL` and `EDGE_RISE`, are
-kept. This is also what lets a script that is run again from the R2P2
-shell take its pins back from the earlier run.
+registration, whose `unregister` then returns `false`. The new
+registration replaces the whole of an earlier one that shares even one
+event with it. Thus `EDGE_FALL` over `EDGE_FALL | EDGE_RISE` leaves no
+registration for `EDGE_RISE`. Registrations that share no event, such as
+`EDGE_FALL` and `EDGE_RISE`, are kept. This is also what lets a script
+that is run again from the R2P2 shell take its pins back from the
+earlier run.
 
 ### Manual Event Processing
 

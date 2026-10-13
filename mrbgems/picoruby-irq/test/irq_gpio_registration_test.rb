@@ -23,6 +23,13 @@ module IRQ
     def unregister_gpio(id)
       return false unless $irq_test_slots[id - 1]
       $irq_test_slots[id - 1] = nil
+      # Events still queued for the id become id 0, as the port does.
+      i = 0
+      while i < $irq_test_events.size
+        event = $irq_test_events[i]
+        event[0] = 0 if event[0] == id
+        i += 1
+      end
       true
     end
 
@@ -63,17 +70,22 @@ class IRQGPIORegistrationTest < Picotest::Test
     instance
   end
 
-  # An edge on the pin, delivered as the rp2040 port would.
-  def tap(gpio_pin, edge = GPIO::EDGE_FALL)
+  # An edge on the pin, queued as the rp2040 port would.
+  def queue_edge(gpio_pin, edge = GPIO::EDGE_FALL)
     i = 0
     while i < 16
       slot = $irq_test_slots[i]
-      if slot && slot[0] == gpio_pin && (slot[1] & edge) != 0
+      if slot && slot[0] == gpio_pin && 0 < (slot[1] & edge)
         $irq_test_events << [i + 1, edge]
         break
       end
       i += 1
     end
+  end
+
+  # An edge on the pin, queued and then dispatched.
+  def fire_edge(gpio_pin, edge = GPIO::EDGE_FALL)
+    queue_edge(gpio_pin, edge)
     IRQ.process(100)
   end
 
@@ -84,7 +96,7 @@ class IRQGPIORegistrationTest < Picotest::Test
   def test_registering_a_pin_again_hands_it_to_the_newer_registration
     listen(pin, :old)
     listen(pin, :new)
-    tap(pin)
+    fire_edge(pin)
     # The earlier registration used to take every event on the pin.
     assert_equal [:new], @seen
   end
@@ -101,7 +113,7 @@ class IRQGPIORegistrationTest < Picotest::Test
     old = listen(pin, :old)
     listen(pin, :new)
     assert_false old.unregister
-    tap(pin)
+    fire_edge(pin)
     assert_equal [:new], @seen
   end
 
@@ -111,31 +123,48 @@ class IRQGPIORegistrationTest < Picotest::Test
     newer.unregister
     listen(other_pin, :other)    # and now another pin is
     assert_false old.unregister
-    tap(other_pin)
+    fire_edge(other_pin)
     assert_equal [:other], @seen
   end
 
   def test_other_pins_are_left_alone
     listen(pin, :a)
     listen(other_pin, :b)
-    tap(pin)
-    tap(other_pin)
+    fire_edge(pin)
+    fire_edge(other_pin)
     assert_equal [:a, :b], @seen
   end
 
   def test_each_edge_of_a_pin_keeps_its_own_registration
     listen(pin, :fall, GPIO::EDGE_FALL)
     listen(pin, :rise, GPIO::EDGE_RISE)
-    tap(pin, GPIO::EDGE_FALL)
-    tap(pin, GPIO::EDGE_RISE)
+    fire_edge(pin, GPIO::EDGE_FALL)
+    fire_edge(pin, GPIO::EDGE_RISE)
     assert_equal [:fall, :rise], @seen
   end
 
   def test_an_overlapping_event_replaces_the_registration
     listen(pin, :fall, GPIO::EDGE_FALL)
     listen(pin, :both, GPIO::EDGE_FALL | GPIO::EDGE_RISE)
-    tap(pin, GPIO::EDGE_FALL)
+    fire_edge(pin, GPIO::EDGE_FALL)
     assert_equal [:both], @seen
+  end
+
+  def test_a_partly_overlapping_registration_is_replaced_whole
+    listen(pin, :both, GPIO::EDGE_FALL | GPIO::EDGE_RISE)
+    listen(pin, :fall, GPIO::EDGE_FALL)
+    fire_edge(pin, GPIO::EDGE_FALL)
+    fire_edge(pin, GPIO::EDGE_RISE)
+    # Nothing is left on EDGE_RISE.
+    assert_equal [:fall], @seen
+  end
+
+  def test_an_event_queued_for_a_replaced_registration_is_dropped
+    listen(pin, :old, GPIO::EDGE_FALL | GPIO::EDGE_RISE)
+    queue_edge(pin, GPIO::EDGE_RISE)
+    listen(pin, :new, GPIO::EDGE_FALL)    # is given old's id
+    IRQ.process(100)
+    assert_equal [], @seen
   end
 
   def test_unregistering_twice_is_false_the_second_time
