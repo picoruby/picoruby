@@ -64,8 +64,9 @@ class Keyboard
 
   # Get list of layer names
   attr_reader layer_names: Array[Symbol]
-  # Get visual layout
-  attr_reader layout: Array[Array[Integer]]
+  # Get visual layout. The rows come from the splat of `row`, so they are
+  # not Array[Integer] to Spinel (a rest parameter is a boxed array).
+  attr_reader layout: Array[Array[untyped]]
   # Get currently pressed keys
   attr_reader keys_pressed: Hash[[Integer, Integer], bool]
 
