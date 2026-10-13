@@ -66,6 +66,7 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
   widened = ENV['PICORB_AOT_WIDENED'] ? true : false
   conf.aot if aot
   conf.gem(core: 'picoruby-json') { |g| g.aot = aot; g.aot_include_widened = widened }
+  conf.gem(core: 'picoruby-editor') { |g| g.aot = aot; g.aot_include_widened = widened }
 
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-bigint"
   conf.gembox "minimum"

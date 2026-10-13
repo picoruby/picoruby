@@ -54,6 +54,9 @@ module Editor
     @idle_handler: (^() -> void)?
 
     def initialize: () -> void
+    # Repeated from Base for Spinel: an attr seeded in the base class alone
+    # gives the subclass another field layout and the analysis refuses.
+    attr_accessor debug_tty: String?
     attr_accessor idle_handler: (^() -> void)?
     def prompt=: (String word) -> Integer
     def history_head: -> Integer
@@ -75,6 +78,7 @@ module Editor
     @cursor_line_wraps: Integer
 
     def initialize: () -> void
+    attr_accessor debug_tty: String?
     attr_accessor footer_height: Integer
     attr_accessor quit_by_sigint: bool
     attr_accessor redraw_mode: Symbol?
