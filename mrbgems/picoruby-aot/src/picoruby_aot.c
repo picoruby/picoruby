@@ -613,29 +613,42 @@ aot_scope_init(mrb_state *mrb, struct aot_path *p)
 mrb_value
 aot_const_get(mrb_state *mrb, mrb_value self, const struct aot_path *scope, mrb_sym name)
 {
-  /* Lexical scopes, innermost first, as the VM reads them off the proc's
-     target class: the classes aot_scope_init recorded at registration. */
+  /* The order of mrb_vm_const_get. First each lexical scope's own
+     constants, innermost first: the classes aot_scope_init recorded at
+     registration (the VM reads them off the proc's target classes). */
+  struct RClass *inner = NULL;
+  (void)self;
   if (scope) {
     for (int i = scope->n - 1; i >= 0; i--) {
       struct RClass *c = scope->klass[i];
-      if (c && mrb_const_defined_at(mrb, mrb_obj_value(c), name)) {
-        return mrb_const_get(mrb, mrb_obj_value(c), name);
-      }
-    }
-  }
-  /* Then the receiver's class and its ancestors. mrb_const_get on a class
-     stops short of Object, so Object is the last explicit step; its own
-     NameError is the right one when nothing has the constant. */
-  {
-    struct RClass *c;
-    for (c = mrb_class(mrb, self); c && c != mrb->object_class; c = c->super) {
-      if (c->tt != MRB_TT_CLASS && c->tt != MRB_TT_MODULE) continue;
+      if (!c) continue;
+      if (!inner) inner = c;
       if (mrb_const_defined_at(mrb, mrb_obj_value(c), name)) {
         return mrb_const_get(mrb, mrb_obj_value(c), name);
       }
     }
   }
-  return mrb_const_get(mrb, mrb_obj_value(mrb->object_class), name);
+  if (!inner) inner = mrb->object_class;
+  /* Then the ancestors of the innermost scope, not of the receiver: a
+     module included there appears in the chain as an ICLASS whose
+     constants are the module's. A class the chain reaches Object through;
+     a module does not, so Object is the last explicit step. */
+  {
+    struct RClass *c;
+    for (c = inner->super; c; c = c->super) {
+      if (MRB_FLAG_TEST(c, MRB_FL_CLASS_IS_PREPENDED)) continue;
+      struct RClass *owner = (c->tt == MRB_TT_ICLASS) ? c->c : c;
+      if (mrb_const_defined_at(mrb, mrb_obj_value(owner), name)) {
+        return mrb_const_get(mrb, mrb_obj_value(owner), name);
+      }
+    }
+    if (mrb_const_defined_at(mrb, mrb_obj_value(mrb->object_class), name)) {
+      return mrb_const_get(mrb, mrb_obj_value(mrb->object_class), name);
+    }
+  }
+  /* Nothing has it: let the innermost scope raise, as the VM's
+     const_missing on that class does. */
+  return mrb_const_get(mrb, mrb_obj_value(inner), name);
 }
 
 void
