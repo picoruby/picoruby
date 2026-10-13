@@ -29,3 +29,7 @@
 [submodule "mrbgems/picoruby-funicular"]
 	path = mrbgems/picoruby-funicular
 	url = https://github.com/picoruby/funicular
+[submodule "mrbgems/picoruby-aot/lib/spinel"]
+	path = mrbgems/picoruby-aot/lib/spinel
+	url = https://github.com/matz/spinel
+	shallow = true

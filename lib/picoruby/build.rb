@@ -84,30 +84,30 @@ module MRuby
     # `conf.gem(core: 'x') { |g| g.aot = true }`. Without this call nothing
     # about the build changes.
     #
-    #   conf.aot                              # the pinned release, built under build/repos
-    #   conf.aot spinel: "2026.09.12"         # another release
+    #   conf.aot                              # the Spinel submodule, built in place
     #   conf.aot path: "/opt/spinel/spinel"   # an explicit binary
     #
-    # $SPINEL=/path/to/spinel overrides the release for a developer who
-    # builds Spinel from a checkout; `path:` overrides both.
+    # $SPINEL=/path/to/spinel overrides the submodule for a developer who
+    # builds Spinel from another checkout; `path:` overrides both.
     #
-    # A release is a dated tag of github.com/matz/spinel whose source
-    # archive carries the vendored parsers, so it builds with `make` alone
-    # and no network once it is downloaded. The archive and the tree live in
-    # build/repos/spinel-<release>, the way mruby keeps cloned gems.
-    SPINEL_RELEASE = "2026.09.12"
-    SPINEL_RELEASE_URL = "https://github.com/matz/spinel/releases/download/%<release>s/spinel-%<release>s.tar.xz"
+    # Spinel (github.com/matz/spinel) is the submodule at SPINEL_DIR, pinned
+    # to the commit the twin tests passed with, and taken as is: a change
+    # goes upstream first, then the submodule moves. A build that does not
+    # call this never touches it. The first build runs `make deps` there
+    # (the vendored parsers, fetched once from rubygems.org), and every
+    # build runs `make`, which is a no-op when nothing moved, so a bumped
+    # submodule rebuilds itself and the gems regenerate.
+    SPINEL_DIR = "#{MRUBY_ROOT}/mrbgems/picoruby-aot/lib/spinel"
 
-    def aot(path: nil, spinel: nil)
-      release = spinel || SPINEL_RELEASE
+    def aot(path: nil)
       path ||= ENV["SPINEL"]
       prereqs = []
       if path.nil?
-        path = spinel_release_binary(release)
+        path = "#{SPINEL_DIR}/bin/spinel"
         prereqs << path
-        define_spinel_release_task(release, path)
+        define_spinel_submodule_task(path)
       end
-      @aot = { path: path, release: release, prereqs: prereqs }
+      @aot = { path: path, prereqs: prereqs }
       gem core: 'picoruby-aot' unless @gems['picoruby-aot']
     end
 
@@ -119,40 +119,43 @@ module MRuby
       @aot[:path]
     end
 
-    # File tasks the AOT generation of every gem depends on: the release
+    # File tasks the AOT generation of every gem depends on: the submodule
     # binary when the build manages one, nothing for $SPINEL or `path:`.
+    # A gem regenerates only when that binary's timestamp moved.
     def aot_spinel_prereqs
       @aot ? @aot[:prereqs] : []
     end
 
-    def spinel_release_dir(release)
-      "#{MRUBY_ROOT}/build/repos/spinel-#{release}"
-    end
-
-    def spinel_release_binary(release)
-      "#{spinel_release_dir(release)}/bin/spinel"
-    end
-
-    def define_spinel_release_task(release, bin)
+    # The binary is a file task whose only prerequisite is the submodule's
+    # HEAD file, which git rewrites when the checkout moves. A plain task
+    # would not do: Rake takes every transitive prerequisite into the
+    # out-of-date test, and a plain task is always "now", so the gems would
+    # regenerate on every build. A source edited in place inside the
+    # submodule is not seen; build it with `make` there, or use $SPINEL.
+    def define_spinel_submodule_task(bin)
       return if Rake::Task.task_defined?(bin)
-      dir = spinel_release_dir(release)
-      archive = "#{dir}.tar.xz"
-      url = format(SPINEL_RELEASE_URL, release: release)
-      file archive do
-        mkdir_p File.dirname(archive)
-        _pp "GET", url
-        sh "curl -fsSL -o \"#{archive}.part\" \"#{url}\" && mv \"#{archive}.part\" \"#{archive}\""
+      dir = SPINEL_DIR
+      hint = "spinel: the submodule #{dir.relative_path} is empty; run\n" \
+             "  git submodule update --init --depth 1 #{dir.relative_path}"
+      unless File.exist?("#{dir}/Makefile")
+        file bin do
+          fail hint
+        end
+        return
       end
-      file bin => archive do
-        rm_rf dir
-        sh "tar -xJf \"#{archive}\" -C \"#{File.dirname(dir)}\""
-        stamp = File.exist?("#{dir}/.spinel-dist") ? File.readlines("#{dir}/.spinel-dist", chomp: true)[1] : nil
-        unless stamp == release
-          fail "spinel: the archive #{archive} is release #{stamp.inspect}, not #{release}"
+      git_dir = `git -C "#{dir}" rev-parse --absolute-git-dir 2>/dev/null`.strip
+      head = File.exist?("#{git_dir}/HEAD") ? ["#{git_dir}/HEAD"] : []
+      jobs = [Etc.nprocessors, 8].min
+      file bin => head do
+        mkdir_p "#{dir}/build"
+        unless File.exist?("#{dir}/vendor/prism/include/prism.h")
+          _pp "MAKE", "#{dir.relative_path} deps (the vendored parsers, once)"
+          sh "make -C \"#{dir}\" deps > \"#{dir}/build/make-deps.log\" 2>&1 || (tail -20 \"#{dir}/build/make-deps.log\"; exit 1)"
         end
         _pp "MAKE", dir.relative_path
-        sh "make -C \"#{dir}\" -j#{[Etc.nprocessors, 8].min} > \"#{dir}/make.log\" 2>&1 || (tail -20 \"#{dir}/make.log\"; exit 1)"
+        sh "make -C \"#{dir}\" -j#{jobs} > \"#{dir}/build/make.log\" 2>&1 || (tail -20 \"#{dir}/build/make.log\"; exit 1)"
         fail "spinel: #{bin} was not built" unless File.executable?(bin)
+        touch bin
       end
     end
 
