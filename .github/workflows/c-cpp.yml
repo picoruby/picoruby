@@ -62,6 +62,41 @@ jobs:
     - name: Test PicoRuby
       run: rake test:gems:picoruby
 
+  test-picoruby-aot:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: '4.0.1'
+        bundler-cache: true
+
+    - name: Spinel commit
+      id: spinel
+      run: echo "sha=$(git -C mrbgems/picoruby-aot/lib/spinel rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    # The vendored parsers `make deps` fetches from rubygems.org, once per
+    # Spinel commit. The build itself is not cached: a checkout gives every
+    # source a new mtime, so make would rebuild anyway.
+    - name: Cache the Spinel parsers
+      uses: actions/cache@v4
+      with:
+        path: mrbgems/picoruby-aot/lib/spinel/vendor
+        key: spinel-vendor-${{ steps.spinel.outputs.sha }}
+
+    - name: Test PicoRuby AOT twin (irep, AOT, AOT with widened defs)
+      run: rake "test:gems:aot_twin[picoruby-json,picoruby-midibase-mml,picoruby-keyboard]"
+
   test-picoruby32:
 
     runs-on: ubuntu-latest

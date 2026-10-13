@@ -40,33 +40,116 @@ namespace :test do
 
     desc "run test for a gem on FemtoRuby"
     task :femtoruby, [:specified_gem] do |t, args|
-      unless run_test_for_gems('femtoruby', args[:specified_gem])
+      unless run_test_for_gems('femtoruby', specified_gems(args))
         exit 1
       end
     end
 
     desc "run test for a gem on PicoRuby"
     task :picoruby, [:specified_gem] do |t, args|
-      unless run_test_for_gems('picoruby', args[:specified_gem])
+      unless run_test_for_gems('picoruby', specified_gems(args))
         exit 1
       end
     end
 
     desc "run test for a gem on WASM (Node.js runtime)"
     task :wasm, [:specified_gem] do |t, args|
-      unless run_test_for_gems('wasm', args[:specified_gem])
+      unless run_test_for_gems('wasm', specified_gems(args))
         exit 1
       end
     end
 
     desc "run test for a gem on PicoRuby built as 32-bit (-m32, MRB_INT32 + word boxing)"
     task :picoruby32, [:specified_gem] do |t, args|
-      unless run_test_for_gems('picoruby32', args[:specified_gem])
+      unless run_test_for_gems('picoruby32', specified_gems(args))
+        exit 1
+      end
+    end
+
+    desc "AOT twin: the picotest of the gems on the irep build, the AOT build and the AOT build with widened defs must give the same summary"
+    task :aot_twin, [:specified_gem] do |t, args|
+      gems = specified_gems(args)
+      unless gems
+        abort "usage: rake \"test:gems:aot_twin[picoruby-json,picoruby-midibase-mml]\""
+      end
+      unless run_aot_twin(gems)
         exit 1
       end
     end
 
   end
+end
+
+# The gems a test task was given, as one comma-separated string, or nil
+# for all. Rake splits `rake "test:gems:picoruby[a,b]"` on the commas into
+# the named argument and the extras; `[a b]` is accepted as well.
+def specified_gems(args)
+  list = ([args[:specified_gem]] + args.extras).compact.flat_map { |s| s.split(/[\s,]+/) }
+  list.empty? ? nil : list.join(",")
+end
+
+# The AOT twin. The same picotest suite runs three times, each on a fresh
+# build of the host test binary: the irep (the baseline), the AOT build
+# (PICORB_AOT=1) and the AOT build that also compiles the defs Spinel
+# widened (PICORB_AOT_WIDENED=1). The per-class and total summary lines of
+# the three runs must match: a compiled method that behaves differently
+# from its irep shows up as a changed count. The logs land under
+# build/aot-twin/<variant>.log.
+def run_aot_twin(gems)
+  variants = {
+    "irep" => { "PICORB_AOT" => nil, "PICORB_AOT_WIDENED" => nil },
+    "aot" => { "PICORB_AOT" => "1", "PICORB_AOT_WIDENED" => nil },
+    "widened" => { "PICORB_AOT" => "1", "PICORB_AOT_WIDENED" => "1" },
+  }
+  log_dir = "#{MRUBY_ROOT}/build/aot-twin"
+  FileUtils.mkdir_p(log_dir)
+  summaries = {}
+  compiled = {}
+  variants.each do |name, env|
+    log = "#{log_dir}/#{name}.log"
+    puts "==> aot twin: #{name} (#{gems})"
+    system(env, "bash", "-o", "pipefail", "-c",
+           "rake \"test:gems:picoruby[#{gems}]\" 2>&1 | tee #{log}")
+    text = File.read(log).gsub(/\e\[[0-9;]*m/, "")
+    lines = []
+    klass = nil
+    text.each_line do |l|
+      l = l.rstrip
+      if l =~ /\A(\w+Test):\z/
+        klass = $1
+      elsif l =~ /\A\s*success: \d+, failure: \d+/ && klass
+        lines << "#{klass}: #{l.strip}"
+        klass = nil
+      elsif l =~ /\ATotal: /
+        lines << l
+      end
+    end
+    summaries[name] = lines
+    compiled[name] = text.scan(/^aot-gen: .*$/)
+  end
+
+  puts
+  puts "==> aot twin: result"
+  compiled["aot"].each { |l| puts "  typed:   #{l.sub('aot-gen: ', '')}" }
+  compiled["widened"].each { |l| puts "  widened: #{l.sub('aot-gen: ', '')}" }
+  base = summaries["irep"]
+  ok = !base.empty?
+  puts "  irep summary missing (the baseline did not run)" unless ok
+  %w[aot widened].each do |name|
+    if summaries[name] == base
+      puts "  #{name}: SAME as irep (#{base.size} summary lines)"
+    else
+      ok = false
+      puts "  #{name}: DIFF from irep"
+      (base | summaries[name]).each do |l|
+        a = base.include?(l) ? "irep" : "    "
+        b = summaries[name].include?(l) ? name : " " * name.size
+        puts "    [#{a}|#{b}] #{l}" unless base.include?(l) && summaries[name].include?(l)
+      end
+    end
+  end
+  puts "  logs: #{log_dir}/{irep,aot,widened}.log"
+  ok
 end
 
 def run_test_for_gems(vm_type, specified_gem)
@@ -129,7 +212,8 @@ def collect_gems(vm_type, specified_gem = nil)
     # picotest ones. PicoRuby's own gems that live in submodules (e.g.
     # picoruby-funicular) ship picotest tests and must still be collected.
     next if File.exist?("#{gem_path}/.git") && !File.basename(gem_path).start_with?('picoruby-')
-    next if specified_gem && File.basename(gem_path) != specified_gem
+    # One gem, or several separated by commas (one build carries them all)
+    next if specified_gem && !specified_gem.split(",").include?(File.basename(gem_path))
     if Dir.exist?("#{gem_path}/src/#{vm}")
       # C extension exists for the target VM
       name = File.basename(gem_path)
@@ -272,8 +356,9 @@ def conflict_declared?(spec, other_spec)
 end
 
 def conflict_loser(name, other_name, specified_gem)
-  return other_name if specified_gem == name
-  return name if specified_gem == other_name
+  specified = specified_gem ? specified_gem.split(",") : []
+  return other_name if specified.include?(name)
+  return name if specified.include?(other_name)
 
   other_name
 end

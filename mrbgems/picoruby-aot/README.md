@@ -153,6 +153,16 @@ PICORB_AOT=1 rake "test:gems:picoruby[picoruby-psg]"
 PICORB_AOT=1 PICORB_AOT_WIDENED=1 rake "test:gems:picoruby[picoruby-psg]"
 ```
 
+One task runs the three and compares their summaries (the per-class and
+total counts must match). Several gems share one build:
+
+```
+rake "test:gems:aot_twin[picoruby-json,picoruby-midibase-mml,picoruby-keyboard]"
+```
+
+CI runs this task for those three gems (`test-picoruby-aot` in
+`.github/workflows/c-cpp.yml`). The logs land under `build/aot-twin/`.
+
 ## Tools
 
 - `tools/aot-analyze [--all | GEM...]`: run Spinel over gems and report how
