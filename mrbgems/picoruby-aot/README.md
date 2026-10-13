@@ -11,13 +11,25 @@ writes C against the mruby API. Spinel's own C and runtime are not used.
 
 ## Use
 
-Turn it on for a target, then opt in each gem:
+A gem declares in its `mrbgem.rake` that it is to be compiled; the
+author knows the gem's hot path and keeps the tests the twin runs:
+
+```ruby
+spec.aot = true                 # the typed methods
+spec.aot_include_widened = true # the widened ones as well (see below)
+```
+
+A target turns the machinery on. Without `conf.aot` a declaration
+changes nothing, and a build config may opt a gem out:
 
 ```ruby
 conf.aot                                     # the Spinel submodule, built in place
 conf.aot path: "/path/to/spinel"             # an explicit binary
-conf.gem(core: 'picoruby-psg') { |g| g.aot = true }
+conf.gem(core: 'picoruby-json') { |g| g.aot = false }   # opt out
 ```
+
+The gems that declare it today: picoruby-json, picoruby-editor,
+picoruby-midibase-mml and picoruby-keyboard.
 
 Spinel is the submodule `lib/spinel` of this gem, pinned to the commit
 the twin tests passed with and taken as is (a change goes upstream

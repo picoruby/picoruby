@@ -57,12 +57,10 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2#{ENV['PICORB_DEBUG'] ? '-debug' : ''}
 
   conf.picoruby
 
-  # PICORB_AOT=1: compile the typed methods of the gems marked below to
-  # cfuncs with picoruby-aot (host tool `spinel`, see mrbgems/picoruby-aot).
-  # PICORB_AOT_WIDENED=1 also compiles the defs Spinel widened to untyped.
-  aot = ENV['PICORB_AOT'] ? true : false
-  widened = ENV['PICORB_AOT_WIDENED'] ? true : false
-  conf.aot if aot
+  # PICORB_AOT=1: compile the mrblib of the gems that declare `spec.aot`
+  # (json, editor, midibase-mml, keyboard) to cfuncs with picoruby-aot. A
+  # gem is opted out with `conf.gem(core: 'x') { |g| g.aot = false }`.
+  conf.aot if ENV['PICORB_AOT']
 
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-bigint"
   conf.gembox "minimum"
@@ -71,11 +69,11 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2#{ENV['PICORB_DEBUG'] ? '-debug' : ''}
   conf.gembox "shell"
   conf.gembox "peripherals"
   conf.gembox "peripheral_utils"
-  conf.gem(core: 'picoruby-psg') { |g| g.aot = aot; g.aot_include_widened = widened }
-  conf.gem(core: 'picoruby-midibase-mml') { |g| g.aot = aot; g.aot_include_widened = widened }
+  conf.gem core: 'picoruby-psg'
+  conf.gem core: 'picoruby-midibase-mml'
   conf.gem core: 'picoruby-midibase-looper'
   conf.gem core: 'picoruby-uart-midi'
   conf.gem core: 'picoruby-usb-cdc-midi'
   conf.gem core: 'picoruby-shinonome'
-  conf.gem(core: 'picoruby-keyboard') { |g| g.aot = aot; g.aot_include_widened = widened }
+  conf.gem core: 'picoruby-keyboard'
 end

@@ -3,8 +3,12 @@ module MRuby
     class Specification
       attr_accessor :require_name
 
-      # picoruby-aot: `g.aot = true` in the build config lets this gem's typed
-      # mrblib methods be compiled to cfuncs. `aot_exclude` names methods
+      # picoruby-aot: a gem declares in its mrbgem.rake that its typed
+      # mrblib methods are to be compiled to cfuncs (`spec.aot = true`); the
+      # author knows the gem's hot path and keeps the tests the twin runs.
+      # The target turns the machinery on with `conf.aot`, and a build config
+      # may opt a gem out: `conf.gem(core: 'x') { |g| g.aot = false }` (the
+      # block runs after the mrbgem.rake). `aot_exclude` names methods
       # ("Klass#meth", "Klass.meth") that stay in the irep regardless.
       # `aot_include_widened = true` compiles the methods Spinel widened to
       # untyped as well: their values stay boxed and go through the guarded
