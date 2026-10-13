@@ -179,8 +179,9 @@ class KeyboardLayerTest < Picotest::Test
     @kbd.layer(:default) { row KC_A, KC_B, KC_C, KC_D, KC_A, KC_B }
     @kbd.layer(:fn) { row KC_1, KC_1, KC_1, KC_1, KC_1, KC_1 }
     @kbd.default_layer = :fn
-    assert_equal KC_1, @kbd.send(:resolve_keycode, 0, 0)
     assert_raise(ArgumentError) { @kbd.default_layer = :none }
+    skip "FemtoRuby's send cannot reach Ruby-defined methods" if femtoruby?
+    assert_equal KC_1, @kbd.send(:resolve_keycode, 0, 0)
   end
 
   def test_add_macro_hands_out_mc_keycodes
@@ -216,6 +217,9 @@ end
 
 class KeyboardResolveTest < Picotest::Test
   def setup
+    # Every test here reaches private methods with send, and FemtoRuby's
+    # send cannot reach Ruby-defined methods.
+    skip "FemtoRuby's send cannot reach Ruby-defined methods" if femtoruby?
     @kbd = Keyboard.new([0, 1], [2, 3, 4])
     @kbd.layer(:default) do
       row KC_A, KC_LCTL, S(KC_1)
