@@ -176,6 +176,13 @@ module PicorubyAot
         init = kind == :value ? " = mrb_nil_value()" : " = 0"
         s << "  #{CTYPE[kind]} #{c}#{init};\n"
       end
+      # A direct call runs on the machine stack with no VM entry, so the
+      # VM's own check (mrb_funcall, mrb_yield, mrb_vm_run) never sees a
+      # recursion through compiled methods. The impl makes the check
+      # itself: with MRB_USE_C_STACK_CHECK a recursion that reaches the
+      # host's floor raises SystemStackError, without the macro this is
+      # nothing.
+      s << "  mrb_c_stack_check(mrb);\n"
       s << body << "}\n\n"
       s << "static mrb_value\n#{@cfunc}(mrb_state *mrb, mrb_value self)\n{\n"
       @params.each do |p|

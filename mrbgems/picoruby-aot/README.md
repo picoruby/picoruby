@@ -153,7 +153,11 @@ reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
   cfunc returns to the VM. An immediate needs nothing.
 - A direct call runs on the C stack, with no mruby frame: a backtrace
   does not list it, and deep recursion through compiled methods is
-  bounded by the C stack, not by mruby's.
+  bounded by the C stack, not by mruby's. Each impl therefore calls
+  `mrb_c_stack_check` on entry: on a build with `MRB_USE_C_STACK_CHECK`
+  (the R2P2 targets), a recursion that reaches the stack floor the host
+  set raises SystemStackError instead of overrunning the stack; without
+  the macro the call is nothing.
 
 ## Twin test
 
