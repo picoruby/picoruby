@@ -11,6 +11,8 @@ on:
 
 env:
   GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
+  # The CRuby every job runs the build tools on. Change it here only.
+  RUBY_VERSION: '4.0.7'
 
 permissions:
   contents: write
@@ -34,7 +36,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Test Steep
@@ -56,7 +58,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Test PicoRuby
@@ -78,7 +80,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Spinel commit
@@ -113,7 +115,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Setup 32-bit toolchain
@@ -140,7 +142,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Test FemtoRuby
@@ -162,7 +164,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Setup Node.js
