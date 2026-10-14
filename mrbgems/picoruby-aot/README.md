@@ -238,7 +238,10 @@ is not for a device build. The logs land under `build/aot-twin32/`.
   the generator the build calls. It runs Spinel itself unless `--types` is
   given.
 - `tools/picoruby_aot/`: gem graph, RBS-to-Ruby stubs for C-implemented
-  methods, Spinel driver, type map, code generator.
+  methods, the `RUBY_ENGINE` fold (Spinel reads each mrblib file with
+  its `RUBY_ENGINE == "..."` branches folded for mruby, since Spinel
+  answers "spinel" and would keep the mruby/c side), Spinel driver, type
+  map, code generator.
 
 ## Layout
 

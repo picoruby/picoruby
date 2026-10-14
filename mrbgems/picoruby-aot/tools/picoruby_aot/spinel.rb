@@ -11,6 +11,7 @@ require "json"
 require "pathname"
 require_relative "gems"
 require_relative "stubs"
+require_relative "engine_fold"
 
 module PicorubyAot
   # Two ways to show a gem's dependencies to Spinel:
@@ -43,11 +44,38 @@ module PicorubyAot
         [:stubs, :source].each do |mode|
           path = File.join(feature_root(mode), g.require_name + ".rb")
           FileUtils.mkdir_p(File.dirname(path))
-          body = mode == :source ? g.rbfiles.map { |f| "require_relative #{rel(f, path).inspect}\n" }.join : "# #{g.name}: provided by RBS stubs\n"
+          body = mode == :source ? g.rbfiles.map { |f| "require_relative #{rel(copy_of(g, f), path).inspect}\n" }.join : "# #{g.name}: provided by RBS stubs\n"
           File.write(path, body)
         end
       end
       self
+    end
+
+    # The engine the generated C runs on, which the workspace folds the
+    # RUBY_ENGINE branches of every source for (EngineFold).
+    ENGINE = "mruby"
+
+    # The copy of mrblib file `f` of gem `g` that Spinel reads: the source
+    # with its RUBY_ENGINE branches folded, under src/<gem>/, refreshed when
+    # the source is newer. Positions in the copy are positions in the source.
+    def copy_of(g, f)
+      copy = File.join(@root, "src", g.name, f.sub(g.dir + "/", ""))
+      unless File.exist?(copy) && File.mtime(copy) >= File.mtime(f)
+        FileUtils.mkdir_p(File.dirname(copy))
+        File.write(copy, EngineFold.fold(File.read(f), engine: ENGINE))
+      end
+      copy
+    end
+
+    # The mrblib file a path in Spinel's output names: the source of a copy
+    # under src/, any other path as it is.
+    def source_of(path)
+      full = File.expand_path(path)
+      prefix = File.join(@root, "src") + "/"
+      return path unless full.start_with?(prefix)
+      gem_name, rest = full.sub(prefix, "").split("/", 2)
+      g = @graph[gem_name]
+      g ? File.join(g.dir, rest) : path
     end
 
     # Gems whose RBS every analysis sees, on top of the dependency closure:
@@ -82,10 +110,10 @@ module PicorubyAot
       lines = ["require_relative #{rel(stub_file, path).inspect}"]
       if mode == :source
         gems.reject { |d| d.name == gem_name }.each do |d|
-          d.rbfiles.each { |f| lines << "require_relative #{rel(f, path).inspect}" }
+          d.rbfiles.each { |f| lines << "require_relative #{rel(copy_of(d, f), path).inspect}" }
         end
       end
-      g.rbfiles.each { |f| lines << "require_relative #{rel(f, path).inspect}" }
+      g.rbfiles.each { |f| lines << "require_relative #{rel(copy_of(g, f), path).inspect}" }
       File.write(path, lines.join("\n") + "\n")
       Entry.new(path, sig_dir, stub_file, gems)
     end
@@ -118,6 +146,14 @@ module PicorubyAot
       log = IO.popen(cmd, err: [:child, :out], &:read)
       status = $?.exitstatus
       json = File.exist?(out_json) ? JSON.parse(File.read(out_json)) : nil
+      # Spinel read the folded copies; every record names the source instead,
+      # in the file too, so what is kept under out/ reads as the generator did.
+      if json
+        %w[types diagnostics codegen].each do |k|
+          (json[k] || []).each { |r| r["file"] = workspace.source_of(r["file"]) if r["file"] }
+        end
+        File.write(out_json, JSON.generate(json))
+      end
       [json, log, status]
     end
   end

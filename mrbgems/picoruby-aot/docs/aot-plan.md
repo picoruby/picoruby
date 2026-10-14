@@ -14,7 +14,10 @@ git log of this file dates each change.
 
 - Spinel runs on the host as the type oracle (`--emit-types`). The
   generator reads its JSON and the Prism AST and writes one C file per
-  gem against the mruby API. Spinel is a submodule of this gem.
+  gem against the mruby API. Spinel is a submodule of this gem. Spinel
+  reads a copy of each mrblib file with its `RUBY_ENGINE` branches
+  folded for mruby (section 2), since it would otherwise analyze the
+  mruby/c side.
 - A gem opts in with `spec.aot = true` (and `spec.aot_include_widened =
   true` for the defs Spinel widened to untyped). A target turns the
   machinery on with `conf.aot`. Today json, editor, midibase-mml and
@@ -82,7 +85,7 @@ later gem stayed uninitialized.
 ## 2. What stays in the irep, and why
 
 The sweep over every gem (1083 defs on the host build, widened
-included) leaves 361 in the irep; 722 compile (494 typed). The reasons,
+included) leaves 361 in the irep; 722 compile (520 typed). The reasons,
 largest first (the counts are from the sweep before `class << self`
 bodies were walked, except the last row):
 
@@ -102,16 +105,29 @@ def as a candidate:
 
 | Gap | Where it shows |
 |---|---|
-| Spinel widens a def to untyped although the RBS gives every parameter a class | `VRAM::Delegatable#set_pixel`, `#draw_line`, `#draw_rect` |
+| Spinel widens a def to untyped although the RBS gives every parameter a class (closed 2026-10-14) | `VRAM::Delegatable#set_pixel`, `#draw_line`, `#draw_rect` |
+| Spinel folds `RUBY_ENGINE` as "spinel" (closed 2026-10-14) | net-http's `get`, every `if RUBY_ENGINE == 'mruby'` |
 
 Root cause (2026-10-14): Spinel's `spinel_rbs_extract` dropped a whole
 signature over one parameter it could not type (an optional positional
 such as `?Integer color`, a rest parameter, a `self` return), so a
 method no call site binds had no seed left and widened. Fixed upstream
 in matz/spinel PR #9086 (each parameter keeps its own field; keyword
-fields carry their names). With that build (`SPINEL=` pointing at it)
-the twin types vram 5 of 5 and stays SAME. The submodule bump follows
-the merge.
+fields carry their names), merged the same day; the submodule is at
+32e312d3 since, and the twin types vram 5 of 5 and stays SAME. The gap
+is closed.
+
+The bump surfaced a second oracle gap: Spinel answers `RUBY_ENGINE`
+with "spinel" and drops the branch a `RUBY_ENGINE == "..."` check rules
+out before it analyzes, so it kept the mruby/c side of every `if
+RUBY_ENGINE == 'mruby' ... else ... end` in the mrblibs (12 gems have
+one). net-http's mruby/c `get` passes its arguments shifted, and once
+the seeds applied, that dead code was a contradicted seed that aborted
+the gem (0 of 44 defs). The workspace now hands Spinel a copy of each
+mrblib file folded for mruby (`EngineFold`: the comparison reads `true`
+or `false`, the dead branch is blank, `case RUBY_ENGINE` keeps its
+`when "mruby"`; columns and lines do not move, and the records map back
+to the source). net-http types 15 of 44.
 
 (Defs inside `class << self` were such a gap until 2026-10-14: the
 walker skipped the whole body. marshal went from 0 to 18 of 19 defs and
@@ -259,7 +275,7 @@ Counts from `tools/aot-gen` at the commit above, with
 | picoruby-uri | 7 | 5 / 7 | nothing (`initialize` compiles since 3.8) | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
 | picoruby-vfs | 71 | 16 / 37 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5) | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
 | picoruby-vim | 6 | 2 / 4 | blocks in `_start` and `initialize` (3.5) | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
-| picoruby-vram | 5 | 2 / 5 | nothing (keywords done); Spinel widens `set_pixel`, `draw_line`, `draw_rect` despite the RBS (2), so three run boxed; 5 / 5 typed with Spinel PR #9086 (section 2), pending the submodule bump | Low: `VRAM` itself is C; `Delegatable` forwards. Ready to declare once measured |
+| picoruby-vram | 5 | 5 / 5 | nothing (keywords done; the Spinel widening of section 2 closed with the submodule at 32e312d3) | Low: `VRAM` itself is C; `Delegatable` forwards. Ready to declare once measured |
 
 Before any of these is declared with `spec.aot = true`, the gem needs a
 picotest suite the twin can run (all six have one now) and a device
