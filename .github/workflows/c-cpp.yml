@@ -100,6 +100,45 @@ jobs:
     - name: Test PicoRuby AOT twin (irep, AOT, AOT with widened defs)
       run: rake test:gems:aot_twin
 
+  # The same twin on the 32-bit host build (MRB_INT32, word boxing,
+  # mruby-bigint): where a compiled method meets a Bignum.
+  test-picoruby-aot32:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ env.RUBY_VERSION }}
+        bundler-cache: true
+
+    - name: Setup 32-bit toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib
+
+    - name: Spinel commit
+      id: spinel
+      run: echo "sha=$(git -C mrbgems/picoruby-aot/lib/spinel rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache the Spinel parsers
+      uses: actions/cache@v4
+      with:
+        path: mrbgems/picoruby-aot/lib/spinel/vendor
+        key: spinel-vendor-${{ steps.spinel.outputs.sha }}
+
+    - name: Test PicoRuby AOT twin on the 32-bit build
+      run: rake test:gems:aot_twin32
+
   test-picoruby32:
 
     runs-on: ubuntu-latest

@@ -26,26 +26,41 @@
 extern "C" {
 #endif
 
+/* The C form of a proved Integer: 64 bits on every target. On an
+   MRB_INT32 build the VM makes a Bignum of a microsecond count after 36
+   minutes and of a UNIX time; a 32-bit slot would turn those into an
+   error where the irep goes on. A value crosses into the VM as an Integer
+   when mrb_int holds it and as a Bignum otherwise (mruby-bigint, which
+   every MRB_INT32 target links; RangeError without it), and comes back
+   from a Bignum that fits. Only past 64 bits does a compiled method
+   differ from its irep: RangeError where the VM would grow the Bignum. */
+typedef int64_t aot_int;
+#define AOT_INT_MAX INT64_MAX
+#define AOT_INT_MIN INT64_MIN
+#define AOT_INT_BIT 64
+
 /* Checked unboxing: the proved class and nothing else, or TypeError. */
-mrb_int aot_unbox_int(mrb_state *mrb, mrb_value v);
+aot_int aot_unbox_int(mrb_state *mrb, mrb_value v);
 mrb_float aot_unbox_float(mrb_state *mrb, mrb_value v);
 mrb_bool aot_unbox_bool(mrb_state *mrb, mrb_value v);
 
+/* An aot_int as the VM holds it: an Integer, or a Bignum past mrb_int. */
+mrb_value aot_box_int(mrb_state *mrb, aot_int i);
+
 /* Integer arithmetic with mruby's semantics on the fast path. Overflow of
-   mrb_int raises RangeError: the generated code has no slot for a Bignum.
-   Division and modulo floor toward negative infinity and raise
-   ZeroDivisionError. */
-mrb_int aot_int_add(mrb_state *mrb, mrb_int a, mrb_int b);
-mrb_int aot_int_sub(mrb_state *mrb, mrb_int a, mrb_int b);
-mrb_int aot_int_mul(mrb_state *mrb, mrb_int a, mrb_int b);
-mrb_int aot_int_div(mrb_state *mrb, mrb_int a, mrb_int b);
-mrb_int aot_int_mod(mrb_state *mrb, mrb_int a, mrb_int b);
-mrb_int aot_int_neg(mrb_state *mrb, mrb_int a);
-mrb_int aot_int_lshift(mrb_state *mrb, mrb_int a, mrb_int b);
-mrb_int aot_int_rshift(mrb_state *mrb, mrb_int a, mrb_int b);
-mrb_int aot_int_pow(mrb_state *mrb, mrb_int a, mrb_int b);
+   the 64-bit slot raises RangeError. Division and modulo floor toward
+   negative infinity and raise ZeroDivisionError. */
+aot_int aot_int_add(mrb_state *mrb, aot_int a, aot_int b);
+aot_int aot_int_sub(mrb_state *mrb, aot_int a, aot_int b);
+aot_int aot_int_mul(mrb_state *mrb, aot_int a, aot_int b);
+aot_int aot_int_div(mrb_state *mrb, aot_int a, aot_int b);
+aot_int aot_int_mod(mrb_state *mrb, aot_int a, aot_int b);
+aot_int aot_int_neg(mrb_state *mrb, aot_int a);
+aot_int aot_int_lshift(mrb_state *mrb, aot_int a, aot_int b);
+aot_int aot_int_rshift(mrb_state *mrb, aot_int a, aot_int b);
+aot_int aot_int_pow(mrb_state *mrb, aot_int a, aot_int b);
 mrb_float aot_float_mod(mrb_float a, mrb_float b);
-mrb_int aot_float_to_i(mrb_state *mrb, mrb_float f);
+aot_int aot_float_to_i(mrb_state *mrb, mrb_float f);
 
 /* Guarded operators on boxed values: an inline Integer (and, where it
    applies, Float) fast path, and the VM for every other receiver, so nil,
@@ -145,23 +160,31 @@ mrb_value aot_hash_delete(mrb_state *mrb, mrb_value h, mrb_value k);
 mrb_value aot_eqq(mrb_state *mrb, mrb_value pat, mrb_value v);
 
 /* `n === v` and `(lo..hi) === v` for Integer literals, in place: an
-   Integer or Float value compares, anything else (nil at the end of a
-   String, a String) does not match, as Integer#== answers. */
+   Integer or Float value compares, a Bignum compares through
+   mruby-bigint, anything else (nil at the end of a String, a String)
+   does not match, as Integer#== answers. */
+int aot_bint_cmp_int(mrb_state *mrb, mrb_value v, aot_int n);
+
 static inline mrb_bool
-aot_eqq_int(mrb_value v, mrb_int n)
+aot_eqq_int(mrb_state *mrb, mrb_value v, aot_int n)
 {
-  if (mrb_integer_p(v)) return mrb_integer(v) == n;
+  if (mrb_integer_p(v)) return (aot_int)mrb_integer(v) == n;
   if (mrb_float_p(v)) return mrb_float(v) == (mrb_float)n;
+  if (mrb_bigint_p(v)) return aot_bint_cmp_int(mrb, v, n) == 0;
   return FALSE;
 }
 
 static inline mrb_bool
-aot_eqq_int_range(mrb_value v, mrb_int lo, mrb_int hi, int excl)
+aot_eqq_int_range(mrb_state *mrb, mrb_value v, aot_int lo, aot_int hi, int excl)
 {
   mrb_float f;
   if (mrb_integer_p(v)) {
-    mrb_int i = mrb_integer(v);
+    aot_int i = (aot_int)mrb_integer(v);
     return lo <= i && (excl ? i < hi : i <= hi);
+  }
+  if (mrb_bigint_p(v)) {
+    int c = aot_bint_cmp_int(mrb, v, hi);
+    return aot_bint_cmp_int(mrb, v, lo) >= 0 && (excl ? c < 0 : c <= 0);
   }
   if (!mrb_float_p(v)) return FALSE;
   f = mrb_float(v);
@@ -208,7 +231,7 @@ mrb_value aot_const_get(mrb_state *mrb, mrb_value self, const struct aot_path *s
 void aot_raise_obj(mrb_state *mrb, mrb_value klass, const char *msg);
 
 /* Boxing shorthands kept as macros so the generated C reads evenly. */
-#define AOT_BOX_INT(mrb, i)   mrb_int_value((mrb), (i))
+#define AOT_BOX_INT(mrb, i)   aot_box_int((mrb), (i))
 #define AOT_BOX_FLOAT(mrb, f) mrb_float_value((mrb), (f))
 #define AOT_BOX_BOOL(b)       mrb_bool_value((b))
 

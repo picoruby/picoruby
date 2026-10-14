@@ -1,0 +1,22 @@
+module AOTProbe
+  def self.add: (Integer a, Integer b) -> Integer
+  def self.sub: (Integer a, Integer b) -> Integer
+  def self.mul: (Integer a, Integer b) -> Integer
+  def self.div: (Integer a, Integer b) -> Integer
+  def self.mod: (Integer a, Integer b) -> Integer
+  def self.shl: (Integer a, Integer n) -> Integer
+  def self.neg: (Integer a) -> Integer
+  def self.same: (Integer a) -> Integer
+  def self.to_int: (Float f) -> Integer
+  def self.to_float: (Integer a) -> Float
+  def self.later?: (Integer a, Integer b) -> bool
+  def self.elapsed: (Integer now_us, Integer last_us) -> Integer
+
+  class Clock
+    @last_us: Integer
+
+    def initialize: () -> void
+    attr_accessor last_us: Integer
+    def observe: (Integer now_us) -> Integer
+  end
+end

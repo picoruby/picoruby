@@ -74,6 +74,13 @@ namespace :test do
       end
     end
 
+    desc "AOT twin on the 32-bit host build (MRB_INT32, word boxing, mruby-bigint): where a Bignum shows"
+    task :aot_twin32, [:specified_gem] do |t, args|
+      unless run_aot_twin(specified_gems(args), 'picoruby32')
+        exit 1
+      end
+    end
+
   end
 end
 
@@ -91,21 +98,22 @@ end
 # widened (PICORB_AOT_WIDENED=1). The per-class and total summary lines of
 # the three runs must match: a compiled method that behaves differently
 # from its irep shows up as a changed count. The logs land under
-# build/aot-twin/<variant>.log.
-def run_aot_twin(gems)
+# build/aot-twin/<variant>.log (build/aot-twin32/ for the 32-bit host
+# build, vm_type 'picoruby32').
+def run_aot_twin(gems, vm_type = 'picoruby')
   variants = {
     "irep" => { "PICORB_AOT" => nil, "PICORB_AOT_WIDENED" => nil },
     "aot" => { "PICORB_AOT" => "1", "PICORB_AOT_WIDENED" => nil },
     "widened" => { "PICORB_AOT" => "1", "PICORB_AOT_WIDENED" => "1" },
   }
-  log_dir = "#{MRUBY_ROOT}/build/aot-twin"
+  log_dir = "#{MRUBY_ROOT}/build/aot-twin#{vm_type == 'picoruby32' ? '32' : ''}"
   FileUtils.mkdir_p(log_dir)
   summaries = {}
   compiled = {}
   variants.each do |name, env|
     log = "#{log_dir}/#{name}.log"
-    puts "==> aot twin: #{name} (#{gems || 'all gems'})"
-    target = gems ? "\"test:gems:picoruby[#{gems}]\"" : "test:gems:picoruby"
+    puts "==> aot twin: #{name} on #{vm_type} (#{gems || 'all gems'})"
+    target = gems ? "\"test:gems:#{vm_type}[#{gems}]\"" : "test:gems:#{vm_type}"
     system(env, "bash", "-o", "pipefail", "-c",
            "rake #{target} 2>&1 | tee #{log}")
     text = File.read(log).gsub(/\e\[[0-9;]*m/, "")

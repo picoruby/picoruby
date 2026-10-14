@@ -2,7 +2,8 @@
 #
 # One Compiler instance compiles one `def`.
 #
-# Value kinds: :int (mrb_int), :float (mrb_float), :bool (mrb_bool), :nil
+# Value kinds: :int (aot_int, 64 bits on every target), :float
+# (mrb_float), :bool (mrb_bool), :nil
 # (no storage) and :value (mrb_value). A value is unboxed when the
 # generated C itself produced it (a literal, arithmetic on unboxed
 # operands) or when Spinel proved its kind and that no nil reaches it
@@ -37,12 +38,12 @@ module PicorubyAot
   Val = Struct.new(:code, :kind, :proved)
 
   class Compiler
-    CTYPE = { int: "mrb_int", float: "mrb_float", bool: "mrb_bool", value: "mrb_value" }.freeze
+    CTYPE = { int: "aot_int", float: "mrb_float", bool: "mrb_bool", value: "mrb_value" }.freeze
 
-    # Integer literals the generated C can carry on every target. A 32-bit
-    # mruby with word boxing keeps 31-bit fixnums; anything wider would be a
-    # heap Integer or a Bignum there, and an unboxed slot has no room.
-    INT_LIT_MAX = 2**30 - 1
+    # Integer literals the generated C can carry: the 64-bit slot (aot_int)
+    # on every target. A literal past mrb_int is boxed as a Bignum when the
+    # value reaches the VM.
+    INT_LIT_MAX = 2**63 - 1
 
     INT_BINOPS = {
       "+" => "aot_int_add", "-" => "aot_int_sub", "*" => "aot_int_mul",
@@ -561,8 +562,8 @@ module PicorubyAot
     def expr(node)
       case node
       when Prism::IntegerNode
-        unsupported("integer literal out of 31-bit range", node) if node.value.abs > INT_LIT_MAX
-        Val.new("((mrb_int)#{node.value})", :int)
+        unsupported("integer literal out of 64-bit range", node) if node.value.abs > INT_LIT_MAX
+        Val.new("((aot_int)#{node.value}LL)", :int)
       when Prism::FloatNode
         Val.new("((mrb_float)#{format('%.17g', node.value)})", :float)
       when Prism::NilNode then Val.new("mrb_nil_value()", :nil)
@@ -828,13 +829,13 @@ module PicorubyAot
       conditions.map do |c|
         lo, hi, excl = int_range_literal(c)
         if subject.kind == :int && c.is_a?(Prism::IntegerNode)
-          "(#{subject.code} == ((mrb_int)#{c.value}))"
+          "(#{subject.code} == ((aot_int)#{c.value}LL))"
         elsif subject.kind == :int && lo
-          "(((mrb_int)#{lo}) <= #{subject.code} && #{subject.code} #{excl ? '<' : '<='} ((mrb_int)#{hi}))"
+          "(((aot_int)#{lo}LL) <= #{subject.code} && #{subject.code} #{excl ? '<' : '<='} ((aot_int)#{hi}LL))"
         elsif subject.kind == :value && c.is_a?(Prism::IntegerNode)
-          "aot_eqq_int(#{subject.code}, ((mrb_int)#{c.value}))"
+          "aot_eqq_int(mrb, #{subject.code}, ((aot_int)#{c.value}LL))"
         elsif subject.kind == :value && lo
-          "aot_eqq_int_range(#{subject.code}, ((mrb_int)#{lo}), ((mrb_int)#{hi}), #{excl ? 1 : 0})"
+          "aot_eqq_int_range(mrb, #{subject.code}, ((aot_int)#{lo}LL), ((aot_int)#{hi}LL), #{excl ? 1 : 0})"
         else
           pat = expr(c)
           t = tmp(:value)
@@ -848,6 +849,7 @@ module PicorubyAot
     def int_range_literal(node)
       return nil unless node.is_a?(Prism::RangeNode)
       return nil unless node.left.is_a?(Prism::IntegerNode) && node.right.is_a?(Prism::IntegerNode)
+      return nil if node.left.value.abs > INT_LIT_MAX || node.right.value.abs > INT_LIT_MAX
       [node.left.value, node.right.value, node.exclude_end?]
     end
 

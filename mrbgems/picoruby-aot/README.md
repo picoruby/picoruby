@@ -92,10 +92,18 @@ reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
 
 ## How the generated C behaves
 
-- A value is unboxed (`mrb_int`, `mrb_float`, `mrb_bool`) when the C
+- A value is unboxed (`aot_int`, `mrb_float`, `mrb_bool`) when the C
   computes it itself (a literal, arithmetic on such values), or when
   Spinel proved its kind and that no nil reaches it (`"nullable":false`
   in `--emit-types`; an `Integer` and an `Integer?` share the tag `int`).
+- An unboxed Integer is 64 bits on every target (`aot_int`). On an
+  MRB_INT32 build the VM makes a Bignum of a microsecond count after 36
+  minutes and of a UNIX time, and the irep goes on with it; so does the
+  compiled method. A value crosses into the VM as an Integer when
+  `mrb_int` holds it and as a Bignum otherwise (mruby-bigint, which every
+  MRB_INT32 target links), and a Bignum that fits 64 bits is unboxed.
+  Only past 64 bits does a compiled method differ from its irep:
+  RangeError where the VM would grow the Bignum.
 - A proved argument is read boxed and unboxed by a checked helper that
   takes the proved class and nothing else: a Float where an Integer was
   proved raises TypeError (no truncation), as does an Integer where a
@@ -182,6 +190,18 @@ rake "test:gems:aot_twin[picoruby-json,picoruby-midibase-mml,picoruby-keyboard]"
 Without a gem the task runs every gem `test:gems:picoruby` runs, each
 compiled with picoruby-aot. CI does that (`test-picoruby-aot` in
 `.github/workflows/c-cpp.yml`). The logs land under `build/aot-twin/`.
+
+The host is 64-bit, so the twin there never meets a Bignum. The same
+twin on the 32-bit host build (`picoruby32-test.rb`: MRB_INT32, word
+boxing, mruby-bigint) does:
+
+```
+rake test:gems:aot_twin32
+```
+
+`picoruby-aot-probe` is a gem of typed methods the tests feed values
+past the 31-bit fixnum and past `mrb_int`; it exists for this twin and
+is not for a device build. The logs land under `build/aot-twin32/`.
 
 ## Tools
 

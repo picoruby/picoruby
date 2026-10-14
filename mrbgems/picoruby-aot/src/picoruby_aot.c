@@ -1,13 +1,53 @@
 #include <math.h>
 #include <string.h>
 #include "picoruby_aot.h"
+#ifdef MRB_USE_BIGINT
+#include <mruby/internal.h>
+#endif
 
-mrb_int
+static void
+aot_overflow(mrb_state *mrb)
+{
+  mrb_raise(mrb, E_RANGE_ERROR, "picoruby-aot: Integer overflow in compiled method");
+}
+
+aot_int
 aot_unbox_int(mrb_state *mrb, mrb_value v)
 {
-  if (mrb_integer_p(v)) return mrb_integer(v);
+  if (mrb_integer_p(v)) return (aot_int)mrb_integer(v);
+#ifdef MRB_USE_BIGINT
+  /* A Bignum that fits the 64-bit slot; RangeError past it. */
+  if (mrb_bigint_p(v)) return mrb_bint_as_int64(mrb, v);
+#endif
   mrb_raisef(mrb, E_TYPE_ERROR, "picoruby-aot: expected Integer, got %Y", v);
   return 0;
+}
+
+mrb_value
+aot_box_int(mrb_state *mrb, aot_int i)
+{
+#if MRB_INT_BIT < 64
+  if (i < (aot_int)MRB_INT_MIN || (aot_int)MRB_INT_MAX < i) {
+#ifdef MRB_USE_BIGINT
+    return mrb_bint_new_int64(mrb, i);
+#else
+    aot_overflow(mrb);
+#endif
+  }
+#endif
+  return mrb_int_value(mrb, (mrb_int)i);
+}
+
+int
+aot_bint_cmp_int(mrb_state *mrb, mrb_value v, aot_int n)
+{
+#ifdef MRB_USE_BIGINT
+  mrb_int c = mrb_bint_cmp(mrb, v, aot_box_int(mrb, n));
+  return c < 0 ? -1 : (c > 0 ? 1 : 0);
+#else
+  (void)mrb; (void)v; (void)n;
+  return 1;
+#endif
 }
 
 mrb_float
@@ -27,51 +67,83 @@ aot_unbox_bool(mrb_state *mrb, mrb_value v)
   return FALSE;
 }
 
-static void
-aot_overflow(mrb_state *mrb)
+/* Checked 64-bit arithmetic: the compiler builtins where they exist, the
+   same tests in plain C elsewhere. */
+#if defined(__GNUC__) || defined(__clang__)
+#define aot_add_overflow(a, b, r) __builtin_add_overflow((a), (b), (r))
+#define aot_sub_overflow(a, b, r) __builtin_sub_overflow((a), (b), (r))
+#define aot_mul_overflow(a, b, r) __builtin_mul_overflow((a), (b), (r))
+#else
+static inline int
+aot_add_overflow(aot_int a, aot_int b, aot_int *r)
 {
-  mrb_raise(mrb, E_RANGE_ERROR, "picoruby-aot: Integer overflow in compiled method");
+  uint64_t x = (uint64_t)a, y = (uint64_t)b, z = x + y;
+  *r = (aot_int)z;
+  return (int)(((x ^ z) & (y ^ z)) >> 63);
 }
 
-mrb_int
-aot_int_add(mrb_state *mrb, mrb_int a, mrb_int b)
+static inline int
+aot_sub_overflow(aot_int a, aot_int b, aot_int *r)
 {
-  mrb_int r;
-  if (mrb_int_add_overflow(a, b, &r)) aot_overflow(mrb);
+  uint64_t x = (uint64_t)a, y = (uint64_t)b, z = x - y;
+  *r = (aot_int)z;
+  return (int)(((x ^ y) & (x ^ z)) >> 63);
+}
+
+static inline int
+aot_mul_overflow(aot_int a, aot_int b, aot_int *r)
+{
+  if (a == 0 || b == 0) { *r = 0; return 0; }
+  if (a > 0) {
+    if (b > 0 ? a > AOT_INT_MAX / b : b < AOT_INT_MIN / a) return 1;
+  }
+  else {
+    if (b > 0 ? a < AOT_INT_MIN / b : a < AOT_INT_MAX / b) return 1;
+  }
+  *r = a * b;
+  return 0;
+}
+#endif
+
+aot_int
+aot_int_add(mrb_state *mrb, aot_int a, aot_int b)
+{
+  aot_int r;
+  if (aot_add_overflow(a, b, &r)) aot_overflow(mrb);
   return r;
 }
 
-mrb_int
-aot_int_sub(mrb_state *mrb, mrb_int a, mrb_int b)
+aot_int
+aot_int_sub(mrb_state *mrb, aot_int a, aot_int b)
 {
-  mrb_int r;
-  if (mrb_int_sub_overflow(a, b, &r)) aot_overflow(mrb);
+  aot_int r;
+  if (aot_sub_overflow(a, b, &r)) aot_overflow(mrb);
   return r;
 }
 
-mrb_int
-aot_int_mul(mrb_state *mrb, mrb_int a, mrb_int b)
+aot_int
+aot_int_mul(mrb_state *mrb, aot_int a, aot_int b)
 {
-  mrb_int r;
-  if (mrb_int_mul_overflow(a, b, &r)) aot_overflow(mrb);
+  aot_int r;
+  if (aot_mul_overflow(a, b, &r)) aot_overflow(mrb);
   return r;
 }
 
-mrb_int
-aot_int_div(mrb_state *mrb, mrb_int a, mrb_int b)
+aot_int
+aot_int_div(mrb_state *mrb, aot_int a, aot_int b)
 {
-  mrb_int q;
+  aot_int q;
   if (b == 0) mrb_raise(mrb, E_ZERODIV_ERROR, "divided by 0");
-  if (a == MRB_INT_MIN && b == -1) aot_overflow(mrb);
+  if (a == AOT_INT_MIN && b == -1) aot_overflow(mrb);
   q = a / b;
   if ((a % b != 0) && ((a < 0) != (b < 0))) q--;
   return q;
 }
 
-mrb_int
-aot_int_mod(mrb_state *mrb, mrb_int a, mrb_int b)
+aot_int
+aot_int_mod(mrb_state *mrb, aot_int a, aot_int b)
 {
-  mrb_int m;
+  aot_int m;
   if (b == 0) mrb_raise(mrb, E_ZERODIV_ERROR, "divided by 0");
   if (b == -1) return 0;
   m = a % b;
@@ -79,42 +151,42 @@ aot_int_mod(mrb_state *mrb, mrb_int a, mrb_int b)
   return m;
 }
 
-mrb_int
-aot_int_neg(mrb_state *mrb, mrb_int a)
+aot_int
+aot_int_neg(mrb_state *mrb, aot_int a)
 {
-  if (a == MRB_INT_MIN) aot_overflow(mrb);
+  if (a == AOT_INT_MIN) aot_overflow(mrb);
   return -a;
 }
 
-mrb_int
-aot_int_lshift(mrb_state *mrb, mrb_int a, mrb_int b)
+aot_int
+aot_int_lshift(mrb_state *mrb, aot_int a, aot_int b)
 {
   if (b < 0) return aot_int_rshift(mrb, a, -b);
-  if (b >= MRB_INT_BIT) {
+  if (b >= AOT_INT_BIT) {
     if (a == 0) return 0;
     aot_overflow(mrb);
   }
   if (a > 0) {
-    if (a > (MRB_INT_MAX >> b)) aot_overflow(mrb);
+    if (a > (AOT_INT_MAX >> b)) aot_overflow(mrb);
   }
   else if (a < 0) {
-    if (a < (MRB_INT_MIN >> b)) aot_overflow(mrb);
+    if (a < (AOT_INT_MIN >> b)) aot_overflow(mrb);
   }
-  return (mrb_int)((mrb_uint)a << b);
+  return (aot_int)((uint64_t)a << b);
 }
 
-mrb_int
-aot_int_rshift(mrb_state *mrb, mrb_int a, mrb_int b)
+aot_int
+aot_int_rshift(mrb_state *mrb, aot_int a, aot_int b)
 {
   if (b < 0) return aot_int_lshift(mrb, a, -b);
-  if (b >= MRB_INT_BIT) return a < 0 ? -1 : 0;
+  if (b >= AOT_INT_BIT) return a < 0 ? -1 : 0;
   return a >> b;
 }
 
-mrb_int
-aot_int_pow(mrb_state *mrb, mrb_int a, mrb_int b)
+aot_int
+aot_int_pow(mrb_state *mrb, aot_int a, aot_int b)
 {
-  mrb_int r = 1;
+  aot_int r = 1;
   if (b < 0) mrb_raise(mrb, E_RANGE_ERROR, "picoruby-aot: negative exponent in compiled method");
   while (b > 0) {
     if (b & 1) r = aot_int_mul(mrb, r, a);
@@ -132,14 +204,15 @@ aot_float_mod(mrb_float a, mrb_float b)
   return m;
 }
 
-mrb_int
+aot_int
 aot_float_to_i(mrb_state *mrb, mrb_float f)
 {
   if (isnan(f) || isinf(f)) {
     mrb_raise(mrb, E_FLOATDOMAIN_ERROR, "picoruby-aot: Float out of Integer range");
   }
-  if (f >= (mrb_float)MRB_INT_MAX || f < (mrb_float)MRB_INT_MIN) aot_overflow(mrb);
-  return (mrb_int)f;
+  /* 2^63 is exact as a double; AOT_INT_MAX rounds up to it. */
+  if (f >= 9223372036854775808.0 || f < -9223372036854775808.0) aot_overflow(mrb);
+  return (aot_int)f;
 }
 
 /* ---- builtins the guarded helpers stand in for ---------------------- */
