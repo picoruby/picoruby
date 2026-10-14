@@ -184,6 +184,7 @@ class VFSTest < Picotest::Test
     Dir.mkdir("/d2") unless Dir.exist?("/d2")
     write_file("/d2/one.txt", "1")
     d = Dir.open("/d2")
+    assert_equal("/d2", d.path)
     first = []
     while (n = d.read)
       first << n
