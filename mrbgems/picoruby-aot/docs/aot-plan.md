@@ -79,6 +79,13 @@ git log of this file dates each change.
   more than a VM-to-VM one. vram's `Delegatable` is a bounds check and a
   call into C `VRAM`, which the VM dispatches as cheaply. vim's hot loop
   (`_start`) has a block. The three stay as they are (section 4).
+- Device, yaml (same method, firmware C = uri, marshal and yaml
+  compiled, yaml with widened defs, 11 of 13): `YAML.load` of the README
+  document x200 6227 ms to 5241 ms (1.19x), `YAML.dump` of it x200
+  1820 ms to 1603 ms (1.14x); the compiled object is 6.6 KB of text.
+  The parser's work per line is `split`, `strip`, `start_with?` and
+  Hash and Array operations, all C builtins the generated code calls
+  as the VM does; only `is_integer?` is a Ruby loop. Not declared.
 
 ### 1.4 Syntax the generator accepts
 
@@ -297,9 +304,10 @@ Counts from `tools/aot-gen` at the commit above, with
 | picoruby-vfs | 71 | 20 / 37 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); `VFS.sanitize` named at load through `VFS.pwd`; `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return). Not declared: the device ran 0.88x (section 1.3) | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
 | picoruby-vim | 6 | 3 / 4 | blocks in `_start` and `initialize` (3.5). Not declared: the key loop is `_start`, and the four that compile run once per command | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
 | picoruby-vram | 5 | 5 / 5 | nothing (keywords done; the Spinel widening of section 2 closed with the submodule at 32e312d3). Not declared: the device ran 1.03x, since `Delegatable` only forwards into C | Low: `VRAM` itself is C; `Delegatable` forwards |
+| picoruby-yaml | 13 | 5 / 11 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); a block in `load_file`; a bare `raise` in `is_integer?`. Not declared: the device ran 1.19x on load and 1.14x on dump (section 1.3) | Low: the parser is line-based on C String methods. picotest since 2026-10-14 (31 assertions) |
 
 Before any of these is declared with `spec.aot = true`, the gem needs a
-picotest suite the twin can run (all six have one now) and a device
+picotest suite the twin can run (all seven have one now) and a device
 measurement of the path that matters.
 
 Writing the vfs and vim suites (2026-10-14) found, besides the tests:
