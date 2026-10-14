@@ -367,7 +367,8 @@ module PicorubyAot
         case node
         when Prism::CallNode
           recv = node.receiver
-          if recv.is_a?(Prism::LocalVariableReadNode) && recv.name == name && CLASS_TESTS.include?(node.name.to_s)
+          if recv.is_a?(Prism::LocalVariableReadNode) && recv.name == name &&
+             (CLASS_TESTS.include?(node.name.to_s) || node.safe_navigation?)
             tested = true
           elsif node.name == :=== && node.arguments && node.arguments.arguments.size == 1 &&
                 node.arguments.arguments[0].is_a?(Prism::LocalVariableReadNode) && node.arguments.arguments[0].name == name
@@ -454,7 +455,7 @@ module PicorubyAot
       when Prism::InstanceVariableReadNode
         proved_kind(node) || :value
       when Prism::CallNode
-        return :value if node.block
+        return :value if node.block || node.safe_navigation?
         if node.receiver.nil?
           return :value if node.name == :raise
           return proved_kind(node) || :value
@@ -606,9 +607,25 @@ module PicorubyAot
         end
         Val.new(t, :value)
       when Prism::HashNode
-        unsupported("non-empty hash literal", node) unless node.elements.empty?
+        # As OP_HASH: a new Hash, each pair set in order with mrb_hash_set
+        # (which dups and freezes a String key as the VM does).
         t = tmp(:value)
-        emit "#{t} = mrb_hash_new(mrb);"
+        emit "#{t} = mrb_hash_new_capa(mrb, #{node.elements.size});"
+        node.elements.each do |e|
+          unsupported("double splat in a hash literal", e) unless e.is_a?(Prism::AssocNode)
+          k = box(expr(e.key))
+          v = box(expr(e.value))
+          emit "mrb_hash_set(mrb, #{t}, #{k}, #{v});"
+        end
+        Val.new(t, :value)
+      when Prism::GlobalVariableReadNode
+        t = tmp(:value)
+        emit "#{t} = mrb_gv_get(mrb, #{sym(node.name)});"
+        Val.new(t, :value)
+      when Prism::GlobalVariableWriteNode
+        t = tmp(:value)
+        emit "#{t} = #{box(expr(node.value))};"
+        emit "mrb_gv_set(mrb, #{sym(node.name)}, #{t});"
         Val.new(t, :value)
       when Prism::ParenthesesNode
         node.body ? statements(node.body) : Val.new("mrb_nil_value()", :nil)
@@ -913,9 +930,24 @@ module PicorubyAot
 
     # ---- calls ---------------------------------------------------------
 
-    def call(node)
+    # `recv&.m(args)`: the receiver once, then nil without a look at the
+    # arguments, or the call. The result stays boxed (nil joins it).
+    def safe_call(node)
+      recv = expr(node.receiver)
+      return call(node, recv) if recv.kind != :value && recv.kind != :nil
+      t = tmp(:value)
+      emit "if (mrb_nil_p(#{box(recv)})) {"
+      emit "  #{t} = mrb_nil_value();"
+      emit "} else {"
+      v = call(node, recv)
+      emit "  #{t} = #{box(v)};"
+      emit "}"
+      Val.new(t, :value)
+    end
+
+    def call(node, recv = nil)
       unsupported("block argument", node) if node.block
-      unsupported("safe navigation", node) if node.safe_navigation?
+      return safe_call(node) if node.safe_navigation? && recv.nil?
       args = node.arguments ? node.arguments.arguments : []
       args.each do |a|
         unsupported("splat argument", node) if a.is_a?(Prism::SplatNode)
@@ -926,7 +958,7 @@ module PicorubyAot
 
       return raise_call(node, args) if node.receiver.nil? && name == "raise"
 
-      recv = node.receiver ? expr(node.receiver) : Val.new("self", :value)
+      recv ||= node.receiver ? expr(node.receiver) : Val.new("self", :value)
       argv = args.map { |a| expr(a) }
 
       if node.receiver && argv.size == 1

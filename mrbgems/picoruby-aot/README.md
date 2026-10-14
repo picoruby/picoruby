@@ -76,11 +76,12 @@ A `def` becomes a cfunc when all of these hold:
 - Spinel typed every parameter and the return value (not "widened"),
   unless `aot_include_widened` is set.
 - The method takes only positional parameters, required or optional.
-- The body uses only the supported syntax: literals, locals, instance
+- The body uses only the supported syntax: literals (Array and Hash
+  literals without a splat among them), locals, instance and global
   variables, constants, `if`/`unless`/`while`/`until`/`case`, `return`,
   `break`, `next`, `and`/`or`/`not`, multiple assignment to locals and
   instance variables, Range literals, method calls without blocks or
-  keywords, and `raise` with a constant class.
+  keywords (`&.` included), and `raise` with a constant class.
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
   `Task.pass`, `join`, a Task receiver), directly or through another
   method of the gem. A cfunc cannot yield to other tasks.
