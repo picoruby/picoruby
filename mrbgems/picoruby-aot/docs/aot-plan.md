@@ -104,6 +104,15 @@ def as a candidate:
 |---|---|
 | Spinel widens a def to untyped although the RBS gives every parameter a class | `VRAM::Delegatable#set_pixel`, `#draw_line`, `#draw_rect` |
 
+Root cause (2026-10-14): Spinel's `spinel_rbs_extract` dropped a whole
+signature over one parameter it could not type (an optional positional
+such as `?Integer color`, a rest parameter, a `self` return), so a
+method no call site binds had no seed left and widened. Fixed upstream
+in matz/spinel PR #9086 (each parameter keeps its own field; keyword
+fields carry their names). With that build (`SPINEL=` pointing at it)
+the twin types vram 5 of 5 and stays SAME. The submodule bump follows
+the merge.
+
 (Defs inside `class << self` were such a gap until 2026-10-14: the
 walker skipped the whole body. marshal went from 0 to 18 of 19 defs and
 vfs from 26 to 53 of 71 when it was closed.)
@@ -225,7 +234,7 @@ Counts from `tools/aot-gen` at the commit above, with
 | picoruby-uri | 7 | 4 / 6 | `initialize` only | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
 | picoruby-vfs | 71 | 24 / 53 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); three `initialize` | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
 | picoruby-vim | 6 | 2 / 4 | block in `_start` (3.5); `initialize` | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
-| picoruby-vram | 5 | 2 / 5 | nothing (keywords done); Spinel widens `set_pixel`, `draw_line`, `draw_rect` despite the RBS (2), so three run boxed | Low: `VRAM` itself is C; `Delegatable` forwards. Ready to declare once measured |
+| picoruby-vram | 5 | 2 / 5 | nothing (keywords done); Spinel widens `set_pixel`, `draw_line`, `draw_rect` despite the RBS (2), so three run boxed; 5 / 5 typed with Spinel PR #9086 (section 2), pending the submodule bump | Low: `VRAM` itself is C; `Delegatable` forwards. Ready to declare once measured |
 
 Before any of these is declared with `spec.aot = true`, the gem needs a
 picotest suite the twin can run (all six have one now) and a device
@@ -236,8 +245,9 @@ Writing the vfs and vim suites (2026-10-14) found, besides the tests:
 - Three vfs bugs, fixed with the suite: `File#putc` switched on
   `ch.class` and always raised, `File#rewind` called the driver's seek
   with one argument, `File.unlink` always answered 0.
-- `Dir#path` calls `fullpath` on the littlefs Dir, which has no such
-  method. Left as is; not tested.
+- `Dir#path` called `fullpath` on the littlefs Dir, which no backend
+  defines. Fixed on master (032d2fd3: the Dir keeps the path it was
+  opened with); the suite reads it since ded2355f.
 - The host test binary carries mruby-dir and mruby-io (the mruby-posix
   gembox). picoruby-vfs reopens File and Dir in Ruby, and the gem that
   initializes last owns a method both define; mruby-dir came after vfs,
