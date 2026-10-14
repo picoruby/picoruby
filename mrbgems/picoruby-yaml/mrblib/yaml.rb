@@ -56,10 +56,17 @@ module YAML
 
       if is_list_item
         if !current_object.is_a?(Array)
+          # The container was opened as an empty Hash before its first
+          # line showed it is a list. Replace it where its parent holds it.
           new_array = [] #: Array[untyped]
-          if 1 < stack.size && stack[-2].is_a?(Hash)
-            last_key = stack[-2].keys.last
-            stack[-2][last_key] = new_array
+          if 1 < stack.size
+            parent = stack[-2]
+            if parent.is_a?(Hash)
+              last_key = parent.keys.last
+              parent[last_key] = new_array
+            elsif parent.is_a?(Array)
+              parent[parent.size - 1] = new_array
+            end
           end
           stack[-1] = new_array
           current_object = new_array
@@ -69,6 +76,23 @@ module YAML
           current_object << new_item
           stack.push(new_item)
           indent_stack.push(indent)
+        elsif value.include?(': ') || value.end_with?(':')
+          # `- key: value` opens a Hash item. Its other keys follow at
+          # the column of this key, so the item stays on the stack at the
+          # dash's indent and a key of a nested value at its own column.
+          item_key, item_value = split_key_value(value)
+          new_item = {} #: Hash[untyped, untyped]
+          current_object << new_item
+          stack.push(new_item)
+          indent_stack.push(indent)
+          if item_value.nil? || item_value.empty?
+            nested = {} #: Hash[untyped, untyped]
+            new_item[item_key] = nested
+            stack.push(nested)
+            indent_stack.push(indent + line_strip.length - value.length)
+          else
+            new_item[item_key] = parse_value(item_value)
+          end
         else
           current_object << parse_value(value)
         end
@@ -86,7 +110,8 @@ module YAML
       prev_indent = indent
     end
 
-    root
+    # A document whose first line is a list item replaced the root Hash.
+    stack[0]
   end
 
   def self.parse_value(value)

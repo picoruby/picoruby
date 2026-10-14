@@ -32,6 +32,31 @@ class YAMLTest < Picotest::Test
     assert_equal([1, "two", 3.0, false], doc["list"])
   end
 
+  def test_load_top_level_list
+    assert_equal([1, "two", true], YAML.load("- 1\n- two\n- true\n"))
+  end
+
+  def test_load_list_of_hashes
+    yaml = "items:\n  - name: x\n    v: 1\n  - name: y\n    v: 2\nafter: 3\n"
+    doc = YAML.load(yaml)
+    assert_equal([{"name" => "x", "v" => 1}, {"name" => "y", "v" => 2}], doc["items"])
+    assert_equal(3, doc["after"])
+  end
+
+  def test_load_list_of_hashes_with_a_nested_value
+    yaml = "- name: x\n  address:\n    city: Anytown\n  tags:\n    - a\n    - b\n- name: y\n"
+    doc = YAML.load(yaml)
+    assert_equal(2, doc.size)
+    assert_equal("x", doc[0]["name"])
+    assert_equal({"city" => "Anytown"}, doc[0]["address"])
+    assert_equal(["a", "b"], doc[0]["tags"])
+    assert_equal({"name" => "y"}, doc[1])
+  end
+
+  def test_load_list_item_keeps_a_url
+    assert_equal(["http://x/y"], YAML.load("- http://x/y\n"))
+  end
+
   def test_load_nested_hashes
     doc = YAML.load("a:\n  b:\n    c: 1\n  d: 2\ne: 3\n")
     assert_equal({"a" => {"b" => {"c" => 1}, "d" => 2}, "e" => 3}, doc)
@@ -104,6 +129,11 @@ class YAMLTest < Picotest::Test
       "h" => {"k" => "v", "m" => {"deep" => 7}},
       "l" => [1, "a", 3.5, false],
     }
+    assert_equal(doc, YAML.load(YAML.dump(doc)))
+  end
+
+  def test_round_trip_nested_lists_and_hash_items
+    doc = {"grid" => [[1, 2], [3]], "items" => [{"q" => 1, "r" => "s"}, {"q" => 2}]}
     assert_equal(doc, YAML.load(YAML.dump(doc)))
   end
 
