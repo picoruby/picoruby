@@ -223,13 +223,27 @@ Counts from `tools/aot-gen` at the commit above, with
 | picoruby-marshal | 19 | 0 / 18 | every def is widened (`dump`/`load` take untyped); `encode_fixnum` has a binary string literal | High: dump/load walk bytes in Ruby, and the 31 calls between its singleton methods are direct now; needs a device measurement |
 | picoruby-regexp | 11 | 1 / 2 | rest parameters on the String wrappers (3.3), blocks in `__sub_common`, `__sub_each`, `scan` (3.5) | Low: the engine is C; the wrappers are thin |
 | picoruby-uri | 7 | 4 / 6 | `initialize` only | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
-| picoruby-vfs | 71 | 24 / 53 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); keyword parameters on `Dir.open`, `Dir.glob` (3.2); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); three `initialize` | Moderate: the file I/O is C, the path and mode logic is Ruby. No picotest yet |
-| picoruby-vim | 6 | 2 / 4 | block in `_start` (3.5); `initialize` | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already |
+| picoruby-vfs | 71 | 24 / 53 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); three `initialize` | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (65 assertions on a RAM littlefs) |
+| picoruby-vim | 6 | 2 / 4 | block in `_start` (3.5); `initialize` | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
 | picoruby-vram | 5 | 2 / 5 | nothing (keywords done); Spinel widens `set_pixel`, `draw_line`, `draw_rect` despite the RBS (2), so three run boxed | Low: `VRAM` itself is C; `Delegatable` forwards. Ready to declare once measured |
 
 Before any of these is declared with `spec.aot = true`, the gem needs a
-picotest suite the twin can run (vfs and vim have none today) and a
-device measurement of the path that matters.
+picotest suite the twin can run (all six have one now) and a device
+measurement of the path that matters.
+
+Writing the vfs and vim suites (2026-10-14) found, besides the tests:
+
+- Three vfs bugs, fixed with the suite: `File#putc` switched on
+  `ch.class` and always raised, `File#rewind` called the driver's seek
+  with one argument, `File.unlink` always answered 0.
+- `Dir#path` calls `fullpath` on the littlefs Dir, which has no such
+  method. Left as is; not tested.
+- The host test binary carries mruby-dir and mruby-io (the mruby-posix
+  gembox). picoruby-vfs reopens File and Dir in Ruby, and the gem that
+  initializes last owns a method both define; mruby-dir came after vfs,
+  so `Dir.mkdir` ran on the host filesystem (EROFS at "/"). Under
+  `TEST_TASK` vfs now depends on mruby-dir and mruby-io, which puts it
+  last.
 
 ## 5. How to keep this document current
 
