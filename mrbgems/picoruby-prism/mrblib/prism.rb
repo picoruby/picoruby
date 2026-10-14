@@ -3,7 +3,12 @@ end
 
 class String
   def prettyprint
-    self.split("\n").each{|line| puts line}
+    lines = self.split("\n")
+    i = 0
+    while i < lines.size
+      puts lines[i]
+      i += 1
+    end
     nil
   end
 end

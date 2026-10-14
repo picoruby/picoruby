@@ -147,7 +147,11 @@ class String
   def scan(pattern, &block)
     matches = __scan(__regexp_for(pattern))
     return matches unless block
-    matches.each { |m| block.call(m) }
+    i = 0
+    while i < matches.size
+      block.call(matches[i])
+      i += 1
+    end
     self
   end
 

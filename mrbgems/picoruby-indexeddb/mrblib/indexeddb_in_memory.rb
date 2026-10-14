@@ -205,8 +205,11 @@ module IndexedDB
       pairs = data.to_a
       pairs = pairs.reverse if direction == :prev || direction == 'prev'
 
-      pairs.each do |key, value|
-        yield [key, value]
+      i = 0
+      while i < pairs.size
+        pair = pairs[i]
+        yield [pair[0], pair[1]]
+        i += 1
       end
     end
 
@@ -266,7 +269,13 @@ module IndexedDB
       case obj
       when Hash
         result = {} #: Hash[String, untyped]
-        obj.each { |k, v| result[k] = deep_copy(v) }
+        keys = obj.keys
+        i = 0
+        while i < keys.size
+          k = keys[i]
+          result[k] = deep_copy(obj[k])
+          i += 1
+        end
         result
       when Array
         obj.map { |v| deep_copy(v) }

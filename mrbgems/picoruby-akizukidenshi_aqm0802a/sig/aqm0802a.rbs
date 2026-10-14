@@ -9,6 +9,7 @@ class AQM0802A
   def print: (String line) -> nil
   def putc: (Integer c) -> Integer
   def write_instruction: (Integer inst) -> self
+  def write_instructions: (Array[Integer] insts) -> self
   def clear: () -> self
   def home: () -> self
   def break_line: () -> self

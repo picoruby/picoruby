@@ -15,7 +15,11 @@ module JS
       # Build a JS array from Ruby array of UUID strings.
       def self.uuids_to_js_array(uuids)
         js_arr = JS.global.create_array
-        uuids.each { |u| js_arr.push(normalize_uuid(u)) }
+        i = 0
+        while i < uuids.size
+          js_arr.push(normalize_uuid(uuids[i]))
+          i += 1
+        end
         js_arr
       end
 

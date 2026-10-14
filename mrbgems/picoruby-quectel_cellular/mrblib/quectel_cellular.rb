@@ -191,12 +191,22 @@ class QuectelCellular
         "Accept: */*\r\n",
         "Content-Length: #{body.length}\r\n",
       ]
-      headers.each { |k, v| postdata << "#{k}: #{v}\r\n" }
+      header_keys = headers.keys
+      hi = 0
+      while hi < header_keys.size
+        k = header_keys[hi]
+        postdata << "#{k}: #{headers[k]}\r\n"
+        hi += 1
+      end
       postdata << "\r\n"
       postdata << body
       # Calculate length of postdata
       data_length = 0
-      postdata.each { |line| data_length += line.length }
+      li = 0
+      while li < postdata.size
+        data_length += postdata[li].length
+        li += 1
+      end
       command!("AT+QHTTPPOST=#{data_length},80,80", 'CONNECT')
       pdi = 0
       while pdi < postdata.size

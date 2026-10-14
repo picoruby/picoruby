@@ -24,18 +24,29 @@ class AQM0802A
   end
 
   def reset
-    [ 0x38,     # Function set
+    write_instructions([
+      0x38,     # Function set
       0x39,     # Function set
       0x14,     # Internal OSC frequency
       0x70,     # Contrast set
       0x56,     # Power/ICON/Contrast set
       0x6c      # Follower control
-    ].each { |i| write_instruction(i) }
+    ])
     sleep_ms 200
-    [ 0x38,     # Function set
+    write_instructions([
+      0x38,     # Function set
       0x0c,     # Display ON/OFF control
       0x01      # Clear Display
-    ].each { |i| write_instruction(i) }
+    ])
+    self
+  end
+
+  def write_instructions(insts)
+    i = 0
+    while i < insts.size
+      write_instruction(insts[i])
+      i += 1
+    end
     self
   end
 
@@ -64,7 +75,12 @@ class AQM0802A
   end
 
   def print(line)
-    line.bytes.each { |c| putc c }
+    bytes = line.bytes
+    i = 0
+    while i < bytes.size
+      putc bytes[i]
+      i += 1
+    end
     nil
   end
 

@@ -6,7 +6,13 @@ class SQLite3
       while bvi < bind_vars.size
         var = bind_vars[bvi]
         if var.is_a?(Hash)
-          var.each { |key, val| bind_param(key, val) }
+          keys = var.keys
+          ki = 0
+          while ki < keys.size
+            key = keys[ki]
+            bind_param(key, var[key])
+            ki += 1
+          end
         else
           bind_param(index, var)
           index += 1

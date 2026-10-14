@@ -254,8 +254,12 @@ module JS
     # @return [JS::Object] JS object
     def self.hash_to_js_object(hash)
       js_obj = JS.global.create_object
-      hash.each do |key, val|
-        js_obj[key.to_s.to_sym] = to_js(val)
+      keys = hash.keys
+      i = 0
+      while i < keys.size
+        key = keys[i]
+        js_obj[key.to_s.to_sym] = to_js(hash[key])
+        i += 1
       end
       js_obj
     end
@@ -265,7 +269,11 @@ module JS
     # @return [JS::Object] JS array
     def self.array_to_js_array(array)
       js_array = JS.global.create_array
-      array.each { |item| js_array.push(to_js(item)) }
+      i = 0
+      while i < array.size
+        js_array.push(to_js(array[i]))
+        i += 1
+      end
       js_array
     end
   end

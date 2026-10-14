@@ -91,7 +91,11 @@ class Shell
     # itself starves. A job that ends normally keeps its tasks, so a script
     # can still start a long-lived background worker on purpose.
     def reap(before)
-      Task.list.each do |t|
+      tasks = Task.list
+      i = 0
+      while i < tasks.size
+        t = tasks[i]
+        i += 1
         # Identity has to go through object_id: mruby/c compares two
         # objects of the same class as equal, so Array#include? on the
         # Task objects themselves would treat every task as "seen".
@@ -109,7 +113,12 @@ class Shell
     def task_ids
       # @type var ids: Array[Integer]
       ids = []
-      Task.list.each { |t| ids << t.object_id }
+      tasks = Task.list
+      i = 0
+      while i < tasks.size
+        ids << tasks[i].object_id
+        i += 1
+      end
       ids
     end
 

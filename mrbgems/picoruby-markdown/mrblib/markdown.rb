@@ -101,7 +101,11 @@ class Markdown
             header_columns = stripped_line[1..-2].split('|').map(&:strip)
 
             html << "<table>\n<thead>\n<tr>\n"
-            header_columns.each { |h| html << "<th>#{h}</th>" }
+            hi = 0
+            while hi < header_columns.size
+              html << "<th>#{header_columns[hi]}</th>"
+              hi += 1
+            end
             html << "</tr>\n</thead>\n<tbody>\n"
 
             i = index + 2
@@ -109,7 +113,11 @@ class Markdown
               body_line = @lines[i].strip
               body_columns = body_line[1..-2].split('|').map(&:strip)
               html << "<tr>"
-              body_columns.each { |b| html << "<td>#{b}</td>" }
+              bi = 0
+              while bi < body_columns.size
+                html << "<td>#{body_columns[bi]}</td>"
+                bi += 1
+              end
               html << "</tr>\n"
               i += 1
             end

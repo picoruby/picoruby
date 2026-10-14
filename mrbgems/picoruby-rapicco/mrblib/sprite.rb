@@ -332,7 +332,11 @@ class Rapicco
     attr_reader :width, :height
 
     def show
-      @data.each { |l| print l }
+      i = 0
+      while i < @data.size
+        print @data[i]
+        i += 1
+      end
     end
   end
 end

@@ -310,7 +310,11 @@ module PIO
     end
 
     def resolve_labels
-      @_jmp_targets.each do |instr_idx, addr|
+      i = 0
+      while i < @_jmp_targets.size
+        jmp = @_jmp_targets[i]
+        instr_idx = jmp[0]
+        addr = jmp[1]
         if addr.is_a?(Symbol)
           target = @labels[addr]
           raise ArgumentError, "Undefined label: #{addr}" if target.nil?
@@ -318,6 +322,7 @@ module PIO
           target = addr
         end
         @instructions[instr_idx] = (@instructions[instr_idx] & 0xFFE0) | (target & 0x1F)
+        i += 1
       end
     end
   end

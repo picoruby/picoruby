@@ -75,7 +75,8 @@ class File < IO
 
     s = s.to_s
 
-    (1..names.size-2).each { |i|
+    i = 1
+    while i <= names.size - 2
       t = names[i]
       if t[0] == File::SEPARATOR and t[-1] == File::SEPARATOR
         t = t[1, t.size - 2]
@@ -86,7 +87,8 @@ class File < IO
       end
       t = t.to_s
       s += File::SEPARATOR + t if t != ""
-    }
+      i += 1
+    end
     if names[-1][0] == File::SEPARATOR
       s += File::SEPARATOR + names[-1][1, names[-1].size - 1].to_s
     else
@@ -152,7 +154,10 @@ class File < IO
     end
 
     if expanded_path != "/"
-      expanded_path&.split('/')&.each do |path_token|
+      path_tokens = expanded_path.split('/')
+      ti = 0
+      while ti < path_tokens.size
+        path_token = path_tokens[ti]
         if path_token == '..'
           if expand_path_array.size > 1
             expand_path_array.pop
@@ -162,6 +167,7 @@ class File < IO
         else
           expand_path_array << path_token
         end
+        ti += 1
       end
 
       expanded_path = expand_path_array.join("/")

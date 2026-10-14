@@ -18,7 +18,11 @@ module IndexedDB
              js_db.transaction(store_names[0], mode_str)
            else
              names_arr = JS.global.create_array
-             store_names.each { |n| names_arr.push(n) }
+             ni = 0
+             while ni < store_names.size
+               names_arr.push(store_names[ni])
+               ni += 1
+             end
              js_db.transaction(names_arr, mode_str)
            end
 
