@@ -163,7 +163,10 @@ module PicorubyAot
           e.status = :aot
           @c_functions << code
           @prototypes << compiler.impl_prototype
-          define = e.private ? "mrb_define_private_method" : (e.singleton ? "mrb_define_class_method" : "mrb_define_method")
+          # `initialize` is private wherever it is defined, as `def initialize`
+          # in the irep makes it; `Class#new` reaches it all the same.
+          private_def = e.private || (e.name == "initialize" && !e.singleton)
+          define = private_def ? "mrb_define_private_method" : (e.singleton ? "mrb_define_class_method" : "mrb_define_method")
           # aot_scope_init records the scope's classes for the body's constant
           # reads (a path is initialized once; later calls only re-read it).
           target = e.scope.empty? ? "mrb->object_class" : "aot_scope_init(mrb, &#{Compiler.path_name(@paths, e.scope)})"
@@ -368,9 +371,6 @@ module PicorubyAot
       elsif rec["widened"] && !@include_widened
         e.status = :irep
         e.reason = "widened to untyped: #{rec['signature']}"
-      elsif e.name == "initialize"
-        e.status = :irep
-        e.reason = "initialize stays in the irep (MVP)"
       end
     end
   end

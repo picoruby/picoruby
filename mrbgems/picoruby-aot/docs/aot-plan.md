@@ -45,11 +45,11 @@ git log of this file dates each change.
 
 - The twin: the same picotest suite on the irep build, the AOT build and
   the AOT build with widened defs; the summaries must match.
-  `rake test:gems:aot_twin` (every gem) is SAME on the host (99 summary
-  lines, 40 gems). CI runs it.
+  `rake test:gems:aot_twin` (every gem) is SAME on the host (103 summary
+  lines, 42 gems). CI runs it.
 - `rake test:gems:aot_twin32`: the twin on the 32-bit host build
   (MRB_INT32, word boxing, mruby-bigint), where a Bignum shows. SAME over
-  every gem (83 lines, 34 gems; the socket gems are out on 32-bit). CI
+  every gem (87 lines, 36 gems; the socket gems are out on 32-bit). CI
   runs it. `picoruby-aot-probe` is the gem of typed methods the tests
   feed values past the fixnum and past `mrb_int`.
 - Device (pico2_w, prod): JSON x200 12.8 s to 3.1 s (4.1x), MML x10
@@ -81,15 +81,15 @@ later gem stayed uninitialized.
 
 ## 2. What stays in the irep, and why
 
-The sweep over every gem (1006 defs with the probe gem, widened
-included) leaves 379 in the irep; 627 compile (449 typed). The reasons,
+The sweep over every gem (1083 defs on the host build, widened
+included) leaves 361 in the irep; 722 compile (494 typed). The reasons,
 largest first (the counts are from the sweep before `class << self`
 bodies were walked, except the last row):
 
 | Reason | Defs | Kind |
 |---|---|---|
 | Waits for the scheduler (`sleep_ms`, `submit`, `join`, ... reached through the call graph) | about 150 | Structural |
-| `initialize` | 70 | Policy |
+| `initialize` with `super`, a block, a rest parameter or a wait | 14 | The other 56 compile since 2026-10-14 (3.8) |
 | Keyword parameters (30) and keyword arguments (14) | 44 | Done 2026-10-14 (3.2); `**rest` stays out (2 defs) |
 | Blocks: a block argument (24), a block parameter (16), `yield` (3) | 43 | Generator gap, design first |
 | Rest and splat parameters and arguments | 26 | Generator gap, and a Spinel issue |
@@ -119,9 +119,8 @@ vfs from 26 to 53 of 71 when it was closed.)
 
 The structural reasons do not move with generator work. A cfunc cannot
 yield to other tasks, so a def that may wait stays in the irep, and so
-does everything that calls it. `initialize` stays by policy (it runs
-once per object, and its irep is small). The reachable ceiling for the
-generator is therefore about 730 of 951 defs.
+does everything that calls it. The reachable ceiling for the generator
+is therefore about 930 of 1083 defs.
 
 Def counts are not speed. The hot paths of the declared gems are already
 compiled; whether a remaining def matters shows in a device profile, not
@@ -222,6 +221,32 @@ received (`mrb_get_args "&"`). 43 defs.
   PicoRuby or mruby change worth making.
 - Spinel: rest parameter typing (3.3); the widening in 2 above.
 
+### 3.8 `initialize` (done 2026-10-14)
+
+`initialize` stayed in the irep as an MVP policy ("runs once per
+object, its irep is small"), not for a technical reason: a C
+`initialize` is what every C gem has, and `Class#new` reaches it the
+same way. Measured on the host before lifting the policy (all gems,
+1083 defs):
+
+| | Policy on | Policy off |
+|---|---|---|
+| typed defs compiled | 466 | 494 |
+| widened included | 666 | 722 |
+| gem_init.o text + data (the ireps) | 419,660 | 412,316 |
+| AOT objects text (host, unoptimized) | 827,766 | 873,132 |
+| twin (irep / aot / widened) | SAME | SAME |
+
+Of the 70 `initialize` defs 56 compile; 14 stay for `super` (net-http's
+exception classes, editor), a block (vim), a rest parameter or a wait.
+The ireps are static structs in flash, so the gain is flash, not RAM:
+7 KB of irep for 45 KB of unoptimized host C, which `-Os` on the device
+brings down to the usual ratio (section 1.3). The speed gain is limited
+to classes created in loops (uri's `URI::Generic`, json's parser
+objects, vfs's `File` and `Dir`). The generator registers a compiled
+`initialize` with `mrb_define_private_method`, as `def initialize` in
+the irep is private.
+
 ## 4. The gems the owner wants compiled
 
 Counts from `tools/aot-gen` at the commit above, with
@@ -231,9 +256,9 @@ Counts from `tools/aot-gen` at the commit above, with
 |---|---|---|---|---|
 | picoruby-marshal | 19 | 0 / 18 | every def is widened (`dump`/`load` take untyped); `encode_fixnum` has a binary string literal | High: dump/load walk bytes in Ruby, and the 31 calls between its singleton methods are direct now; needs a device measurement |
 | picoruby-regexp | 11 | 1 / 2 | rest parameters on the String wrappers (3.3), blocks in `__sub_common`, `__sub_each`, `scan` (3.5) | Low: the engine is C; the wrappers are thin |
-| picoruby-uri | 7 | 4 / 6 | `initialize` only | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
-| picoruby-vfs | 71 | 24 / 53 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); three `initialize` | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
-| picoruby-vim | 6 | 2 / 4 | block in `_start` (3.5); `initialize` | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
+| picoruby-uri | 7 | 5 / 7 | nothing (`initialize` compiles since 3.8) | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
+| picoruby-vfs | 71 | 16 / 37 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5) | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
+| picoruby-vim | 6 | 2 / 4 | blocks in `_start` and `initialize` (3.5) | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
 | picoruby-vram | 5 | 2 / 5 | nothing (keywords done); Spinel widens `set_pixel`, `draw_line`, `draw_rect` despite the RBS (2), so three run boxed; 5 / 5 typed with Spinel PR #9086 (section 2), pending the submodule bump | Low: `VRAM` itself is C; `Delegatable` forwards. Ready to declare once measured |
 
 Before any of these is declared with `spec.aot = true`, the gem needs a

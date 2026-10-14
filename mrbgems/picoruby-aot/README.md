@@ -93,7 +93,6 @@ A `def` becomes a cfunc when all of these hold:
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
   `Task.pass`, `join`, a Task receiver), directly or through another
   method of the gem. A cfunc cannot yield to other tasks.
-- The method is not `initialize`.
 - No class-body code of the gem reads or calls the method's name: an
   `alias`, `alias_method`, `private :name` (or another visibility call
   with a symbol), or a plain call at class-body level (a DSL). Such code
