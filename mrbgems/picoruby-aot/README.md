@@ -178,7 +178,8 @@ total counts must match). Several gems share one build:
 rake "test:gems:aot_twin[picoruby-json,picoruby-midibase-mml,picoruby-keyboard]"
 ```
 
-CI runs this task for those three gems (`test-picoruby-aot` in
+Without a gem the task runs every gem `test:gems:picoruby` runs, each
+compiled with picoruby-aot. CI does that (`test-picoruby-aot` in
 `.github/workflows/c-cpp.yml`). The logs land under `build/aot-twin/`.
 
 ## Tools

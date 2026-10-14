@@ -96,8 +96,9 @@ jobs:
         path: mrbgems/picoruby-aot/lib/spinel/vendor
         key: spinel-vendor-${{ steps.spinel.outputs.sha }}
 
+    # Every gem test:gems:picoruby runs, each compiled with picoruby-aot.
     - name: Test PicoRuby AOT twin (irep, AOT, AOT with widened defs)
-      run: rake "test:gems:aot_twin[picoruby-json,picoruby-midibase-mml,picoruby-keyboard]"
+      run: rake test:gems:aot_twin
 
   test-picoruby32:
 
