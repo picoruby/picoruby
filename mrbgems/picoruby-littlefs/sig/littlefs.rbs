@@ -91,7 +91,6 @@ class Littlefs
     def read: -> String?
     def findnext: -> String?
     def close: -> nil
-    def fullpath: -> String
   end
 
   class File

@@ -87,11 +87,12 @@ class Dir
 
   def initialize(path, encoding: nil)
     # @type var path: String
+    @path = path
     @dir = VFS::Dir.open(path)
   end
 
   def path
-    @dir.fullpath
+    @path
   end
 
   def close
