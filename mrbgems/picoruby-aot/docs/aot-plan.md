@@ -69,11 +69,13 @@ git log of this file dates each change.
   | `File.expand_path` + `File.dirname` x200 | 1190 ms | 1354 ms | 0.88x |
   | `VRAM::Delegatable#set_pixel` x10000 | 800 ms | 778 ms | 1.03x |
   | `VRAM::Delegatable#draw_rect` x2000 | 901 ms | 865 ms | 1.04x |
-  | `Marshal.load(Marshal.dump(h))` x200 | 5709 ms | 2666 ms | 2.14x (1.76x with marshal widened only) |
+  | `Marshal.load(Marshal.dump(h))` x200 | 5709 ms | 2666 ms | 2.14x (18 of 19 defs, with widened; 1.76x on the flash before the stub fix) |
   | free heap after boot | 128,912 | 128,376 | -0.5 KB |
   | ELF text | 2,432,096 | 2,448,136 | +16.0 KB for the four gems |
 
-  uri and marshal declare `spec.aot` since. vfs lost: `File.expand_path`
+  uri declares `spec.aot` since, marshal `spec.aot` and
+  `spec.aot_include_widened` (its widened defs are the point: section
+  2, "a polymorphic parameter"). vfs lost: `File.expand_path`
   compiles, but its work is one call into `VFS.sanitize`, which stays in
   the irep (named at load through `VFS.pwd`), and a C-to-VM call costs
   more than a VM-to-VM one. vram's `Delegatable` is a bounds check and a
@@ -160,6 +162,23 @@ to the source). net-http types 15 of 44.
 (Defs inside `class << self` were such a gap until 2026-10-14: the
 walker skipped the whole body. marshal went from 0 to 18 of 19 defs and
 vfs from 26 to 53 of 71 when it was closed.)
+
+A polymorphic parameter is always widened. Spinel types a parameter
+from the values the calls pass; a parameter that takes more than one
+kind of value (`Marshal.dump(obj)`) is widened whether a call binds it
+or not, and whatever the RBS says, since the seed cannot narrow a
+parameter whose body is reached with several kinds. Tried 2026-10-14 on
+marshal: an RBS signature for `dump` and `load` (as a `| ...` overload,
+which steep requires beside the core declaration, with the `| ...`
+folded away for Spinel), a seed file of calls fed to Spinel only, and
+calls of one kind, of several scalar kinds, of Array and Hash, and of
+an untyped value; every form leaves `dump`, `dump_object` and the
+`load_*` family widened, and a call of one kind narrows the parameter
+to it. The way to compile such defs is `spec.aot_include_widened`,
+which marshal declares; its 18 of 19 are widened defs, and the sweep's
+"544 typed" counts them as typed because the sweep honors the gem's
+flag (532 without them). A flag change regenerates since 2026-10-14
+(mrbgem.rake is a prerequisite of the generated C).
 
 The structural reasons do not move with generator work. A cfunc cannot
 yield to other tasks, so a def that may wait stays in the irep, and so
@@ -298,7 +317,7 @@ Counts from `tools/aot-gen` at the commit above, with
 
 | Gem | Defs the generator sees | Compiled (typed / widened) | Blocked by | Expected gain |
 |---|---|---|---|---|
-| picoruby-marshal | 19 | 18 / 18 | `encode_fixnum` has a binary string literal. Every def was widened until the stub gap of section 2 closed. Declares `spec.aot` (device: 2.14x) | High: dump/load walk bytes in Ruby, and the 31 calls between its singleton methods are direct now; needs a device measurement |
+| picoruby-marshal | 19 | 6 / 18 | `encode_fixnum` has a binary string literal. `dump`, `dump_object` and the `load_*` family are widened: a polymorphic parameter (section 2). Declares `spec.aot` and `spec.aot_include_widened` (device: 2.14x with the 18) | High: dump/load walk bytes in Ruby, and the 31 calls between its singleton methods are direct |
 | picoruby-regexp | 11 | 1 / 2 | rest parameters on the String wrappers (3.3), blocks in `__sub_common`, `__sub_each`, `scan` (3.5) | Low: the engine is C; the wrappers are thin |
 | picoruby-uri | 7 | 5 / 7 | nothing (`initialize` compiles since 3.8). Declares `spec.aot` (device: 1.2x) | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
 | picoruby-vfs | 71 | 20 / 37 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); `VFS.sanitize` named at load through `VFS.pwd`; `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return). Not declared: the device ran 0.88x (section 1.3) | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |

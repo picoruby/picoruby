@@ -43,7 +43,9 @@ module MRuby
         exclude << " --include-widened" if aot_include_widened
         workspace = "#{build.build_dir}/aot-workspace"
         manifest = "#{aot_dir}/manifest.json"
-        file aot_c => rbfiles + sigfiles + tool_srcs + build.aot_spinel_prereqs do |t|
+        # mrbgem.rake is a prerequisite because aot_exclude and
+        # aot_include_widened live there: a changed flag regenerates.
+        file aot_c => rbfiles + sigfiles + tool_srcs + ["#{dir}/mrbgem.rake"] + build.aot_spinel_prereqs do |t|
           _pp "AOT", aot_c.relative_path
           mkdir_p aot_dir
           sh %Q[SPINEL="#{build.aot_spinel}" ruby "#{tool}" --gem #{name} --workspace "#{workspace}" --out-c "#{aot_c}" --out-rb "#{aot_dir}/rb" --manifest "#{manifest}"#{exclude}]
