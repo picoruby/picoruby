@@ -9,6 +9,9 @@ the gem's Ruby and the RBS files of its dependencies, and writes a JSON file
 with a type for every node. picoruby-aot reads that JSON and the Prism AST, and
 writes C against the mruby API. Spinel's own C and runtime are not used.
 
+`docs/aot-plan.md` is the working map: what compiles, what stays in the
+irep and why, and the work each gap needs.
+
 ## Use
 
 A gem declares in its `mrbgem.rake` that it is to be compiled; the
