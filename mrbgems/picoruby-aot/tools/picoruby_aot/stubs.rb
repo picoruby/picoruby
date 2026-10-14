@@ -53,7 +53,12 @@ module PicorubyAot
       end
     end
 
-    def walk(node, scope)
+    # `singleton` is true inside `class << self`: a def there is a singleton
+    # method of the enclosing class, as `def self.x` is. Missing that, the
+    # stub generator took every such def for undefined and emitted a stub
+    # beside it, and the seed landed on the stub: VFS.sanitize, declared
+    # `(String) -> String`, analyzed as `(untyped) -> String`, widened.
+    def walk(node, scope, singleton = false)
       return unless node
       case node
       when Prism::ClassNode, Prism::ModuleNode
@@ -62,9 +67,14 @@ module PicorubyAot
         @classes[full]
         node.body&.child_nodes&.each { |c| walk(c, scope + [name]) }
         return
+      when Prism::SingletonClassNode
+        if node.expression.is_a?(Prism::SelfNode)
+          node.body&.child_nodes&.each { |c| walk(c, scope, true) }
+          return
+        end
       when Prism::DefNode
         full = scope.empty? ? "Object" : scope.join("::")
-        kind = node.receiver.is_a?(Prism::SelfNode) ? :singleton : :instance
+        kind = singleton || node.receiver.is_a?(Prism::SelfNode) ? :singleton : :instance
         @classes[full][kind] << node.name.to_s
         return
       when Prism::CallNode
@@ -78,7 +88,7 @@ module PicorubyAot
           end
         end
       end
-      node.child_nodes.each { |c| walk(c, scope) }
+      node.child_nodes.each { |c| walk(c, scope, singleton) }
     end
   end
 

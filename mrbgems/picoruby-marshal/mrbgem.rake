@@ -2,6 +2,7 @@ MRuby::Gem::Specification.new('picoruby-marshal') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Marshal for PicoRuby (for dRuby support)'
+  spec.aot = true
 
   if build.picoruby?
     spec.add_dependency 'mruby-pack', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-pack"

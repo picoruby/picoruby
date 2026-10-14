@@ -59,6 +59,26 @@ git log of this file dates each change.
   2.36 s to 1.44 s (1.65x), editor `display_width` 5.9 ms to 0.64 ms
   (9.2x). ELF text +41 KB for the four gems before the 64-bit Integer,
   +10 KB more with it. RAM +1.2 KB.
+- Device, the owner's gems (pico2_w, prod, 2026-10-14; one irb line
+  each, `Machine.uptime_us`, the median of three runs; A is the irep,
+  B the same firmware with uri, vfs, vram and marshal compiled):
+
+  | Loop | A | B | B / A |
+  |---|---|---|---|
+  | `URI.parse` x200 | 482 ms | 408 ms | 1.18x (1.26x on another flash of the same build) |
+  | `File.expand_path` + `File.dirname` x200 | 1190 ms | 1354 ms | 0.88x |
+  | `VRAM::Delegatable#set_pixel` x10000 | 800 ms | 778 ms | 1.03x |
+  | `VRAM::Delegatable#draw_rect` x2000 | 901 ms | 865 ms | 1.04x |
+  | `Marshal.load(Marshal.dump(h))` x200 | 5709 ms | 2666 ms | 2.14x (1.76x with marshal widened only) |
+  | free heap after boot | 128,912 | 128,376 | -0.5 KB |
+  | ELF text | 2,432,096 | 2,448,136 | +16.0 KB for the four gems |
+
+  uri and marshal declare `spec.aot` since. vfs lost: `File.expand_path`
+  compiles, but its work is one call into `VFS.sanitize`, which stays in
+  the irep (named at load through `VFS.pwd`), and a C-to-VM call costs
+  more than a VM-to-VM one. vram's `Delegatable` is a bounds check and a
+  call into C `VRAM`, which the VM dispatches as cheaply. vim's hot loop
+  (`_start`) has a block. The three stay as they are (section 4).
 
 ### 1.4 Syntax the generator accepts
 
@@ -85,7 +105,7 @@ later gem stayed uninitialized.
 ## 2. What stays in the irep, and why
 
 The sweep over every gem (1083 defs on the host build, widened
-included) leaves 361 in the irep; 722 compile (520 typed). The reasons,
+included) leaves 361 in the irep; 722 compile (544 typed). The reasons,
 largest first (the counts are from the sweep before `class << self`
 bodies were walked, except the last row):
 
@@ -107,6 +127,7 @@ def as a candidate:
 |---|---|
 | Spinel widens a def to untyped although the RBS gives every parameter a class (closed 2026-10-14) | `VRAM::Delegatable#set_pixel`, `#draw_line`, `#draw_rect` |
 | Spinel folds `RUBY_ENGINE` as "spinel" (closed 2026-10-14) | net-http's `get`, every `if RUBY_ENGINE == 'mruby'` |
+| The stub generator took a def inside `class << self` for undefined and stubbed it; the seed landed on the stub (closed 2026-10-14) | every `VFS.*` and `File.*` of vfs, all of marshal: `(untyped) -> String` beside a `(String) -> String` signature |
 
 Root cause (2026-10-14): Spinel's `spinel_rbs_extract` dropped a whole
 signature over one parameter it could not type (an optional positional
@@ -270,12 +291,12 @@ Counts from `tools/aot-gen` at the commit above, with
 
 | Gem | Defs the generator sees | Compiled (typed / widened) | Blocked by | Expected gain |
 |---|---|---|---|---|
-| picoruby-marshal | 19 | 0 / 18 | every def is widened (`dump`/`load` take untyped); `encode_fixnum` has a binary string literal | High: dump/load walk bytes in Ruby, and the 31 calls between its singleton methods are direct now; needs a device measurement |
+| picoruby-marshal | 19 | 18 / 18 | `encode_fixnum` has a binary string literal. Every def was widened until the stub gap of section 2 closed. Declares `spec.aot` (device: 2.14x) | High: dump/load walk bytes in Ruby, and the 31 calls between its singleton methods are direct now; needs a device measurement |
 | picoruby-regexp | 11 | 1 / 2 | rest parameters on the String wrappers (3.3), blocks in `__sub_common`, `__sub_each`, `scan` (3.5) | Low: the engine is C; the wrappers are thin |
-| picoruby-uri | 7 | 5 / 7 | nothing (`initialize` compiles since 3.8) | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
-| picoruby-vfs | 71 | 16 / 37 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5) | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
-| picoruby-vim | 6 | 2 / 4 | blocks in `_start` and `initialize` (3.5) | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
-| picoruby-vram | 5 | 5 / 5 | nothing (keywords done; the Spinel widening of section 2 closed with the submodule at 32e312d3) | Low: `VRAM` itself is C; `Delegatable` forwards. Ready to declare once measured |
+| picoruby-uri | 7 | 5 / 7 | nothing (`initialize` compiles since 3.8). Declares `spec.aot` (device: 1.2x) | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
+| picoruby-vfs | 71 | 20 / 37 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); `VFS.sanitize` named at load through `VFS.pwd`; `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return). Not declared: the device ran 0.88x (section 1.3) | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
+| picoruby-vim | 6 | 3 / 4 | blocks in `_start` and `initialize` (3.5). Not declared: the key loop is `_start`, and the four that compile run once per command | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
+| picoruby-vram | 5 | 5 / 5 | nothing (keywords done; the Spinel widening of section 2 closed with the submodule at 32e312d3). Not declared: the device ran 1.03x, since `Delegatable` only forwards into C | Low: `VRAM` itself is C; `Delegatable` forwards |
 
 Before any of these is declared with `spec.aot = true`, the gem needs a
 picotest suite the twin can run (all six have one now) and a device
