@@ -5,8 +5,8 @@ generator compiles today, what it leaves in the irep and why, and what
 work each gap needs. Update it with every change to the generator or the
 runtime: the tables, the counts and the gem status.
 
-Last update: 2026-10-14, branch `picoruby-aot` at commit e0b2431a (Spinel
-4983b60d).
+Last update: 2026-10-14, branch `picoruby-aot` (Spinel 4983b60d). The
+git log of this file dates each change.
 
 ## 1. What works
 
@@ -64,12 +64,26 @@ variables, constants and constant paths, `if`/`unless`/`while`/`until`/
 `case`, `return`, `break`, `next`, `and`/`or`/`not`, multiple assignment
 to locals and instance variables, Range literals, method calls without
 blocks or keywords (`&.` included), `raise` with a constant class.
-Parameters: positional, required or optional.
+Parameters: positional, required or optional. Defs in a class or module
+body, `def self.x`, and defs inside `class << self` (singleton methods;
+`private` there makes them private methods of the singleton class).
+A def whose name class-body code of the gem reads or calls stays in the
+irep: an `alias`, `alias_method`, a visibility call with a symbol
+(`private :x`, `module_function :x`), or a plain call at class-body
+level (a DSL such as psg's `define_voice_program :kick, [...]`), wherever
+it sits (under an `if` too), and transitively every def such a method
+calls (`define_voice_program` calls `voice_program`). Such code runs when
+the irep loads, before the cfuncs are registered. drb's `create_socket`, irq's
+`private :_stop_locked, ...` and psg's `define_voice_program` showed it:
+the gem init failed inside `mrb_protect_error`, silently, and every
+later gem stayed uninitialized.
 
 ## 2. What stays in the irep, and why
 
-The sweep over every gem (951 defs, widened included) leaves 379 in the
-irep. The reasons, largest first:
+The sweep over every gem (1003 defs with the probe gem, widened
+included) leaves 415 in the irep; 588 compile (424 typed). The reasons,
+largest first (the counts are from the sweep before `class << self`
+bodies were walked, except the last row):
 
 | Reason | Defs | Kind |
 |---|---|---|
@@ -80,14 +94,18 @@ irep. The reasons, largest first:
 | Rest and splat parameters and arguments | 26 | Generator gap, and a Spinel issue |
 | `begin`/`rescue`/`ensure` | 19 | Generator gap |
 | Other (`super`, `a[i] op= x`, `a[i] ||= x`, `break` with a value, bare `raise`, a literal past 64 bits) | about 10 | Scattered |
+| A name class-body code reads or calls when the irep loads, and what those methods call: `alias`, `alias_method`, `private :x`, a DSL call (drb, irq, psg, sqlite3, regexp) | 19 | By design; `private :x` could instead be honoured by the generator and blanked from the Ruby |
 
-Two gaps the sweep does not count, because the generator does not see
-the defs at all:
+One gap the sweep does not count, because the generator never sees the
+def as a candidate:
 
 | Gap | Where it shows |
 |---|---|
-| Defs inside `class << self` are skipped (the walker takes `ClassNode`, `ModuleNode` and `def self.x` only) | picoruby-marshal (all 19 defs), picoruby-vfs (about half of its defs) |
 | Spinel widens a def to untyped although the RBS gives every parameter a class | `VRAM::Delegatable#set_pixel`, `#draw_line`, `#draw_rect` |
+
+(Defs inside `class << self` were such a gap until 2026-10-14: the
+walker skipped the whole body. marshal went from 0 to 18 of 19 defs and
+vfs from 26 to 53 of 71 when it was closed.)
 
 The structural reasons do not move with generator work. A cfunc cannot
 yield to other tasks, so a def that may wait stays in the irep, and so
@@ -103,11 +121,13 @@ in this table.
 
 Ordered by the ratio of defs gained to design needed.
 
-### 3.1 `class << self` bodies (no design)
+### 3.1 `class << self` bodies (done 2026-10-14)
 
-Walk `Prism::SingletonClassNode` whose expression is `self` as a scope
-whose defs are singleton methods. `private` inside it applies as in a
-class body. Register with `mrb_define_class_method`. Twin: marshal, vfs.
+The walker takes `Prism::SingletonClassNode` whose expression is `self`
+as the enclosing scope with every def a singleton method; `private`
+inside it applies, and such a def registers as a private method of the
+singleton class. A `def self.x` after a bare `private` in a class body
+is public, as in Ruby (it was registered private before).
 
 ### 3.2 Keyword parameters and arguments (little design)
 
@@ -174,6 +194,12 @@ received (`mrb_get_args "&"`). 43 defs.
 - A lighter funcall for a resolved method (no re-lookup). Same measure.
 - `SystemStackError#message` prints the class name, not "stack level
   too deep" (mruby follow-up).
+- A gem init that raises (an irep that fails to load, a registration
+  that cannot find its class) is swallowed by `mrb_protect_error` in
+  `init_mrbgems_body`, and every later gem stays uninitialized; the
+  first symptom is `require` answering false. The twin shows it as
+  "Crash in loading" on every test. A loud failure at init would be a
+  PicoRuby or mruby change worth making.
 - Spinel: rest parameter typing (3.3); the widening in 2 above.
 
 ## 4. The gems the owner wants compiled
@@ -183,10 +209,10 @@ Counts from `tools/aot-gen` at the commit above, with
 
 | Gem | Defs the generator sees | Compiled (typed / widened) | Blocked by | Expected gain |
 |---|---|---|---|---|
-| picoruby-marshal | 0 of 19 | 0 / 0 | every def is inside `class << self` (3.1) | High once visible: dump/load walk bytes in Ruby |
+| picoruby-marshal | 19 | 0 / 18 | every def is widened (`dump`/`load` take untyped); `encode_fixnum` has a binary string literal | High: dump/load walk bytes in Ruby; needs a device measurement |
 | picoruby-regexp | 11 | 1 / 2 | rest parameters on the String wrappers (3.3), blocks in `__sub_common`, `__sub_each`, `scan` (3.5) | Low: the engine is C; the wrappers are thin |
 | picoruby-uri | 7 | 4 / 6 | `initialize` only | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
-| picoruby-vfs | 36 (about 35 more inside `class << self`) | 20 / 26 | 3.1 for the class methods; rest parameters on `gets`, `write`, `puts`, `printf`, `utime` (3.3); blocks in `each`, `each_line` (3.5) | Moderate: the file I/O is C, the path and mode logic is Ruby |
+| picoruby-vfs | 71 | 24 / 53 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); keyword parameters on `Dir.open`, `Dir.glob` (3.2); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); three `initialize` | Moderate: the file I/O is C, the path and mode logic is Ruby. No picotest yet |
 | picoruby-vim | 6 | 2 / 4 | block in `_start` (3.5); `initialize` | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already |
 | picoruby-vram | 5 | 0 / 3 | keyword parameters on `draw_bitmap`, `draw_bytes` (3.2); Spinel widens `set_pixel`, `draw_line`, `draw_rect` despite the RBS (2) | Low: `VRAM` itself is C; `Delegatable` forwards |
 

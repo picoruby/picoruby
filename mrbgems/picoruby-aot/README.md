@@ -79,6 +79,9 @@ A `def` becomes a cfunc when all of these hold:
 - Spinel typed every parameter and the return value (not "widened"),
   unless `aot_include_widened` is set.
 - The method takes only positional parameters, required or optional.
+- The `def` is in a class or module body, is a `def self.x`, or is inside
+  `class << self` (then it is a singleton method, private when a
+  `private` precedes it there).
 - The body uses only the supported syntax: literals (Array and Hash
   literals without a splat among them), locals, instance and global
   variables, constants, `if`/`unless`/`while`/`until`/`case`, `return`,
@@ -89,6 +92,11 @@ A `def` becomes a cfunc when all of these hold:
   `Task.pass`, `join`, a Task receiver), directly or through another
   method of the gem. A cfunc cannot yield to other tasks.
 - The method is not `initialize`.
+- No class-body code of the gem reads or calls the method's name: an
+  `alias`, `alias_method`, `private :name` (or another visibility call
+  with a symbol), or a plain call at class-body level (a DSL). Such code
+  runs when the irep loads, before the cfuncs are registered, so such a
+  def stays in the irep (and so does a later def of that name).
 
 Every other `def` stays in the irep. The build writes the decision and the
 reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
