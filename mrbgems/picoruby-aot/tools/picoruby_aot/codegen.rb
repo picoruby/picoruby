@@ -668,9 +668,20 @@ module PicorubyAot
         emit "#{t} = aot_const_get(mrb, self, #{scope}, #{sym(node.name)});"
         Val.new(t, :value)
       when Prism::ConstantPathNode
-        path = constant_path(node)
+        # As the VM reads `A::B::C`: the first name lexically (OP_GETCONST),
+        # each later one off the value before it (OP_GETMCNST, which raises
+        # TypeError when that value is not a class or module). The last
+        # need not be a class: `IRQ::HANDLER` is a Hash.
+        parts = constant_path(node)
         t = tmp(:value)
-        emit "#{t} = mrb_obj_value(aot_path_class(mrb, &#{Compiler.path_name(@paths, path)}));"
+        if parts.first.nil?
+          emit "#{t} = mrb_obj_value(mrb->object_class);"
+          parts.shift
+        else
+          scope = @scope.empty? ? "NULL" : "&#{Compiler.path_name(@paths, @scope)}"
+          emit "#{t} = aot_const_get(mrb, self, #{scope}, #{sym(parts.shift)});"
+        end
+        parts.each { |name| emit "#{t} = mrb_const_get(mrb, #{t}, #{sym(name)});" }
         Val.new(t, :value)
       when Prism::IfNode then conditional(node, false)
       when Prism::UnlessNode then conditional(node, true)
@@ -707,6 +718,8 @@ module PicorubyAot
       end
     end
 
+    # The names of `A::B::C`, outermost first; a leading nil for an
+    # absolute path (`::A::B`).
     def constant_path(node)
       parts = []
       n = node
@@ -715,11 +728,11 @@ module PicorubyAot
         n = n.parent
       end
       case n
-      when nil then nil
+      when nil then parts.unshift(nil)
       when Prism::ConstantReadNode then parts.unshift(n.name.to_s)
       else unsupported("dynamic constant path", node)
       end
-      parts.join("::")
+      parts
     end
 
     # The kind two branches agree on, else mrb_value (nil joined with a

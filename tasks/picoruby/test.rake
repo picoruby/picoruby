@@ -68,11 +68,8 @@ namespace :test do
 
     desc "AOT twin: the picotest of the gems on the irep build, the AOT build and the AOT build with widened defs must give the same summary"
     task :aot_twin, [:specified_gem] do |t, args|
-      gems = specified_gems(args)
-      unless gems
-        abort "usage: rake \"test:gems:aot_twin[picoruby-json,picoruby-midibase-mml]\""
-      end
-      unless run_aot_twin(gems)
+      # No argument: every gem test:gems:picoruby runs.
+      unless run_aot_twin(specified_gems(args))
         exit 1
       end
     end
@@ -107,9 +104,10 @@ def run_aot_twin(gems)
   compiled = {}
   variants.each do |name, env|
     log = "#{log_dir}/#{name}.log"
-    puts "==> aot twin: #{name} (#{gems})"
+    puts "==> aot twin: #{name} (#{gems || 'all gems'})"
+    target = gems ? "\"test:gems:picoruby[#{gems}]\"" : "test:gems:picoruby"
     system(env, "bash", "-o", "pipefail", "-c",
-           "rake \"test:gems:picoruby[#{gems}]\" 2>&1 | tee #{log}")
+           "rake #{target} 2>&1 | tee #{log}")
     text = File.read(log).gsub(/\e\[[0-9;]*m/, "")
     lines = []
     klass = nil

@@ -580,21 +580,6 @@ aot_path_intern(mrb_state *mrb, struct aot_path *p)
 }
 
 struct RClass *
-aot_path_class(mrb_state *mrb, struct aot_path *p)
-{
-  struct RClass *c = mrb->object_class;
-  aot_path_intern(mrb, p);
-  for (int i = 0; i < p->n; i++) {
-    mrb_value v = mrb_const_get(mrb, mrb_obj_value(c), p->syms[i]);
-    if (!mrb_class_p(v) && !mrb_module_p(v)) {
-      mrb_raisef(mrb, E_TYPE_ERROR, "picoruby-aot: %s is not a class/module", p->names[i]);
-    }
-    c = mrb_class_ptr(v);
-  }
-  return c;
-}
-
-struct RClass *
 aot_scope_init(mrb_state *mrb, struct aot_path *p)
 {
   struct RClass *c = mrb->object_class;

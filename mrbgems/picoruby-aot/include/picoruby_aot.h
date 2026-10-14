@@ -181,20 +181,17 @@ aot_sym(mrb_state *mrb, mrb_sym *cache, const char *name)
   return *cache;
 }
 
-/* A constant path "A::B::C" as the generated translation unit holds it:
-   one static per distinct path, with its names, the symbols interned on
-   first use, and (for a method's lexical scope) the classes recorded at
-   registration. */
+/* A method's lexical scope "A::B::C" as the generated translation unit
+   holds it: one static per distinct path, with its names, the symbols
+   interned on first use, and the classes recorded at registration. (A
+   constant path in a method body is not one of these: the generated C
+   reads it name by name, as the VM does.) */
 struct aot_path {
   int n;
   const char *const *names;
   mrb_sym *syms;
   struct RClass **klass;
 };
-
-/* The class or module the path names, looked up from Object by symbol on
-   every call, as the VM's OP_GETMCNST chain is. */
-struct RClass *aot_path_class(mrb_state *mrb, struct aot_path *p);
 
 /* Resolve a method's lexical scope once, at registration, recording each
    class of the path for aot_const_get; returns the innermost. */

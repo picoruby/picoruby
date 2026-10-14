@@ -143,7 +143,9 @@ reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
 - Other calls go through `mrb_funcall_argv`.
 - Constants resolve through the lexical scope of the `def` (its classes
   are recorded once, at registration), then the receiver's ancestors,
-  then Object.
+  then Object. A path `A::B::C` resolves `A` that way and reads `B` and
+  `C` off the value before them, as the VM does; the last need not be a
+  class (`IRQ::HANDLER` is a Hash).
 - The VM's registers are GC roots; the generated C's locals are not. A
   value the C holds is safe while its owner references it or while it is
   in the GC arena (every allocation, every `mrb_funcall` result). A value
