@@ -63,8 +63,9 @@ Literals (Array and Hash without a splat), locals, instance and global
 variables, constants and constant paths, `if`/`unless`/`while`/`until`/
 `case`, `return`, `break`, `next`, `and`/`or`/`not`, multiple assignment
 to locals and instance variables, Range literals, method calls without
-blocks or keywords (`&.` included), `raise` with a constant class.
-Parameters: positional, required or optional. Defs in a class or module
+blocks (`&.` and keyword arguments included), `raise` with a constant
+class. Parameters: positional and keyword, required or optional (no
+`*rest`, `**rest`, `&block`). Defs in a class or module
 body, `def self.x`, and defs inside `class << self` (singleton methods;
 `private` there makes them private methods of the singleton class).
 A def whose name class-body code of the gem reads or calls stays in the
@@ -80,8 +81,8 @@ later gem stayed uninitialized.
 
 ## 2. What stays in the irep, and why
 
-The sweep over every gem (1003 defs with the probe gem, widened
-included) leaves 415 in the irep; 588 compile (424 typed). The reasons,
+The sweep over every gem (1006 defs with the probe gem, widened
+included) leaves 379 in the irep; 627 compile (449 typed). The reasons,
 largest first (the counts are from the sweep before `class << self`
 bodies were walked, except the last row):
 
@@ -89,7 +90,7 @@ bodies were walked, except the last row):
 |---|---|---|
 | Waits for the scheduler (`sleep_ms`, `submit`, `join`, ... reached through the call graph) | about 150 | Structural |
 | `initialize` | 70 | Policy |
-| Keyword parameters (30) and keyword arguments (14) | 44 | Generator gap |
+| Keyword parameters (30) and keyword arguments (14) | 44 | Done 2026-10-14 (3.2); `**rest` stays out (2 defs) |
 | Blocks: a block argument (24), a block parameter (16), `yield` (3) | 43 | Generator gap, design first |
 | Rest and splat parameters and arguments | 26 | Generator gap, and a Spinel issue |
 | `begin`/`rescue`/`ensure` | 19 | Generator gap |
@@ -129,16 +130,23 @@ inside it applies, and such a def registers as a private method of the
 singleton class. A `def self.x` after a bare `private` in a class body
 is public, as in Ruby (it was registered private before).
 
-### 3.2 Keyword parameters and arguments (little design)
+### 3.2 Keyword parameters and arguments (done 2026-10-14)
 
-- Parameters: read with `mrb_get_args` and the `:` specifier
-  (`mrb_kwargs`), required and optional, in method scope for defaults
-  as the optional positionals are. `**rest` stays out.
-- Arguments: a call with keywords builds the Hash and sends it with the
-  keyword flag (`mrb_funcall_with_block_kw` or its equivalent in the
-  mruby version in use; check first). Direct impl calls between compiled
-  defs pass the unboxed keyword values in order.
-- Gains: vram (`draw_bitmap`, `draw_bytes`), looper, midibase, 44 defs.
+- Parameters: `mrb_get_args` with `:` (`mrb_kwargs`); a required keyword
+  takes its proved kind (Spinel types `RequiredKeywordParameterNode`),
+  an optional one is undef when not given and evaluates its default in
+  method scope, as an optional positional does. `**rest` stays out.
+- Arguments: a direct call to a compiled def of the gem maps the
+  keywords by name onto the impl's slots in C. Every other call, and the
+  fallback when the method was redefined, goes through
+  `PicoRubyAOT.send_kw` (mrblib of picoruby-aot), which does
+  `recv.__send__(mid, *args, **kw)`: mruby has no C API that passes
+  keywords, and OP_ENTER takes a trailing Hash from `mrb_funcall_argv`
+  as a positional. A `mrb_funcall_argv_kw` in mruby would make that
+  path one frame cheaper (3.7).
+- Found on the way: a self call inside a singleton method looked for
+  `Scope#name` and never found `Scope.name`, so singleton methods never
+  called each other directly. They do now (marshal: 31 direct calls).
 
 ### 3.3 Rest and splat (Spinel first)
 
@@ -192,6 +200,9 @@ received (`mrb_get_args "&"`). 43 defs.
   MRB_METHOD_CACHE is on in the PicoRuby builds and what the search
   costs in a profile.
 - A lighter funcall for a resolved method (no re-lookup). Same measure.
+- `mrb_funcall_argv_kw(mrb, self, mid, argc, argv, kw_hash)`: a funcall
+  that sets the frame's keyword flag, so a call with keywords from C
+  needs no Ruby trampoline (3.2). An mruby proposal.
 - `SystemStackError#message` prints the class name, not "stack level
   too deep" (mruby follow-up).
 - A gem init that raises (an irep that fails to load, a registration
@@ -209,12 +220,12 @@ Counts from `tools/aot-gen` at the commit above, with
 
 | Gem | Defs the generator sees | Compiled (typed / widened) | Blocked by | Expected gain |
 |---|---|---|---|---|
-| picoruby-marshal | 19 | 0 / 18 | every def is widened (`dump`/`load` take untyped); `encode_fixnum` has a binary string literal | High: dump/load walk bytes in Ruby; needs a device measurement |
+| picoruby-marshal | 19 | 0 / 18 | every def is widened (`dump`/`load` take untyped); `encode_fixnum` has a binary string literal | High: dump/load walk bytes in Ruby, and the 31 calls between its singleton methods are direct now; needs a device measurement |
 | picoruby-regexp | 11 | 1 / 2 | rest parameters on the String wrappers (3.3), blocks in `__sub_common`, `__sub_each`, `scan` (3.5) | Low: the engine is C; the wrappers are thin |
 | picoruby-uri | 7 | 4 / 6 | `initialize` only | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
 | picoruby-vfs | 71 | 24 / 53 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); keyword parameters on `Dir.open`, `Dir.glob` (3.2); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); three `initialize` | Moderate: the file I/O is C, the path and mode logic is Ruby. No picotest yet |
 | picoruby-vim | 6 | 2 / 4 | block in `_start` (3.5); `initialize` | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already |
-| picoruby-vram | 5 | 0 / 3 | keyword parameters on `draw_bitmap`, `draw_bytes` (3.2); Spinel widens `set_pixel`, `draw_line`, `draw_rect` despite the RBS (2) | Low: `VRAM` itself is C; `Delegatable` forwards |
+| picoruby-vram | 5 | 2 / 5 | nothing (keywords done); Spinel widens `set_pixel`, `draw_line`, `draw_rect` despite the RBS (2), so three run boxed | Low: `VRAM` itself is C; `Delegatable` forwards. Ready to declare once measured |
 
 Before any of these is declared with `spec.aot = true`, the gem needs a
 picotest suite the twin can run (vfs and vim have none today) and a

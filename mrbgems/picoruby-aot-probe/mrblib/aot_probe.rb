@@ -55,6 +55,22 @@ module AOTProbe
     elapsed
   end
 
+  # Keyword parameters: a required one takes its proved kind, an optional
+  # one evaluates its default in method scope.
+  def self.scale(value, by:, offset: 0)
+    value * by + offset
+  end
+
+  # A call with keywords to a compiled def of this gem (a direct call) and
+  # to a Proc (the VM path).
+  def self.scaled_twice(value, by)
+    scale(scale(value, by: by), by: by, offset: 1)
+  end
+
+  def self.call_with_keywords(callee, value)
+    callee.call(value, by: 3)
+  end
+
   # A timestamp held in an instance variable across calls.
   class Clock
     def initialize

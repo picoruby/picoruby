@@ -78,7 +78,9 @@ A `def` becomes a cfunc when all of these hold:
 
 - Spinel typed every parameter and the return value (not "widened"),
   unless `aot_include_widened` is set.
-- The method takes only positional parameters, required or optional.
+- The method takes positional parameters, required or optional, and
+  keyword parameters, required or optional; no `*rest`, `**rest` or
+  `&block`.
 - The `def` is in a class or module body, is a `def self.x`, or is inside
   `class << self` (then it is a singleton method, private when a
   `private` precedes it there).
@@ -86,8 +88,8 @@ A `def` becomes a cfunc when all of these hold:
   literals without a splat among them), locals, instance and global
   variables, constants, `if`/`unless`/`while`/`until`/`case`, `return`,
   `break`, `next`, `and`/`or`/`not`, multiple assignment to locals and
-  instance variables, Range literals, method calls without blocks or
-  keywords (`&.` included), and `raise` with a constant class.
+  instance variables, Range literals, method calls without blocks (`&.`
+  and keyword arguments included), and `raise` with a constant class.
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
   `Task.pass`, `join`, a Task receiver), directly or through another
   method of the gem. A cfunc cannot yield to other tasks.
@@ -160,6 +162,21 @@ reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
   a String compare as `==`; any other pattern is sent `===`.
 - An optional parameter is handed to the impl as undef when the argument
   is not given, and the impl evaluates the default in method scope.
+- Keyword parameters follow the positionals in the impl's argument list.
+  The cfunc reads them with `mrb_get_args` and `:` (`mrb_kwargs`): a
+  required keyword is always present and takes its proved kind, an
+  optional one is undef when not given, as an optional positional is.
+  A missing or unknown keyword raises the VM's ArgumentError.
+- A call with keywords to another compiled def of the gem maps the
+  keywords by name onto the impl's slots and calls it in C. Any other
+  call with keywords, and the fallback when the method was redefined,
+  goes through `PicoRubyAOT.send_kw` (this gem's mrblib), which does
+  `recv.__send__(mid, *args, **kw)` in the VM: mruby has no C API that
+  passes keywords (`mrb_funcall_argv` hands a trailing Hash as a
+  positional).
+- In a singleton method (`def self.x`, or a def inside `class << self`)
+  a call on `self` lands on another singleton method, and is direct when
+  that one is compiled too.
 - Other calls go through `mrb_funcall_argv`.
 - Constants resolve through the lexical scope of the `def` (its classes
   are recorded once, at registration), then the receiver's ancestors,

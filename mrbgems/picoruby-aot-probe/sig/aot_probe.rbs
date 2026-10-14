@@ -11,6 +11,9 @@ module AOTProbe
   def self.to_float: (Integer a) -> Float
   def self.later?: (Integer a, Integer b) -> bool
   def self.elapsed: (Integer now_us, Integer last_us) -> Integer
+  def self.scale: (Integer value, by: Integer, ?offset: Integer) -> Integer
+  def self.scaled_twice: (Integer value, Integer by) -> Integer
+  def self.call_with_keywords: (untyped callee, Integer value) -> untyped
 
   class Clock
     @last_us: Integer

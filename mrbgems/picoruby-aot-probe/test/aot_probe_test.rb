@@ -59,6 +59,42 @@ class AOTProbeTest < Picotest::Test
     assert_equal(0, AOTProbe.elapsed(now - 1, now))
   end
 
+  def test_keyword_parameters
+    assert_equal(6, AOTProbe.scale(2, by: 3))
+    assert_equal(7, AOTProbe.scale(2, by: 3, offset: 1))
+    assert_equal(7, AOTProbe.scale(2, offset: 1, by: 3))
+  end
+
+  def test_keyword_parameters_past_mrb_int
+    assert_equal((1 << 40) + 5, AOTProbe.scale(1 << 20, by: 1 << 20, offset: 5))
+  end
+
+  def test_missing_required_keyword_raises
+    assert_raise(ArgumentError) { AOTProbe.scale(2) }
+  end
+
+  def test_unknown_keyword_raises
+    assert_raise(ArgumentError) { AOTProbe.scale(2, by: 3, extra: 1) }
+  end
+
+  def test_keyword_type_error_at_entry
+    assert_raise(TypeError) { AOTProbe.scale(2, by: "3") }
+  end
+
+  def test_direct_call_with_keywords
+    assert_equal(19, AOTProbe.scaled_twice(2, 3))
+  end
+
+  class KwCallee
+    def call(v, by:)
+      v * by
+    end
+  end
+
+  def test_call_with_keywords_through_the_vm
+    assert_equal(12, AOTProbe.call_with_keywords(KwCallee.new, 4))
+  end
+
   def test_clock_keeps_a_bignum_timestamp
     clock = AOTProbe::Clock.new
     clock.observe((1 << 31) - 100)

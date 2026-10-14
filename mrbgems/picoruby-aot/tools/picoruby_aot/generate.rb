@@ -125,13 +125,13 @@ module PicorubyAot
         n = (used[base] = (used[base] || 0) + 1)
         e.cfunc = n == 1 ? base : "#{base}_#{n}"
         begin
-          probe = Compiler.new(@types, e.file, e.node, scope: e.scope, cfunc_name: e.cfunc)
+          probe = Compiler.new(@types, e.file, e.node, scope: e.scope, cfunc_name: e.cfunc, singleton: e.singleton)
           kinds = probe.param_kinds
           required = probe.required_count
         rescue Unsupported, StandardError
           next # the def will not compile; no one calls it directly
         end
-        targets[spinel_label(e)] = { cfunc: e.cfunc, kinds: kinds, required: required, private: e.private }
+        targets[spinel_label(e)] = { cfunc: e.cfunc, kinds: kinds, required: required, kw: probe.kw_params, private: e.private }
       end
       # A direct call needs its target compiled. Compile everything against
       # the optimistic target set; when a target drops out, compile again
@@ -145,7 +145,7 @@ module PicorubyAot
         dropped = false
         @entries.each do |e|
           next unless e.status == :candidate || e.status == :aot
-          compiler = Compiler.new(@types, e.file, e.node, scope: e.scope, cfunc_name: e.cfunc, syms: @syms, paths: @paths, targets: targets)
+          compiler = Compiler.new(@types, e.file, e.node, scope: e.scope, cfunc_name: e.cfunc, singleton: e.singleton, syms: @syms, paths: @paths, targets: targets)
           begin
             code = compiler.compile
           rescue Unsupported => ex

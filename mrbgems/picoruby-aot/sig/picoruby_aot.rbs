@@ -1,0 +1,3 @@
+module PicoRubyAOT
+  def self.send_kw: (untyped recv, Symbol mid, Array[untyped] args, Hash[Symbol, untyped] kw) -> untyped
+end

@@ -87,11 +87,12 @@ module PicorubyAot
       "&" => "aot_band", "|" => "aot_bor", "^" => "aot_bxor", "<<" => "aot_lshift", ">>" => "aot_rshift",
     }.freeze
 
-    def initialize(typemap, file, def_node, scope:, cfunc_name:, syms: {}, paths: {}, targets: {})
+    def initialize(typemap, file, def_node, scope:, cfunc_name:, singleton: false, syms: {}, paths: {}, targets: {})
       @types = typemap
       @file = file
       @def = def_node
       @scope = scope
+      @singleton = singleton   # a singleton method: `self` is the class, a self call lands on "Scope.name"
       @cfunc = cfunc_name
       @tmp = 0
       @locals = {}       # ruby name -> [c name, kind]
@@ -109,14 +110,23 @@ module PicorubyAot
     # The kinds the parameters take, as the impl's C signature has them;
     # also what a direct caller passes. Decided from the types alone, so a
     # caller can know them before the def is compiled.
+    # The positional parameters' kinds and required count (the keyword
+    # parameters are kw_params).
     def param_kinds
       check_params unless @params
-      @params.map { |p| p[:kind] }
+      @params.reject { |p| p[:kw] }.map { |p| p[:kind] }
     end
 
     def required_count
       check_params unless @params
-      @params.count { |p| !p[:optional] }
+      @params.count { |p| !p[:optional] && !p[:kw] }
+    end
+
+    # The keyword parameters as a direct caller needs them: name, kind and
+    # whether the keyword is required, in impl order.
+    def kw_params
+      check_params unless @params
+      @params.select { |p| p[:kw] }.map { |p| { name: p[:name], kind: p[:kind], required: !p[:optional] } }
     end
 
     def impl_name
@@ -206,9 +216,12 @@ module PicorubyAot
     end
 
     def arity_spec
-      req = @params.count { |p| !p[:optional] }
-      opt = @params.size - req
-      opt.zero? ? "MRB_ARGS_REQ(#{req})" : "MRB_ARGS_ARG(#{req}, #{opt})"
+      pos = @params.reject { |p| p[:kw] }
+      req = pos.count { |p| !p[:optional] }
+      opt = pos.size - req
+      spec = opt.zero? ? "MRB_ARGS_REQ(#{req})" : "MRB_ARGS_ARG(#{req}, #{opt})"
+      nkw = @params.count { |p| p[:kw] }
+      nkw.zero? ? spec : "#{spec} | MRB_ARGS_KEY(#{nkw}, 0)"
     end
 
     private
@@ -299,7 +312,7 @@ module PicorubyAot
       return unless p
       unsupported("rest parameter") if p.rest
       unsupported("post parameters") unless p.posts.empty?
-      unsupported("keyword parameters") unless p.keywords.empty? && p.keyword_rest.nil?
+      unsupported("keyword rest parameter") if p.keyword_rest
       unsupported("block parameter") if p.block
       p.requireds.each do |r|
         unsupported("destructuring parameter") unless r.is_a?(Prism::RequiredParameterNode)
@@ -317,7 +330,25 @@ module PicorubyAot
         @params << { name: o.name.to_s, c: c, kind: :value, optional: true, default: o.value }
         @locals[o.name.to_s] = [c, :value]
       end
+      # Keyword parameters follow the positionals in the impl's argument
+      # list, in declaration order. mrb_get_args ":" reads them: a required
+      # keyword is always present (it raises otherwise) and takes its proved
+      # kind; an optional one is undef when not given and keeps its boxed
+      # slot, with the default evaluated as for an optional positional.
+      p.keywords.each do |k|
+        c = "p_#{k.name}"
+        if k.is_a?(Prism::RequiredKeywordParameterNode)
+          kind = @types.scalar(@file, k)
+          kind = :value if kind.nil? || param_tested?(k.name)
+          @params << { name: k.name.to_s, c: c, kind: kind, kw: true }
+        else
+          kind = :value
+          @params << { name: k.name.to_s, c: c, kind: :value, kw: true, optional: true, default: k.value }
+        end
+        @locals[k.name.to_s] = [c, kind]
+      end
     end
+
 
     # Every argument is read boxed ("o"); a proved parameter is then
     # unboxed by the checked helper, which takes the proved class and
@@ -333,11 +364,26 @@ module PicorubyAot
 
     def emit_params
       return if @params.empty?
-      req = @params.count { |p| !p[:optional] }
+      pos = @params.reject { |p| p[:kw] }
+      kws = @params.select { |p| p[:kw] }
+      req = pos.count { |p| !p[:optional] }
       fmt = "o" * req
-      fmt += "|" + "o" * (@params.size - req) if req < @params.size
-      refs = @params.map { |p| "&#{p[:kind] == :value ? p[:c] : boxed_param(p)}" }.join(", ")
-      emit "mrb_get_args(mrb, #{fmt.inspect}, #{refs});"
+      fmt += "|" + "o" * (pos.size - req) if req < pos.size
+      refs = pos.map { |p| ", &#{p[:kind] == :value ? p[:c] : boxed_param(p)}" }.join
+      unless kws.empty?
+        # Required keywords first in the table, as mrb_kwargs wants them.
+        kws = kws.sort_by { |p| p[:optional] ? 1 : 0 }
+        names = kws.map { |p| sym(p[:name]) }.join(", ")
+        emit "mrb_sym kw_names[#{kws.size}] = { #{names} };"
+        emit "mrb_value kw_vals[#{kws.size}];"
+        emit "mrb_kwargs kw = { #{kws.size}, #{kws.count { |p| !p[:optional] }}, kw_names, kw_vals, NULL };"
+        fmt += ":"
+        refs += ", &kw"
+      end
+      emit "mrb_get_args(mrb, #{fmt.inspect}#{refs});"
+      kws.each_with_index do |p, i|
+        emit "#{p[:kind] == :value ? p[:c] : boxed_param(p)} = kw_vals[#{i}];"
+      end
       @params.each do |p|
         next if p[:kind] == :value
         emit "#{p[:c]} = #{PARAM_UNBOX[p[:kind]]}(mrb, #{boxed_param(p)});"
@@ -951,23 +997,34 @@ module PicorubyAot
       unsupported("block argument", node) if node.block
       return safe_call(node) if node.safe_navigation? && recv.nil?
       args = node.arguments ? node.arguments.arguments : []
+      kw_node = nil
       args.each do |a|
         unsupported("splat argument", node) if a.is_a?(Prism::SplatNode)
-        unsupported("keyword arguments", node) if a.is_a?(Prism::KeywordHashNode)
         unsupported("block-pass argument", node) if a.is_a?(Prism::BlockArgumentNode)
+        kw_node = a if a.is_a?(Prism::KeywordHashNode)
       end
+      args -= [kw_node] if kw_node
       name = node.name.to_s
 
-      return raise_call(node, args) if node.receiver.nil? && name == "raise"
+      return raise_call(node, args) if node.receiver.nil? && name == "raise" && kw_node.nil?
 
       recv ||= node.receiver ? expr(node.receiver) : Val.new("self", :value)
       argv = args.map { |a| expr(a) }
+      # `k: v` pairs, evaluated after the positionals as Ruby does. Only
+      # symbol keys: a `**h` or a computed key takes the irep.
+      kw = []
+      if kw_node
+        kw_node.elements.each do |e|
+          unsupported("double splat argument", node) unless e.is_a?(Prism::AssocNode) && e.key.is_a?(Prism::SymbolNode)
+          kw << [e.key.unescaped, expr(e.value)]
+        end
+      end
 
-      if node.receiver && argv.size == 1
+      if node.receiver && argv.size == 1 && kw.empty?
         v = binop(name, recv, argv[0], node, hint: true)
         return v if v
       end
-      if node.receiver && argv.empty?
+      if node.receiver && argv.empty? && kw.empty?
         if recv.kind == :value && recv.proved && numeric_unop(name, Val.new("", recv.proved))
           return numeric_unop(name, materialize(recv))
         end
@@ -975,7 +1032,7 @@ module PicorubyAot
         return unbox_proved(node, v) if v
       end
 
-      if node.receiver
+      if node.receiver && kw.empty?
         raw = @types.raw_type(@file, node.receiver)
         helper = if raw == "string" then STR_METHODS[[name, argv.size]]
                  elsif raw.to_s.end_with?("_array") then ARY_METHODS[[name, argv.size]]
@@ -990,7 +1047,7 @@ module PicorubyAot
       end
 
       t = tmp(:value)
-      target = direct_target(node, argv)
+      target = direct_target(node, argv, kw)
       if target
         # Spinel bound this call to one def of this gem that compiles too:
         # when the receiver's method is still that cfunc, call its impl in
@@ -998,13 +1055,19 @@ module PicorubyAot
         @direct_refs << target[:label]
         args = argv.zip(target[:kinds]).map { |v, k| ", #{coerce(v, k)}" }.join
         args += ", mrb_undef_value()" * (target[:kinds].size - argv.size)
+        # The keywords by name into the impl's keyword slots, undef for an
+        # optional one not given (direct_target saw every required one).
+        target[:kw].each do |p|
+          given = kw.assoc(p[:name])
+          args += given ? ", #{coerce(given[1], p[:kind])}" : ", mrb_undef_value()"
+        end
         emit "if (aot_method_is(mrb, #{box(recv)}, #{sym(name)}, #{target[:cfunc]})) {"
         emit "  #{t} = #{target[:cfunc]}_impl(mrb, #{box(recv)}#{args});"
         emit "} else {"
-        emit_funcall(t, recv, name, argv)
+        emit_funcall(t, recv, name, argv, kw)
         emit "}"
       else
-        emit_funcall(t, recv, name, argv)
+        emit_funcall(t, recv, name, argv, kw)
       end
       # `recv.attr = v` and `recv[i] = v` evaluate to v.
       if node.receiver && name.end_with?("=") && !%w[== != <= >= ===].include?(name)
@@ -1013,13 +1076,32 @@ module PicorubyAot
       unbox_proved(node, Val.new(t, :value))
     end
 
-    def emit_funcall(t, recv, name, argv)
+    def emit_funcall(t, recv, name, argv, kw = [])
+      return emit_funcall_kw(t, recv, name, argv, kw) unless kw.empty?
       if argv.empty?
         emit "#{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, 0, NULL);"
       else
         a = "argv#{@tmp += 1}"
         emit "{ mrb_value #{a}[] = { #{argv.map { |x| box(x) }.join(', ')} };"
         emit "  #{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}); }"
+      end
+    end
+
+    # A call with keywords for the VM. mruby has no C API that passes
+    # keywords (mrb_funcall_argv hands a trailing Hash as a positional, and
+    # OP_ENTER takes it as one), so aot_funcall_kw goes through a Ruby
+    # method of this gem that does `recv.__send__(mid, *args, **kw)`.
+    def emit_funcall_kw(t, recv, name, argv, kw)
+      n = (@tmp += 1)
+      h = "kwh#{n}"
+      emit "{ mrb_value #{h} = mrb_hash_new_capa(mrb, #{kw.size});"
+      kw.each { |k, v| emit "  mrb_hash_set(mrb, #{h}, mrb_symbol_value(#{sym(k)}), #{box(v)});" }
+      if argv.empty?
+        emit "  #{t} = aot_funcall_kw(mrb, #{box(recv)}, #{sym(name)}, 0, NULL, #{h}); }"
+      else
+        a = "argv#{n}"
+        emit "  mrb_value #{a}[] = { #{argv.map { |x| box(x) }.join(', ')} };"
+        emit "  #{t} = aot_funcall_kw(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}, #{h}); }"
       end
     end
 
@@ -1032,7 +1114,7 @@ module PicorubyAot
     # Spinel's `obj_X` type for an explicit one), else the one def of that
     # name in the gem. A private target only from an implicit or `self`
     # receiver, as the VM allows. Arity must match.
-    def direct_target(node, argv)
+    def direct_target(node, argv, kw = [])
       name = node.name.to_s
       self_call = node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode)
       rec = @types.codegen_record(@file, node)
@@ -1040,7 +1122,9 @@ module PicorubyAot
         if rec && rec["dispatch"] == "direct" && rec["callee"]
           rec["callee"]
         elsif self_call
-          "#{@scope}##{name}"
+          # In a singleton method `self` is the class: the call lands on
+          # another singleton method ("Marshal.dump_object").
+          "#{@scope}#{@singleton ? '.' : '#'}#{name}"
         else
           raw = @types.raw_type(@file, node.receiver)
           raw.to_s.start_with?("obj_") ? "#{raw.sub('obj_', '').gsub('__', '::')}##{name}" : nil
@@ -1050,8 +1134,10 @@ module PicorubyAot
         # Spinel names a nested class by its leaf ("Digger#reset") or with
         # "__" for "::"; a method name defined once in the gem is also enough.
         # (A method a module gives the class, `JSON::Common#expect` called
-        # from `JSON::Parser`, is found this way too.)
-        cands = @targets.select { |l, _| l.end_with?("#" + name) && !l.include?(".") }
+        # from `JSON::Parser`, is found this way too.) A self call in a
+        # singleton method looks among the singleton methods instead.
+        sep = @singleton && self_call ? "." : "#"
+        cands = @targets.select { |l, _| l.end_with?(sep + name) && !l.include?(sep == "." ? "#" : ".") }
         if cands.size > 1 && label
           leaf = label.split("::").last.split("__").last
           narrowed = cands.select { |l, _| l.end_with?(leaf) }
@@ -1062,6 +1148,11 @@ module PicorubyAot
       end
       return nil unless t && argv.size.between?(t[:required], t[:kinds].size)
       return nil if t[:private] && !self_call
+      # Keywords: every one given must be a parameter of the target and
+      # every required one must be given; else the VM raises the error.
+      names = (t[:kw] || []).map { |p| p[:name] }
+      return nil unless kw.all? { |k, _| names.include?(k) }
+      return nil unless (t[:kw] || []).all? { |p| !p[:required] || kw.assoc(p[:name]) }
       t.merge(label: label)
     end
 
