@@ -1,29 +1,32 @@
 # picoruby-aot
 
-picoruby-aot compiles typed methods of a gem's `mrblib` into mruby cfuncs at
-build time. The VM, the irep and irb stay as they are. A compiled method is
-an ordinary C method of its class.
+picoruby-aot compiles typed methods of a gem's `mrblib` into mruby cfuncs
+at build time. The VM, the irep and irb stay as they are. A compiled
+method is an ordinary C method of its class.
 
-Spinel (the Ruby AOT compiler) runs on the host as a type oracle. It reads
-the gem's Ruby and the RBS files of its dependencies, and writes a JSON file
-with a type for every node. picoruby-aot reads that JSON and the Prism AST, and
-writes C against the mruby API. Spinel's own C and runtime are not used.
+Spinel (the Ruby AOT compiler) runs on the host as a type oracle. It
+reads the gem's Ruby and the RBS files of its dependencies and writes a
+type for every node. picoruby-aot reads those types and the Prism AST,
+and writes C against the mruby API. Spinel's own C and runtime are not
+used.
 
-`docs/aot-plan.md` is the working map: what compiles, what stays in the
-irep and why, and the work each gap needs.
+- `docs/architecture.md`: how it works today, which defs compile, how
+  the generated C behaves, how it is verified.
+- `docs/aot-plan.md`: the work to do, the candidate gems, and the
+  decisions against.
 
 ## Use
 
-A gem declares in its `mrbgem.rake` that it is to be compiled; the
-author knows the gem's hot path and keeps the tests the twin runs:
+A gem declares in its `mrbgem.rake` that it is to be compiled:
 
 ```ruby
 spec.aot = true                 # the typed methods
-spec.aot_include_widened = true # the widened ones as well (see below)
+spec.aot_include_widened = true # the widened ones as well
+spec.aot_exclude = %w[PSG::Driver#debug_dump]   # these stay in the irep
 ```
 
 A target turns the machinery on. Without `conf.aot` a declaration
-changes nothing, and a build config may opt a gem out:
+changes nothing:
 
 ```ruby
 conf.aot                                     # the Spinel submodule, built in place
@@ -31,231 +34,37 @@ conf.aot path: "/path/to/spinel"             # an explicit binary
 conf.gem(core: 'picoruby-json') { |g| g.aot = false }   # opt out
 ```
 
-The gems that declare it today: picoruby-json, picoruby-editor,
-picoruby-midibase-mml and picoruby-keyboard.
-
-Spinel is the submodule `lib/spinel` of this gem, pinned to the commit
-the twin tests passed with and taken as is (a change goes upstream
-first, then the submodule moves). Initialize it once:
+Spinel is the submodule `lib/spinel` of this gem. Initialize it once:
 
 ```
 git submodule update --init --depth 1 mrbgems/picoruby-aot/lib/spinel
 ```
 
-The first build runs `make deps` there, which fetches the vendored
-parsers (prism, rbs) from rubygems.org once, then `make`. A later build
-rebuilds Spinel only when the submodule's checkout moved, and then
-regenerates the gems. A build without `conf.aot` never touches the
-submodule. `SPINEL=/path/to/spinel` in the environment overrides the
-submodule, for a developer who builds Spinel from another checkout.
-`path:` overrides both.
-
-The generator keys on the node spans, kinds and signatures that
-`--emit-types` writes since Spinel's emit-types contract (#4522, #4557),
-and reads the `nullable` fields (matz/spinel#8637). An older Spinel
-builds and runs, but every def then stays in the irep, and the build
-says so.
-
-A gem can keep a method in the irep:
-
-```ruby
-spec.aot_exclude = %w[PSG::Driver#debug_dump]
-```
-
-A gem can also compile the methods Spinel widened to untyped. Their
-values stay boxed and go through the guarded helpers, so the gain is the
-VM's decode and dispatch and the direct calls between compiled methods:
-
-```ruby
-conf.gem(core: 'picoruby-json') { |g| g.aot = true; g.aot_include_widened = true }
-```
-
-Without `conf.aot` nothing changes. FemtoRuby (mruby/c) ignores `aot`.
-
-## What becomes a cfunc
-
-A `def` becomes a cfunc when all of these hold:
-
-- Spinel typed every parameter and the return value (not "widened"),
-  unless `aot_include_widened` is set.
-- The method takes positional parameters, required or optional, keyword
-  parameters, required or optional, and a `&blk` parameter; no `*rest`
-  or `**rest`.
-- The `def` is in a class or module body, is a `def self.x`, or is inside
-  `class << self` (then it is a singleton method, private when a
-  `private` precedes it there).
-- The body uses only the supported syntax: literals (Array and Hash
-  literals without a splat among them), locals, instance and global
-  variables, constants, `if`/`unless`/`while`/`until`/`case`, `return`,
-  `break`, `next`, `and`/`or`/`not`, multiple assignment to locals and
-  instance variables, Range literals, method calls (`&.`, keyword
-  arguments and a forwarded `&blk` included; a block literal at a call
-  site is not), `yield`, `block_given?`, and `raise` with a constant
-  class.
-- A block the method receives runs through `mrb_yield_argv` or
-  `Proc#call`, under the cfunc's C frame. `break`, `next`, `return` and
-  an exception in the block behave as they do under any C method. The
-  value the block returns stays boxed. A block that waits for the
-  scheduler (`sleep`) under a compiled method cannot be switched away
-  from, as any callee behind `mrb_funcall` cannot; the gem's author
-  judges whether the method's callers pass such a block.
-- The method does not wait for the scheduler (`sleep`, `sleep_ms`,
-  `Task.pass`, `join`, a Task receiver), directly or through another
-  method of the gem. A cfunc cannot yield to other tasks.
-- No class-body code of the gem reads or calls the method's name: an
-  `alias`, `alias_method`, `private :name` (or another visibility call
-  with a symbol), or a plain call at class-body level (a DSL). Such code
-  runs when the irep loads, before the cfuncs are registered, so such a
-  def stays in the irep (and so does a later def of that name).
-
-Every other `def` stays in the irep. The build writes the decision and the
-reason for each method to `build/<target>/mrbgems/<gem>/aot/manifest.json`.
-
-## How the generated C behaves
-
-- A value is unboxed (`aot_int`, `mrb_float`, `mrb_bool`) when the C
-  computes it itself (a literal, arithmetic on such values), or when
-  Spinel proved its kind and that no nil reaches it (`"nullable":false`
-  in `--emit-types`; an `Integer` and an `Integer?` share the tag `int`).
-- An unboxed Integer is 64 bits on every target (`aot_int`). On an
-  MRB_INT32 build the VM makes a Bignum of a microsecond count after 36
-  minutes and of a UNIX time, and the irep goes on with it; so does the
-  compiled method. A value crosses into the VM as an Integer when
-  `mrb_int` holds it and as a Bignum otherwise (mruby-bigint, which every
-  MRB_INT32 target links), and a Bignum that fits 64 bits is unboxed.
-  Only past 64 bits does a compiled method differ from its irep:
-  RangeError where the VM would grow the Bignum.
-- A proved argument is read boxed and unboxed by a checked helper that
-  takes the proved class and nothing else: a Float where an Integer was
-  proved raises TypeError (no truncation), as does an Integer where a
-  Float was proved, or anything but `true` and `false` where a bool was
-  proved. An RBS that misstates a class thus shows up as TypeError at
-  the method's entry, never as a reinterpreted value. The generator keeps an argument boxed
-  when the body tests its class (`is_a?`, `kind_of?`, `nil?`,
-  `respond_to?`, `case`): such a guard is written for a caller the
-  analysis never saw, and the irep answers it with the method's own error.
-- A proved instance variable read or call result is unboxed with a
-  checked helper. A value the analysis did not predict (a method
-  redefined at run time) raises TypeError instead of being
-  reinterpreted.
-- Every other argument, instance variable, constant and call result stays
-  boxed (`mrb_value`).
-- Operators on boxed values go through guarded helpers (`aot_add`, ...).
-  The helper computes Integer and Float cases inline (and the String
-  cases of `+`, `==`, `!=`, `<<`) and sends everything else to the VM,
-  so nil, Bignum and user-defined operators behave as in the irep.
-- A String method on a receiver Spinel typed a String goes through a
-  guarded helper too (`size`, `length`, `bytesize`, `empty?`, `getbyte`,
-  `[]`, `byteslice`): the String case reads the `RString` directly, any
-  other receiver is sent to the VM by name. A String is not unboxed, so
-  `nullable` plays no part here: the guard answers nil as the irep does.
-- A string with interpolation builds a new String and appends each part
-  with `mrb_str_concat`, which converts with `to_s` as the VM does.
-- An Array or Hash method on a receiver Spinel typed so goes through a
-  guarded helper as well. `[]` and `[]=` take the test the VM's index
-  opcodes take (`mrb->idx_class`); `size`, `length`, `empty?`, `push`,
-  `<<`, `pop`, `shift`, `first`, `last`, `clear`, `key?` and `delete`
-  resolve the method as the VM would and compare it with the builtin
-  recorded at gem init, so a redefinition on Array itself is honoured.
-- Each `def` becomes two C functions: the impl, which takes `self` and the
-  parameters as C arguments, and the mruby cfunc, which reads the
-  arguments with `mrb_get_args` and calls the impl. A call to another
-  compiled method of the gem tests, with the method lookup the VM would
-  do, that the name still resolves to that cfunc, and then calls its impl
-  in C with no VM frame. A redefinition, an override in a subclass or
-  another receiver class takes `mrb_funcall_argv` as before. A private
-  method is called directly only from an implicit or `self` receiver.
-- `case/when` is an if chain. An Integer literal or an Integer Range
-  pattern compares in place; a class asks `kind_of?`; the core scalars and
-  a String compare as `==`; any other pattern is sent `===`.
-- An optional parameter is handed to the impl as undef when the argument
-  is not given, and the impl evaluates the default in method scope.
-- Keyword parameters follow the positionals in the impl's argument list.
-  The cfunc reads them with `mrb_get_args` and `:` (`mrb_kwargs`): a
-  required keyword is always present and takes its proved kind, an
-  optional one is undef when not given, as an optional positional is.
-  A missing or unknown keyword raises the VM's ArgumentError.
-- A call with keywords to another compiled def of the gem maps the
-  keywords by name onto the impl's slots and calls it in C. Any other
-  call with keywords, and the fallback when the method was redefined,
-  goes through `PicoRubyAOT.send_kw` (this gem's mrblib), which does
-  `recv.__send__(mid, *args, **kw)` in the VM: mruby has no C API that
-  passes keywords (`mrb_funcall_argv` hands a trailing Hash as a
-  positional).
-- In a singleton method (`def self.x`, or a def inside `class << self`)
-  a call on `self` lands on another singleton method, and is direct when
-  that one is compiled too.
-- Other calls go through `mrb_funcall_argv`.
-- Constants resolve through the lexical scope of the `def` (its classes
-  are recorded once, at registration), then the receiver's ancestors,
-  then Object. A path `A::B::C` resolves `A` that way and reads `B` and
-  `C` off the value before them, as the VM does; the last need not be a
-  class (`IRQ::HANDLER` is a Hash).
-- The VM's registers are GC roots; the generated C's locals are not. A
-  value the C holds is safe while its owner references it or while it is
-  in the GC arena (every allocation, every `mrb_funcall` result). A value
-  whose owner may let go of it (an instance variable read, an element
-  `[]`, `first`, `shift` or `pop` hands out, a Hash `[]` or `delete`) is
-  pushed to the arena at the read, which protects it until the outermost
-  cfunc returns to the VM. An immediate needs nothing.
-- A direct call runs on the C stack, with no mruby frame: a backtrace
-  does not list it, and deep recursion through compiled methods is
-  bounded by the C stack, not by mruby's. Each impl therefore calls
-  `mrb_c_stack_check` on entry: on a build with `MRB_USE_C_STACK_CHECK`
-  (the R2P2 targets), a recursion that reaches the stack floor the host
-  set raises SystemStackError instead of overrunning the stack; without
-  the macro the call is nothing.
+The first build runs `make deps` and `make` there. The R2P2 configs
+build with AOT when `PICORB_AOT=1` is set. The build writes the decision
+and the reason for each def to
+`build/<target>/mrbgems/<gem>/aot/manifest.json`.
 
 ## Twin test
 
-The same picotest suite runs against the irep build and the AOT build:
+The same picotest suite runs on the irep build, the AOT build and the
+AOT build with the widened defs; the summaries must match:
 
 ```
-rake "test:gems:picoruby[picoruby-psg]"
-PICORB_AOT=1 rake "test:gems:picoruby[picoruby-psg]"
-PICORB_AOT=1 PICORB_AOT_WIDENED=1 rake "test:gems:picoruby[picoruby-psg]"
+rake "test:gems:aot_twin[picoruby-json]"
+rake test:gems:aot_twin      # every gem
+rake test:gems:aot_twin32    # the 32-bit host build, where a Bignum shows
 ```
 
-One task runs the three and compares their summaries (the per-class and
-total counts must match). Several gems share one build:
-
-```
-rake "test:gems:aot_twin[picoruby-json,picoruby-midibase-mml,picoruby-keyboard]"
-```
-
-Without a gem the task runs every gem `test:gems:picoruby` runs, each
-compiled with picoruby-aot. CI does that (`test-picoruby-aot` in
-`.github/workflows/c-cpp.yml`). The logs land under `build/aot-twin/`.
-
-The host is 64-bit, so the twin there never meets a Bignum. The same
-twin on the 32-bit host build (`picoruby32-test.rb`: MRB_INT32, word
-boxing, mruby-bigint) does:
-
-```
-rake test:gems:aot_twin32
-```
-
-`picoruby-aot-probe` is a gem of typed methods the tests feed values
-past the 31-bit fixnum and past `mrb_int`; it exists for this twin and
-is not for a device build. The logs land under `build/aot-twin32/`.
-
-## Tools
-
-- `tools/aot-analyze [--all | GEM...]`: run Spinel over gems and report how
-  many defs are fully typed.
-- `tools/aot-gen --gem GEM --out-c FILE --out-rb DIR [--manifest FILE]`:
-  the generator the build calls. It runs Spinel itself unless `--types` is
-  given.
-- `tools/picoruby_aot/`: gem graph, RBS-to-Ruby stubs for C-implemented
-  methods, the `RUBY_ENGINE` fold (Spinel reads each mrblib file with
-  its `RUBY_ENGINE == "..."` branches folded for mruby, since Spinel
-  answers "spinel" and would keep the mruby/c side), Spinel driver, type
-  map, code generator.
+CI runs both. See `docs/architecture.md` section 5.
 
 ## Layout
 
 ```
 include/picoruby_aot.h   helpers the generated C calls
 src/picoruby_aot.c       their implementation (linked into libmruby)
-tools/                host-side generator (Ruby, needs the prism and rbs gems)
+mrblib/picoruby_aot.rb   PicoRubyAOT.send_kw
+tools/                   host-side generator (Ruby, needs the prism and rbs gems)
+lib/spinel               the Spinel submodule
+docs/                    architecture.md, aot-plan.md
 ```
