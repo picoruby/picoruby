@@ -95,6 +95,95 @@ class AOTProbeTest < Picotest::Test
     assert_equal(12, AOTProbe.call_with_keywords(KwCallee.new, 4))
   end
 
+  def test_block_parameter_called_in_a_loop
+    seen = []
+    assert_equal(3, AOTProbe.each_index_of([5, 6, 7]) { |v, i| seen << v * 10 + i })
+    assert_equal([50, 61, 72], seen)
+  end
+
+  def test_block_writes_an_outer_local
+    sum = 0
+    AOTProbe.each_index_of([1, 2, 3]) { |v, _| sum += v }
+    assert_equal(6, sum)
+  end
+
+  def test_break_with_a_value_leaves_the_compiled_def
+    r = AOTProbe.each_index_of([1, 2, 3]) { |v, _| break v * 100 if v == 2 }
+    assert_equal(200, r)
+  end
+
+  def test_next_in_the_block
+    seen = []
+    AOTProbe.each_index_of([1, 2, 3]) { |v, _| next if v == 2; seen << v }
+    assert_equal([1, 3], seen)
+  end
+
+  def helper_with_a_return_in_the_block
+    AOTProbe.each_index_of([1, 2, 3]) { |v, _| return v if v == 2 }
+    :not_reached
+  end
+
+  def test_return_from_the_block_leaves_the_method
+    assert_equal(2, helper_with_a_return_in_the_block)
+  end
+
+  def test_an_exception_in_the_block_propagates
+    assert_raise(RuntimeError) { AOTProbe.each_index_of([1]) { |_, _| raise "boom" } }
+  end
+
+  def test_yield_twice
+    assert_equal(12, AOTProbe.twice(3) { |v| v * 2 })
+  end
+
+  def test_yield_result_past_mrb_int
+    assert_equal(1 << 41, AOTProbe.twice(1) { |_| 1 << 40 })
+  end
+
+  def test_yield_result_of_another_class
+    assert_equal("abab", AOTProbe.twice(1) { |_| "ab" })
+  end
+
+  def test_yield_without_a_block_raises
+    assert_raise(LocalJumpError) { AOTProbe.twice(1) }
+  end
+
+  def test_block_given
+    assert_equal(5, AOTProbe.maybe(5))
+    assert_equal(6, AOTProbe.maybe(5) { |v| v + 1 })
+    assert_equal(5, AOTProbe.without_block(5))
+  end
+
+  def test_block_forwarded_to_a_compiled_def
+    seen = []
+    assert_equal(2, AOTProbe.forward([8, 9]) { |v, i| seen << [v, i] })
+    assert_equal([[8, 0], [9, 1]], seen)
+  end
+
+  def test_symbol_forwarded_to_a_compiled_def
+    r = AOTProbe.call_or_value(7, &:to_s)
+    assert_equal("7", r)
+  end
+
+  def test_block_forwarded_to_a_core_method
+    assert_equal([2, 4], AOTProbe.forward_to_vm([1, 2]) { |v| v * 2 })
+    assert_equal(["1", "2"], AOTProbe.forward_to_vm([1, 2], &:to_s))
+  end
+
+  class KwBlockCallee
+    def call(v, by:)
+      yield v * by
+    end
+  end
+
+  def test_block_forwarded_with_keywords
+    assert_equal(13, AOTProbe.forward_with_keywords(KwBlockCallee.new, 4) { |v| v + 1 })
+  end
+
+  def test_block_parameter_absent
+    assert_equal(7, AOTProbe.call_or_value(7))
+    assert_equal(8, AOTProbe.call_or_value(7) { |v| v + 1 })
+  end
+
   def test_clock_keeps_a_bignum_timestamp
     clock = AOTProbe::Clock.new
     clock.observe((1 << 31) - 100)

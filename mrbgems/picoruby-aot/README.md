@@ -78,9 +78,9 @@ A `def` becomes a cfunc when all of these hold:
 
 - Spinel typed every parameter and the return value (not "widened"),
   unless `aot_include_widened` is set.
-- The method takes positional parameters, required or optional, and
-  keyword parameters, required or optional; no `*rest`, `**rest` or
-  `&block`.
+- The method takes positional parameters, required or optional, keyword
+  parameters, required or optional, and a `&blk` parameter; no `*rest`
+  or `**rest`.
 - The `def` is in a class or module body, is a `def self.x`, or is inside
   `class << self` (then it is a singleton method, private when a
   `private` precedes it there).
@@ -88,8 +88,17 @@ A `def` becomes a cfunc when all of these hold:
   literals without a splat among them), locals, instance and global
   variables, constants, `if`/`unless`/`while`/`until`/`case`, `return`,
   `break`, `next`, `and`/`or`/`not`, multiple assignment to locals and
-  instance variables, Range literals, method calls without blocks (`&.`
-  and keyword arguments included), and `raise` with a constant class.
+  instance variables, Range literals, method calls (`&.`, keyword
+  arguments and a forwarded `&blk` included; a block literal at a call
+  site is not), `yield`, `block_given?`, and `raise` with a constant
+  class.
+- A block the method receives runs through `mrb_yield_argv` or
+  `Proc#call`, under the cfunc's C frame. `break`, `next`, `return` and
+  an exception in the block behave as they do under any C method. The
+  value the block returns stays boxed. A block that waits for the
+  scheduler (`sleep`) under a compiled method cannot be switched away
+  from, as any callee behind `mrb_funcall` cannot; the gem's author
+  judges whether the method's callers pass such a block.
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
   `Task.pass`, `join`, a Task receiver), directly or through another
   method of the gem. A cfunc cannot yield to other tasks.

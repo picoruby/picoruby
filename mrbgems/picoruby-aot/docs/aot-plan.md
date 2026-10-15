@@ -5,7 +5,7 @@ generator compiles today, what it leaves in the irep and why, and what
 work each gap needs. Update it with every change to the generator or the
 runtime: the tables, the counts and the gem status.
 
-Last update: 2026-10-14, branch `picoruby-aot` (Spinel 4983b60d). The
+Last update: 2026-10-15, branch `picoruby-aot` (Spinel 32e312d3). The
 git log of this file dates each change.
 
 ## 1. What works
@@ -42,6 +42,13 @@ git log of this file dates each change.
   Object; a path `A::B::C` name by name.
 - Every impl calls `mrb_c_stack_check` on entry (MRB_USE_C_STACK_CHECK
   on the R2P2 targets): deep recursion raises SystemStackError.
+- A block the method receives (`&blk`, `yield`, `block_given?`) is the
+  impl's last argument, a Proc or nil. `yield` with no block raises
+  LocalJumpError as the VM does. The value a block returns stays boxed:
+  Spinel typed it from the blocks at the call sites it saw, and another
+  caller's block may return anything. `break`, `next`, `return` and an
+  exception in the block unwind through the compiled method as through
+  any cfunc (the probe tests each).
 - Values the C holds are GC roots through the arena (see the README).
 
 ### 1.3 Verification
@@ -94,10 +101,11 @@ git log of this file dates each change.
 Literals (Array and Hash without a splat), locals, instance and global
 variables, constants and constant paths, `if`/`unless`/`while`/`until`/
 `case`, `return`, `break`, `next`, `and`/`or`/`not`, multiple assignment
-to locals and instance variables, Range literals, method calls without
-blocks (`&.` and keyword arguments included), `raise` with a constant
-class. Parameters: positional and keyword, required or optional (no
-`*rest`, `**rest`, `&block`). Defs in a class or module
+to locals and instance variables, Range literals, method calls (`&.`,
+keyword arguments and a forwarded `&blk` included; a block literal at a
+call site is not), `yield`, `block_given?`, `raise` with a constant
+class. Parameters: positional and keyword, required or optional, and
+`&blk` (no `*rest`, `**rest`). Defs in a class or module
 body, `def self.x`, and defs inside `class << self` (singleton methods;
 `private` there makes them private methods of the singleton class).
 A def whose name class-body code of the gem reads or calls stays in the
@@ -123,7 +131,7 @@ bodies were walked, except the last row):
 | Waits for the scheduler (`sleep_ms`, `submit`, `join`, ... reached through the call graph) | about 150 | Structural |
 | `initialize` with `super`, a block, a rest parameter or a wait | 14 | The other 56 compile since 2026-10-14 (3.8) |
 | Keyword parameters (30) and keyword arguments (14) | 44 | Done 2026-10-14 (3.2); `**rest` stays out (2 defs) |
-| Blocks: a block argument (24), a block parameter (16), `yield` (3) | 43 | Generator gap, design first |
+| Blocks: a block literal at a call site (24); a block parameter (16) and `yield` (3) compiled since 2026-10-15 | 24 | Generator gap, design (3.5). The 2026-10-15 sweep over every gem (2651 defs, the wasm and shell gems included) has 57 block literals left and no other block reason |
 | Rest and splat parameters and arguments | 26 | Generator gap, and a Spinel issue |
 | `begin`/`rescue`/`ensure` | 19 | Generator gap |
 | Other (`super`, `a[i] op= x`, `a[i] ||= x`, `break` with a value, bare `raise`, a literal past 64 bits) | about 10 | Scattered |
@@ -236,24 +244,64 @@ inside the closure cannot `return` from the method directly. Decide
 first whether to compile only the forms without `return`/`break`
 inside the protected body. 19 defs, mostly net and midibase.
 
-### 3.5 Blocks (design)
+### 3.5 Blocks (the receiving side done 2026-10-15; a block literal: design)
 
-Three ways, to be chosen per call shape:
+A def is on the receiving side when its caller gives it the block: a
+`&blk` parameter, `yield`, `block_given?`. The block is a Proc the VM
+made; the generated C never builds one. Done:
 
-1. A block whose body has no `return`, `break`, `next` with a value and
-   no outer-local write becomes a C function; the call site hands it to
-   the VM with `mrb_funcall_with_block` as a C-function Proc
-   (`mrb_proc_new_cfunc_with_env`). Locals of the method the block reads
-   travel in the env. Covers `each`, `times`, `map` over core classes.
-2. A block over a core Array or Range with `each`/`times` becomes a C
-   loop with the guarded element access (`aot_ary_aref`), when the
-   receiver's method is still the builtin. The fastest, and the most
-   generator code.
-3. Leave the def in the irep and have the owner rewrite the hot loop
-   with `while` (the PicoRuby style guide prefers `while` anyway).
+- `&blk` is the impl's last C argument, read with `mrb_get_args "&"`;
+  a def with `yield` or `block_given?` and no `&blk` has it as a hidden
+  argument. A direct caller passes the block it forwards, or nil.
+- `yield` goes through `aot_yield`: LocalJumpError "unexpected yield"
+  when there is no block (what OP_BLKPUSH raises), else
+  `mrb_yield_argv`. `blk.call(x)` is an ordinary call.
+- `&x` at a call site is forwarded: to a compiled def's impl directly
+  (`aot_block_arg` converts a Symbol with `to_proc`, as the send does),
+  to the VM with `mrb_funcall_with_block`, with keywords through
+  `send_kw`.
+- The result of `yield` and of a call on a proc-typed receiver stays
+  boxed (section 1.2).
+- The probe gem tests each shape: a block called in a loop, an outer
+  local the block writes, `break` with a value, `next`, `return` from
+  the block, an exception, `yield` twice, a Bignum and a String from
+  the block, `yield` without a block, `block_given?`, `&blk` to a
+  compiled def, `&:to_s` to a compiled def and to `map`, `&blk` with
+  keywords.
 
-`yield` in a compiled def takes `mrb_yield_argv` on the block the cfunc
-received (`mrb_get_args "&"`). 43 defs.
+What the block does is unknown to the generator. A block that waits
+for the scheduler under a compiled def cannot be switched away from, as
+a callee behind `mrb_funcall` cannot (section 2); the gem's author
+judges, as for any call into the VM.
+
+A block literal at a call site (24 defs, `File.open(path) { |f| ... }`
+in most of them) is the passing side, and the generated C would have to
+make the Proc. How Spinel does it: a block is never a closure by
+default. A builtin iterator becomes a C `for` loop with the block body
+inside and the block parameters as method locals; a Ruby method that
+yields is inlined into its caller; `next` is `continue`, `break v` a
+`goto` out of the loop, `return` the method's C return. Only a block
+that is stored or passed on becomes a C function with a capture struct,
+and a captured local the block writes becomes a GC cell both sides read
+through. Spinel owns the whole program; picoruby-aot shares the VM, and
+mruby has no `break` or method `return` from a cfunc Proc (nothing in
+the C API raises the VM's break). Options, in the order to try:
+
+1. A cfunc Proc with an env (`mrb_proc_new_cfunc_with_env`): `self` and
+   the outer locals the block reads travel in the env, the call site
+   hands it over with `mrb_funcall_with_block`. A block with `break`, a
+   `return`, a write to an outer local or a nested block keeps the def
+   in the irep. The `open { |f| }` shape is exactly this; the aim is
+   that the def compiles, not that the block is fast. An outer local the
+   block writes can follow later as a one-element Array in the env.
+2. A block over a core receiver with `each`, `times`, `each_byte`,
+   `downto`, where Spinel's record says `inlined: true`, becomes a C
+   loop with the guarded element access when `aot_method_is` says the
+   iterator is still the builtin; the Proc of option 1 is the fallback
+   when it is not. `next`, `break` and `return` map as Spinel maps them.
+   The owner's gems have almost no hot block loop (the `while` rule),
+   so this waits for a device profile that shows one.
+3. Leave the def in the irep and rewrite the hot loop with `while`.
 
 ### 3.6 Scattered
 
@@ -318,10 +366,10 @@ Counts from `tools/aot-gen` at the commit above, with
 | Gem | Defs the generator sees | Compiled (typed / widened) | Blocked by | Expected gain |
 |---|---|---|---|---|
 | picoruby-marshal | 19 | 6 / 18 | `encode_fixnum` has a binary string literal. `dump`, `dump_object` and the `load_*` family are widened: a polymorphic parameter (section 2). Declares `spec.aot` and `spec.aot_include_widened` (device: 2.14x with the 18) | High: dump/load walk bytes in Ruby, and the 31 calls between its singleton methods are direct |
-| picoruby-regexp | 11 | 1 / 2 | rest parameters on the String wrappers (3.3), blocks in `__sub_common`, `__sub_each`, `scan` (3.5) | Low: the engine is C; the wrappers are thin |
+| picoruby-regexp | 11 | 2 / 4 | rest parameters on the String wrappers (3.3), a block literal in `__sub_common` (3.5; `__sub_each` and `scan` compile since 2026-10-15) | Low: the engine is C; the wrappers are thin |
 | picoruby-uri | 7 | 5 / 7 | nothing (`initialize` compiles since 3.8). Declares `spec.aot` (device: 1.2x) | Moderate: `parse`, `request_uri`, `encode_www_form` are string loops |
-| picoruby-vfs | 71 | 20 / 37 | rest parameters on `gets`, `write`, `puts`, `printf`, `chmod`, `unlink`, `utime` (3.3); blocks and `yield` in `each`, `each_line`, `Dir.chdir`, `File.open`, `load_file` (3.5); `VFS.sanitize` named at load through `VFS.pwd`; `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return). Not declared: the device ran 0.88x (section 1.3) | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
-| picoruby-vim | 6 | 3 / 4 | blocks in `_start` and `initialize` (3.5). Not declared: the key loop is `_start`, and the four that compile run once per command | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
+| picoruby-vfs | 71 | 22 / 40 | rest parameters on `gets`, `printf`, `chmod`, `utime` (3.3); block literals in `Dir.glob` and `load_file` (3.5; `each`, `each_line` and `Dir.chdir` compile since 2026-10-15); `File.open`, `Dir.open`, `VFS.sanitize` and 20 more named at load (`alias`, `private :x`, `VFS.pwd`); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return). Not declared: the device ran 0.88x (section 1.3) | Moderate: the file I/O is C, the path and mode logic is Ruby. picotest since 2026-10-14 (66 assertions on a RAM littlefs) |
+| picoruby-vim | 6 | 3 / 4 | block literals in `_start` and `initialize` (3.5). Not declared: the key loop is `_start`, and the four that compile run once per command | Low here, high through editor: Vim runs on `Editor::Screen`, which is compiled already. picotest since 2026-10-14 (17 assertions: the command line and the file round trip; the key loop needs a terminal) |
 | picoruby-vram | 5 | 5 / 5 | nothing (keywords done; the Spinel widening of section 2 closed with the submodule at 32e312d3). Not declared: the device ran 1.03x, since `Delegatable` only forwards into C | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 13 | 5 / 11 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); a block in `load_file`; a bare `raise` in `is_integer?`. Not declared: the device ran 1.19x on load and 1.14x on dump (section 1.3) | Low: the parser is line-based on C String methods. picotest since 2026-10-14 (31 assertions) |
 

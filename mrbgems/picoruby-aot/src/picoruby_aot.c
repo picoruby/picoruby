@@ -714,18 +714,39 @@ aot_const_get(mrb_state *mrb, mrb_value self, const struct aot_path *scope, mrb_
 /* mruby has no C API that passes keywords: mrb_funcall_argv hands a
    trailing Hash as a positional, and OP_ENTER takes it as one when the
    frame's keyword flag is off. PicoRubyAOT.send_kw, a Ruby method of this
-   gem, does `recv.__send__(mid, *args, **kw)` for us. */
+   gem, does `recv.__send__(mid, *args, **kw, &blk)` for us. */
 mrb_value
-aot_funcall_kw(mrb_state *mrb, mrb_value recv, mrb_sym mid, mrb_int argc, const mrb_value *argv, mrb_value kw)
+aot_funcall_kw(mrb_state *mrb, mrb_value recv, mrb_sym mid, mrb_int argc, const mrb_value *argv, mrb_value kw, mrb_value blk)
 {
   static struct RClass *mod = NULL;
-  mrb_value args[4];
+  mrb_value args[5];
   if (mod == NULL) mod = mrb_module_get_id(mrb, mrb_intern_lit(mrb, "PicoRubyAOT"));
   args[0] = recv;
   args[1] = mrb_symbol_value(mid);
   args[2] = mrb_ary_new_from_values(mrb, argc, argv);
   args[3] = kw;
-  return mrb_funcall_argv(mrb, mrb_obj_value(mod), mrb_intern_lit(mrb, "send_kw"), 4, args);
+  args[4] = blk;
+  return mrb_funcall_argv(mrb, mrb_obj_value(mod), mrb_intern_lit(mrb, "send_kw"), 5, args);
+}
+
+/* ---- blocks --------------------------------------------------------- */
+
+/* The block a cfunc received is a Proc or nil (mrb_get_args "&"); the
+   generated C hands it on as it is, so the two helpers see only those. */
+mrb_value
+aot_yield(mrb_state *mrb, mrb_value blk, mrb_int argc, const mrb_value *argv)
+{
+  if (mrb_nil_p(blk)) {
+    mrb_raise(mrb, E_LOCALJUMP_ERROR, "unexpected yield");
+  }
+  return mrb_yield_argv(mrb, blk, argc, argv);
+}
+
+mrb_value
+aot_block_arg(mrb_state *mrb, mrb_value v)
+{
+  if (mrb_nil_p(v) || mrb_proc_p(v)) return v;
+  return mrb_type_convert(mrb, v, MRB_TT_PROC, mrb_intern_lit(mrb, "to_proc"));
 }
 
 void

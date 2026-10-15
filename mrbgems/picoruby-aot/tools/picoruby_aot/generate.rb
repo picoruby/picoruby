@@ -131,7 +131,7 @@ module PicorubyAot
         rescue Unsupported, StandardError
           next # the def will not compile; no one calls it directly
         end
-        targets[spinel_label(e)] = { cfunc: e.cfunc, kinds: kinds, required: required, kw: probe.kw_params, private: e.private }
+        targets[spinel_label(e)] = { cfunc: e.cfunc, kinds: kinds, required: required, kw: probe.kw_params, block: probe.block?, private: e.private }
       end
       # A direct call needs its target compiled. Compile everything against
       # the optimistic target set; when a target drops out, compile again

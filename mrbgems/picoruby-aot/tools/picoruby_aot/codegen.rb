@@ -87,6 +87,11 @@ module PicorubyAot
       "&" => "aot_band", "|" => "aot_bor", "^" => "aot_bxor", "<<" => "aot_lshift", ">>" => "aot_rshift",
     }.freeze
 
+    # The block a cfunc received, as the impl's last C argument. A def with
+    # `&blk` names it; a def that uses `yield` or `block_given?` has it as a
+    # hidden parameter. nil when the caller gave no block.
+    BLOCK_C = "p_blk"
+
     def initialize(typemap, file, def_node, scope:, cfunc_name:, singleton: false, syms: {}, paths: {}, targets: {})
       @types = typemap
       @file = file
@@ -114,12 +119,19 @@ module PicorubyAot
     # parameters are kw_params).
     def param_kinds
       check_params unless @params
-      @params.reject { |p| p[:kw] }.map { |p| p[:kind] }
+      @params.reject { |p| p[:kw] || p[:block] }.map { |p| p[:kind] }
     end
 
     def required_count
       check_params unless @params
-      @params.count { |p| !p[:optional] && !p[:kw] }
+      @params.count { |p| !p[:optional] && !p[:kw] && !p[:block] }
+    end
+
+    # Does the impl take the block as its last argument? A direct caller
+    # then passes the block it forwards, or nil.
+    def block?
+      check_params unless @params
+      @params.any? { |p| p[:block] }
     end
 
     # The keyword parameters as a direct caller needs them: name, kind and
@@ -216,12 +228,14 @@ module PicorubyAot
     end
 
     def arity_spec
-      pos = @params.reject { |p| p[:kw] }
+      pos = @params.reject { |p| p[:kw] || p[:block] }
       req = pos.count { |p| !p[:optional] }
       opt = pos.size - req
       spec = opt.zero? ? "MRB_ARGS_REQ(#{req})" : "MRB_ARGS_ARG(#{req}, #{opt})"
       nkw = @params.count { |p| p[:kw] }
-      nkw.zero? ? spec : "#{spec} | MRB_ARGS_KEY(#{nkw}, 0)"
+      spec += " | MRB_ARGS_KEY(#{nkw}, 0)" unless nkw.zero?
+      spec += " | MRB_ARGS_BLOCK()" if block?
+      spec
     end
 
     private
@@ -309,11 +323,10 @@ module PicorubyAot
     def check_params
       p = @def.parameters
       @params = []
-      return unless p
+      return add_block_param(nil) unless p
       unsupported("rest parameter") if p.rest
       unsupported("post parameters") unless p.posts.empty?
       unsupported("keyword rest parameter") if p.keyword_rest
-      unsupported("block parameter") if p.block
       p.requireds.each do |r|
         unsupported("destructuring parameter") unless r.is_a?(Prism::RequiredParameterNode)
         c = "p_#{r.name}"
@@ -347,6 +360,29 @@ module PicorubyAot
         end
         @locals[k.name.to_s] = [c, kind]
       end
+      add_block_param(p.block)
+    end
+
+    # The block the cfunc receives, last in the impl's argument list: the
+    # `&blk` parameter (a Proc or nil, a local of the body), or a hidden
+    # one when the body has `yield` or `block_given?` and no `&blk`. The
+    # block is read with mrb_get_args "&" and is never unboxed; whatever
+    # the caller's block returns stays a boxed value (see yield_call).
+    def add_block_param(block_node)
+      if block_node
+        unsupported("anonymous block parameter") if block_node.name.nil?
+        @params << { name: block_node.name.to_s, c: BLOCK_C, kind: :value, block: true }
+        @locals[block_node.name.to_s] = [BLOCK_C, :value]
+      elsif uses_block?(@def.body)
+        @params << { name: nil, c: BLOCK_C, kind: :value, block: true }
+      end
+    end
+
+    def uses_block?(node)
+      return false if node.nil?
+      return true if node.is_a?(Prism::YieldNode)
+      return true if node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :block_given? && node.arguments.nil?
+      node.compact_child_nodes.any? { |c| uses_block?(c) }
     end
 
 
@@ -364,12 +400,16 @@ module PicorubyAot
 
     def emit_params
       return if @params.empty?
-      pos = @params.reject { |p| p[:kw] }
+      pos = @params.reject { |p| p[:kw] || p[:block] }
       kws = @params.select { |p| p[:kw] }
       req = pos.count { |p| !p[:optional] }
       fmt = "o" * req
       fmt += "|" + "o" * (pos.size - req) if req < pos.size
       refs = pos.map { |p| ", &#{p[:kind] == :value ? p[:c] : boxed_param(p)}" }.join
+      if block?
+        fmt += "&"
+        refs += ", &#{BLOCK_C}"
+      end
       unless kws.empty?
         # Required keywords first in the table, as mrb_kwargs wants them.
         kws = kws.sort_by { |p| p[:optional] ? 1 : 0 }
@@ -777,6 +817,7 @@ module PicorubyAot
       when Prism::AndNode then logical(node, "&&")
       when Prism::OrNode then logical(node, "||")
       when Prism::CallNode then call(node)
+      when Prism::YieldNode then yield_call(node)
       else
         unsupported("#{node.class.name.split('::').last}", node)
       end
@@ -994,19 +1035,21 @@ module PicorubyAot
     end
 
     def call(node, recv = nil)
-      unsupported("block argument", node) if node.block
+      unsupported("block", node) if node.block && !node.block.is_a?(Prism::BlockArgumentNode)
       return safe_call(node) if node.safe_navigation? && recv.nil?
       args = node.arguments ? node.arguments.arguments : []
       kw_node = nil
       args.each do |a|
         unsupported("splat argument", node) if a.is_a?(Prism::SplatNode)
-        unsupported("block-pass argument", node) if a.is_a?(Prism::BlockArgumentNode)
         kw_node = a if a.is_a?(Prism::KeywordHashNode)
       end
       args -= [kw_node] if kw_node
       name = node.name.to_s
 
-      return raise_call(node, args) if node.receiver.nil? && name == "raise" && kw_node.nil?
+      return raise_call(node, args) if node.receiver.nil? && name == "raise" && kw_node.nil? && node.block.nil?
+      if node.receiver.nil? && name == "block_given?" && args.empty? && kw_node.nil? && node.block.nil?
+        return Val.new("(!mrb_nil_p(#{BLOCK_C}))", :bool)
+      end
 
       recv ||= node.receiver ? expr(node.receiver) : Val.new("self", :value)
       argv = args.map { |a| expr(a) }
@@ -1019,6 +1062,9 @@ module PicorubyAot
           kw << [e.key.unescaped, expr(e.value)]
         end
       end
+      # `&blk` last, as Ruby evaluates it.
+      blk = block_pass(node)
+      return call_with_block(node, recv, name, argv, kw, blk) if blk
 
       if node.receiver && argv.size == 1 && kw.empty?
         v = binop(name, recv, argv[0], node, hint: true)
@@ -1047,11 +1093,47 @@ module PicorubyAot
       end
 
       t = tmp(:value)
+      dispatch(node, t, recv, name, argv, kw, nil)
+      # `recv.attr = v` and `recv[i] = v` evaluate to v.
+      if node.receiver && name.end_with?("=") && !%w[== != <= >= ===].include?(name)
+        return argv.last
+      end
+      # The result of a call on a Proc (`blk.call(x)`) is the caller's
+      # block's to decide: it stays boxed whatever Spinel saw at the call
+      # sites it analyzed.
+      return Val.new(t, :value) if node.receiver && @types.raw_type(@file, node.receiver) == "proc"
+      unbox_proved(node, Val.new(t, :value))
+    end
+
+    # `&expr` at a call site: the block the call forwards, as a C temp that
+    # holds a Proc or nil (aot_block_arg converts a Symbol or any other
+    # object with to_proc, as the VM does at the send). nil when the call
+    # has no `&`.
+    def block_pass(node)
+      return nil unless node.block
+      unsupported("anonymous block forwarding", node) if node.block.expression.nil?
+      v = expr(node.block.expression)
+      t = tmp(:value)
+      emit "#{t} = aot_block_arg(mrb, #{box(v)});"
+      Val.new(t, :value)
+    end
+
+    # `recv.m(args, &blk)`: the operator and core shortcuts take no block,
+    # so the call goes to a compiled def's impl (the block as its last
+    # argument) or to the VM with mrb_funcall_with_block.
+    def call_with_block(node, recv, name, argv, kw, blk)
+      t = tmp(:value)
+      dispatch(node, t, recv, name, argv, kw, blk)
+      Val.new(t, :value)
+    end
+
+    # The call itself, into `t`: a direct call to the impl when Spinel
+    # bound this call to one def of this gem that compiles too and the
+    # receiver's method is still that cfunc; a redefinition, an override
+    # or another class takes the VM.
+    def dispatch(node, t, recv, name, argv, kw, blk)
       target = direct_target(node, argv, kw)
       if target
-        # Spinel bound this call to one def of this gem that compiles too:
-        # when the receiver's method is still that cfunc, call its impl in
-        # C; a redefinition, an override or another class takes the VM.
         @direct_refs << target[:label]
         args = argv.zip(target[:kinds]).map { |v, k| ", #{coerce(v, k)}" }.join
         args += ", mrb_undef_value()" * (target[:kinds].size - argv.size)
@@ -1061,48 +1143,75 @@ module PicorubyAot
           given = kw.assoc(p[:name])
           args += given ? ", #{coerce(given[1], p[:kind])}" : ", mrb_undef_value()"
         end
+        # The block last. A target that takes none ignores the one given,
+        # as the irep would.
+        args += ", #{blk ? blk.code : 'mrb_nil_value()'}" if target[:block]
         emit "if (aot_method_is(mrb, #{box(recv)}, #{sym(name)}, #{target[:cfunc]})) {"
         emit "  #{t} = #{target[:cfunc]}_impl(mrb, #{box(recv)}#{args});"
         emit "} else {"
-        emit_funcall(t, recv, name, argv, kw)
+        emit_funcall(t, recv, name, argv, kw, blk)
         emit "}"
       else
-        emit_funcall(t, recv, name, argv, kw)
+        emit_funcall(t, recv, name, argv, kw, blk)
       end
-      # `recv.attr = v` and `recv[i] = v` evaluate to v.
-      if node.receiver && name.end_with?("=") && !%w[== != <= >= ===].include?(name)
-        return argv.last
-      end
-      unbox_proved(node, Val.new(t, :value))
     end
 
-    def emit_funcall(t, recv, name, argv, kw = [])
-      return emit_funcall_kw(t, recv, name, argv, kw) unless kw.empty?
+    def emit_funcall(t, recv, name, argv, kw = [], blk = nil)
+      return emit_funcall_kw(t, recv, name, argv, kw, blk) unless kw.empty?
+      b = blk ? blk.code : nil
       if argv.empty?
-        emit "#{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, 0, NULL);"
+        emit "#{t} = #{b ? "mrb_funcall_with_block(mrb, #{box(recv)}, #{sym(name)}, 0, NULL, #{b})" : "mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, 0, NULL)"};"
       else
         a = "argv#{@tmp += 1}"
         emit "{ mrb_value #{a}[] = { #{argv.map { |x| box(x) }.join(', ')} };"
-        emit "  #{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}); }"
+        if b
+          emit "  #{t} = mrb_funcall_with_block(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}, #{b}); }"
+        else
+          emit "  #{t} = mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}); }"
+        end
       end
     end
 
     # A call with keywords for the VM. mruby has no C API that passes
     # keywords (mrb_funcall_argv hands a trailing Hash as a positional, and
     # OP_ENTER takes it as one), so aot_funcall_kw goes through a Ruby
-    # method of this gem that does `recv.__send__(mid, *args, **kw)`.
-    def emit_funcall_kw(t, recv, name, argv, kw)
+    # method of this gem that does `recv.__send__(mid, *args, **kw, &blk)`.
+    def emit_funcall_kw(t, recv, name, argv, kw, blk = nil)
       n = (@tmp += 1)
       h = "kwh#{n}"
+      b = blk ? blk.code : "mrb_nil_value()"
       emit "{ mrb_value #{h} = mrb_hash_new_capa(mrb, #{kw.size});"
       kw.each { |k, v| emit "  mrb_hash_set(mrb, #{h}, mrb_symbol_value(#{sym(k)}), #{box(v)});" }
       if argv.empty?
-        emit "  #{t} = aot_funcall_kw(mrb, #{box(recv)}, #{sym(name)}, 0, NULL, #{h}); }"
+        emit "  #{t} = aot_funcall_kw(mrb, #{box(recv)}, #{sym(name)}, 0, NULL, #{h}, #{b}); }"
       else
         a = "argv#{n}"
         emit "  mrb_value #{a}[] = { #{argv.map { |x| box(x) }.join(', ')} };"
-        emit "  #{t} = aot_funcall_kw(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}, #{h}); }"
+        emit "  #{t} = aot_funcall_kw(mrb, #{box(recv)}, #{sym(name)}, #{argv.size}, #{a}, #{h}, #{b}); }"
       end
+    end
+
+    # `yield args`: the block the cfunc received, through aot_yield, which
+    # raises LocalJumpError as the VM does when there is none. The result
+    # stays boxed: the block is the caller's, and what it returns at the
+    # call sites Spinel analyzed says nothing about another caller.
+    def yield_call(node)
+      args = node.arguments ? node.arguments.arguments : []
+      args.each do |a|
+        unsupported("splat in a yield", node) if a.is_a?(Prism::SplatNode)
+        unsupported("keywords in a yield", node) if a.is_a?(Prism::KeywordHashNode)
+        unsupported("block-pass in a yield", node) if a.is_a?(Prism::BlockArgumentNode)
+      end
+      argv = args.map { |a| expr(a) }
+      t = tmp(:value)
+      if argv.empty?
+        emit "#{t} = aot_yield(mrb, #{BLOCK_C}, 0, NULL);"
+      else
+        a = "argv#{@tmp += 1}"
+        emit "{ mrb_value #{a}[] = { #{argv.map { |x| box(x) }.join(', ')} };"
+        emit "  #{t} = aot_yield(mrb, #{BLOCK_C}, #{argv.size}, #{a}); }"
+      end
+      Val.new(t, :value)
     end
 
     # The compiled def of this gem this call most likely lands on. The

@@ -230,10 +230,21 @@ mrb_value aot_const_get(mrb_state *mrb, mrb_value self, const struct aot_path *s
    message; TypeError when it is not a class. */
 void aot_raise_obj(mrb_state *mrb, mrb_value klass, const char *msg);
 
-/* `recv.mid(*argv, **kw)`: a call with keywords, through the VM
+/* `recv.mid(*argv, **kw, &blk)`: a call with keywords, through the VM
    (PicoRubyAOT.send_kw in this gem's mrblib; mruby has no C API that
-   passes keywords). */
-mrb_value aot_funcall_kw(mrb_state *mrb, mrb_value recv, mrb_sym mid, mrb_int argc, const mrb_value *argv, mrb_value kw);
+   passes keywords). `blk` is a Proc or nil. */
+mrb_value aot_funcall_kw(mrb_state *mrb, mrb_value recv, mrb_sym mid, mrb_int argc, const mrb_value *argv, mrb_value kw, mrb_value blk);
+
+/* `yield argv` on the block the cfunc received (nil when the caller gave
+   none): LocalJumpError as the VM's OP_BLKPUSH raises, else
+   mrb_yield_argv. A `break` or a `return` in the block unwinds through
+   the compiled method as through any cfunc. */
+mrb_value aot_yield(mrb_state *mrb, mrb_value blk, mrb_int argc, const mrb_value *argv);
+
+/* `&v` at a call site: nil and a Proc as they are, anything else through
+   to_proc (a Symbol), as the VM converts a block argument at the send.
+   The impl of a compiled callee takes the result as its last argument. */
+mrb_value aot_block_arg(mrb_state *mrb, mrb_value v);
 
 /* Boxing shorthands kept as macros so the generated C reads evenly. */
 #define AOT_BOX_INT(mrb, i)   aot_box_int((mrb), (i))
