@@ -58,6 +58,11 @@ MRuby::CrossBuild.new("r2p2-picoruby-pico2_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
 
   conf.picoruby
 
+  # PICORB_AOT=1: compile the mrblib of the gems that declare `spec.aot`
+  # (json, editor, midibase-mml, keyboard) to cfuncs with picoruby-aot. A
+  # gem is opted out with `conf.gem(core: 'x') { |g| g.aot = false }`.
+  conf.aot if ENV['PICORB_AOT']
+
   conf.gem gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-bigint"
   conf.gembox "minimum"
   conf.gembox "core"

@@ -4,14 +4,14 @@
 # the methods picoruby-aot compiles, so the same tests run against the
 # irep build and the AOT build (the twin test) and must agree.
 
-# As a keymap script does (README), so that KC_A and MO() read the same
-# inside a layer block and in an assertion. The runner also loads this
-# file on the host CRuby to list the test classes, where USB is not
-# defined; the includes are for the target VM only.
-if Object.const_defined?(:USB)
-  include USB::HID::Keycode
-  include LayerKeycode
-end
+# The keycodes are read through KC on purpose: a keymap script includes
+# USB::HID::Keycode at the top level (README), which puts KC_A on Object
+# and would hide a constant lookup that fails to reach the module
+# Keyboard includes (the picoruby-aot twin found such a bug on the
+# device). Inside a layer block self is the Keyboard, so MO() and V()
+# read as in a script. The runner also loads this file on the host
+# CRuby to list the test classes, where USB is not defined.
+KC = USB::HID::Keycode if Object.const_defined?(:USB)
 
 class LayerKeycodeTest < Picotest::Test
   def setup
@@ -45,9 +45,9 @@ class LayerKeycodeTest < Picotest::Test
   def test_lt_encodes_and_decodes
     assert_equal 0xE200, @kbd.LT(0, 0)
     assert_equal 0xF1FF, @kbd.LT(15, 255)
-    code = @kbd.LT(5, KC_SPACE)
+    code = @kbd.LT(5, KC::KC_SPACE)
     assert_equal 5, @kbd.lt_layer(code)
-    assert_equal KC_SPACE, @kbd.lt_tap_keycode(code)
+    assert_equal KC::KC_SPACE, @kbd.lt_tap_keycode(code)
     assert @kbd.is_lt?(0xE200)
     assert @kbd.is_lt?(0xF1FF)
     assert_false @kbd.is_lt?(0xE1FF)
@@ -60,9 +60,9 @@ class LayerKeycodeTest < Picotest::Test
   def test_mt_encodes_and_decodes
     assert_equal 0xF200, @kbd.MT(0xE0, 0)
     assert_equal 0xF9FF, @kbd.MT(0xE7, 255)
-    code = @kbd.MT(KC_LSFT, KC_A)
+    code = @kbd.MT(KC::KC_LSFT, KC::KC_A)
     assert_equal 1, @kbd.mt_modifier_index(code)
-    assert_equal KC_A, @kbd.mt_tap_keycode(code)
+    assert_equal KC::KC_A, @kbd.mt_tap_keycode(code)
     assert @kbd.is_mt?(0xF200)
     assert @kbd.is_mt?(0xF9FF)
     assert_false @kbd.is_mt?(0xF1FF)
@@ -78,7 +78,7 @@ class LayerKeycodeTest < Picotest::Test
   def test_s_encodes_and_decodes
     assert_equal 0xFA00, @kbd.S(0)
     assert_equal 0xFAFF, @kbd.S(255)
-    assert_equal KC_1, @kbd.sm_keycode(@kbd.S(KC_1))
+    assert_equal KC::KC_1, @kbd.sm_keycode(@kbd.S(KC::KC_1))
     assert @kbd.is_sm?(0xFA00)
     assert @kbd.is_sm?(0xFAFF)
     assert_false @kbd.is_sm?(0xF9FF)
@@ -110,7 +110,7 @@ class LayerKeycodeTest < Picotest::Test
     assert @kbd.is_v?(-999)
     assert_false @kbd.is_v?(0)
     assert_false @kbd.is_v?(-1000)
-    assert_false @kbd.is_v?(KC_A)
+    assert_false @kbd.is_v?(KC::KC_A)
     assert_equal 1.75, @kbd.v_width(-7)
     assert_equal 1.0, @kbd.v_width(-4)
   end
@@ -136,32 +136,32 @@ class KeyboardLayerTest < Picotest::Test
 
   def test_layer_builds_keymap_and_layout
     @kbd.layer(:default) do
-      row KC_A, KC_B, V(1), KC_C
-      row KC_D, MO(1), KC_1
+      row KC::KC_A, KC::KC_B, V(1), KC::KC_C
+      row KC::KC_D, MO(1), KC::KC_1
     end
     assert_equal [:default], @kbd.layer_names
     # The keymap drops the vacancy; the layout keeps it, as rows.
-    assert_equal [KC_A, KC_B, KC_C, KC_D, 0xE001, KC_1], @kbd.get_layer(:default)
-    assert_equal [[KC_A, KC_B, -4, KC_C], [KC_D, 0xE001, KC_1]], @kbd.layout
+    assert_equal [KC::KC_A, KC::KC_B, KC::KC_C, KC::KC_D, 0xE001, KC::KC_1], @kbd.get_layer(:default)
+    assert_equal [[KC::KC_A, KC::KC_B, -4, KC::KC_C], [KC::KC_D, 0xE001, KC::KC_1]], @kbd.layout
   end
 
   def test_layer_checks_size_name_and_block
     assert_raise(ArgumentError) do
-      @kbd.layer(:short) { row KC_A, KC_B }
+      @kbd.layer(:short) { row KC::KC_A, KC::KC_B }
     end
     assert_raise(ArgumentError) do
-      @kbd.layer(:long) { row KC_A, KC_B, KC_C, KC_D, KC_A, KC_B, KC_C }
+      @kbd.layer(:long) { row KC::KC_A, KC::KC_B, KC::KC_C, KC::KC_D, KC::KC_A, KC::KC_B, KC::KC_C }
     end
     assert_raise(ArgumentError) do
-      @kbd.layer("default") { row KC_A, KC_B, KC_C, KC_D, KC_A, KC_B }
+      @kbd.layer("default") { row KC::KC_A, KC::KC_B, KC::KC_C, KC::KC_D, KC::KC_A, KC::KC_B }
     end
     assert_raise(ArgumentError) { @kbd.layer(:noblock) }
     assert_equal [], @kbd.layer_names
   end
 
   def test_second_layer_does_not_extend_layout
-    @kbd.layer(:default) { row KC_A, KC_B, KC_C, KC_D, KC_A, KC_B }
-    @kbd.layer(:fn) { row KC_1, V(2), KC_NO, KC_NO, KC_NO, KC_NO, KC_NO }
+    @kbd.layer(:default) { row KC::KC_A, KC::KC_B, KC::KC_C, KC::KC_D, KC::KC_A, KC::KC_B }
+    @kbd.layer(:fn) { row KC::KC_1, V(2), KC::KC_NO, KC::KC_NO, KC::KC_NO, KC::KC_NO, KC::KC_NO }
     assert_equal [:default, :fn], @kbd.layer_names
     assert_equal 1, @kbd.layout.size
     assert_equal 6, @kbd.get_layer(:fn).size
@@ -169,19 +169,19 @@ class KeyboardLayerTest < Picotest::Test
   end
 
   def test_redefining_a_layer_keeps_one_name
-    @kbd.layer(:default) { row KC_A, KC_B, KC_C, KC_D, KC_A, KC_B }
-    @kbd.layer(:default) { row KC_B, KC_B, KC_C, KC_D, KC_A, KC_B }
+    @kbd.layer(:default) { row KC::KC_A, KC::KC_B, KC::KC_C, KC::KC_D, KC::KC_A, KC::KC_B }
+    @kbd.layer(:default) { row KC::KC_B, KC::KC_B, KC::KC_C, KC::KC_D, KC::KC_A, KC::KC_B }
     assert_equal [:default], @kbd.layer_names
-    assert_equal KC_B, @kbd.get_layer(:default)[0]
+    assert_equal KC::KC_B, @kbd.get_layer(:default)[0]
   end
 
   def test_default_layer_must_exist
-    @kbd.layer(:default) { row KC_A, KC_B, KC_C, KC_D, KC_A, KC_B }
-    @kbd.layer(:fn) { row KC_1, KC_1, KC_1, KC_1, KC_1, KC_1 }
+    @kbd.layer(:default) { row KC::KC_A, KC::KC_B, KC::KC_C, KC::KC_D, KC::KC_A, KC::KC_B }
+    @kbd.layer(:fn) { row KC::KC_1, KC::KC_1, KC::KC_1, KC::KC_1, KC::KC_1, KC::KC_1 }
     @kbd.default_layer = :fn
     assert_raise(ArgumentError) { @kbd.default_layer = :none }
     skip "FemtoRuby's send cannot reach Ruby-defined methods" if femtoruby?
-    assert_equal KC_1, @kbd.send(:resolve_keycode, 0, 0)
+    assert_equal KC::KC_1, @kbd.send(:resolve_keycode, 0, 0)
   end
 
   def test_add_macro_hands_out_mc_keycodes
@@ -222,16 +222,16 @@ class KeyboardResolveTest < Picotest::Test
     skip "FemtoRuby's send cannot reach Ruby-defined methods" if femtoruby?
     @kbd = Keyboard.new([0, 1], [2, 3, 4])
     @kbd.layer(:default) do
-      row KC_A, KC_LCTL, S(KC_1)
-      row KC_B, KC_RGUI, MO(1)
+      row KC::KC_A, KC::KC_LCTL, S(KC::KC_1)
+      row KC::KC_B, KC::KC_RGUI, MO(1)
     end
     @kbd.layer(:fn) do
-      row KC_1, KC_NO, KC_NO
-      row KC_2, KC_NO, KC_NO
+      row KC::KC_1, KC::KC_NO, KC::KC_NO
+      row KC::KC_2, KC::KC_NO, KC::KC_NO
     end
     @kbd.layer(:nav) do
-      row KC_Z, KC_NO, KC_NO
-      row KC_NO, KC_NO, KC_NO
+      row KC::KC_Z, KC::KC_NO, KC::KC_NO
+      row KC::KC_NO, KC::KC_NO, KC::KC_NO
     end
   end
 
@@ -240,98 +240,98 @@ class KeyboardResolveTest < Picotest::Test
   end
 
   def test_resolve_key_on_the_default_layer
-    assert_equal [KC_A, 0], resolve(0, 0)
-    assert_equal [KC_B, 0], resolve(1, 0)
+    assert_equal [KC::KC_A, 0], resolve(0, 0)
+    assert_equal [KC::KC_B, 0], resolve(1, 0)
     # A modifier keycode becomes a modifier bit with keycode 0.
     assert_equal [0, 0x01], resolve(0, 1)
     assert_equal [0, 0x80], resolve(1, 1)
     # S() sends Left Shift with the base keycode.
-    assert_equal [KC_1, 0x02], resolve(0, 2)
+    assert_equal [KC::KC_1, 0x02], resolve(0, 2)
     # A layer keycode is handed back as is for the caller to dispatch.
     assert_equal [0xE001, 0], resolve(1, 2)
   end
 
   def test_resolve_keycode_drops_the_modifier
-    assert_equal KC_A, @kbd.send(:resolve_keycode, 0, 0)
+    assert_equal KC::KC_A, @kbd.send(:resolve_keycode, 0, 0)
     assert_equal 0, @kbd.send(:resolve_keycode, 0, 1)
-    assert_equal KC_1, @kbd.send(:resolve_keycode, 0, 2)
+    assert_equal KC::KC_1, @kbd.send(:resolve_keycode, 0, 2)
   end
 
   def test_toggle_layer_locks_and_unlocks
     @kbd.send(:handle_tg_key, 1, true)
-    assert_equal [KC_1, 0], resolve(0, 0)
-    # KC_NO is transparent: the default layer answers.
+    assert_equal [KC::KC_1, 0], resolve(0, 0)
+    # KC::KC_NO is transparent: the default layer answers.
     assert_equal [0, 0x01], resolve(0, 1)
-    assert_equal [KC_2, 0], resolve(1, 0)
+    assert_equal [KC::KC_2, 0], resolve(1, 0)
     # A release does nothing.
     @kbd.send(:handle_tg_key, 1, false)
-    assert_equal [KC_1, 0], resolve(0, 0)
+    assert_equal [KC::KC_1, 0], resolve(0, 0)
     # A second press unlocks.
     @kbd.send(:handle_tg_key, 1, true)
-    assert_equal [KC_A, 0], resolve(0, 0)
+    assert_equal [KC::KC_A, 0], resolve(0, 0)
     # Toggling another layer replaces the lock.
     @kbd.send(:handle_tg_key, 1, true)
     @kbd.send(:handle_tg_key, 2, true)
-    assert_equal [KC_Z, 0], resolve(0, 0)
-    assert_equal [KC_B, 0], resolve(1, 0)
+    assert_equal [KC::KC_Z, 0], resolve(0, 0)
+    assert_equal [KC::KC_B, 0], resolve(1, 0)
   end
 
   def test_momentary_layers_stack_last_pressed_first
     @kbd.send(:handle_mo_key, 1, 2, 1, true)
-    assert_equal [KC_1, 0], resolve(0, 0)
+    assert_equal [KC::KC_1, 0], resolve(0, 0)
     @kbd.send(:activate_layer, [0, 1], 2)
-    assert_equal [KC_Z, 0], resolve(0, 0)
+    assert_equal [KC::KC_Z, 0], resolve(0, 0)
     # :nav is transparent at (1, 0); :fn below it answers.
-    assert_equal [KC_2, 0], resolve(1, 0)
+    assert_equal [KC::KC_2, 0], resolve(1, 0)
     @kbd.send(:deactivate_layer, [0, 1], 2)
-    assert_equal [KC_1, 0], resolve(0, 0)
+    assert_equal [KC::KC_1, 0], resolve(0, 0)
     @kbd.send(:handle_mo_key, 1, 2, 1, false)
-    assert_equal [KC_A, 0], resolve(0, 0)
+    assert_equal [KC::KC_A, 0], resolve(0, 0)
     assert_equal [], @kbd.instance_variable_get(:@layer_stack)
   end
 
   def test_locked_layer_wins_over_momentary
     @kbd.send(:handle_tg_key, 2, true)
     @kbd.send(:handle_mo_key, 1, 2, 1, true)
-    assert_equal [KC_Z, 0], resolve(0, 0)
-    assert_equal [KC_2, 0], resolve(1, 0)
+    assert_equal [KC::KC_Z, 0], resolve(0, 0)
+    assert_equal [KC::KC_2, 0], resolve(1, 0)
   end
 
   def test_all_layers_transparent_gives_zero
     @kbd.send(:handle_tg_key, 1, true)
-    @kbd.layer(:default) { row KC_NO, KC_NO, KC_NO, KC_NO, KC_NO, KC_NO }
+    @kbd.layer(:default) { row KC::KC_NO, KC::KC_NO, KC::KC_NO, KC::KC_NO, KC::KC_NO, KC::KC_NO }
     assert_equal [0, 0], resolve(0, 1)
   end
 
   def test_resolve_keycode_from_layer
-    assert_equal KC_1, @kbd.send(:resolve_keycode_from_layer, 0, 0, 1)
-    assert_equal KC_A, @kbd.send(:resolve_keycode_from_layer, 0, 0, 0)
-    # KC_NO on the named layer is 0 here, with no fall-through.
+    assert_equal KC::KC_1, @kbd.send(:resolve_keycode_from_layer, 0, 0, 1)
+    assert_equal KC::KC_A, @kbd.send(:resolve_keycode_from_layer, 0, 0, 0)
+    # KC::KC_NO on the named layer is 0 here, with no fall-through.
     assert_equal 0, @kbd.send(:resolve_keycode_from_layer, 0, 1, 1)
     assert_equal 0, @kbd.send(:resolve_keycode_from_layer, 0, 0, 3)
     assert_equal 0, @kbd.send(:resolve_keycode_from_layer, 0, 0, nil)
   end
 
   def test_combo_reference_layer
-    assert_equal KC_A, @kbd.send(:resolve_keycode_for_combo, 0, 0)
+    assert_equal KC::KC_A, @kbd.send(:resolve_keycode_for_combo, 0, 0)
     @kbd.combo_reference_layer = :fn
-    assert_equal KC_1, @kbd.send(:resolve_keycode_for_combo, 0, 0)
+    assert_equal KC::KC_1, @kbd.send(:resolve_keycode_for_combo, 0, 0)
     assert_equal 0, @kbd.send(:resolve_keycode_for_combo, 0, 1)
     @kbd.combo_reference_layer = nil
-    assert_equal KC_A, @kbd.send(:resolve_keycode_for_combo, 0, 0)
+    assert_equal KC::KC_A, @kbd.send(:resolve_keycode_for_combo, 0, 0)
     assert_raise(ArgumentError) { @kbd.combo_reference_layer = :none }
   end
 
   def test_mark_other_key_pressed_promotes_a_pressed_tap_hold
     @kbd.instance_variable_get(:@tap_hold_keys)[[1, 2]] = {
-      tap_type: :layer, layer_index: 1, tap_keycode: KC_SPACE,
+      tap_type: :layer, layer_index: 1, tap_keycode: KC::KC_SPACE,
       pressed_at: 0, state: :pressed, other_key_pressed: false
     }
     @kbd.send(:mark_other_key_pressed)
     state = @kbd.instance_variable_get(:@tap_hold_keys)[[1, 2]]
     assert_equal :holding, state[:state]
     assert state[:other_key_pressed]
-    assert_equal [KC_1, 0], resolve(0, 0)
+    assert_equal [KC::KC_1, 0], resolve(0, 0)
   end
 
   def test_is_modifier_key
@@ -343,19 +343,19 @@ class KeyboardResolveTest < Picotest::Test
   end
 
   def test_ascii_to_hid
-    assert_equal [KC_A, 0], @kbd.send(:ascii_to_hid, "a")
-    assert_equal [KC_Z, 0], @kbd.send(:ascii_to_hid, "z")
-    assert_equal [KC_A, 0x02], @kbd.send(:ascii_to_hid, "A")
-    assert_equal [KC_Z, 0x02], @kbd.send(:ascii_to_hid, "Z")
-    assert_equal [KC_1, 0], @kbd.send(:ascii_to_hid, "1")
-    assert_equal [KC_1 + 8, 0], @kbd.send(:ascii_to_hid, "9")
-    assert_equal [KC_0, 0], @kbd.send(:ascii_to_hid, "0")
-    assert_equal [KC_SPACE, 0], @kbd.send(:ascii_to_hid, " ")
-    assert_equal [KC_MINUS, 0x02], @kbd.send(:ascii_to_hid, "_")
-    assert_equal [KC_SCOLON, 0x02], @kbd.send(:ascii_to_hid, ":")
-    assert_equal [KC_1, 0x02], @kbd.send(:ascii_to_hid, "!")
-    assert_equal [KC_ENTER, 0], @kbd.send(:ascii_to_hid, "\n")
-    assert_equal [KC_TAB, 0], @kbd.send(:ascii_to_hid, "\t")
+    assert_equal [KC::KC_A, 0], @kbd.send(:ascii_to_hid, "a")
+    assert_equal [KC::KC_Z, 0], @kbd.send(:ascii_to_hid, "z")
+    assert_equal [KC::KC_A, 0x02], @kbd.send(:ascii_to_hid, "A")
+    assert_equal [KC::KC_Z, 0x02], @kbd.send(:ascii_to_hid, "Z")
+    assert_equal [KC::KC_1, 0], @kbd.send(:ascii_to_hid, "1")
+    assert_equal [KC::KC_1 + 8, 0], @kbd.send(:ascii_to_hid, "9")
+    assert_equal [KC::KC_0, 0], @kbd.send(:ascii_to_hid, "0")
+    assert_equal [KC::KC_SPACE, 0], @kbd.send(:ascii_to_hid, " ")
+    assert_equal [KC::KC_MINUS, 0x02], @kbd.send(:ascii_to_hid, "_")
+    assert_equal [KC::KC_SCOLON, 0x02], @kbd.send(:ascii_to_hid, ":")
+    assert_equal [KC::KC_1, 0x02], @kbd.send(:ascii_to_hid, "!")
+    assert_equal [KC::KC_ENTER, 0], @kbd.send(:ascii_to_hid, "\n")
+    assert_equal [KC::KC_TAB, 0], @kbd.send(:ascii_to_hid, "\t")
     assert_nil @kbd.send(:ascii_to_hid, "#")
   end
 end

@@ -11,6 +11,8 @@ on:
 
 env:
   GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
+  # The CRuby every job runs the build tools on. Change it here only.
+  RUBY_VERSION: '4.0.7'
 
 permissions:
   contents: write
@@ -34,7 +36,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Test Steep
@@ -56,11 +58,86 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Test PicoRuby
       run: rake test:gems:picoruby
+
+  test-picoruby-aot:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ env.RUBY_VERSION }}
+        bundler-cache: true
+
+    - name: Spinel commit
+      id: spinel
+      run: echo "sha=$(git -C mrbgems/picoruby-aot/lib/spinel rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    # The vendored parsers `make deps` fetches from rubygems.org, once per
+    # Spinel commit. The build itself is not cached: a checkout gives every
+    # source a new mtime, so make would rebuild anyway.
+    - name: Cache the Spinel parsers
+      uses: actions/cache@v4
+      with:
+        path: mrbgems/picoruby-aot/lib/spinel/vendor
+        key: spinel-vendor-${{ steps.spinel.outputs.sha }}
+
+    # Every gem test:gems:picoruby runs, each compiled with picoruby-aot.
+    - name: Test PicoRuby AOT twin (irep, AOT, AOT with widened defs)
+      run: rake test:gems:aot_twin
+
+  # The same twin on the 32-bit host build (MRB_INT32, word boxing,
+  # mruby-bigint): where a compiled method meets a Bignum.
+  test-picoruby-aot32:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ env.RUBY_VERSION }}
+        bundler-cache: true
+
+    - name: Setup 32-bit toolchain
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y gcc-multilib
+
+    - name: Spinel commit
+      id: spinel
+      run: echo "sha=$(git -C mrbgems/picoruby-aot/lib/spinel rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache the Spinel parsers
+      uses: actions/cache@v4
+      with:
+        path: mrbgems/picoruby-aot/lib/spinel/vendor
+        key: spinel-vendor-${{ steps.spinel.outputs.sha }}
+
+    - name: Test PicoRuby AOT twin on the 32-bit build
+      run: rake test:gems:aot_twin32
 
   test-picoruby32:
 
@@ -78,7 +155,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Setup 32-bit toolchain
@@ -105,7 +182,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Test FemtoRuby
@@ -127,7 +204,7 @@ jobs:
     - name: Setup Ruby
       uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '4.0.1'
+        ruby-version: ${{ env.RUBY_VERSION }}
         bundler-cache: true
 
     - name: Setup Node.js

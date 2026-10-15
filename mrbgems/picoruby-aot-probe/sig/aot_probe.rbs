@@ -1,0 +1,33 @@
+module AOTProbe
+  def self.add: (Integer a, Integer b) -> Integer
+  def self.sub: (Integer a, Integer b) -> Integer
+  def self.mul: (Integer a, Integer b) -> Integer
+  def self.div: (Integer a, Integer b) -> Integer
+  def self.mod: (Integer a, Integer b) -> Integer
+  def self.shl: (Integer a, Integer n) -> Integer
+  def self.neg: (Integer a) -> Integer
+  def self.same: (Integer a) -> Integer
+  def self.to_int: (Float f) -> Integer
+  def self.to_float: (Integer a) -> Float
+  def self.later?: (Integer a, Integer b) -> bool
+  def self.elapsed: (Integer now_us, Integer last_us) -> Integer
+  def self.scale: (Integer value, by: Integer, ?offset: Integer) -> Integer
+  def self.scaled_twice: (Integer value, Integer by) -> Integer
+  def self.call_with_keywords: (untyped callee, Integer value) -> untyped
+  def self.each_index_of: (Array[Integer] a) { (Integer, Integer) -> void } -> Integer
+  def self.twice: (Integer x) { (Integer) -> Integer } -> Integer
+  def self.maybe: (Integer x) ?{ (Integer) -> Integer } -> Integer
+  def self.forward: (Array[Integer] a) { (Integer, Integer) -> void } -> Integer
+  def self.forward_to_vm: (Array[Integer] a) { (Integer) -> untyped } -> Array[untyped]
+  def self.forward_with_keywords: (untyped callee, Integer value) { (Integer) -> untyped } -> untyped
+  def self.call_or_value: (Integer x) ?{ (Integer) -> untyped } -> untyped
+  def self.without_block: (Integer x) -> Integer
+
+  class Clock
+    @last_us: Integer
+
+    def initialize: () -> void
+    attr_accessor last_us: Integer
+    def observe: (Integer now_us) -> Integer
+  end
+end

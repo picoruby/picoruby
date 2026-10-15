@@ -9,7 +9,10 @@ target :mrbgems do
   Dir.glob("**/sig/").each do |dir|
     # Exclude vendor/ because gems installed there (e.g. on GHA) have sig/ dirs
     # that cause duplicate RBS declaration errors.
-    unless dir.include?("lib/prism") || dir.include?("build/repos") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext") || dir.include?("vendor/")
+    # build/ holds the RBS the picoruby-aot generator gathers per gem
+    # (build/aot-analyze/sig, build/<target>/aot-workspace/sig): copies of
+    # these same files. The Spinel submodule carries RBS of its own.
+    unless dir.include?("lib/prism") || dir.start_with?("build/") || dir.include?(MRUBYC_SIG) || dir.include?("task-ext") || dir.include?("vendor/") || dir.include?("picoruby-aot/lib/spinel/")
       signature dir
     end
   end

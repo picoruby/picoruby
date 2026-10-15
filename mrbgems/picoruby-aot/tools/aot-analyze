@@ -1,0 +1,57 @@
+#!/usr/bin/env ruby
+# Milestone 1 tool: run spinel --emit-types over PicoRuby gems and report
+# how many defs come out fully typed.
+#
+#   tools/aot-analyze [--workspace DIR] [--json] GEM...
+#   tools/aot-analyze --all
+#
+# SPINEL=/path/to/spinel selects the binary (default: `spinel` on PATH).
+
+require "optparse"
+require_relative "picoruby_aot/deps"
+require_relative "picoruby_aot/spinel"
+
+mruby_root = File.expand_path("../../..", __dir__)
+opts = { workspace: "#{mruby_root}/build/aot-analyze", all: false, json: false, verbose: false, mode: :stubs }
+OptionParser.new do |o|
+  o.on("--workspace DIR") { |v| opts[:workspace] = v }
+  o.on("--deps MODE", "stubs (default) or source") { |v| opts[:mode] = v.to_sym }
+  o.on("--all") { opts[:all] = true }
+  o.on("--json") { opts[:json] = true }
+  o.on("-v", "--verbose") { opts[:verbose] = true }
+end.parse!
+
+graph = PicorubyAot::GemGraph.new("#{mruby_root}/mrbgems")
+ws = PicorubyAot::Workspace.new(graph, opts[:workspace]).prepare
+runner = PicorubyAot::SpinelRunner.new
+warn "spinel: #{runner.version}"
+
+names = opts[:all] ? graph.gems.values.reject { |g| g.rbfiles.empty? }.map(&:name) : ARGV
+results = names.map do |name|
+  g = graph[name]
+  entry = ws.entry_file(name, mode: opts[:mode])
+  out = "#{ws.root}/out/#{name}.types.json"
+  FileUtils.mkdir_p(File.dirname(out))
+  json, log, status = runner.emit_types(entry, ws, out, mode: opts[:mode])
+  File.write("#{ws.root}/out/#{name}.log", log)
+  a = PicorubyAot::Analysis.new(g, json, log, status)
+  if opts[:verbose]
+    a.errors.each { |e| warn "  ERR #{e['file']}:#{e['line']} #{e['message']}" }
+    a.defs.each do |d|
+      warn "  #{d['widened'] ? 'W' : ' '} #{d['owner']}##{d['name']} #{d['signature']}"
+    end
+  end
+  a.summary
+end
+
+if opts[:json]
+  puts JSON.pretty_generate(results)
+else
+  puts "%-36s %6s %5s %5s %5s %4s %5s" % %w[gem lines defs typed widen err warn]
+  results.each do |r|
+    puts "%-36s %6d %5d %5d %5d %4d %5d" % [r[:gem], r[:rb_lines], r[:defs], r[:typed], r[:widened], r[:errors], r[:own_warnings]]
+  end
+  tot = results.sum { _1[:defs] }
+  typed = results.sum { _1[:typed] }
+  puts "total defs=#{tot} typed=#{typed} (#{tot.zero? ? 0 : (100.0 * typed / tot).round(1)}%) gems_with_errors=#{results.count { _1[:errors] > 0 }}"
+end

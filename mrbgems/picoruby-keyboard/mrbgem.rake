@@ -10,4 +10,9 @@ MRuby::Gem::Specification.new('picoruby-keyboard') do |spec|
   end
   spec.add_dependency 'picoruby-usb-hid'
   spec.add_dependency 'picoruby-keyboard_matrix'
+
+  # Key resolution through the layers runs on every event: compiled with
+  # picoruby-aot (43 of 67 defs). The tests in test/ are the twin's guard.
+  spec.aot = true
+  spec.aot_include_widened = true
 end
