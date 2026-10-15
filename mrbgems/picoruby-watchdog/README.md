@@ -62,3 +62,19 @@ end
 - RP2040 has maximum timeout limit
 - Useful for unattended embedded systems
 - Cannot be disabled once triggered reboot starts
+
+### nRF52
+
+- The WDT has no stop task, so `disable` does nothing once `enable` has
+  run: the watchdog must be fed until the next reset. Plan for that
+  before enabling it.
+- `enable` refuses a timeout shorter than about 0.5 ms. The counter is
+  specified from 0xF ticks of the 32.768 kHz clock upward, and anything
+  below that resets the board faster than it can reach a prompt.
+- `start_tick` has nothing to configure: the counter is wired to the
+  32.768 kHz LFCLK with no prescaler.
+- `get_count` returns 0. The hardware exposes the reload value but never
+  the live counter, so there is no remaining time to report.
+- `caused_reboot?` and `enable_caused_reboot?` give the same answer. A
+  forced reboot goes through a system reset request, so the watchdog
+  reset reason can only mean a timeout.
