@@ -178,6 +178,13 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   String cases of `+`, `==`, `!=`, `<<`) and sends everything else to
   the VM, so nil, a Bignum and a user-defined operator behave as in the
   irep.
+- An operator on two unboxed values is C arithmetic (`aot_int_add`,
+  ...) with no guard. This assumes that the core operator is not
+  redefined: Spinel types the expression under the same assumption, so
+  a Ruby `Integer#+` would already have given it a wrong type. The VM
+  honours such a redefinition (`bop_redefined`); a compiled method does
+  not. Here the generated C trusts the analysis about a method instead
+  of testing it.
 - A String method on a receiver Spinel typed a String goes through a
   guarded helper (`size`, `length`, `bytesize`, `empty?`, `getbyte`,
   `[]`, `byteslice`): the String case reads the `RString`, any other
