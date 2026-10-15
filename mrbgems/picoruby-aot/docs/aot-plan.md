@@ -77,11 +77,48 @@ wrappers among them.
 
 ### 1.5 Beyond the generator
 
-- A per-class "builtins untouched" bit in mruby, so the guarded helpers
-  test one bit instead of a method search. Measure first whether
-  MRB_METHOD_CACHE is on in the PicoRuby builds and what the search
-  costs in a profile.
-- A lighter funcall for a resolved method (no re-lookup). Same measure.
+Two ideas cut the method searches that the generated C makes. Measure
+first: the device build uses `MRB_CONSTRAINED_BASELINE_PROFILE`, which
+defines `MRB_NO_METHOD_CACHE`, so on the device every search walks the
+ancestor chain and its khash tables. Profile a hot gem on the device and
+look for `mrb_method_search_vm`. If it does not show, do neither.
+
+- A lighter funcall for a resolved method. `aot_method_is` and the
+  guarded helpers search the method, then fall back to `mrb_funcall_argv`,
+  which searches it again inside `mrb_funcall_with_block`. An mruby API
+  that takes the `mrb_method_t` already found and does the rest of
+  `mrb_funcall_with_block` (frame push, argument capture, call) removes
+  the second search. It holds no cache: the search and the call sit in
+  one C statement, no VM instruction and no GC runs between them, so
+  nothing can invalidate the result. An mruby proposal.
+- A cached answer for "is this method still the builtin", so a guarded
+  helper tests a flag instead of a search. The flag needs invalidation
+  when a method table changes. mruby already solves the same problem for
+  the index opcodes: the `idx_class` and `bop` slots stay armed while
+  the name resolves to the builtin recorded at startup, and every place
+  that changes a method table (def, alias, undef, remove, visibility,
+  include, prepend) calls `mrb_builtin_op_update(mrb, mid)` to resolve
+  them again. Three ways to reuse that:
+  - Register (class, mid, cfunc) tuples as AOT slots at gem init and
+    resolve them again from the same hook. Correct by the same argument
+    as the opcodes, but each `def` at boot rechecks every slot with the
+    same name, and the slot count grows with the number of guarded call
+    sites in all gems.
+  - A global `method_epoch` counter in `mrb_state`, incremented at the
+    same hook sites and where the GC frees a class. Each call site keeps
+    a static (class, epoch, answer) and skips the search while both
+    match. The smallest mruby change, and correct by one rule. Any `def`
+    anywhere invalidates every site, which costs one search each on the
+    next call and nothing more; a device defines almost no methods after
+    boot. The statics add about 12 bytes of RAM per call site.
+  - A bit per class (the first form of this idea). Harder than it looks:
+    the receiver's class is often a subclass of the class that owns the
+    cfunc, and an override on the subclass, an `include` into an
+    ancestor or a `def` on a shared module must all reach the receiver's
+    bit. `RClass` keeps no list of its subclasses, so there is no way to
+    propagate the change. The epoch counter is the practical form.
+
+  Preferred: the epoch counter, after the profile shows the search.
 - `mrb_funcall_argv_kw(mrb, self, mid, argc, argv, kw_hash)`: a funcall
   that sets the frame's keyword flag, so a call with keywords from C
   needs no Ruby trampoline. An mruby proposal.
