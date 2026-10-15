@@ -137,8 +137,22 @@ class YAMLTest < Picotest::Test
     assert_equal(doc, YAML.load(YAML.dump(doc)))
   end
 
+  # In the test binary that carries every gem, picoruby-vfs routes File to
+  # a mounted volume, and nothing is mounted unless a test mounts it. Mount
+  # a RAM littlefs at "/" then, as the vfs tests do; without vfs the host's
+  # File reads the host filesystem.
   def test_load_file
-    path = "#{ENV['TMPDIR'] || '/tmp'}/picoruby_yaml_test.yml"
+    if Object.const_defined?(:VFS)
+      skip("no Littlefs in this binary") unless Object.const_defined?(:Littlefs)
+      unless VFS::VOLUMES.any? { |v| v[:mountpoint] == "/" }
+        fs = Littlefs.new(:flash, label: "YAMLTEST")
+        fs.mkfs
+        VFS.mount(fs, "/")
+      end
+      path = "/picoruby_yaml_test.yml"
+    else
+      path = "#{ENV['TMPDIR'] || '/tmp'}/picoruby_yaml_test.yml"
+    end
     File.open(path, "w") { |f| f.write("name: PicoRuby\nversion: 3\n") }
     assert_equal({"name" => "PicoRuby", "version" => 3}, YAML.load_file(path))
     File.unlink(path)

@@ -181,9 +181,13 @@ def run_test_for_gems(vm_type, specified_gem)
   gems.each { |gem| puts "  - #{gem[:name]}" }
   config_path = create_temp_build_config("#{vm_type}-test.rb", gems, vm_type)
   puts "Building test binary on #{vm_type}..."
+  # PICORB_TEST_BINARY marks the build of the test binary itself, for a
+  # gem whose mrbgem.rake needs that binary's gem set (picoruby-vfs orders
+  # itself after mruby-dir and mruby-io). TEST_TASK cannot serve: the
+  # Rakefile sets it in every rake process.
   unless ENV['SKIP_BUILD']
-    sh "PICORB_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
-    sh "PICORB_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
+    sh "PICORB_DEBUG=1 PICORB_TEST_BINARY=1 MRUBY_CONFIG=#{config_path} rake clean"
+    sh "PICORB_DEBUG=1 PICORB_TEST_BINARY=1 MRUBY_CONFIG=#{config_path} rake all"
   end
   gems.each do |gem|
     unless run_picotest_runner(gem, [])
