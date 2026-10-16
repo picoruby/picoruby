@@ -117,6 +117,40 @@ module AOTProbe
     maybe(x)
   end
 
+  # Calls the classifier resolves by the receiver's type, not by name:
+  # `join` on an Array is Array#join, not Task#join (joined compiles);
+  # the body of a define_method block does not run when the irep loads,
+  # so its `==` does not keep Tagged#== in the irep; and the class-body
+  # call `Registry.define` names the singleton method only, so
+  # Builder#define compiles while Registry.define stays in the irep.
+  def self.joined(a)
+    a.first(2).join(",")
+  end
+
+  class Tagged
+    def ==(other)
+      other.is_a?(Tagged)
+    end
+
+    %w[one two].each do |name|
+      define_method(name) { |x| x == 1 } # steep:ignore
+    end
+  end
+
+  module Registry
+    def self.define(x)
+      x + 1
+    end
+  end
+
+  class Builder
+    def define(x)
+      x * 2
+    end
+  end
+
+  DEFINED = Registry.define(1)
+
   # A timestamp held in an instance variable across calls.
   class Clock
     def initialize

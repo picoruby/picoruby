@@ -184,6 +184,22 @@ class AOTProbeTest < Picotest::Test
     assert_equal(8, AOTProbe.call_or_value(7) { |v| v + 1 })
   end
 
+  def test_join_on_an_array_is_not_a_task_join
+    assert_equal("1,2", AOTProbe.joined([1, 2, 3]))
+  end
+
+  def test_equality_beside_a_define_method_block
+    assert_true(AOTProbe::Tagged.new == AOTProbe::Tagged.new)
+    assert_false(AOTProbe::Tagged.new == 1)
+    assert_true(AOTProbe::Tagged.new.one(1))
+    assert_false(AOTProbe::Tagged.new.two(2))
+  end
+
+  def test_class_body_call_names_the_singleton_only
+    assert_equal(2, AOTProbe::DEFINED)
+    assert_equal(6, AOTProbe::Builder.new.define(3))
+  end
+
   def test_clock_keeps_a_bignum_timestamp
     clock = AOTProbe::Clock.new
     clock.observe((1 << 31) - 100)

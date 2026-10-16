@@ -18,7 +18,7 @@ module PicorubyAot
       @exclude = exclude
       @include_widened = include_widened
       @entries = []
-      @aliased = []   # [name, singleton] the gem's `alias`/`alias_method` read
+      @aliased = []   # [name, singleton, scopes] named when the irep loads
     end
 
     attr_reader :entries
@@ -43,6 +43,87 @@ module PicorubyAot
     }.freeze
     WAIT_RECEIVER_TYPES = /\Aobj_Task(__|\z)/
 
+    # Where a call on a receiver of a core kind (Spinel's type vocabulary)
+    # can land in this gem: a def that reopens that class, or one on a
+    # module every object has. A call on such a receiver cannot reach a
+    # def of the gem's own classes, whatever its name, so the two name
+    # searches below (load-time callees, waiting callees) stop there.
+    CORE_KIND_SCOPES = {
+      "string" => %w[String Comparable],
+      "symbol" => %w[Symbol Comparable],
+      "int" => %w[Integer Numeric Comparable],
+      "float" => %w[Float Numeric Comparable],
+      "bool" => %w[TrueClass FalseClass],
+      "nil" => %w[NilClass],
+      "proc" => %w[Proc],
+      "time" => %w[Time Comparable],
+      "range" => %w[Range Enumerable],
+      "io" => %w[IO],
+      "enumerator" => %w[Enumerator Enumerable],
+    }.freeze
+    UNIVERSAL_SCOPES = ["", "Object", "Kernel", "BasicObject"].freeze
+
+    def core_scopes(raw)
+      base = CORE_KIND_SCOPES[raw]
+      base ||= %w[Array Enumerable] if raw.end_with?("_array")
+      base ||= %w[Hash Enumerable] if raw.end_with?("_hash")
+      base && base + UNIVERSAL_SCOPES
+    end
+
+    # Spinel names a class in full ("obj_Funicular__VDOM__Element") or by
+    # its last constant ("obj_Renderer"); a def's scope is always full.
+    def scope_is?(scope, x)
+      scope == x || scope.end_with?("::#{x}")
+    end
+
+    # What a call on `recv` (in `file`, inside code whose self is a class
+    # when `self_singleton`) can reach among the defs of this gem, as
+    # [singleton, scopes]:
+    # - singleton: true for a singleton method, false for an instance
+    #   method, nil when either (an untyped receiver);
+    # - scopes: the def scopes that can answer, nil when any scope can.
+    # A bare call reaches self's methods or an inherited one, so only the
+    # singleton-ness is known. A constant or a value Spinel typed "class"
+    # is a class object, so a singleton method of a class this cannot
+    # name. A core kind resolves to the defs that reopen it. An "obj_X"
+    # resolves to the defs of X when the gem has any; a method X inherits
+    # lives elsewhere, and its name is searched everywhere. A receiver
+    # Spinel did not type keeps the search by name alone.
+    def resolve_receiver(file, recv, self_singleton)
+      return [self_singleton, nil] if recv.nil? || recv.is_a?(Prism::SelfNode)
+      raw = @types.raw_type(file, recv)
+      return [true, nil] if raw == "class" || (raw.nil? && (recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode)))
+      return [nil, nil] unless raw
+      core = core_scopes(raw)
+      return [false, core] if core
+      if raw.start_with?("obj_")
+        x = raw.sub("obj_", "").gsub("__", "::")
+        return [false, [x]] if @entries.any? { |o| scope_is?(o.scope, x) }
+        return [false, nil]
+      end
+      [nil, nil]
+    end
+
+    # The defs a call of `name` can reach, given resolve_receiver's answer.
+    def reachable_defs(name, singleton, scopes)
+      @entries.select do |o|
+        o.name == name &&
+          (singleton.nil? || o.singleton == singleton) &&
+          (scopes.nil? || scopes.any? { |x| scope_is?(o.scope, x) })
+      end
+    end
+
+    # A block whose body runs later, when the method it defines or the
+    # Proc it builds is called, not when the irep loads.
+    DEFERRED_BLOCK_CALLS = %i[define_method define_singleton_method lambda proc new].freeze
+
+    def deferred_block?(call)
+      return false unless call.block.is_a?(Prism::BlockNode)
+      return false unless DEFERRED_BLOCK_CALLS.include?(call.name)
+      return true unless call.name == :new
+      call.receiver.is_a?(Prism::ConstantReadNode) && call.receiver.name == :Proc
+    end
+
     # Walk every mrblib file and classify every def.
     def collect
       @gem.rbfiles.each do |file|
@@ -58,12 +139,15 @@ module PicorubyAot
 
     # A def waits if it calls a scheduler method, anything on a Task, or
     # (transitively) another def of this gem that waits. Receivers are
-    # resolved through Spinel's type when it names a class of this gem.
+    # resolved through Spinel's type when it names a class of this gem,
+    # and a receiver of a core kind (`list.join`, `name.to_s`) is a call
+    # into the core, not a Task#join nor a waiting def of the gem.
     def exclude_waiting_defs
       by_label = {}
       @entries.each { |e| by_label["#{e.scope}#{e.singleton ? '.' : '#'}#{e.name}"] = e }
-      waits = {}
-      calls = {}
+      # Entry is a Struct whose hash follows its fields: key by identity.
+      waits = {}.compare_by_identity
+      calls = {}.compare_by_identity
       @entries.each do |e|
         calls[e] = []
         collect_calls(e.node.body, calls[e])
@@ -75,19 +159,19 @@ module PicorubyAot
           hit = calls[e].find do |call|
             name = call.name.to_s
             recv = call.receiver
-            next true if WAIT_NAMES.include?(name) && (recv.nil? || recv.is_a?(Prism::SelfNode) || recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) || recv.is_a?(Prism::CallNode))
             next true if recv.is_a?(Prism::ConstantReadNode) && recv.name == :Task
             raw = @types.raw_type(e.file, recv) if recv
             next true if raw && raw =~ WAIT_RECEIVER_TYPES
-            target = if recv.nil? || recv.is_a?(Prism::SelfNode)
-                       by_label["#{e.scope}##{name}"]
-                     elsif raw && raw.start_with?("obj_")
-                       by_label["#{raw.sub('obj_', '').gsub('__', '::')}##{name}"]
-                     end
-            next true if target && waits[target]
-            # Receiver of unknown class: if any def of this gem with that
-            # name waits, assume this call does too.
-            target.nil? && @entries.any? { |o| o.name == name && !o.singleton && waits[o] }
+            singleton, scopes = resolve_receiver(e.file, recv, e.singleton)
+            # A scheduler method by name: a bare call, or one on a value
+            # whose class is not known (a Task is one of the possibilities).
+            next true if scopes.nil? && WAIT_NAMES.include?(name) && (recv.nil? || recv.is_a?(Prism::SelfNode) || recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) || recv.is_a?(Prism::CallNode))
+            # A bare call to a def of this class goes there and nowhere else.
+            target = by_label["#{e.scope}#{e.singleton ? '.' : '#'}#{name}"] if recv.nil? || recv.is_a?(Prism::SelfNode)
+            next !!waits[target] if target
+            # Otherwise every def the call can reach: if one waits, assume
+            # this call does too.
+            reachable_defs(name, singleton, scopes).any? { |o| waits[o] }
           end
           if hit
             waits[e] = hit
@@ -254,7 +338,7 @@ module PicorubyAot
         when Prism::DefNode
           add_def(node, node, scope, file, private_now, singleton)
         when Prism::AliasMethodNode
-          @aliased << [node.old_name.unescaped, singleton] if node.old_name.is_a?(Prism::SymbolNode)
+          @aliased << [node.old_name.unescaped, singleton, nil] if node.old_name.is_a?(Prism::SymbolNode)
         when Prism::CallNode
           args = node.arguments ? node.arguments.arguments : []
           if node.receiver.nil? && args.empty? && %i[private public protected].include?(node.name)
@@ -263,20 +347,20 @@ module PicorubyAot
                 args.size == 1 && args[0].is_a?(Prism::DefNode)
             add_def(args[0], node, scope, file, node.name == :private, singleton)
           elsif node.receiver.nil? && node.name == :alias_method && args.size == 2 && args[1].is_a?(Prism::SymbolNode)
-            @aliased << [args[1].unescaped, singleton]
+            @aliased << [args[1].unescaped, singleton, nil]
           elsif node.receiver.nil? && LOAD_TIME_NAMERS.key?(node.name) && !args.empty? && args.all? { |a| a.is_a?(Prism::SymbolNode) }
             # `private :a, :b` and the like look the methods up by name
             # when the irep loads, as an alias does.
             on_singleton = LOAD_TIME_NAMERS[node.name] || singleton
-            args.each { |a| @aliased << [a.unescaped, on_singleton] }
+            args.each { |a| @aliased << [a.unescaped, on_singleton, nil] }
           else
-            scan_load_time(node, singleton)
+            scan_load_time(node, singleton, file, scope.empty?)
           end
         else
           # A def under `if`/`begin`/... stays in the irep (it is defined
           # conditionally); everything else at this level runs when the
           # irep loads.
-          scan_load_time(node, singleton)
+          scan_load_time(node, singleton, file, scope.empty?)
         end
       end
     end
@@ -286,27 +370,36 @@ module PicorubyAot
     # `define_voice_program :kick, [...]`, a constant built by a call) must
     # still be in the irep, and so must one an alias or a visibility call
     # names. Defs under such code are not candidates (see walk_body).
-    def scan_load_time(node, singleton)
+    # `singleton` is the `class << self` flag of walk_body (what `private
+    # :x` names); `top_level` says whether self is the main object rather
+    # than the class being defined (what a bare call reaches).
+    def scan_load_time(node, singleton, file, top_level)
       return if node.nil?
       case node
       when Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode
         return
       when Prism::AliasMethodNode
-        @aliased << [node.old_name.unescaped, singleton] if node.old_name.is_a?(Prism::SymbolNode)
+        @aliased << [node.old_name.unescaped, singleton, nil] if node.old_name.is_a?(Prism::SymbolNode)
       when Prism::CallNode
         args = node.arguments ? node.arguments.arguments : []
         if node.receiver.nil? && node.name == :alias_method && args.size == 2 && args[1].is_a?(Prism::SymbolNode)
-          @aliased << [args[1].unescaped, singleton]
+          @aliased << [args[1].unescaped, singleton, nil]
         elsif node.receiver.nil? && LOAD_TIME_NAMERS.key?(node.name) && !args.empty? && args.all? { |a| a.is_a?(Prism::SymbolNode) }
           on_singleton = LOAD_TIME_NAMERS[node.name] || singleton
-          args.each { |a| @aliased << [a.unescaped, on_singleton] }
+          args.each { |a| @aliased << [a.unescaped, on_singleton, nil] }
         else
-          # The receiver's class is not known here: both a singleton and an
-          # instance method of that name stay in the irep.
-          @aliased << [node.name.to_s, true] << [node.name.to_s, false]
+          s, scopes = resolve_receiver(file, node.receiver, top_level ? nil : true)
+          @aliased << [node.name.to_s, s, scopes]
         end
+        # The body of a define_method or a Proc runs later, not now.
+        if deferred_block?(node)
+          node.compact_child_nodes.each { |c| scan_load_time(c, singleton, file, top_level) unless c.equal?(node.block) }
+          return
+        end
+      when Prism::LambdaNode
+        return
       end
-      node.compact_child_nodes.each { |c| scan_load_time(c, singleton) }
+      node.compact_child_nodes.each { |c| scan_load_time(c, singleton, file, top_level) }
     end
 
     # `alias`, `alias_method`, `private :x` and the like run when the irep
@@ -314,34 +407,43 @@ module PicorubyAot
     # name then. A def whose name such a call of the gem reads (in any
     # scope: the call may sit in a subclass) stays in the irep, and so does
     # a later def of that name.
+    #
+    # An entry of `named` is [name, singleton, scopes] as resolve_receiver
+    # answers it: `singleton` nil when either kind of method can answer,
+    # `scopes` nil when any scope can.
     def exclude_aliased_defs
       # Transitively: a method the load-time code calls may call others of
       # the gem (`define_voice_program` calls `voice_program`), and those
-      # run before registration too. The receiver's class is not resolved
-      # here, so every def of a called name, singleton or not, is taken.
+      # run before registration too. Each call is resolved as far as
+      # Spinel's type of its receiver allows; a call on an untyped value
+      # takes every def of its name.
       named = @aliased.uniq
-      seen = {}
+      named_match = lambda do |e|
+        named.any? do |n, s, sc|
+          n == e.name && (s.nil? || s == e.singleton) && (sc.nil? || sc.any? { |x| scope_is?(e.scope, x) })
+        end
+      end
+      seen = {}.compare_by_identity
       loop do
         added = false
         @entries.each do |e|
-          next if seen[e] || !named.include?([e.name, e.singleton])
+          next if seen[e] || !named_match.call(e)
           seen[e] = true
           calls = []
           collect_calls(e.node.body, calls)
           calls.each do |c|
-            n = c.name.to_s
-            [[n, true], [n, false]].each do |k|
-              next if named.include?(k)
-              named << k
-              added = true
-            end
+            s, scopes = resolve_receiver(e.file, c.receiver, e.singleton)
+            k = [c.name.to_s, s, scopes]
+            next if named.include?(k)
+            named << k
+            added = true
           end
         end
         break unless added
       end
       @entries.each do |e|
         next unless e.status == :candidate
-        next unless named.include?([e.name, e.singleton])
+        next unless named_match.call(e)
         e.status = :irep
         e.reason = "named or called when the irep loads (class-body code, alias, alias_method, private :x, or a method they call), before the cfunc is registered"
       end

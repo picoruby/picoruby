@@ -101,7 +101,19 @@ A `def` becomes a cfunc when all of these hold:
   wherever it sits (under an `if` too), and transitively every def such
   a method calls. Such code runs before the cfuncs are registered. A
   gem init that fails there is swallowed by `mrb_protect_error`, and
-  every later gem stays uninitialized.
+  every later gem stays uninitialized. The body of a `define_method`
+  block, a `lambda`, a `proc` or a `Proc.new` at class-body level runs
+  later and is not load-time code.
+
+Both searches resolve a call as far as Spinel's type of its receiver
+allows. A bare call reaches a method of the same class (singleton or
+instance, as the caller is). A constant or a value typed `class`
+reaches a singleton method. A String, an Array, an Integer and the
+other core kinds reach only the defs of the gem that reopen that class
+(`list.join` is `Array#join`, not `Task#join`). An object of class X
+reaches the defs of X when the gem has any. A call on a receiver Spinel
+did not type takes every def of its name, singleton or not, in any
+scope.
 
 Every other def stays in the irep. The reasons the sweep over every gem
 shows, largest first: no type record (gems outside the host build, or
