@@ -80,6 +80,17 @@ module PicorubyAot
     }.freeze
     UNIVERSAL_SCOPES = ["", "Object", "Kernel", "BasicObject"].freeze
 
+    # Core classes a constant may name: `Module.new`, `Struct.new`,
+    # `Hash.new` reach the core, or a def of a gem that reopens the class,
+    # never a gem class of another name.
+    CORE_CLASS_NAMES = %w[
+      BasicObject Object Module Class Kernel Comparable Enumerable
+      Array Hash String Symbol Integer Float Numeric Range Proc Time
+      Struct Data Exception StandardError ArgumentError RuntimeError
+      TypeError NameError NoMethodError IndexError KeyError RangeError
+      NilClass TrueClass FalseClass IO Enumerator
+    ].freeze
+
     def core_scopes(raw)
       base = CORE_KIND_SCOPES[raw]
       base ||= %w[Array Enumerable] if raw.end_with?("_array")
@@ -109,7 +120,14 @@ module PicorubyAot
     def resolve_receiver(file, recv, self_singleton)
       return [self_singleton, nil] if recv.nil? || recv.is_a?(Prism::SelfNode)
       raw = @types.raw_type(file, recv)
-      return [true, nil] if raw == "class" || (raw.nil? && (recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode)))
+      if (raw == "class" || raw.nil?) && (recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode))
+        # A constant names the class: its singleton methods, when any def
+        # has that scope (an `Errors.new` is not `SQLite3::Database.new`).
+        x = const_name(recv)
+        return [true, [x]] if x && (CORE_CLASS_NAMES.include?(x) || search_entries.any? { |o| scope_is?(o.scope, x) })
+        return [true, nil]
+      end
+      return [true, nil] if raw == "class"
       return [nil, nil] unless raw
       core = core_scopes(raw)
       return [false, core] if core
@@ -127,13 +145,18 @@ module PicorubyAot
       @search_entries || @entries
     end
 
+    # Does def `e` answer a call of `name` resolved to [singleton, scopes]?
+    # `X.new` runs `X#initialize`, so a singleton `new` reaches the instance
+    # `initialize` of the same scopes as well.
+    def answers?(e, name, singleton, scopes)
+      return false unless scopes.nil? || scopes.any? { |x| scope_is?(e.scope, x) }
+      return true if e.name == name && (singleton.nil? || e.singleton == singleton)
+      name == "new" && singleton != false && e.name == "initialize" && !e.singleton
+    end
+
     # The defs a call of `name` can reach, given resolve_receiver's answer.
     def reachable_defs(name, singleton, scopes)
-      search_entries.select do |o|
-        o.name == name &&
-          (singleton.nil? || o.singleton == singleton) &&
-          (scopes.nil? || scopes.any? { |x| scope_is?(o.scope, x) })
-      end
+      search_entries.select { |o| answers?(o, name, singleton, scopes) }
     end
 
     # A block whose body runs later, when the method it defines or the
@@ -206,7 +229,7 @@ module PicorubyAot
             if e.status == :foreign
               if recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode)
                 x = const_name(recv)
-                next all.any? { |o| o.name == name && o.singleton && scope_is?(o.scope, x) && waits[o] }
+                next all.any? { |o| answers?(o, name, true, [x]) && waits[o] }
               end
               next wrappers.include?(name)
             end
@@ -511,9 +534,7 @@ module PicorubyAot
       # takes every def of its name.
       named = @aliased.uniq
       named_match = lambda do |e|
-        named.any? do |n, s, sc|
-          n == e.name && (s.nil? || s == e.singleton) && (sc.nil? || sc.any? { |x| scope_is?(e.scope, x) })
-        end
+        named.any? { |n, s, sc| answers?(e, n, s, sc) }
       end
       seen = {}.compare_by_identity
       loop do
