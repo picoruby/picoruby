@@ -88,6 +88,13 @@ namespace :test do
       end
     end
 
+    desc "AOT twin on the wasm build (the gems test:gems:wasm runs, under the Node runner)"
+    task :aot_twin_wasm, [:specified_gem] do |t, args|
+      unless run_aot_twin(specified_gems(args), 'wasm')
+        exit 1
+      end
+    end
+
   end
 end
 
@@ -106,14 +113,16 @@ end
 # the three runs must match: a compiled method that behaves differently
 # from its irep shows up as a changed count. The logs land under
 # build/aot-twin/<variant>.log (build/aot-twin32/ for the 32-bit host
-# build, vm_type 'picoruby32').
+# build, vm_type 'picoruby32'; build/aot-twin-wasm/ for the wasm build,
+# vm_type 'wasm').
 def run_aot_twin(gems, vm_type = 'picoruby')
   variants = {
     "irep" => { "PICORB_AOT" => nil, "PICORB_AOT_WIDENED" => nil },
     "aot" => { "PICORB_AOT" => "1", "PICORB_AOT_WIDENED" => nil },
     "widened" => { "PICORB_AOT" => "1", "PICORB_AOT_WIDENED" => "1" },
   }
-  log_dir = "#{MRUBY_ROOT}/build/aot-twin#{vm_type == 'picoruby32' ? '32' : ''}"
+  suffix = { 'picoruby' => '', 'picoruby32' => '32', 'wasm' => '-wasm' }.fetch(vm_type)
+  log_dir = "#{MRUBY_ROOT}/build/aot-twin#{suffix}"
   FileUtils.mkdir_p(log_dir)
   summaries = {}
   compiled = {}
@@ -517,9 +526,18 @@ def create_temp_build_config(base_config_name, gems, vm_type = nil)
   aot_flags = ENV['PICORB_AOT_WIDENED'] ? "g.aot = true; g.aot_include_widened = true" : "g.aot = true"
   gem_line = ->(gem) { aot ? "conf.gem(core: '#{gem[:name]}') { |g| #{aot_flags} }" : "conf.gem core: '#{gem[:name]}'" }
   if vm_type == 'wasm'
-    # For WASM, inject gems before the final 'end'
+    # The gems under test go in after the wasm config's own gems and
+    # gemboxes: a gem added before conf.picoruby initializes before the
+    # core and fails at init (String#start_with? is not there yet). A gem
+    # added twice keeps its first spec, so a gem the base config already
+    # carries (funicular, the stdlib gembox) gets the AOT flags set on
+    # that spec afterwards.
+    names = gems.map { |gem| gem[:name] }
     injection_text = gems.map { |gem| "  #{gem_line.call(gem)}" }.join("\n") + "\n"
-    injection_text = "  conf.aot\n" + injection_text if aot
+    if aot
+      injection_text = "  conf.aot\n" + injection_text
+      injection_text += "  conf.gems.each do |g|\n    next unless #{names.inspect}.include?(g.name)\n    #{aot_flags}\n  end\n"
+    end
     config_content.sub!(/^end$/, injection_text + "end")
   else
     injection_point = /conf\.(femtoruby|picoruby)/

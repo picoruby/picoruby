@@ -139,6 +139,50 @@ jobs:
     - name: Test PicoRuby AOT twin on the 32-bit build
       run: rake test:gems:aot_twin32
 
+  # The same twin on the wasm build: the gems test:gems:wasm runs
+  # (funicular among them), under the Node runner.
+  test-picoruby-aot-wasm:
+
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+
+    - name: Checkout recursive
+      uses: actions/checkout@v7
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ env.RUBY_VERSION }}
+        bundler-cache: true
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Setup Emscripten
+      uses: mymindstorm/setup-emsdk@v14
+      with:
+        version: '6.0.12'
+
+    - name: Spinel commit
+      id: spinel
+      run: echo "sha=$(git -C mrbgems/picoruby-aot/lib/spinel rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache the Spinel parsers
+      uses: actions/cache@v4
+      with:
+        path: mrbgems/picoruby-aot/lib/spinel/vendor
+        key: spinel-vendor-${{ steps.spinel.outputs.sha }}
+
+    - name: Test PicoRuby AOT twin on the wasm build
+      run: rake test:gems:aot_twin_wasm
+
   test-picoruby32:
 
     runs-on: ubuntu-latest
