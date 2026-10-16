@@ -22,6 +22,23 @@ module AOTProbe
   def self.forward_with_keywords: (untyped callee, Integer value) { (Integer) -> untyped } -> untyped
   def self.call_or_value: (Integer x) ?{ (Integer) -> untyped } -> untyped
   def self.without_block: (Integer x) -> Integer
+  def self.joined: (Array[Integer] a) -> String
+
+  class Tagged
+    def ==: (untyped other) -> bool
+    def one: (Integer x) -> bool
+    def two: (Integer x) -> bool
+  end
+
+  module Registry
+    def self.define: (Integer x) -> Integer
+  end
+
+  class Builder
+    def define: (Integer x) -> Integer
+  end
+
+  DEFINED: Integer
 
   class Clock
     @last_us: Integer

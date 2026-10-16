@@ -74,6 +74,34 @@ wrappers among them.
 - `private :x` and the other visibility calls with a symbol could be
   honoured by the generator and blanked from the Ruby, instead of
   keeping the named def in the irep.
+- Adjacent string literals with interpolation (`"a #{x}" \ "b #{y}"`):
+  Prism nests an InterpolatedStringNode in an InterpolatedStringNode
+  and the codegen refuses the inner one. About 40 defs in funicular,
+  all error messages.
+
+### 1.6 picoruby-shell and picoruby-funicular
+
+The owner's next targets. funicular passes Spinel since its RBS fix
+(`render_text` returns `JS::Object`); shell fails in Spinel, so no
+shell def compiles until the first item is done:
+
+- shell: `$LOAD_PATH = [...]` in `Shell.setup_system_files` (Spinel
+  takes `$LOAD_PATH` as read-only, as CRuby does). Define the Array in
+  picoruby-require's init and change the Array in place. Note: mruby/c
+  has no `Array#replace`, so the in-place form needs one that FemtoRuby
+  has too (`clear` + `<<`, or add `replace` to mruby/c).
+- shell has no picotest suite; the twin needs one before the gem can
+  declare.
+- funicular runs on the wasm build, which has no `conf.aot` and no
+  twin. Add a wasm twin (`test:gems:wasm` under the three builds)
+  before the gem declares `spec.aot`.
+
+With the shell's Spinel error worked around, the generator compiles 38 of
+79 shell defs (the Tokenizer, the Parser, PipeIO; the rest wait for the
+scheduler through `exec`, or take `*rest`) and 507 of 747 funicular
+defs, `VDOM.diff`, `VDOM.patch` and `Renderer#render` among them. The
+shell's compiled defs run once per command line, so a device
+measurement decides whether shell declares at all.
 
 ### 1.5 Beyond the generator
 
@@ -135,16 +163,18 @@ look for `mrb_method_search_vm`. If it does not show, do neither.
 The gems the owner wants compiled that do not declare `spec.aot` yet.
 Counts are typed / widened of the defs the generator sees, from
 `tools/aot-gen --include-widened`. Before a gem is declared it needs a
-picotest suite the twin can run (all of these have one) and a device
-measurement of the path that matters.
+picotest suite the twin can run (shell has none; the others have one)
+and a device measurement of the path that matters.
 
 | Gem | Compiled | Blocked by | Expected gain |
 |---|---|---|---|
 | picoruby-regexp | 2 / 4 of 11 | rest parameters on the String wrappers (1.3), a block literal in `__sub_common` (1.1) | Low: the engine is C; the wrappers are thin |
-| picoruby-vfs | 22 / 40 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); block literals in `Dir.glob` and `load_file` (1.1); `File.open`, `Dir.open`, `VFS.sanitize` and 20 more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
+| picoruby-vfs | 24 / 42 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); block literals in `Dir.glob` and `load_file` (1.1); `File.open`, `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
 | picoruby-vim | 3 / 4 of 6 | block literals in `_start` and `initialize` (1.1) | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); a block literal in `load_file` (1.1); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
+| picoruby-shell | 19 / 38 of 79 (with 1.6 done) | `$LOAD_PATH` assignment (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3); rescue on 5 (1.2) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
+| picoruby-funicular | 204 / 507 of 747 | block literals on 111 (1.1); adjacent interpolated strings on 39 (1.4); rescue on 36 (1.2); `*rest` and `**rest` on 34 (1.3); no wasm twin (1.6) | Unknown: VDOM diff, patch and render compile; needs a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 
