@@ -133,7 +133,7 @@ module AOTProbe
     end
 
     %w[one two].each do |name|
-      define_method(name) { |x| x == 1 } # steep:ignore
+      define_method(name) { |x| x == 1 }
     end
   end
 

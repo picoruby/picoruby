@@ -81,22 +81,19 @@ wrappers among them.
 
 ### 1.6 picoruby-shell and picoruby-funicular
 
-The owner's next targets. funicular passes Spinel since its RBS fix
-(`render_text` returns `JS::Object`); shell fails in Spinel, so no
-shell def compiles until the first item is done:
+The owner's next targets. Both pass Spinel now: funicular since its
+RBS fix (`render_text` returns `JS::Object`), shell since
+picoruby-require defines `$LOAD_PATH = []` and the shell changes it in
+place (Spinel takes `$LOAD_PATH` as read-only, as CRuby does). What is
+left before either can declare:
 
-- shell: `$LOAD_PATH = [...]` in `Shell.setup_system_files` (Spinel
-  takes `$LOAD_PATH` as read-only, as CRuby does). Define the Array in
-  picoruby-require's init and change the Array in place. Note: mruby/c
-  has no `Array#replace`, so the in-place form needs one that FemtoRuby
-  has too (`clear` + `<<`, or add `replace` to mruby/c).
 - shell has no picotest suite; the twin needs one before the gem can
   declare.
 - funicular runs on the wasm build, which has no `conf.aot` and no
   twin. Add a wasm twin (`test:gems:wasm` under the three builds)
   before the gem declares `spec.aot`.
 
-With the shell's Spinel error worked around, the generator compiles 38 of
+The generator compiles 38 of
 79 shell defs (the Tokenizer, the Parser, PipeIO; the rest wait for the
 scheduler through `exec`, or take `*rest`) and 507 of 747 funicular
 defs, `VDOM.diff`, `VDOM.patch` and `Renderer#render` among them. The
@@ -173,7 +170,7 @@ and a device measurement of the path that matters.
 | picoruby-vim | 3 / 4 of 6 | block literals in `_start` and `initialize` (1.1) | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); a block literal in `load_file` (1.1); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
-| picoruby-shell | 19 / 38 of 79 (with 1.6 done) | `$LOAD_PATH` assignment (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3); rescue on 5 (1.2) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
+| picoruby-shell | 19 / 38 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3); rescue on 5 (1.2) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
 | picoruby-funicular | 204 / 507 of 747 | block literals on 111 (1.1); adjacent interpolated strings on 39 (1.4); rescue on 36 (1.2); `*rest` and `**rest` on 34 (1.3); no wasm twin (1.6) | Unknown: VDOM diff, patch and render compile; needs a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
