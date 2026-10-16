@@ -289,6 +289,12 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   On a build with `MRB_USE_C_STACK_CHECK` (the R2P2 targets) a recursion
   that reaches the stack floor raises SystemStackError; without the
   macro the call is nothing.
+- The generated C compiles without warnings under `-Wall -Wextra` on
+  gcc and clang. A local the body only assigns (the result slot of an
+  `if` used as a statement, a Ruby `_`) is not declared; each of its
+  assignments keeps its right side for the effects, or goes when the
+  right side has none. A comparison inside `if (...)` has no
+  parentheses of its own.
 
 ## 5. Verification
 
