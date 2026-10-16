@@ -126,7 +126,8 @@ class Shell
       Dir.mkdir(root)
       puts "Created root directory: #{root}"
     end
-    $LOAD_PATH = ["#{root}/lib"]
+    $LOAD_PATH.clear
+    $LOAD_PATH << "#{root}/lib"
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
     ENV['DFU_DIR'] = "#{root}/etc/dfu"
