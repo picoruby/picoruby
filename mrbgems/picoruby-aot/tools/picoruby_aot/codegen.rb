@@ -318,6 +318,20 @@ module PicorubyAot
       end
     end
 
+    # A comparison is emitted as `(a == b)`; inside `if (...)` the second
+    # pair draws clang's -Wparentheses-equality. A condition that is one
+    # parenthesized expression goes in without its own pair.
+    def strip_parens(code)
+      return code unless code.start_with?("(") && code.end_with?(")")
+      depth = 0
+      code.each_char.with_index do |ch, i|
+        depth += 1 if ch == "("
+        depth -= 1 if ch == ")"
+        return code if depth == 0 && i < code.size - 1
+      end
+      code[1..-2]
+    end
+
     # ---- params --------------------------------------------------------
 
     def check_params
@@ -862,7 +876,7 @@ module PicorubyAot
       end
       kind = join_kind(v1.kind, v2.kind)
       result = kind == :nil ? nil : tmp(kind)
-      emit "if (#{cond}) {"
+      emit "if (#{strip_parens(cond)}) {"
       @out << then_code
       emit "#{result} = #{coerce(v1, kind)};" if result
       emit "} else {"
@@ -899,7 +913,7 @@ module PicorubyAot
       arms.each_with_index do |(test_code, test, body_code, v), i|
         emit "} else {" if i > 0
         @out << test_code
-        emit "if (#{test}) {"
+        emit "if (#{strip_parens(test)}) {"
         @out << body_code
         emit "#{result} = #{coerce(v, kind)};" if result
       end
@@ -986,7 +1000,7 @@ module PicorubyAot
       emit "for (;;) {"
       c = expr(node.predicate)
       cond = truthy(c)
-      cond = "!(#{cond})" unless negate
+      cond = negate ? strip_parens(cond) : "!(#{cond})"
       emit "if (#{cond}) break;"
       @loop_depth += 1
       statements(node.statements) if node.statements
