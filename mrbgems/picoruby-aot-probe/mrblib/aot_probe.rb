@@ -151,6 +151,25 @@ module AOTProbe
 
   DEFINED = Registry.define(1)
 
+  # A hook the VM calls while the irep loads: `included` runs when
+  # Counted includes Countable below, before any cfunc is registered, so
+  # it must stay in the irep or Counted never gets `count_of`.
+  module Countable
+    def self.included(base)
+      base.extend(ClassMethods)
+    end
+
+    module ClassMethods
+      def count_of(a)
+        a.size
+      end
+    end
+  end
+
+  class Counted
+    include Countable
+  end
+
   # A timestamp held in an instance variable across calls.
   class Clock
     def initialize
