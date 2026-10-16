@@ -106,8 +106,14 @@ left before either can declare:
     `string` values, so the RBS (`Hash[Symbol, Array[String]]`) cannot
     say more. A Spinel topic, not a gem one.
   - A `Hash[Symbol, Integer]` seed fell to poly in Spinel (its parser
-    had no such kind); the fix is in matz/spinel as the branch
-    `rbs-seed-symbol-hash-values`, and a submodule bump brings it.
+    had no such kind); fixed upstream (matz/spinel PR #9315), and the
+    submodule carries it. It typed the ivars, and the def count did
+    not move: the waits behind them have other roots (above).
+  - The same collision reaches marshal on the wasm build: `dump_hash`
+    calls `keys` on its untyped object, which could be
+    `IndexedDB::Store#keys` (an await), so marshal's dump path is in
+    the irep there (14/19 typed on wasm, 18/19 on the host and the
+    device, which carry no IndexedDB).
   - A class-valued receiver (`component_vnode.component_class.new`,
     RBS `singleton(Component)`, Spinel `class`) reaches every
     `initialize`; the record's `rbs` string could narrow it.
