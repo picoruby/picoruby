@@ -191,7 +191,12 @@ module PicorubyAot
     # arguments is not the one called (`parts.join(", ")` is never a
     # `def join` without parameters).
     def reachable_defs(name, singleton, scopes, argc = nil)
-      search_entries.select { |o| answers?(o, name, singleton, scopes) && accepts?(o, argc) }
+      pool = search_entries
+      if @by_name
+        pool = @by_name[name]
+        pool += @by_name["initialize"] if name == "new" && singleton != false
+      end
+      pool.select { |o| answers?(o, name, singleton, scopes) && accepts?(o, argc) }
     end
 
     # A block whose body runs later, when the method it defines or the
@@ -249,36 +254,47 @@ module PicorubyAot
       # (`await`, `fetch`, `getch`). This gem's defs search by name as
       # before, over its own defs and the dependencies'.
       wrappers = @dep_entries.select { |e| calls[e].any? { |c| direct_wait?(e, c) } }
+      # Each call is resolved once, to :direct or to the defs whose wait it
+      # inherits; the fixpoint below then reads only `waits`. (Resolving
+      # inside the fixpoint cost 14 s on funicular.)
+      @by_name = Hash.new { |h, k| h[k] = [] }
+      all.each { |o| @by_name[o.name] << o }
+      resolved = {}.compare_by_identity
+      all.each do |e|
+        resolved[e] = calls[e].map do |call|
+          next [call, :direct] if direct_wait?(e, call)
+          name = call.name.to_s
+          recv = call.receiver
+          argc = call_argc(call)
+          # A bare call to a def of this class goes there and nowhere else.
+          if recv.nil? || recv.is_a?(Prism::SelfNode)
+            target = by_label["#{e.scope}#{e.singleton ? '.' : '#'}#{name}"]
+            next [call, [target]] if target
+          end
+          if e.status == :foreign
+            if recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode)
+              next [call, reachable_defs(name, true, [const_name(recv)], argc)]
+            end
+            next [call, wrappers.select { |o| o.name == name && accepts?(o, argc) }]
+          end
+          # Otherwise every def the call can reach: if one waits, assume
+          # this call does too.
+          singleton, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope)
+          [call, reachable_defs(name, singleton, scopes, argc)]
+        end
+      end
       loop do
         changed = false
         all.each do |e|
           next if waits[e]
-          hit = calls[e].find do |call|
-            next true if direct_wait?(e, call)
-            name = call.name.to_s
-            recv = call.receiver
-            # A bare call to a def of this class goes there and nowhere else.
-            target = by_label["#{e.scope}#{e.singleton ? '.' : '#'}#{name}"] if recv.nil? || recv.is_a?(Prism::SelfNode)
-            next !!waits[target] if target
-            if e.status == :foreign
-              if recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode)
-                x = const_name(recv)
-                next all.any? { |o| answers?(o, name, true, [x]) && accepts?(o, call_argc(call)) && waits[o] }
-              end
-              next wrappers.any? { |o| o.name == name && accepts?(o, call_argc(call)) }
-            end
-            # Otherwise every def the call can reach: if one waits, assume
-            # this call does too.
-            singleton, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope)
-            reachable_defs(name, singleton, scopes, call_argc(call)).any? { |o| waits[o] }
-          end
-          if hit
-            waits[e] = hit
-            changed = true
-          end
+          hit = resolved[e].find { |_, deps| deps == :direct || deps.any? { |o| waits[o] } }
+          next unless hit
+          waits[e] = hit[0]
+          changed = true
         end
         break unless changed
       end
+      @by_name = nil
       @search_entries = nil
       waits.each do |e, call|
         next unless e.status == :candidate
