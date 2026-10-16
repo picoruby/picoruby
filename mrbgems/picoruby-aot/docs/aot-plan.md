@@ -95,13 +95,23 @@ left before either can declare:
   untyped `x[]` or `x.each` keeps its caller in the irep. The wasm twin
   found the two shapes that ran wrong when compiled (an `await` under a
   cfunc returns at once; the `included` hook) and the search is sound
-  now, at 98 typed / 185 widened of 747, `VDOM.diff`, `VDOM.patch` and
-  `Renderer#render` in the irep. The RBS declares the missing types
-  (`@definitions: Hash[Symbol, ...]` in styles.rbs), and Spinel still
-  emits `poly` for them: count the untyped receivers behind the waits,
-  find why the seeds do not apply (`StyleAccessor < BasicObject` with
-  `::Class.new(self)` subclasses is one case), and fix that in Spinel or
-  in the gem. The hot path comes back with the types.
+  now, at 117 typed / 227 widened of 747 on the wasm build, `VDOM.diff`,
+  `VDOM.patch` and `Renderer#render` in the irep. What is left behind
+  the waits, by their roots (the first call of each excluded def that
+  is a primitive or resolves to another gem's def):
+  - A Hash value or an Array element Spinel can only box
+    (`@messages.each { |attr, msgs| msgs.each }`: `msgs` is poly) on
+    about 50 roots, which then meet `IndexedDB::Store#each`, `#empty?`,
+    `#keys`, `#delete`. Spinel has no typed-value Hash beyond `int` and
+    `string` values, so the RBS (`Hash[Symbol, Array[String]]`) cannot
+    say more. A Spinel topic, not a gem one.
+  - A `Hash[Symbol, Integer]` seed fell to poly in Spinel (its parser
+    had no such kind); the fix is in matz/spinel as the branch
+    `rbs-seed-symbol-hash-values`, and a submodule bump brings it.
+  - A class-valued receiver (`component_vnode.component_class.new`,
+    RBS `singleton(Component)`, Spinel `class`) reaches every
+    `initialize`; the record's `rbs` string could narrow it.
+  - A `Hash[Integer, ...]` seed is dropped by the extractor (no kind).
 - funicular, after the types: a browser measurement of the VDOM path,
   then the `while` rewrite of the hot-path defs a block literal keeps
   in the irep (1.1, option 3; about 15 defs in vdom, differ, patcher
@@ -183,7 +193,7 @@ and a device measurement of the path that matters.
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); a block literal in `load_file` (1.1); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
 | picoruby-shell | 19 / 38 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3); rescue on 5 (1.2) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
-| picoruby-funicular | 98 / 185 of 747 | waits through untyped receivers on about 530 (1.6: the types); block literals (1.1), adjacent interpolated strings (1.4), rescue (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
+| picoruby-funicular | 117 / 227 of 747 | waits through untyped receivers on about 480 (1.6: the types); block literals (1.1), adjacent interpolated strings (1.4), rescue (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 

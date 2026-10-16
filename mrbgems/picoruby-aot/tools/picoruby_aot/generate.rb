@@ -24,6 +24,16 @@ module PicorubyAot
       @include_widened = include_widened
       @entries = []
       @aliased = []   # [name, singleton, scopes] named when the irep loads
+      # Every class and module the gem and its dependencies define, with
+      # or without defs: `JSON::JSONError.new` names a class of the gem,
+      # whose initialize is the core's, not any gem's.
+      @defined_scopes = Set.new
+      # The static class hierarchy of the gem and its dependencies: the
+      # superclass named by `class X < Y` (nil for a class without one,
+      # :open for one whose superclass is not a constant), and the modules
+      # a class body includes or prepends. A bare call resolves through it.
+      @superclass = {}
+      @includes = Hash.new { |h, k| h[k] = [] }
       @dep_entries = collect_dep_defs(deps)
     end
 
@@ -117,14 +127,17 @@ module PicorubyAot
     # resolves to the defs of X when the gem has any; a method X inherits
     # lives elsewhere, and its name is searched everywhere. A receiver
     # Spinel did not type keeps the search by name alone.
-    def resolve_receiver(file, recv, self_singleton)
-      return [self_singleton, nil] if recv.nil? || recv.is_a?(Prism::SelfNode)
+    def resolve_receiver(file, recv, self_singleton, scope = nil)
+      # A bare call reaches self's class, its ancestors and its subclasses
+      # (hierarchy_scopes), or any scope when that chain is not all in
+      # the sources.
+      return [self_singleton, hierarchy_scopes(scope)] if recv.nil? || recv.is_a?(Prism::SelfNode)
       raw = @types.raw_type(file, recv)
       if (raw == "class" || raw.nil?) && (recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode))
         # A constant names the class: its singleton methods, when any def
         # has that scope (an `Errors.new` is not `SQLite3::Database.new`).
         x = const_name(recv)
-        return [true, [x]] if x && (CORE_CLASS_NAMES.include?(x) || search_entries.any? { |o| scope_is?(o.scope, x) })
+        return [true, [x]] if x && (CORE_CLASS_NAMES.include?(x) || @defined_scopes.any? { |s| scope_is?(s, x) } || search_entries.any? { |o| scope_is?(o.scope, x) })
         return [true, nil]
       end
       return [true, nil] if raw == "class"
@@ -154,9 +167,31 @@ module PicorubyAot
       name == "new" && singleton != false && e.name == "initialize" && !e.singleton
     end
 
-    # The defs a call of `name` can reach, given resolve_receiver's answer.
-    def reachable_defs(name, singleton, scopes)
-      search_entries.select { |o| answers?(o, name, singleton, scopes) }
+    # Can def `e` take `argc` positional arguments? nil: not known (a
+    # splat), so yes.
+    def accepts?(e, argc)
+      return true if argc.nil?
+      p = e.node.parameters
+      return argc == 0 if p.nil?
+      req = p.requireds.size + p.posts.size
+      return false if argc < req
+      p.rest ? true : argc <= req + p.optionals.size
+    end
+
+    # The positional arguments a call passes; nil when a splat hides it.
+    def call_argc(call)
+      return 0 unless call.arguments
+      args = call.arguments.arguments
+      return nil if args.any? { |a| a.is_a?(Prism::SplatNode) }
+      args.count { |a| !a.is_a?(Prism::BlockArgumentNode) && !a.is_a?(Prism::KeywordHashNode) }
+    end
+
+    # The defs a call of `name` with `argc` positional arguments can
+    # reach, given resolve_receiver's answer. A def that cannot take the
+    # arguments is not the one called (`parts.join(", ")` is never a
+    # `def join` without parameters).
+    def reachable_defs(name, singleton, scopes, argc = nil)
+      search_entries.select { |o| answers?(o, name, singleton, scopes) && accepts?(o, argc) }
     end
 
     # A block whose body runs later, when the method it defines or the
@@ -213,8 +248,7 @@ module PicorubyAot
       # call by the name of a def that reaches a primitive directly
       # (`await`, `fetch`, `getch`). This gem's defs search by name as
       # before, over its own defs and the dependencies'.
-      wrappers = Set.new
-      @dep_entries.each { |e| wrappers << e.name if calls[e].any? { |c| direct_wait?(e, c) } }
+      wrappers = @dep_entries.select { |e| calls[e].any? { |c| direct_wait?(e, c) } }
       loop do
         changed = false
         all.each do |e|
@@ -229,14 +263,14 @@ module PicorubyAot
             if e.status == :foreign
               if recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode)
                 x = const_name(recv)
-                next all.any? { |o| answers?(o, name, true, [x]) && waits[o] }
+                next all.any? { |o| answers?(o, name, true, [x]) && accepts?(o, call_argc(call)) && waits[o] }
               end
-              next wrappers.include?(name)
+              next wrappers.any? { |o| o.name == name && accepts?(o, call_argc(call)) }
             end
             # Otherwise every def the call can reach: if one waits, assume
             # this call does too.
-            singleton, scopes = resolve_receiver(e.file, recv, e.singleton)
-            reachable_defs(name, singleton, scopes).any? { |o| waits[o] }
+            singleton, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope)
+            reachable_defs(name, singleton, scopes, call_argc(call)).any? { |o| waits[o] }
           end
           if hit
             waits[e] = hit
@@ -271,8 +305,13 @@ module PicorubyAot
       raw = @types.raw_type(e.file, recv) if recv
       return true if raw && raw =~ WAIT_RECEIVER_TYPES
       return false unless WAIT_NAMES.include?(name)
-      _, scopes = resolve_receiver(e.file, recv, e.singleton)
-      scopes.nil? && (recv.nil? || recv.is_a?(Prism::SelfNode) || recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) || recv.is_a?(Prism::CallNode))
+      # Task#join takes no argument: `parts.join(", ")` is Array#join.
+      return false if name == "join" && call.arguments && !call.arguments.arguments.empty?
+      # A bare `sleep_ms` is the Kernel's.
+      return true if recv.nil? || recv.is_a?(Prism::SelfNode)
+      return false unless recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) || recv.is_a?(Prism::CallNode)
+      _, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope)
+      scopes.nil?
     end
 
     # The defs of the dependency gems, for the wait search only: name,
@@ -297,6 +336,8 @@ module PicorubyAot
       when Prism::ClassNode, Prism::ModuleNode
         name = const_name(node.constant_path)
         inner = name.start_with?("::") ? [name.sub("::", "")] : scope + [name]
+        @defined_scopes << inner.join("::")
+        record_superclass(node, inner.join("::"))
         collect_dep_defs_in(node.body, inner, file, false, entries)
       when Prism::SingletonClassNode
         collect_dep_defs_in(node.body, scope, file, true, entries) if node.expression.is_a?(Prism::SelfNode)
@@ -304,8 +345,98 @@ module PicorubyAot
         s = singleton || node.receiver.is_a?(Prism::SelfNode)
         entries << Entry.new(file, scope.join("::"), node.name.to_s, s, false, node, nil, :foreign, nil, nil)
       else
+        record_include(node, scope.join("::")) if node.is_a?(Prism::CallNode)
         node.compact_child_nodes.each { |c| collect_dep_defs_in(c, scope, file, singleton, entries) }
       end
+    end
+
+    # `class X < Y`: Y by name, nil without one, :open when it is not a
+    # constant (`Struct.new(...)`, a variable).
+    def record_superclass(node, scope)
+      return unless node.is_a?(Prism::ClassNode)
+      sup = node.superclass
+      return if sup.nil?
+      @superclass[scope] = (sup.is_a?(Prism::ConstantReadNode) || sup.is_a?(Prism::ConstantPathNode)) ? const_name(sup) : :open
+    end
+
+    # `include M` / `prepend M` at class-body level, with constant names.
+    def record_include(node, scope)
+      return unless node.receiver.nil? && %i[include prepend].include?(node.name)
+      args = node.arguments ? node.arguments.arguments : []
+      return if args.empty?
+      args.each do |a|
+        if a.is_a?(Prism::ConstantReadNode) || a.is_a?(Prism::ConstantPathNode)
+          @includes[scope] << const_name(a)
+        else
+          @includes[scope] << :open
+        end
+      end
+    end
+
+    # The scope `name` refers to, seen from `from`: lexical nesting first
+    # (`Base` inside `Editor::Screen` is `Editor::Base`), then any defined
+    # scope that ends with the name. nil when none is defined (a core
+    # class, a class of a gem outside the build, a C-defined class).
+    def resolve_scope_name(name, from)
+      parts = from.split("::")
+      while true
+        candidate = (parts + [name]).join("::")
+        return candidate if @defined_scopes.include?(candidate)
+        break if parts.empty?
+        parts.pop
+      end
+      @defined_scopes.find { |s| scope_is?(s, name) }
+    end
+
+    # The scopes a bare call inside `scope` can reach: the class itself, its
+    # ancestors through `class X < Y` and `include`, and its descendants (a
+    # subclass may override the method), plus the modules every object has.
+    # nil when the chain leaves what the sources define through an
+    # unresolved superclass or include (:open), because any def of the
+    # name may then answer.
+    def hierarchy_scopes(scope)
+      return nil if scope.nil?
+      @hierarchy ||= {}
+      return @hierarchy[scope] if @hierarchy.key?(scope)
+      @hierarchy[scope] = compute_hierarchy_scopes(scope)
+    end
+
+    def compute_hierarchy_scopes(scope)
+      ancestors = []
+      queue = [scope]
+      while (s = queue.shift)
+        next if ancestors.include?(s)
+        ancestors << s
+        sup = @superclass[s]
+        return nil if sup == :open
+        if sup
+          # A superclass the sources do not define (StandardError, a
+          # C-defined class) adds no gem def: the walk stops there.
+          r = resolve_scope_name(sup, s)
+          queue << r if r
+        end
+        @includes[s].each do |m|
+          return nil if m == :open
+          r = resolve_scope_name(m, s)
+          queue << r if r
+        end
+      end
+      descendants = @defined_scopes.select do |d|
+        chain = [d]
+        seen = []
+        hit = false
+        while (c = chain.shift)
+          next if seen.include?(c)
+          seen << c
+          hit = true if ancestors.include?(c) && c != d
+          sup = @superclass[c]
+          chain << resolve_scope_name(sup, c) if sup && sup != :open
+          @includes[c].each { |m| chain << resolve_scope_name(m, c) if m != :open }
+          chain.compact!
+        end
+        hit && !ancestors.include?(d)
+      end
+      ancestors + descendants + UNIVERSAL_SCOPES
     end
 
     # The label Spinel's codegen uses for a def: "Point#dist2", "Point.make",
@@ -445,6 +576,8 @@ module PicorubyAot
         when Prism::ClassNode, Prism::ModuleNode
           name = const_name(node.constant_path)
           inner = name.start_with?("::") ? [name.sub("::", "")] : scope + [name]
+          @defined_scopes << inner.join("::")
+          record_superclass(node, inner.join("::"))
           walk_body(node.body, inner, file, false)
         when Prism::SingletonClassNode
           if node.expression.is_a?(Prism::SelfNode) && !scope.empty? && !singleton
@@ -469,13 +602,14 @@ module PicorubyAot
             on_singleton = LOAD_TIME_NAMERS[node.name] || singleton
             args.each { |a| @aliased << [a.unescaped, on_singleton, nil] }
           else
-            scan_load_time(node, singleton, file, scope.empty?)
+            record_include(node, scope.join("::"))
+            scan_load_time(node, singleton, file, scope.empty?, scope.join("::"))
           end
         else
           # A def under `if`/`begin`/... stays in the irep (it is defined
           # conditionally); everything else at this level runs when the
           # irep loads.
-          scan_load_time(node, singleton, file, scope.empty?)
+          scan_load_time(node, singleton, file, scope.empty?, scope.join("::"))
         end
       end
     end
@@ -488,7 +622,7 @@ module PicorubyAot
     # `singleton` is the `class << self` flag of walk_body (what `private
     # :x` names); `top_level` says whether self is the main object rather
     # than the class being defined (what a bare call reaches).
-    def scan_load_time(node, singleton, file, top_level)
+    def scan_load_time(node, singleton, file, top_level, scope)
       return if node.nil?
       case node
       when Prism::DefNode, Prism::ClassNode, Prism::ModuleNode, Prism::SingletonClassNode
@@ -503,18 +637,18 @@ module PicorubyAot
           on_singleton = LOAD_TIME_NAMERS[node.name] || singleton
           args.each { |a| @aliased << [a.unescaped, on_singleton, nil] }
         else
-          s, scopes = resolve_receiver(file, node.receiver, top_level ? nil : true)
-          @aliased << [node.name.to_s, s, scopes]
+          s, scopes = resolve_receiver(file, node.receiver, top_level ? nil : true, scope)
+          @aliased << [node.name.to_s, s, scopes, call_argc(node)]
         end
         # The body of a define_method or a Proc runs later, not now.
         if deferred_block?(node)
-          node.compact_child_nodes.each { |c| scan_load_time(c, singleton, file, top_level) unless c.equal?(node.block) }
+          node.compact_child_nodes.each { |c| scan_load_time(c, singleton, file, top_level, scope) unless c.equal?(node.block) }
           return
         end
       when Prism::LambdaNode
         return
       end
-      node.compact_child_nodes.each { |c| scan_load_time(c, singleton, file, top_level) }
+      node.compact_child_nodes.each { |c| scan_load_time(c, singleton, file, top_level, scope) }
     end
 
     # `alias`, `alias_method`, `private :x` and the like run when the irep
@@ -534,7 +668,7 @@ module PicorubyAot
       # takes every def of its name.
       named = @aliased.uniq
       named_match = lambda do |e|
-        named.any? { |n, s, sc| answers?(e, n, s, sc) }
+        named.any? { |n, s, sc, argc| answers?(e, n, s, sc) && accepts?(e, argc) }
       end
       seen = {}.compare_by_identity
       loop do
@@ -545,8 +679,8 @@ module PicorubyAot
           calls = []
           collect_calls(e.node.body, calls)
           calls.each do |c|
-            s, scopes = resolve_receiver(e.file, c.receiver, e.singleton)
-            k = [c.name.to_s, s, scopes]
+            s, scopes = resolve_receiver(e.file, c.receiver, e.singleton, e.scope)
+            k = [c.name.to_s, s, scopes, call_argc(c)]
             next if named.include?(k)
             named << k
             added = true
