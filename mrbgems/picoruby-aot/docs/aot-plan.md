@@ -89,16 +89,28 @@ left before either can declare:
 
 - shell has no picotest suite; the twin needs one before the gem can
   declare.
-- funicular runs on the wasm build, which has no `conf.aot` and no
-  twin. Add a wasm twin (`test:gems:wasm` under the three builds)
-  before the gem declares `spec.aot`.
+- funicular: the types. On wasm a JS call may suspend the task
+  (`JS::Promise#await`, `IndexedDB::Store#[]`), and the wait search
+  takes a call on an untyped receiver for every def of its name, so an
+  untyped `x[]` or `x.each` keeps its caller in the irep. The wasm twin
+  found the two shapes that ran wrong when compiled (an `await` under a
+  cfunc returns at once; the `included` hook) and the search is sound
+  now, at 98 typed / 185 widened of 747, `VDOM.diff`, `VDOM.patch` and
+  `Renderer#render` in the irep. The RBS declares the missing types
+  (`@definitions: Hash[Symbol, ...]` in styles.rbs), and Spinel still
+  emits `poly` for them: count the untyped receivers behind the waits,
+  find why the seeds do not apply (`StyleAccessor < BasicObject` with
+  `::Class.new(self)` subclasses is one case), and fix that in Spinel or
+  in the gem. The hot path comes back with the types.
+- funicular, after the types: a browser measurement of the VDOM path,
+  then the `while` rewrite of the hot-path defs a block literal keeps
+  in the irep (1.1, option 3; about 15 defs in vdom, differ, patcher
+  and html_serializer), or 1.1 option 2 in the generator.
 
-The generator compiles 38 of
-79 shell defs (the Tokenizer, the Parser, PipeIO; the rest wait for the
-scheduler through `exec`, or take `*rest`) and 507 of 747 funicular
-defs, `VDOM.diff`, `VDOM.patch` and `Renderer#render` among them. The
-shell's compiled defs run once per command line, so a device
-measurement decides whether shell declares at all.
+The generator compiles 38 of 79 shell defs (the Tokenizer, the Parser,
+PipeIO; the rest wait for the scheduler through `exec`, or take
+`*rest`). The shell's compiled defs run once per command line, so a
+device measurement decides whether shell declares at all.
 
 ### 1.5 Beyond the generator
 
@@ -171,7 +183,7 @@ and a device measurement of the path that matters.
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); a block literal in `load_file` (1.1); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
 | picoruby-shell | 19 / 38 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3); rescue on 5 (1.2) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
-| picoruby-funicular | 204 / 507 of 747 | block literals on 111 (1.1); adjacent interpolated strings on 39 (1.4); rescue on 36 (1.2); `*rest` and `**rest` on 34 (1.3); no wasm twin (1.6) | Unknown: VDOM diff, patch and render compile; needs a browser measurement |
+| picoruby-funicular | 98 / 185 of 747 | waits through untyped receivers on about 530 (1.6: the types); block literals (1.1), adjacent interpolated strings (1.4), rescue (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 

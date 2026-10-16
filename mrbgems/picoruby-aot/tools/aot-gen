@@ -56,7 +56,8 @@ json =
   end
 
 typemap = PicorubyAot::TypeMap.new(json)
-gen = PicorubyAot::Generator.new(gem, typemap, exclude: opts[:exclude], include_widened: opts[:include_widened])
+deps = graph.closure(gem.name).reject { |g| g.name == gem.name }
+gen = PicorubyAot::Generator.new(gem, typemap, exclude: opts[:exclude], include_widened: opts[:include_widened], deps: deps)
 gen.collect.compile
 
 FileUtils.mkdir_p(File.dirname(opts[:out_c]))

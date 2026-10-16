@@ -4,6 +4,7 @@
 require "fileutils"
 require "json"
 require "prism"
+require "set"
 require_relative "gems"
 require_relative "typemap"
 require_relative "codegen"
@@ -12,16 +13,21 @@ module PicorubyAot
   class Generator
     Entry = Struct.new(:file, :scope, :name, :singleton, :private, :node, :strip_node, :status, :reason, :cfunc)
 
-    def initialize(gem, typemap, exclude: [], include_widened: false)
+    # `deps` are the PicoRuby gems this gem depends on (GemInfo, the
+    # transitive closure): their defs take part in the wait search, so a
+    # call into a dependency that suspends the task (JS::Promise#await in
+    # picoruby-wasm) keeps the caller in the irep.
+    def initialize(gem, typemap, exclude: [], include_widened: false, deps: [])
       @gem = gem
       @types = typemap
       @exclude = exclude
       @include_widened = include_widened
       @entries = []
       @aliased = []   # [name, singleton, scopes] named when the irep loads
+      @dep_entries = collect_dep_defs(deps)
     end
 
-    attr_reader :entries
+    attr_reader :entries, :waits
 
     def funcname
       @gem.name.tr("-", "_")
@@ -32,6 +38,17 @@ module PicorubyAot
     # instructions, never under a C frame), so a compiled loop around one
     # of these spins forever and a compiled `sleep_ms` returns at once.
     WAIT_NAMES = %w[sleep sleep_ms usleep pass suspend join wait resume].freeze
+    # The C primitives of picoruby-wasm that park the task until a JS
+    # promise settles are named `_*_and_suspend`; the Ruby that wraps them
+    # (JS::Promise#await, JS.fetch) reaches the gem through the wait
+    # search over the dependency gems.
+    SUSPEND_SUFFIX = "_and_suspend"
+
+    # Methods the VM calls by itself while the irep loads: when a class is
+    # defined, a module included or extended, a method defined. A compiled
+    # one is not registered yet at that moment (the same rule as a name
+    # read at load), so these stay in the irep.
+    HOOK_NAMES = %w[inherited included extended prepended method_added singleton_method_added].freeze
 
     # Calls that name methods by symbol when the irep loads. The value is
     # true when the named methods are singleton methods whatever the body,
@@ -98,15 +115,21 @@ module PicorubyAot
       return [false, core] if core
       if raw.start_with?("obj_")
         x = raw.sub("obj_", "").gsub("__", "::")
-        return [false, [x]] if @entries.any? { |o| scope_is?(o.scope, x) }
+        return [false, [x]] if search_entries.any? { |o| scope_is?(o.scope, x) }
         return [false, nil]
       end
       [nil, nil]
     end
 
+    # The defs a search runs over: this gem's, plus the dependencies' while
+    # the wait search runs (see exclude_waiting_defs).
+    def search_entries
+      @search_entries || @entries
+    end
+
     # The defs a call of `name` can reach, given resolve_receiver's answer.
     def reachable_defs(name, singleton, scopes)
-      @entries.select do |o|
+      search_entries.select do |o|
         o.name == name &&
           (singleton.nil? || o.singleton == singleton) &&
           (scopes.nil? || scopes.any? { |x| scope_is?(o.scope, x) })
@@ -143,34 +166,53 @@ module PicorubyAot
     # and a receiver of a core kind (`list.join`, `name.to_s`) is a call
     # into the core, not a Task#join nor a waiting def of the gem.
     def exclude_waiting_defs
+      # The defs of this gem and of its dependencies: a wait in a
+      # dependency (JS::Promise#await calls _await_and_suspend) reaches
+      # this gem's defs through the same search by name.
+      all = @entries + @dep_entries
+      @search_entries = all
       by_label = {}
-      @entries.each { |e| by_label["#{e.scope}#{e.singleton ? '.' : '#'}#{e.name}"] = e }
+      all.reverse_each { |e| by_label["#{e.scope}#{e.singleton ? '.' : '#'}#{e.name}"] = e }
       # Entry is a Struct whose hash follows its fields: key by identity.
-      waits = {}.compare_by_identity
+      # @waits keeps the result (def -> the call that made it wait) for
+      # the tools that explain a decision.
+      @waits = waits = {}.compare_by_identity
       calls = {}.compare_by_identity
-      @entries.each do |e|
+      all.each do |e|
         calls[e] = []
         collect_calls(e.node.body, calls[e])
       end
+      # Spinel typed nothing in a dependency, so a search by name through
+      # the dependencies' untyped receivers would meet (`x.size`,
+      # `y.to_s`) and make every def wait. Inside a dependency the search
+      # follows only what it can resolve: a bare call to the same scope,
+      # a call on a constant to that constant's singleton methods, and a
+      # call by the name of a def that reaches a primitive directly
+      # (`await`, `fetch`, `getch`). This gem's defs search by name as
+      # before, over its own defs and the dependencies'.
+      wrappers = Set.new
+      @dep_entries.each { |e| wrappers << e.name if calls[e].any? { |c| direct_wait?(e, c) } }
       loop do
         changed = false
-        @entries.each do |e|
+        all.each do |e|
           next if waits[e]
           hit = calls[e].find do |call|
+            next true if direct_wait?(e, call)
             name = call.name.to_s
             recv = call.receiver
-            next true if recv.is_a?(Prism::ConstantReadNode) && recv.name == :Task
-            raw = @types.raw_type(e.file, recv) if recv
-            next true if raw && raw =~ WAIT_RECEIVER_TYPES
-            singleton, scopes = resolve_receiver(e.file, recv, e.singleton)
-            # A scheduler method by name: a bare call, or one on a value
-            # whose class is not known (a Task is one of the possibilities).
-            next true if scopes.nil? && WAIT_NAMES.include?(name) && (recv.nil? || recv.is_a?(Prism::SelfNode) || recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) || recv.is_a?(Prism::CallNode))
             # A bare call to a def of this class goes there and nowhere else.
             target = by_label["#{e.scope}#{e.singleton ? '.' : '#'}#{name}"] if recv.nil? || recv.is_a?(Prism::SelfNode)
             next !!waits[target] if target
+            if e.status == :foreign
+              if recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode)
+                x = const_name(recv)
+                next all.any? { |o| o.name == name && o.singleton && scope_is?(o.scope, x) && waits[o] }
+              end
+              next wrappers.include?(name)
+            end
             # Otherwise every def the call can reach: if one waits, assume
             # this call does too.
+            singleton, scopes = resolve_receiver(e.file, recv, e.singleton)
             reachable_defs(name, singleton, scopes).any? { |o| waits[o] }
           end
           if hit
@@ -180,6 +222,7 @@ module PicorubyAot
         end
         break unless changed
       end
+      @search_entries = nil
       waits.each do |e, call|
         next unless e.status == :candidate
         e.status = :irep
@@ -191,6 +234,55 @@ module PicorubyAot
       return unless node
       acc << node if node.is_a?(Prism::CallNode)
       node.child_nodes.each { |c| collect_calls(c, acc) }
+    end
+
+    # Does `call`, in def `e`, hand control to the scheduler by itself: a
+    # wasm primitive that suspends, anything on a Task, or a scheduler
+    # method by name on a bare call or on a value whose class is not known
+    # (a Task is one of the possibilities).
+    def direct_wait?(e, call)
+      name = call.name.to_s
+      recv = call.receiver
+      return true if name.end_with?(SUSPEND_SUFFIX)
+      return true if recv.is_a?(Prism::ConstantReadNode) && recv.name == :Task
+      raw = @types.raw_type(e.file, recv) if recv
+      return true if raw && raw =~ WAIT_RECEIVER_TYPES
+      return false unless WAIT_NAMES.include?(name)
+      _, scopes = resolve_receiver(e.file, recv, e.singleton)
+      scopes.nil? && (recv.nil? || recv.is_a?(Prism::SelfNode) || recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) || recv.is_a?(Prism::CallNode))
+    end
+
+    # The defs of the dependency gems, for the wait search only: name,
+    # scope, singleton-ness and body. They are never candidates
+    # (status :foreign), and Spinel typed none of their receivers, so the
+    # search through them goes by name.
+    def collect_dep_defs(deps)
+      entries = []
+      deps.each do |g|
+        g.rbfiles.each do |file|
+          result = Prism.parse(File.read(file), filepath: file)
+          next if result.failure?
+          collect_dep_defs_in(result.value.statements, [], file, false, entries)
+        end
+      end
+      entries
+    end
+
+    def collect_dep_defs_in(node, scope, file, singleton, entries)
+      return if node.nil?
+      case node
+      when Prism::ClassNode, Prism::ModuleNode
+        name = const_name(node.constant_path)
+        inner = name.start_with?("::") ? [name.sub("::", "")] : scope + [name]
+        collect_dep_defs_in(node.body, inner, file, false, entries)
+      when Prism::SingletonClassNode
+        collect_dep_defs_in(node.body, scope, file, true, entries) if node.expression.is_a?(Prism::SelfNode)
+      when Prism::DefNode
+        s = singleton || node.receiver.is_a?(Prism::SelfNode)
+        entries << Entry.new(file, scope.join("::"), node.name.to_s, s, false, node, nil, :foreign, nil, nil)
+      else
+        node.compact_child_nodes.each { |c| collect_dep_defs_in(c, scope, file, singleton, entries) }
+      end
     end
 
     # The label Spinel's codegen uses for a def: "Point#dist2", "Point.make",
@@ -467,6 +559,9 @@ module PicorubyAot
       if @exclude.include?(label)
         e.status = :irep
         e.reason = "excluded by spec.aot_exclude"
+      elsif HOOK_NAMES.include?(e.name)
+        e.status = :irep
+        e.reason = "a hook the VM calls while the irep loads (#{e.name}), before the cfunc is registered"
       elsif rec.nil?
         e.status = :irep
         e.reason = "no type record from spinel"

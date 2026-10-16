@@ -195,6 +195,10 @@ class AOTProbeTest < Picotest::Test
     assert_false(AOTProbe::Tagged.new.two(2))
   end
 
+  def test_included_hook_runs_while_the_irep_loads
+    assert_equal(3, AOTProbe::Counted.count_of([1, 2, 3]))
+  end
+
   def test_class_body_call_names_the_singleton_only
     assert_equal(2, AOTProbe::DEFINED)
     assert_equal(6, AOTProbe::Builder.new.define(3))

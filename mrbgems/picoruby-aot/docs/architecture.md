@@ -92,8 +92,20 @@ A `def` becomes a cfunc when all of these hold:
   `private` precedes it there).
 - The body uses only the supported syntax (section 3.1).
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
-  `Task.pass`, `join`, `suspend`, a Task receiver), directly or through
-  another method of the gem. A cfunc cannot yield to other tasks.
+  `Task.pass`, `join`, `suspend`, a Task receiver, and on wasm the
+  `_*_and_suspend` primitives behind `JS::Promise#await` and `JS.fetch`),
+  directly or through another method of the gem or of a gem it depends
+  on. A cfunc cannot yield to other tasks. Spinel types nothing inside
+  a dependency, so there the search follows only what it can resolve: a
+  bare call to the same scope, a call on a constant to that constant's
+  singleton methods, and a call by the name of a def that reaches a
+  primitive directly (`await`, `getch`). A call of this gem on an
+  untyped receiver takes every def of its name, in the dependencies
+  too: `kvs[key]` may be `IndexedDB::KVS#[]`, which awaits.
+- The method is not a hook the VM calls while the irep loads:
+  `inherited`, `included`, `extended`, `prepended`, `method_added`,
+  `singleton_method_added`. The gem's own `include` runs the hook
+  before the cfuncs are registered.
 - No class-body code of the gem reads or calls the method's name when
   the irep loads: an `alias`, `alias_method`, a visibility call with a
   symbol (`private :x`, `module_function :x`), or a plain call at
@@ -288,16 +300,20 @@ up as a changed count.
 rake "test:gems:aot_twin[picoruby-json,picoruby-midibase-mml]"
 rake test:gems:aot_twin      # every gem test:gems:picoruby runs
 rake test:gems:aot_twin32    # the same on the 32-bit host build
+rake test:gems:aot_twin_wasm # the same on the wasm build
 ```
 
 The host is 64-bit, so the twin there never meets a Bignum. The 32-bit
 host build (`picoruby32-test.rb`: MRB_INT32, word boxing, mruby-bigint)
 does. `picoruby-aot-probe` is a gem of typed methods the tests feed
 values past the 31-bit fixnum and past `mrb_int`, plus the keyword and
-block shapes; it exists for the twin and is not for a device build. CI
-runs both twins (`test-picoruby-aot`, `test-picoruby-aot32` in
-`.github/workflows/c-cpp.yml`). The logs land under `build/aot-twin/`
-and `build/aot-twin32/`.
+block shapes; it exists for the twin and is not for a device build. The
+wasm twin builds `picoruby-wasm-test.rb` with emcc three times and runs
+the gems `test:gems:wasm` runs (funicular among them) under the Node
+runner. CI runs the three twins (`test-picoruby-aot`,
+`test-picoruby-aot32`, `test-picoruby-aot-wasm` in
+`.github/workflows/c-cpp.yml`). The logs land under `build/aot-twin/`,
+`build/aot-twin32/` and `build/aot-twin-wasm/`.
 
 Before a gem is declared with `spec.aot`, it needs a picotest suite the
 twin can run and a device measurement of the path that matters.

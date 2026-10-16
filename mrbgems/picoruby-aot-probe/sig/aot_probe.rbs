@@ -40,6 +40,18 @@ module AOTProbe
 
   DEFINED: Integer
 
+  module Countable
+    def self.included: (Module base) -> void
+
+    module ClassMethods
+      def count_of: (Array[Integer] a) -> Integer
+    end
+  end
+
+  class Counted
+    extend Countable::ClassMethods
+  end
+
   class Clock
     @last_us: Integer
 
