@@ -119,13 +119,16 @@ A `def` becomes a cfunc when all of these hold:
 
 Both searches resolve a call as far as Spinel's type of its receiver
 allows. A bare call reaches a method of the same class (singleton or
-instance, as the caller is). A constant or a value typed `class`
-reaches a singleton method. A String, an Array, an Integer and the
-other core kinds reach only the defs of the gem that reopen that class
-(`list.join` is `Array#join`, not `Task#join`). An object of class X
-reaches the defs of X when the gem has any. A call on a receiver Spinel
-did not type takes every def of its name, singleton or not, in any
-scope.
+instance, as the caller is). A constant reaches the singleton methods
+of the class it names (`Errors.new` is not `SQLite3::Database.new`), or
+of any class when no def has that scope and the name is not a core
+class; a value typed `class` reaches a singleton method of any class.
+`X.new` reaches `X#initialize` as well. A String, an Array, an Integer
+and the other core kinds reach only the defs of the gem that reopen
+that class (`list.join` is `Array#join`, not `Task#join`). An object of
+class X reaches the defs of X when the gem has any. A call on a
+receiver Spinel did not type takes every def of its name, singleton or
+not, in any scope.
 
 Every other def stays in the irep. The reasons the sweep over every gem
 shows, largest first: no type record (gems outside the host build, or
