@@ -1,31 +1,3 @@
-if RUBY_ENGINE == "mruby/c"
-  class Array
-    def insert(index, *vals)
-      # @type var index: Integer
-      index_int = index.to_i
-      if index_int < 0
-        raise ArgumentError, "Negative index doesn't work"
-      end
-      tail = self[index_int, self.length]
-      i = 0
-      while i < vals.size
-        self[index_int + i] = vals[i]
-        i += 1
-      end
-      if tail
-        tail_at = index_int + vals.size
-        ti = 0
-        while ti < tail.size
-          self[tail_at] = tail[ti]
-          tail_at += 1
-          ti += 1
-        end
-      end
-      self
-    end
-  end
-end
-
 module Editor
 
   # Returns byte length of a UTF-8 character from its lead byte
