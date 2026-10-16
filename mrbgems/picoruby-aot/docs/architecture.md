@@ -94,8 +94,10 @@ A `def` becomes a cfunc when all of these hold:
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
   `Task.pass`, `join`, `suspend`, a Task receiver, and on wasm the
   `_*_and_suspend` primitives behind `JS::Promise#await` and `JS.fetch`),
-  directly or through another method of the gem or of a gem it depends
-  on. A cfunc cannot yield to other tasks. Spinel types nothing inside
+  directly or through another method of the gem or of another gem of
+  the build (`aot-gen --deps`, the build's gem set written to
+  `aot/deps.txt`; a gem the target does not carry cannot be called). A
+  cfunc cannot yield to other tasks. Spinel types nothing inside
   a dependency, so there the search follows only what it can resolve: a
   bare call to the same scope, a call on a constant to that constant's
   singleton methods, and a call by the name of a def that reaches a
@@ -119,10 +121,18 @@ A `def` becomes a cfunc when all of these hold:
 
 Both searches resolve a call as far as Spinel's type of its receiver
 allows. A bare call reaches a method of the same class (singleton or
-instance, as the caller is). A constant reaches the singleton methods
-of the class it names (`Errors.new` is not `SQLite3::Database.new`), or
-of any class when no def has that scope and the name is not a core
-class; a value typed `class` reaches a singleton method of any class.
+instance, as the caller is), of its ancestors through `class X < Y`
+and `include`, or of its subclasses, as the sources define them; when
+that chain leaves the sources (a superclass that is an expression, an
+`include` of a non-constant) it reaches any class. A def that cannot
+take the call's positional arguments is not the one called
+(`parts.join(", ")` is never a `def join` without parameters, nor
+`Task#join`). A constant reaches the singleton methods
+of the class it names (`Errors.new` is not `SQLite3::Database.new`;
+`JSON::JSONError.new`, a class without defs, reaches no gem def), or
+of any class when neither the gem nor a gem of the build defines that
+name and it is not a core class; a value typed `class` reaches a
+singleton method of any class.
 `X.new` reaches `X#initialize` as well. A String, an Array, an Integer
 and the other core kinds reach only the defs of the gem that reopen
 that class (`list.join` is `Array#join`, not `Task#join`). An object of
