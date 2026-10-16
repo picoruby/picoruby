@@ -192,10 +192,11 @@ module PicorubyAot
         emit "return mrb_nil_value();"
       end
       param_names = @params.map { |p| p[:c] }
+      dead = drop_unused_temps(body, param_names)
       s = +""
       s << "static mrb_value\n#{impl_name}(mrb_state *mrb, mrb_value self#{impl_params})\n{\n"
       @locals.each_value do |c, kind|
-        next if kind == :nil || param_names.include?(c)
+        next if kind == :nil || param_names.include?(c) || dead.include?(c)
         init = kind == :value ? " = mrb_nil_value()" : " = 0"
         s << "  #{CTYPE[kind]} #{c}#{init};\n"
       end
@@ -254,6 +255,44 @@ module PicorubyAot
       name = "t#{@tmp}"
       @locals["\0tmp#{@tmp}"] = [name, kind]
       name
+    end
+
+    # A right side with no effect: dropping its assignment loses nothing.
+    PURE_RHS = /\A(mrb_(nil|true|false|undef)_value\(\)|\(\(aot_int\)-?\d+LL\)|-?\d+(\.\d+)?|[A-Za-z_]\w*)\z/
+
+    # A local the body only assigns (the result slot of an `if` that is a
+    # statement, a value the next statement never reads, a Ruby `_`) drew
+    # -Wunused-but-set-variable on every such function. Such a local
+    # loses its declaration; each assignment keeps its right side for the
+    # effects, or goes when the right side has none. A parameter stays.
+    # Returns the names dropped.
+    def drop_unused_temps(body, param_names)
+      dead = []
+      temps = @locals.map { |_, (c, _)| c }.reject { |c| param_names.include?(c) }
+      # To a fixpoint: `t12 = t11;` is t11's only read, and goes with t12.
+      # (`loop` is this class's while-loop emitter, hence `while`.)
+      changed = true
+      while changed
+        changed = false
+        temps.each do |c|
+          next if dead.include?(c)
+          uses = body.scan(/\b#{c}\b/).size
+          assigns = body.scan(/^\s*#{c} = .*;( \})?\n/).size
+          next unless uses == assigns
+          dead << c
+          changed = true
+          next if uses == 0
+          body.gsub!(/^(\s*)#{c} = (.*);( \})?\n/) do
+            indent, rhs, close = $1, $2, $3
+            if rhs =~ PURE_RHS
+              close ? "#{indent}#{close.strip}\n" : ""
+            else
+              "#{indent}(void)(#{rhs});#{close}\n"
+            end
+          end
+        end
+      end
+      dead
     end
 
     def sym(name)
