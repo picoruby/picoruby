@@ -12,10 +12,20 @@ Ordered by the ratio of defs gained to design needed.
 
 ### 1.1 A block literal at a call site
 
-A def that passes a block (`File.open(path) { |f| ... }` in most of
-them) stays in the irep, because the generated C would have to make the
-Proc. The sweep over every gem counts 57 such defs; 24 of them are in
-the host build.
+A block literal is a cfunc Proc with an env (architecture 4.3). The
+block cannot do a `break` or a method `return`: nothing in the C API
+raises the VM's break. A def still stays in the irep when its block
+writes an outer local, holds another block, takes a parameter other
+than a required one, or reads an outer local the method writes after
+the call. On the host build 19 defs carry a block cfunc (keyboard 5,
+socket 3, machine, markdown, picoline, regexp, uart one each, the probe
+6); 7 defs stay in the irep for the block alone (3 for a local written
+after the block, 2 for a write to an outer local, one `break`, one
+`return`). The `File.open { |f| }` shapes (editor, vfs, vim, yaml) now
+stop at the wait search, not at the block: `File.open` calls `close` on
+a poly `file`, and one `close` of that name in the build is a wait
+(`Net::WebSocket::Client#close`). The type of a local assigned from a
+bare `new` inside `class << self` is the next step there (1.6).
 
 How Spinel does it: a block is never a closure by default. A builtin
 iterator becomes a C `for` loop with the block body inside and the
@@ -24,26 +34,22 @@ into its caller; `next` is `continue`, `break v` a `goto` out of the
 loop, `return` the method's C return. Only a block that is stored or
 passed on becomes a C function with a capture struct, and a captured
 local the block writes becomes a GC cell both sides read through.
-Spinel owns the whole program. picoruby-aot shares the VM, and mruby
-has no `break` or method `return` from a cfunc Proc (nothing in the C
-API raises the VM's break).
+Spinel owns the whole program; picoruby-aot shares the VM.
 
 Options, in the order to try:
 
-1. A cfunc Proc with an env (`mrb_proc_new_cfunc_with_env`): `self` and
-   the outer locals the block reads travel in the env, the call site
-   hands it over with `mrb_funcall_with_block`. A block with `break`, a
-   `return`, a write to an outer local or a nested block keeps the def
-   in the irep. The `open { |f| }` shape is exactly this; the aim is
-   that the def compiles, not that the block is fast. An outer local the
-   block writes can follow later as a one-element Array in the env.
+1. An outer local the block writes (`result = nil; open { |f| result =
+   f.read }`): a one-element Array in the env that both sides read and
+   write through, when the method does not unbox the local (the slot
+   is boxed in the Array). A nested block that reads outer locals is
+   the same env chain one level further.
 2. A block over a core receiver with `each`, `times`, `each_byte`,
    `downto`, where Spinel's record says `inlined: true`, becomes a C
    loop with the guarded element access when `aot_method_is` says the
-   iterator is still the builtin; the Proc of option 1 is the fallback
-   when it is not. `next`, `break` and `return` map as Spinel maps them.
-   The owner's gems have almost no hot block loop (the `while` rule),
-   so this waits for a device profile that shows one.
+   iterator is still the builtin; the env Proc is the fallback when it
+   is not. `next`, `break` and `return` map as Spinel maps them. The
+   owner's gems have almost no hot block loop (the `while` rule), so
+   this waits for a device profile that shows one.
 3. Leave the def in the irep and rewrite the hot loop with `while`.
 
 ### 1.2 `begin`/`rescue`/`ensure`
@@ -193,13 +199,13 @@ and a device measurement of the path that matters.
 
 | Gem | Compiled | Blocked by | Expected gain |
 |---|---|---|---|
-| picoruby-regexp | 2 / 4 of 11 | rest parameters on the String wrappers (1.3), a block literal in `__sub_common` (1.1) | Low: the engine is C; the wrappers are thin |
-| picoruby-vfs | 24 / 42 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); block literals in `Dir.glob` and `load_file` (1.1); `File.open`, `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
-| picoruby-vim | 3 / 4 of 6 | block literals in `_start` and `initialize` (1.1) | Low here, high through editor, which is compiled already |
+| picoruby-regexp | 2 / 5 of 11 | rest parameters on the String wrappers (1.3) | Low: the engine is C; the wrappers are thin |
+| picoruby-vfs | 23 / 40 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); `File.open`, `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `File.open` and what calls it (`load_file`) wait through a poly `file.close` (1.1, 1.6); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
+| picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (the `File.open` wait, 1.1) or `getch` | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
-| picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); a block literal in `load_file` (1.1); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
+| picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` (1.1); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
 | picoruby-shell | 19 / 38 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3); rescue on 5 (1.2) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
-| picoruby-funicular | 117 / 227 of 747 | waits through untyped receivers on about 480 (1.6: the types); block literals (1.1), adjacent interpolated strings (1.4), rescue (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
+| picoruby-funicular | 119 / 234 of 747 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), rescue (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 

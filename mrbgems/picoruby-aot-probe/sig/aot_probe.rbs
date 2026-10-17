@@ -22,6 +22,14 @@ module AOTProbe
   def self.forward_with_keywords: (untyped callee, Integer value) { (Integer) -> untyped } -> untyped
   def self.call_or_value: (Integer x) ?{ (Integer) -> untyped } -> untyped
   def self.without_block: (Integer x) -> Integer
+  def self.weighted: (Array[Integer] a, Integer weight) -> Array[Integer]
+  def self.evens: (Array[Integer] a) -> Array[Integer]
+  def self.offsets: (Array[Integer] a) { (Integer) -> void } -> Integer
+  def self.doubled: (Integer x) -> Integer
+  def self.plus_one: (Array[Integer] a) -> Array[Integer]
+  def self.pairs: (Hash[String, Integer] h) -> Array[String]
+  def self.first_over: (Array[Integer] a, Integer n) -> Integer
+  def self.last_seen: (Array[Integer] a) -> Integer?
   def self.joined: (Array[Integer] a) -> String
 
   class Tagged

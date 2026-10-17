@@ -750,6 +750,23 @@ aot_block_arg(mrb_state *mrb, mrb_value v)
 }
 
 void
+aot_block_args(mrb_state *mrb, mrb_int n, mrb_value *out)
+{
+  mrb_int argc = mrb_get_argc(mrb);
+  const mrb_value *argv = mrb_get_argv(mrb);
+  mrb_int i;
+
+  if (n > 1 && argc == 1 && mrb_array_p(argv[0])) {
+    mrb_value ary = argv[0];
+    argc = RARRAY_LEN(ary);
+    argv = RARRAY_PTR(ary);
+  }
+  for (i = 0; i < n; i++) {
+    out[i] = i < argc ? argv[i] : mrb_nil_value();
+  }
+}
+
+void
 aot_raise_obj(mrb_state *mrb, mrb_value klass, const char *msg)
 {
   if (!mrb_class_p(klass)) {
