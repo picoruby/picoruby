@@ -166,8 +166,8 @@ Literals (Array and Hash without a splat), locals, instance and global
 variables, constants and constant paths, `if`/`unless`/`while`/`until`/
 `case`, `return`, `break`, `next`, `and`/`or`/`not`, multiple assignment
 to locals and instance variables, Range literals, string interpolation,
-method calls (`&.`, keyword arguments and a forwarded `&blk` included;
-a block literal at a call site is not), `yield`, `block_given?`, and
+method calls (`&.`, keyword arguments, a forwarded `&blk` and a block
+literal included), `yield`, `block_given?`, and
 `raise` with a literal message or a constant class and a literal
 message.
 
@@ -275,6 +275,31 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   waits for the scheduler under a compiled method cannot be switched
   away from, as a callee behind `mrb_funcall` cannot. The gem's author
   judges.
+- A block literal at a call site (`File.open(path) { |f| f.read }`)
+  becomes a cfunc of its own. The call site makes a Proc of it with
+  `mrb_proc_new_cfunc_with_env`. The env holds self, a boxed copy of
+  each outer local the block reads, and the method's own block when the
+  body yields. The block cfunc reads them back at entry with
+  `mrb_proc_cfunc_env_get`. It reads its parameters through
+  `aot_block_args`, which splats one Array over several parameters and
+  fills a missing one with nil, as the VM does for a block. A proved
+  parameter is unboxed with the checked helper, as a def's parameter
+  is. `next` ends one call of the block with its value. The Proc goes
+  to a compiled callee's impl directly or to the VM with
+  `mrb_funcall_with_block`. A compiled callee calls it with
+  `mrb_funcall` on `Proc#call`; the VM's `OP_CALL` hands a cfunc Proc's
+  value back to a C caller (vm.c, `VM_RETURN_C`), which the mruby of
+  this tree carries. The copy of an outer local sets the limits.
+  The def stays in the irep when the block has a `break` or a `return`
+  (nothing in the C API raises the VM's break), writes an outer local,
+  holds another block, takes a parameter other than a required one, or
+  reads an outer local the method writes after the call (a callee may
+  keep the Proc). A block on `instance_eval`, `instance_exec`,
+  `class_eval`, `class_exec`, `module_eval`, `module_exec`,
+  `define_method`, `define_singleton_method` or `lambda` keeps the def
+  in the irep too: that block runs with another self, or needs lambda
+  semantics. So does a block on `Task.new`: mruby-task runs it as an
+  irep.
 - `raise "msg"` and `raise Klass, "msg"` are raised in C; every other
   form goes to `Kernel#raise` through the VM.
 - Other calls go through `mrb_funcall_argv`.

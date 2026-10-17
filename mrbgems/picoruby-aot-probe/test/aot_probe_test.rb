@@ -184,6 +184,40 @@ class AOTProbeTest < Picotest::Test
     assert_equal(8, AOTProbe.call_or_value(7) { |v| v + 1 })
   end
 
+  def test_block_literal_reads_outer_locals
+    assert_equal([30, 41, 52], AOTProbe.weighted([3, 4, 5], 10))
+    assert_equal([1 << 32], AOTProbe.weighted([1 << 31], 2))
+  end
+
+  def test_block_literal_next
+    assert_equal([2, 4], AOTProbe.evens([1, 2, 3, 4]))
+  end
+
+  def test_block_literal_yields_to_the_method_block
+    seen = []
+    assert_equal(2, AOTProbe.offsets([5, 6]) { |v| seen << v })
+    assert_equal([5, 7], seen)
+  end
+
+  def test_block_literal_value_is_the_call_value
+    assert_equal(14, AOTProbe.doubled(7))
+  end
+
+  def test_block_literal_through_a_core_method
+    assert_equal([2, 3], AOTProbe.plus_one([1, 2]))
+    assert_equal(["a=1", "b=2"], AOTProbe.pairs({ "a" => 1, "b" => 2 }))
+  end
+
+  def test_block_literal_with_break_keeps_the_irep
+    assert_equal(3, AOTProbe.first_over([1, 3, 5], 2))
+    assert_equal(2, AOTProbe.first_over([1, 2], 5))
+  end
+
+  def test_block_literal_writing_an_outer_local_keeps_the_irep
+    assert_equal(3, AOTProbe.last_seen([1, 2, 3]))
+    assert_nil(AOTProbe.last_seen([]))
+  end
+
   def test_join_on_an_array_is_not_a_task_join
     assert_equal("1,2", AOTProbe.joined([1, 2, 3]))
   end

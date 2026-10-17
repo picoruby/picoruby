@@ -108,6 +108,9 @@ module PicorubyAot
       @targets = targets
       @direct_refs = []  # the labels this def calls directly
       @loop_depth = 0
+      @loops = []        # the while/until nodes around the code being emitted
+      @block_functions = [] # the C of each block literal's cfunc, in order
+      @in_block = false  # emitting a block literal's body
     end
 
     attr_reader :direct_refs
@@ -193,7 +196,8 @@ module PicorubyAot
       end
       param_names = @params.map { |p| p[:c] }
       dead = drop_unused_temps(body, param_names)
-      s = +""
+      # The block cfuncs first: the impl names them.
+      s = @block_functions.join
       s << "static mrb_value\n#{impl_name}(mrb_state *mrb, mrb_value self#{impl_params})\n{\n"
       @locals.each_value do |c, kind|
         next if kind == :nil || param_names.include?(c) || dead.include?(c)
@@ -564,8 +568,10 @@ module PicorubyAot
         acc << [node.name.to_s, nil]
       when Prism::MultiWriteNode
         node.lefts.each { |t| acc << [t.name.to_s, nil] if t.is_a?(Prism::LocalVariableTargetNode) }
-      when Prism::BlockNode, Prism::LambdaNode
-        unsupported("block", node)
+      when Prism::BlockNode
+        return # compiled apart, with locals of its own (block_literal)
+      when Prism::LambdaNode
+        unsupported("lambda", node)
       end
       node.child_nodes.each { |c| collect_writes(c, acc) }
     end
@@ -854,16 +860,25 @@ module PicorubyAot
       when Prism::WhileNode then loop(node, false)
       when Prism::UntilNode then loop(node, true)
       when Prism::ReturnNode
+        unsupported("return in a block", node) if @in_block
         unsupported("return with several values", node) if node.arguments && node.arguments.arguments.size > 1
         v = node.arguments ? expr(node.arguments.arguments.first) : Val.new("mrb_nil_value()", :nil)
         emit "return #{box(v)};"
         Val.new("mrb_nil_value()", :nil)
       when Prism::BreakNode
+        unsupported("break in a block", node) if @in_block && @loop_depth.zero?
         unsupported("break outside a while loop", node) if @loop_depth.zero?
         unsupported("break with a value", node) if node.arguments
         emit "break;"
         Val.new("mrb_nil_value()", :nil)
       when Prism::NextNode
+        if @in_block && @loop_depth.zero?
+          # `next v` ends this call of the block with v.
+          unsupported("next with several values", node) if node.arguments && node.arguments.arguments.size > 1
+          v = node.arguments ? expr(node.arguments.arguments.first) : Val.new("mrb_nil_value()", :nil)
+          emit "return #{box(v)};"
+          return Val.new("mrb_nil_value()", :nil)
+        end
         unsupported("next outside a while loop", node) if @loop_depth.zero?
         emit "continue;"
         Val.new("mrb_nil_value()", :nil)
@@ -1042,7 +1057,9 @@ module PicorubyAot
       cond = negate ? strip_parens(cond) : "!(#{cond})"
       emit "if (#{cond}) break;"
       @loop_depth += 1
+      @loops << node
       statements(node.statements) if node.statements
+      @loops.pop
       @loop_depth -= 1
       emit "}"
       Val.new("mrb_nil_value()", :nil)
@@ -1088,7 +1105,6 @@ module PicorubyAot
     end
 
     def call(node, recv = nil)
-      unsupported("block", node) if node.block && !node.block.is_a?(Prism::BlockArgumentNode)
       return safe_call(node) if node.safe_navigation? && recv.nil?
       args = node.arguments ? node.arguments.arguments : []
       kw_node = nil
@@ -1115,8 +1131,8 @@ module PicorubyAot
           kw << [e.key.unescaped, expr(e.value)]
         end
       end
-      # `&blk` last, as Ruby evaluates it.
-      blk = block_pass(node)
+      # `&blk` or the block literal last, as Ruby evaluates it.
+      blk = node.block.is_a?(Prism::BlockNode) ? block_literal(node, node.block) : block_pass(node)
       return call_with_block(node, recv, name, argv, kw, blk) if blk
 
       if node.receiver && argv.size == 1 && kw.empty?
@@ -1178,6 +1194,172 @@ module PicorubyAot
       t = tmp(:value)
       dispatch(node, t, recv, name, argv, kw, blk)
       Val.new(t, :value)
+    end
+
+    # ---- block literals ------------------------------------------------
+
+    # A call whose block an env Proc cannot stand in for: the block runs
+    # with another self, or becomes a method or a lambda (strict arity, a
+    # local `return`).
+    BLOCK_REFUSED = %w[instance_eval instance_exec class_eval class_exec module_eval module_exec
+                       define_method define_singleton_method lambda].freeze
+
+    # `recv.m(args) { |params| body }`: the body becomes a cfunc of its own
+    # and the call site makes a Proc of it with an env
+    # (mrb_proc_new_cfunc_with_env) that holds self, a copy of each outer
+    # local the block reads (boxed) and the method's own block when the
+    # body yields; the block cfunc reads them back at entry. A block these
+    # semantics do not cover keeps the def in the irep: a `break` or a
+    # `return` (nothing in the C API raises the VM's break), a write to an
+    # outer local, a nested block, a parameter other than a required one,
+    # and an outer local the block reads that the method writes after the
+    # call (the copy would be stale when the callee keeps the Proc).
+    def block_literal(call, block)
+      unsupported("a block on #{call.name}", block) if BLOCK_REFUSED.include?(call.name.to_s)
+      # mruby-task runs the block of Task.new as an irep (task.c reads
+      # proc->body.irep), which a cfunc Proc is not.
+      recv = call.receiver
+      recv_name = recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) ? recv.name.to_s : nil
+      unsupported("a block on Task.new", block) if call.name == :new && recv_name == "Task"
+      unsupported("nested block", block) if @in_block
+      params = block_params(block)
+      captures = []
+      yields = false
+      scan = lambda do |node|
+        case node
+        when nil then return
+        when Prism::BlockNode, Prism::LambdaNode then unsupported("nested block", node)
+        when Prism::ReturnNode then unsupported("return in a block", node)
+        when Prism::LocalVariableReadNode
+          captures << node.name.to_s if node.depth > 0
+        when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
+             Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
+          unsupported("a block writes an outer local (#{node.name})", node) if node.depth > 0
+        when Prism::YieldNode
+          yields = true
+        when Prism::CallNode
+          yields = true if node.receiver.nil? && node.name == :block_given? && node.arguments.nil?
+        end
+        node.compact_child_nodes.each { |c| scan.call(c) }
+      end
+      scan.call(block.body)
+      captures.uniq!
+      captures.each { |name| check_capture(name, call) }
+
+      # The env slots after self: each captured C local once (a `&blk`
+      # parameter and a `yield` both mean p_blk), a nil-kind local needs
+      # none.
+      slots = []
+      blocals = {}
+      captures.each do |name|
+        c, k = local(name)
+        blocals[name] = [c, k]
+        next if k == :nil
+        slots << [c, k] unless slots.any? { |s| s[0] == c }
+      end
+      if yields && slots.none? { |s| s[0] == BLOCK_C }
+        slots << [BLOCK_C, :value]
+        blocals["\0blk"] = [BLOCK_C, :value]
+      end
+      params.each { |p| blocals[p[:name]] = [p[:c], p[:kind]] unless blocals.key?(p[:name]) }
+
+      fn = "#{@cfunc}_blk#{@block_functions.size + 1}"
+      saved = [@out, @locals, @loop_depth, @loops, @in_block]
+      @locals = blocals
+      @loop_depth = 0
+      @loops = []
+      @in_block = true
+      infer_local_kinds(block.body)
+      body = +""
+      @out = body
+      # self and the captures from the env, before anything else runs.
+      emit "self = mrb_proc_cfunc_env_get(mrb, 0);"
+      emit "(void)self;"
+      slots.each_with_index do |(c, k), i|
+        emit "#{c} = #{coerce(Val.new("mrb_proc_cfunc_env_get(mrb, #{i + 1})", :value), k)};"
+      end
+      unless params.empty?
+        emit "{ mrb_value bargv[#{params.size}];"
+        emit "  aot_block_args(mrb, #{params.size}, bargv);"
+        params.each_with_index do |p, i|
+          emit "  #{p[:c]} = #{p[:kind] == :value ? "bargv[#{i}]" : "#{PARAM_UNBOX[p[:kind]]}(mrb, bargv[#{i}])"};"
+        end
+        emit "}"
+      end
+      last = statements(block.body)
+      emit "return #{box(last)};"
+      dead = drop_unused_temps(body, [])
+      decl = +""
+      @locals.each_value do |c, kind|
+        next if kind == :nil || dead.include?(c)
+        init = kind == :value ? " = mrb_nil_value()" : " = 0"
+        decl << "  #{CTYPE[kind]} #{c}#{init};\n"
+      end
+      @block_functions << "static mrb_value\n#{fn}(mrb_state *mrb, mrb_value self)\n{\n#{decl}#{body}}\n\n"
+      @out, @locals, @loop_depth, @loops, @in_block = saved
+
+      # The Proc, at the call site: the env values boxed, in slot order.
+      t = tmp(:value)
+      vals = ["self"] + slots.map { |c, k| box(Val.new(c, k)) }
+      a = "env#{@tmp}"
+      emit "{ mrb_value #{a}[] = { #{vals.join(', ')} };"
+      emit "  #{t} = mrb_obj_value(mrb_proc_new_cfunc_with_env(mrb, #{fn}, #{vals.size}, #{a})); }"
+      Val.new(t, :value)
+    end
+
+    # The block's parameters: required ones only, each a boxed argument the
+    # block cfunc reads through aot_block_args (one Array over several
+    # parameters is splat and a missing argument is nil, as the VM does for
+    # a block), unboxed when Spinel proved its kind, as a def's parameter.
+    def block_params(block)
+      p = block.parameters
+      return [] if p.nil?
+      unsupported("numbered or `it` block parameter", block) unless p.is_a?(Prism::BlockParametersNode)
+      unsupported("block-local variables", block) unless p.locals.empty?
+      inner = p.parameters
+      return [] if inner.nil?
+      if inner.rest || inner.keyword_rest || inner.block || !inner.optionals.empty? || !inner.posts.empty? || !inner.keywords.empty?
+        unsupported("block parameter other than a required one", block)
+      end
+      seen = {}
+      inner.requireds.each_with_index.map do |r, i|
+        unsupported("destructuring block parameter", r) unless r.is_a?(Prism::RequiredParameterNode)
+        kind = @types.scalar(@file, r)
+        kind = :value if kind.nil? || param_tested?(r.name)
+        name = r.name.to_s
+        # `|_, _|`: the second `_` is a slot of its own, read by nothing.
+        c = seen[name] ? "b_#{name}_#{i}" : "b_#{name}"
+        seen[name] = true
+        { name: c == "b_#{name}" ? name : "\0#{c}", c: c, kind: kind }
+      end
+    end
+
+    # The env holds a copy of the outer local, so the block must see the
+    # value the method has at the call and no later one. The method must
+    # not write the local after the call, nor anywhere in a loop around it
+    # (the callee may keep the Proc and call it later: a timer, a handler).
+    def check_capture(name, call)
+      start = call.location.start_offset
+      stale = local_writes(@def.body, name).any? do |w|
+        o = w.location.start_offset
+        o > start || @loops.any? { |l| l.location.start_offset <= o && w.location.end_offset <= l.location.end_offset }
+      end
+      unsupported("an outer local the block reads (#{name}) is written after the block", call) if stale
+    end
+
+    # The writes to the method's local `name` in the subtree; inside a
+    # block only those that reach out (depth > 0), a block-local of the
+    # same name is another variable.
+    def local_writes(node, name, acc = [], in_block = false)
+      return acc if node.nil?
+      in_block = true if node.is_a?(Prism::BlockNode)
+      case node
+      when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
+           Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
+        acc << node if node.name.to_s == name && (!in_block || node.depth > 0)
+      end
+      node.compact_child_nodes.each { |c| local_writes(c, name, acc, in_block) }
+      acc
     end
 
     # The call itself, into `t`: a direct call to the impl when Spinel

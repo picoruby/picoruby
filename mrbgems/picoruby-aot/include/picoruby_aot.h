@@ -246,6 +246,13 @@ mrb_value aot_yield(mrb_state *mrb, mrb_value blk, mrb_int argc, const mrb_value
    The impl of a compiled callee takes the result as its last argument. */
 mrb_value aot_block_arg(mrb_state *mrb, mrb_value v);
 
+/* The `n` parameters of a block literal's cfunc, from the arguments of
+   the call: one Array over several parameters is splat, a missing
+   argument is nil and an extra one is dropped, as the VM does for a
+   block. The cfunc reads self and the outer locals it captured from its
+   env (mrb_proc_cfunc_env_get); see codegen.rb, block_literal. */
+void aot_block_args(mrb_state *mrb, mrb_int n, mrb_value *out);
+
 /* Boxing shorthands kept as macros so the generated C reads evenly. */
 #define AOT_BOX_INT(mrb, i)   aot_box_int((mrb), (i))
 #define AOT_BOX_FLOAT(mrb, f) mrb_float_value((mrb), (f))

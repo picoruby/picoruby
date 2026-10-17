@@ -117,6 +117,55 @@ module AOTProbe
     maybe(x)
   end
 
+  # Block literals at a call site: a cfunc Proc whose env carries the
+  # outer locals the block reads. The block goes to a compiled def (a
+  # direct call) and to a core method (the VM yields one value, or an
+  # Array that a two-parameter block splats), ends one call with `next`,
+  # yields to the method's own block, and gives the call its value. A
+  # block with `break` keeps its def in the irep (first_over), as does
+  # one that writes an outer local (last_seen); both must still agree.
+  def self.weighted(a, weight)
+    acc = []
+    each_index_of(a) { |v, i| acc << v * weight + i }
+    acc
+  end
+
+  def self.evens(a)
+    r = []
+    each_index_of(a) { |v, _| next if v.odd?; r << v }
+    r
+  end
+
+  def self.offsets(a)
+    each_index_of(a) { |v, i| yield v + i }
+  end
+
+  def self.doubled(x)
+    maybe(x) { |v| v * 2 }
+  end
+
+  def self.plus_one(a)
+    acc = []
+    a.each { |v| acc << v + 1 }
+    acc
+  end
+
+  def self.pairs(h)
+    acc = []
+    h.each { |k, v| acc << "#{k}=#{v}" }
+    acc
+  end
+
+  def self.first_over(a, n)
+    each_index_of(a) { |v, _| break v if n < v }
+  end
+
+  def self.last_seen(a)
+    seen = nil
+    each_index_of(a) { |v, _| seen = v }
+    seen
+  end
+
   # Calls the classifier resolves by the receiver's type, not by name:
   # `join` on an Array is Array#join, not Task#join (joined compiles);
   # the body of a define_method block does not run when the irep loads,
