@@ -112,6 +112,12 @@ module PicorubyAot
       @loops = []        # the while/until nodes around the code being emitted
       @block_functions = [] # the C of each block literal's cfunc, in order
       @in_block = false  # emitting a block literal's body
+      @begins = 0        # begin blocks so far (names their C functions)
+      @regions = {}.compare_by_identity # BeginNode -> the locals its body and its clauses own
+      @ud = nil          # the userdata C variable while emitting a begin's function
+      @private = {}      # the locals the begin region being emitted owns
+      @outer_loops = 0   # loops around the begin whose function is being emitted
+      @jumps = {}        # the jumps the current begin's functions record
     end
 
     attr_reader :direct_refs
@@ -186,6 +192,7 @@ module PicorubyAot
     def compile
       check_params unless @params
       collect_cells(@def.body)
+      collect_begin_cells(@def.body)
       infer_local_kinds(@def.body)
       body = +""
       @out = body
@@ -790,6 +797,7 @@ module PicorubyAot
         return cell_write(node, expr(node.value)) if cell?(node.name)
         c, k = local(node.name)
         v = expr(node.value)
+        check_plain_write(node)
         emit "#{c} = #{coerce(v, k)};"
         Val.new(c, k)
       when Prism::LocalVariableOperatorWriteNode
@@ -799,6 +807,7 @@ module PicorubyAot
         end
         c, k = local(node.name)
         v = binop(node.binary_operator.to_s, Val.new(c, k), expr(node.value), node)
+        check_plain_write(node)
         emit "#{c} = #{coerce(v, k)};"
         Val.new(c, k)
       when Prism::LocalVariableOrWriteNode
@@ -815,6 +824,7 @@ module PicorubyAot
         end
         c, k = local(node.name)
         unsupported("||= on an unboxed local", node) unless k == :value
+        check_plain_write(node)
         emit "if (!mrb_test(#{c})) {"
         v = expr(node.value)
         emit "#{c} = #{box(v)};"
@@ -881,17 +891,16 @@ module PicorubyAot
         Val.new(t, :value)
       when Prism::WhileNode then loop(node, false)
       when Prism::UntilNode then loop(node, true)
+      when Prism::BeginNode then begin_block(node)
       when Prism::ReturnNode
         unsupported("return in a block", node) if @in_block
         unsupported("return with several values", node) if node.arguments && node.arguments.arguments.size > 1
         v = node.arguments ? expr(node.arguments.arguments.first) : Val.new("mrb_nil_value()", :nil)
-        emit "return #{box(v)};"
+        emit_return(box(v))
         Val.new("mrb_nil_value()", :nil)
       when Prism::BreakNode
-        unsupported("break in a block", node) if @in_block && @loop_depth.zero?
-        unsupported("break outside a while loop", node) if @loop_depth.zero?
         unsupported("break with a value", node) if node.arguments
-        emit "break;"
+        emit_break(node)
         Val.new("mrb_nil_value()", :nil)
       when Prism::NextNode
         if @in_block && @loop_depth.zero?
@@ -901,8 +910,7 @@ module PicorubyAot
           emit "return #{box(v)};"
           return Val.new("mrb_nil_value()", :nil)
         end
-        unsupported("next outside a while loop", node) if @loop_depth.zero?
-        emit "continue;"
+        emit_next(node)
         Val.new("mrb_nil_value()", :nil)
       when Prism::AndNode then logical(node, "&&")
       when Prism::OrNode then logical(node, "||")
@@ -1059,20 +1067,64 @@ module PicorubyAot
           end
         end
       targets.each_with_index do |t, i|
-        v = values[i] || Val.new("mrb_nil_value()", :nil)
-        case t
-        when Prism::LocalVariableTargetNode
-          if cell?(t.name)
-            cell_write(t, v)
-            next
-          end
-          c, k = local(t.name)
-          emit "#{c} = #{coerce(v, k)};"
-        when Prism::InstanceVariableTargetNode
-          emit "mrb_iv_set(mrb, self, #{sym(t.name)}, #{box(v)});"
-        end
+        write_target(t, values[i] || Val.new("mrb_nil_value()", :nil))
       end
       Val.new("mrb_nil_value()", :nil)
+    end
+
+    # Assign `v` to a target node: a local (its cell when it has one) or
+    # an instance variable.
+    def write_target(t, v)
+      case t
+      when Prism::LocalVariableTargetNode
+        return cell_write(t, v) if cell?(t.name)
+        c, k = local(t.name)
+        check_plain_write(t)
+        emit "#{c} = #{coerce(v, k)};"
+      when Prism::InstanceVariableTargetNode
+        emit "mrb_iv_set(mrb, self, #{sym(t.name)}, #{box(v)});"
+      else
+        unsupported("#{t.class.name.split('::').last} as an assignment target", t)
+      end
+    end
+
+    # `return v` leaves the method; inside a begin's C function it is
+    # recorded as a jump and the function returns v as its result.
+    def emit_return(code)
+      if @ud
+        @jumps[:return] = true
+        emit "#{@ud}->jump = AOT_JUMP_RETURN;"
+      end
+      emit "return #{code};"
+    end
+
+    # `break` and `next` go to the C loop when one is open in this
+    # function; inside a begin's C function with the loop outside they
+    # are recorded as a jump the method's C makes after the begin.
+    def emit_break(node)
+      if @loop_depth > 0
+        emit "break;"
+      elsif @in_block
+        unsupported("break in a block", node)
+      elsif @ud && @outer_loops > 0
+        @jumps[:break] = true
+        emit "#{@ud}->jump = AOT_JUMP_BREAK;"
+        emit "return mrb_nil_value();"
+      else
+        unsupported("break outside a while loop", node)
+      end
+    end
+
+    def emit_next(node)
+      if @loop_depth > 0
+        emit "continue;"
+      elsif @ud && @outer_loops > 0
+        @jumps[:next] = true
+        emit "#{@ud}->jump = AOT_JUMP_NEXT;"
+        emit "return mrb_nil_value();"
+      else
+        unsupported("next outside a while loop", node)
+      end
     end
 
     def loop(node, negate)
@@ -1293,11 +1345,15 @@ module PicorubyAot
       params.each { |p| blocals[p[:name]] = [p[:c], p[:kind]] unless blocals.key?(p[:name]) }
 
       fn = "#{@cfunc}_blk#{@block_functions.size + 1}"
-      saved = [@out, @locals, @loop_depth, @loops, @in_block]
+      saved = [@out, @locals, @loop_depth, @loops, @in_block, @ud, @outer_loops]
       @locals = blocals
       @loop_depth = 0
       @loops = []
       @in_block = true
+      # A begin inside the block is refused (begin_block), so no jump of
+      # the block's own is recorded in a begin's userdata.
+      @ud = nil
+      @outer_loops = 0
       infer_local_kinds(block.body)
       body = +""
       @out = body
@@ -1325,7 +1381,7 @@ module PicorubyAot
         decl << "  #{CTYPE[kind]} #{c}#{init};\n"
       end
       @block_functions << "static mrb_value\n#{fn}(mrb_state *mrb, mrb_value self)\n{\n#{decl}#{body}}\n\n"
-      @out, @locals, @loop_depth, @loops, @in_block = saved
+      @out, @locals, @loop_depth, @loops, @in_block, @ud, @outer_loops = saved
 
       # The Proc, at the call site: the env values boxed, in slot order.
       t = tmp(:value)
@@ -1469,6 +1525,259 @@ module PicorubyAot
       end
       node.compact_child_nodes.each { |c| local_writes(c, name, acc, in_block) }
       acc
+    end
+
+    # ---- begin/rescue/ensure -------------------------------------------
+
+    # The body of a begin runs as a C function of its own under
+    # mrb_protect_error, and so do its rescue clauses, together in a
+    # second function that protects the body and matches the exception.
+    # mrb_protect_error restores the GC arena after the function it ran,
+    # so an object the body made and kept in a C local of the method
+    # would be unprotected. The locals are therefore split by region (the
+    # body, the clauses, and the rest of the method with the ensure
+    # clause): a local that the body or the clauses write and another
+    # region references is a cell (as a local a block writes is); a local
+    # that one region alone references is a plain C local of that
+    # region's function, unless the begin sits in a loop and the region
+    # reads the local before it writes it (the value carries over from
+    # the last turn, so it is a cell too). Every other local the function
+    # reads is a copy in the userdata, taken when the function is called.
+    # Records the owned locals of each region in @regions.
+    def collect_begin_cells(body)
+      refs = []
+      local_refs(body, refs, 0)
+      find_begins(body, [], []).each do |b, loops|
+        regions = { body: [b.statements], rescue: rescue_nodes(b.rescue_clause) }
+        by_region = Hash.new { |h, k| h[k] = [] }
+        refs.each do |r|
+          region = regions.find { |_, nodes| nodes.any? { |n| n && within?(r[:node], n) } }
+          by_region[region ? region[0] : :out] << r
+        end
+        priv = { body: {}, rescue: {} }
+        refs.map { |r| r[:name] }.uniq.each do |name|
+          uses = by_region.select { |_, rs| rs.any? { |r| r[:name] == name } }.keys
+          writes = by_region.select { |_, rs| rs.any? { |r| r[:name] == name && r[:write] } }.keys - [:out]
+          next if writes.empty?
+          if writes.any? { |w| (uses - [w]).any? }
+            @cells[name] = true
+            next
+          end
+          region = writes.first
+          first = by_region[region].select { |r| r[:name] == name }.min_by { |r| r[:order] }
+          if !loops.empty? && !first[:plain]
+            @cells[name] = true
+          else
+            priv[region][name] = true
+          end
+        end
+        @regions[b] = priv
+      end
+    end
+
+    # Every reference to a local of the method in the subtree: inside a
+    # block only those that reach out to the method's scope. `order` is
+    # where the reference takes effect (a plain write at its end, since
+    # its right side runs first), `plain` marks a write that reads
+    # nothing before it.
+    def local_refs(node, acc, depth)
+      return if node.nil? || node.is_a?(Prism::DefNode)
+      inner = node.is_a?(Prism::BlockNode) || node.is_a?(Prism::LambdaNode) ? depth + 1 : depth
+      case node
+      when Prism::LocalVariableReadNode
+        acc << { name: node.name.to_s, node: node, write: false, order: node.location.start_offset } if node.depth == depth
+      when Prism::LocalVariableWriteNode, Prism::LocalVariableTargetNode
+        acc << { name: node.name.to_s, node: node, write: true, plain: true, order: node.location.end_offset } if node.depth == depth
+      when Prism::LocalVariableOperatorWriteNode, Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode
+        acc << { name: node.name.to_s, node: node, write: true, plain: false, order: node.location.start_offset } if node.depth == depth
+      end
+      node.compact_child_nodes.each { |c| local_refs(c, acc, inner) }
+    end
+
+    # [BeginNode, the while/until nodes around it] for every begin in the
+    # subtree outside a block literal (a begin inside one is refused).
+    def find_begins(node, loops, acc)
+      return acc if node.nil? || node.is_a?(Prism::BlockNode) || node.is_a?(Prism::LambdaNode) || node.is_a?(Prism::DefNode)
+      acc << [node, loops.dup] if node.is_a?(Prism::BeginNode)
+      inner = node.is_a?(Prism::WhileNode) || node.is_a?(Prism::UntilNode) ? loops + [node] : loops
+      node.compact_child_nodes.each { |c| find_begins(c, inner, acc) }
+      acc
+    end
+
+    # The rescue clauses from `first` on, in order.
+    def rescue_nodes(first)
+      nodes = []
+      r = first
+      while r
+        nodes << r
+        r = r.subsequent
+      end
+      nodes
+    end
+
+    def within?(node, outer)
+      outer.location.start_offset <= node.location.start_offset && node.location.end_offset <= outer.location.end_offset
+    end
+
+    # Inside a begin's function a plain (non-cell) local is written only
+    # when the region owns it (collect_begin_cells). Anything else is a
+    # hole in that analysis, and is refused rather than compiled.
+    def check_plain_write(node)
+      return unless @ud
+      name = node.name.to_s
+      unsupported("internal: #{name} written outside its region", node) unless @private[name]
+    end
+
+    # `begin body rescue A => e; clause ensure final end`. The body is a
+    # C function run under mrb_protect_error; with rescue clauses a
+    # second function protects it, matches the exception against each
+    # clause's classes in order (aot_rescue_p, StandardError for a bare
+    # rescue), binds `=> e`, runs the clause, and re-raises when no
+    # clause matches. The method's C fills a userdata struct (self and
+    # every local the functions read), calls the function, directly or
+    # under mrb_protect_error when there is an ensure clause, runs the
+    # ensure clause, re-raises an exception the ensure clause held back,
+    # and makes the jump a function recorded (emit_return, emit_break,
+    # emit_next). The value of the begin is the body's or the clause's,
+    # which mrb_protect_error protected.
+    def begin_block(node)
+      unsupported("begin inside a block", node) if @in_block
+      unsupported("else in a begin", node) if node.else_clause
+      priv = @regions[node] || { body: {}, rescue: {} }
+      n = (@begins += 1)
+      st = "struct #{@cfunc}_ud#{n}"
+      members = {}
+      saved_jumps = @jumps
+      @jumps = {}
+      body_fn = "#{@cfunc}_bg#{n}"
+      fns = begin_function(body_fn, st, members, priv[:body]) do
+        node.statements ? statements(node.statements) : Val.new("mrb_nil_value()", :nil)
+      end
+      fn = body_fn
+      if node.rescue_clause
+        fn = "#{@cfunc}_rs#{n}"
+        fns << begin_function(fn, st, members, priv[:rescue]) { rescue_clauses(node.rescue_clause, body_fn) }
+      end
+      jumps = @jumps
+      @jumps = saved_jumps
+      decl = "#{st} {\n  mrb_value self;\n  int jump;\n" + members.map { |c, k| "  #{CTYPE[k]} #{c};\n" }.join + "};\n\n"
+      @block_functions << decl << fns
+
+      u = "ud#{n}"
+      t = tmp(:value)
+      emit "{ #{st} #{u};"
+      emit "  #{u}.self = self;"
+      emit "  #{u}.jump = 0;"
+      members.each_key { |c| emit "  #{u}.#{c} = #{c};" }
+      if node.ensure_clause
+        e = tmp(:bool)
+        emit "  #{t} = mrb_protect_error(mrb, #{fn}, &#{u}, &#{e});"
+        if node.ensure_clause.statements
+          v = statements(node.ensure_clause.statements)
+          emit "(void)(#{v.code});" unless v.kind == :nil
+        end
+        emit "  if (#{e}) mrb_exc_raise(mrb, #{t});"
+      else
+        emit "  #{t} = #{fn}(mrb, &#{u});"
+      end
+      if jumps[:return]
+        emit "  if (#{u}.jump == AOT_JUMP_RETURN) {"
+        emit_return(t)
+        emit "  }"
+      end
+      if jumps[:break]
+        emit "  if (#{u}.jump == AOT_JUMP_BREAK) {"
+        emit_break(node)
+        emit "  }"
+      end
+      if jumps[:next]
+        emit "  if (#{u}.jump == AOT_JUMP_NEXT) {"
+        emit_next(node)
+        emit "  }"
+      end
+      emit "}"
+      Val.new(t, :value)
+    end
+
+    # One C function of a begin: `fn(mrb, void *p)` with p the userdata
+    # struct `st`. The block emits the statements and returns their
+    # value. The function declares each local it names: a cell and a
+    # local another region owns come from the userdata (and join
+    # `members`, which the method's C fills); a local this region owns
+    # and a temp are its own.
+    def begin_function(fn, st, members, priv)
+      saved = [@out, @loop_depth, @loops, @ud, @outer_loops, @private]
+      known = @locals.keys
+      @outer_loops += @loop_depth
+      @loop_depth = 0
+      @loops = []
+      @ud = "ud"
+      @private = priv
+      body = +""
+      @out = body
+      v = yield
+      emit "return #{box(v)};"
+      dead = drop_unused_temps(body, [])
+      decl = +"  #{st} *ud = (#{st} *)p;\n  mrb_value self = ud->self;\n  (void)self;\n"
+      slots = @params.map { |p| [p[:name] || "\0blk", [p[:c], p[:kind]], true] }
+      slots += @locals.map { |name, l| [name, l, known.include?(name)] }
+      seen = {}
+      slots.each do |name, (c, kind, flag), outer|
+        next if seen[c] || kind == :nil || dead.include?(c) || body !~ /\b#{c}\b/
+        seen[c] = true
+        if outer && (flag == :cell || !priv[name])
+          members[c] = kind
+          decl << "  #{CTYPE[kind]} #{c} = ud->#{c};\n"
+        else
+          decl << "  #{CTYPE[kind]} #{c}#{kind == :value ? ' = mrb_nil_value()' : ' = 0'};\n"
+        end
+      end
+      (@locals.keys - known).each { |k| @locals.delete(k) }
+      @out, @loop_depth, @loops, @ud, @outer_loops, @private = saved
+      "static mrb_value\n#{fn}(mrb_state *mrb, void *p)\n{\n#{decl}#{body}}\n\n"
+    end
+
+    # The rescue function's statements: the body under mrb_protect_error,
+    # then the clauses as an if/else chain over the exception. A clause's
+    # classes are evaluated only when the clauses before it did not
+    # match, as the VM does.
+    def rescue_clauses(first, body_fn)
+      r = tmp(:value)
+      e = tmp(:bool)
+      emit "#{r} = mrb_protect_error(mrb, #{body_fn}, ud, &#{e});"
+      emit "if (!#{e}) return #{r};"
+      # A `break` of a block the body yielded to unwinds as a break
+      # object, which no clause can ask for its class (it has none): on
+      # it goes, as the VM's OP_RESCUE lets it.
+      emit "if (mrb_break_p(#{r})) mrb_exc_raise(mrb, #{r});"
+      arms = rescue_nodes(first).map do |c|
+        test_code, test = capture do
+          if c.exceptions.empty?
+            "mrb_obj_is_kind_of(mrb, #{r}, E_STANDARD_ERROR)"
+          else
+            c.exceptions.map do |k|
+              unsupported("splat in a rescue clause", k) if k.is_a?(Prism::SplatNode)
+              "aot_rescue_p(mrb, #{r}, #{box(expr(k))})"
+            end.join(" || ")
+          end
+        end
+        body_code, v = capture do
+          write_target(c.reference, Val.new(r, :value)) if c.reference
+          c.statements ? statements(c.statements) : Val.new("mrb_nil_value()", :nil)
+        end
+        [test_code, test, body_code, v]
+      end
+      arms.each_with_index do |(test_code, test, body_code, v), i|
+        emit "} else {" if i > 0
+        @out << test_code
+        emit "if (#{strip_parens(test)}) {"
+        @out << body_code
+        emit "#{r} = #{box(v)};"
+      end
+      emit "} else {"
+      emit "mrb_exc_raise(mrb, #{r});"
+      arms.size.times { emit "}" }
+      Val.new(r, :value)
     end
 
     # The call itself, into `t`: a direct call to the impl when Spinel
