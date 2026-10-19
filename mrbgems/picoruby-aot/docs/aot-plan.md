@@ -220,7 +220,7 @@ and a device measurement of the path that matters.
 | Gem | Compiled | Blocked by | Expected gain |
 |---|---|---|---|
 | picoruby-regexp | 2 / 5 of 11 | rest parameters on the String wrappers (1.3) | Low: the engine is C; the wrappers are thin |
-| picoruby-vfs | 26 / 44 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `load_file` waits through `f.read` on the block parameter (1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
+| picoruby-vfs | 28 / 44 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `load_file` waits through `f.read` on the block parameter (1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
 | picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (`File.open` in a dependency, 1.4) or `getch` | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
