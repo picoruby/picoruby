@@ -131,6 +131,30 @@ aot_iv_get(mrb_state *mrb, mrb_value self, mrb_sym name)
   return aot_protect(mrb, mrb_iv_get(mrb, self, name));
 }
 
+/* A local a block shares with its method: a one-element Array both read
+   and write through, so a Proc that outlives the call sees what Ruby's
+   closure sees. The method holds the cell in a C local (the arena
+   protects it until the outermost cfunc returns) and the Proc's env
+   holds it for as long as the Proc lives. A read protects the value as
+   aot_iv_get does: a later write to the cell may let go of it. */
+static inline mrb_value
+aot_cell_new(mrb_state *mrb, mrb_value v)
+{
+  return mrb_ary_new_from_values(mrb, 1, &v);
+}
+
+static inline mrb_value
+aot_cell_get(mrb_state *mrb, mrb_value cell)
+{
+  return aot_protect(mrb, RARRAY_PTR(cell)[0]);
+}
+
+static inline void
+aot_cell_set(mrb_state *mrb, mrb_value cell, mrb_value v)
+{
+  mrb_ary_set(mrb, cell, 0, v);
+}
+
 /* Guarded Array and Hash methods, emitted where Spinel typed the receiver
    an Array or a Hash. `[]` and `[]=` take the test the VM's index opcodes
    take (the receiver's class is the core class and the operator is not

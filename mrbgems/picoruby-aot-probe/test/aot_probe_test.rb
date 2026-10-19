@@ -213,9 +213,17 @@ class AOTProbeTest < Picotest::Test
     assert_equal(2, AOTProbe.first_over([1, 2], 5))
   end
 
-  def test_block_literal_writing_an_outer_local_keeps_the_irep
+  def test_block_literal_writes_an_outer_local_through_a_cell
     assert_equal(3, AOTProbe.last_seen([1, 2, 3]))
     assert_nil(AOTProbe.last_seen([]))
+    assert_equal(0 * 0 + 5 * 1 + 7 * 2, AOTProbe.summed([0, 5, 7]))
+    assert_equal(1 << 40, AOTProbe.summed([0, 1 << 40]))
+    assert_equal(7, AOTProbe.countdown([1, 2, 3], 10))
+    assert_equal(10, AOTProbe.countdown([], 10))
+  end
+
+  def test_block_literal_reads_a_local_the_loop_rewrites
+    assert_equal([2, 2, 1], AOTProbe.picks([1, 2, 2], [2, 1, 9]))
   end
 
   def test_join_on_an_array_is_not_a_task_join

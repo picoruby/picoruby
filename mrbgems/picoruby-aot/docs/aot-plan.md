@@ -12,16 +12,16 @@ Ordered by the ratio of defs gained to design needed.
 
 ### 1.1 A block literal at a call site
 
-A block literal is a cfunc Proc with an env (architecture 4.3). The
-block cannot do a `break` or a method `return`: nothing in the C API
-raises the VM's break. A def still stays in the irep when its block
-writes an outer local, holds another block, takes a parameter other
-than a required one, or reads an outer local the method writes after
-the call. On the host build 19 defs carry a block cfunc (keyboard 5,
-socket 3, machine, markdown, picoline, regexp, uart one each, the probe
-6); 7 defs stay in the irep for the block alone (3 for a local written
-after the block, 2 for a write to an outer local, one `break`, one
-`return`). `File.open { |f| }` compiles in vfs: the wait search types
+A block literal is a cfunc Proc with an env (architecture 4.3). An
+outer local the block writes, or reads while the method rewrites it,
+is a cell both sides share. The block cannot do a `break` or a method
+`return`: nothing in the C API raises the VM's break. A def still
+stays in the irep when its block holds another block or takes a
+parameter other than a required one. On the host build 27 defs carry
+a block cfunc (keyboard 6, socket 3, markdown 2, drb, machine,
+picoline, regexp, uart, vfs one each, the probe 10); 2 defs stay in
+the irep for the block alone (one `break`, one `return`).
+`File.open { |f| }` compiles in vfs: the wait search types
 the local `file = self.new(path)` and the C class of `@file`
 (architecture, "Both searches resolve a call"). The callers in editor,
 vim and yaml still wait, because there `File.open` is a def of a
@@ -40,11 +40,9 @@ Spinel owns the whole program; picoruby-aot shares the VM.
 
 Options, in the order to try:
 
-1. An outer local the block writes (`result = nil; open { |f| result =
-   f.read }`): a one-element Array in the env that both sides read and
-   write through, when the method does not unbox the local (the slot
-   is boxed in the Array). A nested block that reads outer locals is
-   the same env chain one level further.
+1. A nested block that reads outer locals: the same env chain one
+   level further (a cell of the outer method passes through the
+   middle block's env).
 2. A block over a core receiver with `each`, `times`, `each_byte`,
    `downto`, where Spinel's record says `inlined: true`, becomes a C
    loop with the guarded element access when `aot_method_is` says the

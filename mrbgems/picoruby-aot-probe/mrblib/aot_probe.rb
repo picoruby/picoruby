@@ -122,8 +122,10 @@ module AOTProbe
   # direct call) and to a core method (the VM yields one value, or an
   # Array that a two-parameter block splats), ends one call with `next`,
   # yields to the method's own block, and gives the call its value. A
-  # block with `break` keeps its def in the irep (first_over), as does
-  # one that writes an outer local (last_seen); both must still agree.
+  # block with `break` keeps its def in the irep (first_over); it must
+  # still agree. An outer local the block writes (last_seen, summed,
+  # countdown: a parameter) or reads while the method rewrites it in a
+  # loop around the call (picks) is a cell both sides share.
   def self.weighted(a, weight)
     acc = []
     each_index_of(a) { |v, i| acc << v * weight + i }
@@ -164,6 +166,28 @@ module AOTProbe
     seen = nil
     each_index_of(a) { |v, _| seen = v }
     seen
+  end
+
+  def self.summed(a)
+    n = 0
+    each_index_of(a) { |v, i| n += v * i }
+    n
+  end
+
+  def self.countdown(a, n)
+    each_index_of(a) { |_, _| n -= 1 }
+    n
+  end
+
+  def self.picks(a, b)
+    r = []
+    i = 0
+    while i < b.size
+      x = b[i]
+      each_index_of(a) { |v, _| r << v if v == x }
+      i += 1
+    end
+    r
   end
 
   # Calls the classifier resolves by the receiver's type, not by name:
