@@ -19,8 +19,8 @@ MRuby::Gem::Specification.new('picoruby-vfs') do |spec|
     # mruby-posix gembox). This gem reopens File and Dir in Ruby; whichever
     # gem initializes last owns the methods both define, so this gem must
     # come after them: mkdir would otherwise run on the host filesystem.
-    # That binary only: TEST_TASK is set whenever the Rakefile loads, so
-    # it cannot tell a device build apart; test.rake sets
+    # That binary only: TEST_TASK is set in every process of a test run,
+    # so it cannot tell the gem collection apart; test.rake sets
     # PICORB_TEST_BINARY for the build of the test binary alone.
     if build.picoruby? && ENV['PICORB_TEST_BINARY']
       spec.add_dependency 'mruby-dir', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-dir"

@@ -9,7 +9,14 @@ task :test => "test:all"
 
 namespace :test do
 
-  ENV['TEST_TASK'] = "yes"
+  # TEST_TASK lets a gem add test-only dependencies. Set it for a test run
+  # only. Every rake process loads this file, and a child rake started with
+  # sh inherits ENV. When this line ran unconditionally, the test
+  # dependencies leaked into device builds: picoruby-vfs pulled
+  # picoruby-mruby into the R2P2 FemtoRuby build, which then failed.
+  if Rake.application.top_level_tasks.any? { |t| t == "test" || t == "steep" || t.start_with?("test:") }
+    ENV['TEST_TASK'] = "yes"
+  end
 
   desc "run all tests"
   task :all => ["gems:steep", "gems:picoruby", "gems:femtoruby", "gems:wasm"]
@@ -183,8 +190,8 @@ def run_test_for_gems(vm_type, specified_gem)
   puts "Building test binary on #{vm_type}..."
   # PICORB_TEST_BINARY marks the build of the test binary itself, for a
   # gem whose mrbgem.rake needs that binary's gem set (picoruby-vfs orders
-  # itself after mruby-dir and mruby-io). TEST_TASK cannot serve: the
-  # Rakefile sets it in every rake process.
+  # itself after mruby-dir and mruby-io). TEST_TASK cannot serve: it is set
+  # in every process of a test run, the gem collection included.
   unless ENV['SKIP_BUILD']
     sh "PICORB_DEBUG=1 PICORB_TEST_BINARY=1 MRUBY_CONFIG=#{config_path} rake clean"
     sh "PICORB_DEBUG=1 PICORB_TEST_BINARY=1 MRUBY_CONFIG=#{config_path} rake all"
