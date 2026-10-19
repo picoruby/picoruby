@@ -90,10 +90,14 @@ wrappers among them.
   wait search resolves a call on a local or an instance variable of a
   dependency def by name alone (`@file.close` in vfs `File#close` is
   `Net::WebSocket::Client#close` when editor, vim or yaml is the gem).
-  The dependency's own `--emit-types` output would give the types, but
-  the build generates the gems in no fixed order; Spinel would have to
-  run for the dependency inside `aot-gen`, or the ivar type would have
-  to come from the RBS.
+  Left as is (2026-10-19): it holds back 5 defs (editor 2, vim 2, yaml
+  1), all the `File.open { }` shape, on paths that run once. If it is
+  ever worth it: `aot-gen` runs Spinel for each declared dependency
+  into the workspace (cached by the mtimes of its mrblib and sig),
+  merges those records into the TypeMap, and the foreign branch of the
+  wait search resolves receivers through `resolve_receiver`. The
+  `:source` mode of the workspace is not the way (slower, and a refusal
+  in a dependency sinks the gem).
 - A block parameter of a call whose def yields a typed value
   (`File.open(path) { |f| f.read }`: `yield(file)` with the typed
   local) is poly; vfs `load_file` waits through it.
