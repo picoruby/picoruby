@@ -155,6 +155,28 @@ aot_cell_set(mrb_state *mrb, mrb_value cell, mrb_value v)
   mrb_ary_set(mrb, cell, 0, v);
 }
 
+/* `begin`/`rescue`/`ensure`. The body of a begin, and its rescue clauses,
+   each run as a C function of their own under mrb_protect_error (see
+   codegen.rb, begin_block). A `return`, `break` or `next` inside such
+   a function cannot leave the method by itself: the function records
+   the jump in its userdata and returns, and the method's C makes the
+   jump after the ensure clause ran. The value of a `return` is the
+   function's result, which mrb_protect_error protects. */
+#define AOT_JUMP_RETURN 1
+#define AOT_JUMP_BREAK 2
+#define AOT_JUMP_NEXT 3
+
+/* `klass === exc` for a rescue clause: kind_of? on a class or module,
+   TypeError on anything else, as the VM's OP_RESCUE answers. */
+static inline mrb_bool
+aot_rescue_p(mrb_state *mrb, mrb_value exc, mrb_value klass)
+{
+  if (!mrb_class_p(klass) && !mrb_module_p(klass)) {
+    mrb_raise(mrb, E_TYPE_ERROR, "class or module required for rescue clause");
+  }
+  return mrb_obj_is_kind_of(mrb, exc, mrb_class_ptr(klass));
+}
+
 /* Guarded Array and Hash methods, emitted where Spinel typed the receiver
    an Array or a Hash. `[]` and `[]=` take the test the VM's index opcodes
    take (the receiver's class is the core class and the operator is not

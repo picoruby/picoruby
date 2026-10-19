@@ -54,13 +54,13 @@ Options, in the order to try:
 
 ### 1.2 `begin`/`rescue`/`ensure`
 
-A rescue in C needs `mrb_protect_error` or `mrb_rescue_exceptions`
-around the body as a nested C function, with the locals the body
-assigns passed by reference; `ensure` needs `mrb_ensure`. The body
-inside the closure cannot `return` from the method directly. Decide
-first whether to compile only the forms without `return`/`break`
-inside the protected body. About 30 defs, mostly net and midibase. A
-bare `raise` in a rescue needs this too.
+A begin compiles (architecture 4.3). On the host build 14 gem defs
+carry one (socket 3, websocket 4, midibase 3, adc, benchmark, mqtt,
+sqlite3 one each; the probe 9 more). The other 57 defs with a begin
+stay in the irep for a wait or a widened parameter, not for the begin.
+What is left of the syntax: a begin inside a block literal (picoline
+`readline` and `ask`), a bare `raise` (yaml `is_integer?`), `retry`,
+`else`, and the `x rescue y` modifier (one site in the aot gems).
 
 ### 1.3 Rest and splat
 
@@ -224,8 +224,8 @@ and a device measurement of the path that matters.
 | picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (`File.open` in a dependency, 1.4) or `getch` | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
-| picoruby-shell | 19 / 38 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3); rescue on 5 (1.2) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
-| picoruby-funicular | 119 / 234 of 747 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), rescue (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
+| picoruby-shell | 21 / 39 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
+| picoruby-funicular | 125 / 243 of 747 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 

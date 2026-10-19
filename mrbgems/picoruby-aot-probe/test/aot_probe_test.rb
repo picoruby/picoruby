@@ -226,6 +226,55 @@ class AOTProbeTest < Picotest::Test
     assert_equal([2, 2, 1], AOTProbe.picks([1, 2, 2], [2, 1, 9]))
   end
 
+  def test_rescue_by_class
+    assert_equal(7, AOTProbe.fetch_or([5, 7], 1, -1))
+    assert_equal(-1, AOTProbe.fetch_or([5, 7], 9, -1))
+    assert_raise(TypeError) { AOTProbe.fetch_or([5, 7], "x", -1) }
+  end
+
+  def test_rescue_around_a_loop_that_writes_cells
+    assert_equal(6, AOTProbe.sum_until_error([1, 2, 3]))
+    assert_equal((1 << 40) + 1, AOTProbe.sum_until_error([1 << 40, 1]))
+    assert_equal(0, AOTProbe.sum_until_error([]))
+  end
+
+  def test_rescue_binds_the_exception
+    assert_equal(IndexError, AOTProbe.error_class([1]))
+  end
+
+  def test_ensure_runs_on_both_paths
+    log = []
+    assert_equal(5, AOTProbe.with_log(log, [5], 0))
+    assert_equal([:done], log)
+    assert_raise(IndexError) { AOTProbe.with_log(log, [5], 3) }
+    assert_equal([:done, :done], log)
+  end
+
+  def test_return_from_the_body
+    assert_equal(:empty, AOTProbe.early([]))
+    assert_equal(4, AOTProbe.early([4]))
+    log = []
+    assert_equal(:empty, AOTProbe.early_with_ensure(log, []))
+    assert_equal(4, AOTProbe.early_with_ensure(log, [4]))
+    assert_equal([:done, :done], log)
+  end
+
+  def test_return_from_a_rescue_clause
+    assert_equal("12", AOTProbe.joined_until_error([1, 2], 0))
+    assert_equal("2", AOTProbe.joined_until_error([1, 2], 1))
+    assert_nil(AOTProbe.joined_until_error([1, 2], 2))
+  end
+
+  def test_next_and_break_through_a_begin_in_a_loop
+    assert_equal([50, 0, 25], AOTProbe.inverses([2, 20, 0, 4, 1, 5]))
+  end
+
+  def test_nested_begin
+    assert_equal(3, AOTProbe.nested([3], 0))
+    assert_equal(:index, AOTProbe.nested([3], 5))
+    assert_equal(:type, AOTProbe.nested([3], "x"))
+  end
+
   def test_join_on_an_array_is_not_a_task_join
     assert_equal("1,2", AOTProbe.joined([1, 2, 3]))
   end

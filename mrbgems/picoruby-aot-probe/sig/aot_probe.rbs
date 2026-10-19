@@ -34,6 +34,15 @@ module AOTProbe
   def self.countdown: (Array[Integer] a, Integer n) -> Integer
   def self.picks: (Array[Integer] a, Array[Integer] b) -> Array[Integer]
   def self.joined: (Array[Integer] a) -> String
+  def self.fetch_or: (Array[Integer] a, Integer i, Integer d) -> Integer
+  def self.sum_until_error: (Array[Integer] a) -> Integer
+  def self.error_class: (Array[Integer] a) -> untyped
+  def self.with_log: (Array[Symbol] log, Array[Integer] a, Integer i) -> Integer
+  def self.early: (Array[Integer] a) -> untyped
+  def self.early_with_ensure: (Array[Symbol] log, Array[Integer] a) -> untyped
+  def self.joined_until_error: (Array[Integer] a, Integer i) -> String?
+  def self.inverses: (Array[Integer] a) -> Array[Integer]
+  def self.nested: (Array[Integer] a, untyped i) -> untyped
 
   class Tagged
     def ==: (untyped other) -> bool

@@ -150,8 +150,8 @@ not, in any scope.
 Every other def stays in the irep. The reasons the sweep over every gem
 shows, largest first: no type record (gems outside the host build, or
 Spinel refused the gem), a wait for the scheduler, a name read at load,
-a block literal at a call site, a rest parameter, `begin`/`rescue`,
-`super`, `**rest`, a bare `raise`, `a[i] op= x`, a splat argument, a
+a block literal at a call site, a rest parameter, a `begin` inside a
+block, `super`, `**rest`, a bare `raise`, `a[i] op= x`, a splat argument, a
 binary string literal, `break` with a value, a dynamic constant path.
 The counts move with every change; `tools/aot-gen --manifest` for one
 gem, or the sweep in `aot-plan.md`, gives the current ones.
@@ -174,9 +174,10 @@ variables, constants and constant paths, `if`/`unless`/`while`/`until`/
 `case`, `return`, `break`, `next`, `and`/`or`/`not`, multiple assignment
 to locals and instance variables, Range literals, string interpolation,
 method calls (`&.`, keyword arguments, a forwarded `&blk` and a block
-literal included), `yield`, `block_given?`, and
-`raise` with a literal message or a constant class and a literal
-message.
+literal included), `yield`, `block_given?`, `begin`/`rescue`/`ensure`
+(a rescue clause with classes and `=> e`; not `else`, `retry` or the
+`x rescue y` modifier), and `raise` with a literal message or a
+constant class and a literal message.
 
 ## 4. The generated C
 
@@ -315,8 +316,38 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   semantics. So does a block on `Task.new`: mruby-task runs it as an
   irep.
 - `raise "msg"` and `raise Klass, "msg"` are raised in C; every other
-  form goes to `Kernel#raise` through the VM.
+  form goes to `Kernel#raise` through the VM. A bare `raise` keeps the
+  def in the irep.
 - Other calls go through `mrb_funcall_argv`.
+- `begin`/`rescue`/`ensure`. The body of a begin becomes a C function
+  of its own, which `mrb_protect_error` runs (the core API behind
+  mruby-error's `mrb_rescue` and `mrb_ensure`, which not every target
+  links). With rescue clauses a second function protects the body and,
+  on an exception, tests the clauses in order (`aot_rescue_p`, which
+  asks `kind_of?` of a class or module and raises TypeError on anything
+  else, as `OP_RESCUE` does; a bare `rescue` is StandardError), binds
+  `=> e`, runs the clause, and re-raises with `mrb_exc_raise` when no
+  clause matches. A break object of a block the body yielded to passes
+  every clause, as in the VM. The method's C fills a userdata struct
+  (self and every local the functions read), calls the function,
+  directly or under `mrb_protect_error` when there is an ensure clause,
+  runs the ensure clause, and re-raises an exception the ensure clause
+  held back. `return`, `break` and `next` inside a function cannot
+  leave the method by themselves: the function records the jump in the
+  userdata and returns, and the method's C makes the jump after the
+  ensure clause ran. The value of a `return` is the function's result,
+  which `mrb_protect_error` protects. A begin inside a block literal
+  keeps the def in the irep; a begin inside a begin nests the same way.
+  The locals are split by region (the body, the clauses, the rest of
+  the method with the ensure clause): a local the body or the clauses
+  write and another region references is a cell, as a local a block
+  writes is (`mrb_protect_error` restores the GC arena after the
+  function, so an object the body made and left in a C local of the
+  method would be unprotected); a local that one region alone
+  references is a plain local of that function, unless the begin sits
+  in a loop and the region reads it before it writes it (the value
+  carries over from the last turn); every other local the function
+  reads is a copy taken when the function is called.
 
 ### 4.4 Constants, GC and the stack
 
@@ -332,6 +363,8 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   element `[]`, `first`, `shift` or `pop` hands out, a Hash `[]` or
   `delete`) is pushed to the arena at the read, which protects it until
   the outermost cfunc returns to the VM. An immediate needs nothing.
+  `mrb_protect_error` restores the arena after the function it ran and
+  protects only its result: hence the cells of a begin (4.3).
 - A direct call runs on the C stack, with no mruby frame: a backtrace
   does not list it, and deep recursion through compiled methods is
   bounded by the C stack. Each impl calls `mrb_c_stack_check` on entry.

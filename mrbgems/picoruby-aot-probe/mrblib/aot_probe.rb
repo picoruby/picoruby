@@ -190,6 +190,107 @@ module AOTProbe
     r
   end
 
+  # begin/rescue/ensure: the body, and the rescue clauses, run as C
+  # functions of their own under mrb_protect_error. A local the body
+  # writes and the method reads after it (sum, i, buffer's emptiness
+  # aside) is a cell; a parameter the body only reads (d) is a copy; a
+  # `return` in the body or in a clause, and a `break` or `next` to a
+  # loop around the begin, come back to the method as a jump; the
+  # ensure clause runs before the jump and before an exception goes on.
+  def self.fetch_or(a, i, d)
+    begin
+      a.fetch(i)
+    rescue IndexError
+      d
+    end
+  end
+
+  def self.sum_until_error(a)
+    i = 0
+    sum = 0
+    begin
+      while true
+        sum += a.fetch(i)
+        i += 1
+      end
+    rescue IndexError
+    end
+    sum
+  end
+
+  def self.error_class(a)
+    a.fetch(100)
+  rescue IndexError, TypeError => e
+    e.class
+  end
+
+  def self.with_log(log, a, i)
+    begin
+      a.fetch(i)
+    ensure
+      log << :done
+    end
+  end
+
+  def self.early(a)
+    begin
+      return :empty if a.empty?
+      a.fetch(0)
+    rescue IndexError
+      :never
+    end
+  end
+
+  def self.early_with_ensure(log, a)
+    begin
+      return :empty if a.empty?
+      a.fetch(0)
+    ensure
+      log << :done
+    end
+  end
+
+  def self.joined_until_error(a, i)
+    buffer = ""
+    begin
+      buffer << a.fetch(i).to_s
+      buffer << a.fetch(i + 1).to_s
+    rescue IndexError
+      return nil if buffer.empty?
+    end
+    buffer
+  end
+
+  def self.inverses(a)
+    r = []
+    i = 0
+    while i < a.size
+      begin
+        v = 100 / a[i]
+        i += 1
+        next if v < 10
+        break if v == 100
+        r << v
+      rescue ZeroDivisionError
+        r << 0
+        i += 1
+      end
+    end
+    r
+  end
+
+  def self.nested(a, i)
+    begin
+      begin
+        a.fetch(i)
+      rescue TypeError
+        :type
+      end
+    rescue IndexError
+      :index
+    end
+  end
+
   # Calls the classifier resolves by the receiver's type, not by name:
   # `join` on an Array is Array#join, not Task#join (joined compiles);
   # the body of a define_method block does not run when the irep loads,
