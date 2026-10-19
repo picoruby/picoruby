@@ -30,6 +30,9 @@ module AOTProbe
   def self.pairs: (Hash[String, Integer] h) -> Array[String]
   def self.first_over: (Array[Integer] a, Integer n) -> Integer
   def self.last_seen: (Array[Integer] a) -> Integer?
+  def self.summed: (Array[Integer] a) -> Integer
+  def self.countdown: (Array[Integer] a, Integer n) -> Integer
+  def self.picks: (Array[Integer] a, Array[Integer] b) -> Array[Integer]
   def self.joined: (Array[Integer] a) -> String
 
   class Tagged

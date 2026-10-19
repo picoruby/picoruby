@@ -100,7 +100,8 @@ module PicorubyAot
       @singleton = singleton   # a singleton method: `self` is the class, a self call lands on "Scope.name"
       @cfunc = cfunc_name
       @tmp = 0
-      @locals = {}       # ruby name -> [c name, kind]
+      @locals = {}       # ruby name -> [c name, kind] ([c name, :value, :cell] for a cell local)
+      @cells = {}        # ruby name -> true for a local a block shares with the method (collect_cells)
       @syms = syms       # ruby name -> c static name, shared by the translation unit
       @paths = paths     # "A::B" -> c static name of its aot_path, shared likewise
       # Spinel callee label ("Point#dist2") -> { cfunc:, kinds:, private: }
@@ -184,10 +185,12 @@ module PicorubyAot
     # arguments with mrb_get_args and calls the impl.
     def compile
       check_params unless @params
+      collect_cells(@def.body)
       infer_local_kinds(@def.body)
       body = +""
       @out = body
       emit_defaults
+      enter_cells
       if @def.body
         last = statements(@def.body)
         emit "return #{box(last)};"
@@ -539,6 +542,8 @@ module PicorubyAot
       collect_writes(body, writes)
       kinds = {}
       writes.each { |name, _| kinds[name] = nil unless @locals.key?(name) }
+      # A cell local holds a boxed value whatever it is assigned.
+      @cells.each_key { |name| kinds[name] = :value if kinds.key?(name) }
       3.times do
         changed = false
         writes.each do |name, value|
@@ -778,19 +783,36 @@ module PicorubyAot
       when Prism::StatementsNode
         statements(node)
       when Prism::LocalVariableReadNode
+        return cell_read(node) if cell?(node.name)
         c, k = local(node.name)
         Val.new(c, k)
       when Prism::LocalVariableWriteNode
+        return cell_write(node, expr(node.value)) if cell?(node.name)
         c, k = local(node.name)
         v = expr(node.value)
         emit "#{c} = #{coerce(v, k)};"
         Val.new(c, k)
       when Prism::LocalVariableOperatorWriteNode
+        if cell?(node.name)
+          cur = cell_read(node)
+          return cell_write(node, binop(node.binary_operator.to_s, cur, expr(node.value), node))
+        end
         c, k = local(node.name)
         v = binop(node.binary_operator.to_s, Val.new(c, k), expr(node.value), node)
         emit "#{c} = #{coerce(v, k)};"
         Val.new(c, k)
       when Prism::LocalVariableOrWriteNode
+        if cell?(node.name)
+          c, = local(node.name)
+          t = tmp(:value)
+          emit "#{t} = aot_cell_get(mrb, #{c});"
+          emit "if (!mrb_test(#{t})) {"
+          v = expr(node.value)
+          emit "#{t} = #{box(v)};"
+          emit "aot_cell_set(mrb, #{c}, #{t});"
+          emit "}"
+          return Val.new(t, :value)
+        end
         c, k = local(node.name)
         unsupported("||= on an unboxed local", node) unless k == :value
         emit "if (!mrb_test(#{c})) {"
@@ -1040,6 +1062,10 @@ module PicorubyAot
         v = values[i] || Val.new("mrb_nil_value()", :nil)
         case t
         when Prism::LocalVariableTargetNode
+          if cell?(t.name)
+            cell_write(t, v)
+            next
+          end
           c, k = local(t.name)
           emit "#{c} = #{coerce(v, k)};"
         when Prism::InstanceVariableTargetNode
@@ -1206,14 +1232,13 @@ module PicorubyAot
 
     # `recv.m(args) { |params| body }`: the body becomes a cfunc of its own
     # and the call site makes a Proc of it with an env
-    # (mrb_proc_new_cfunc_with_env) that holds self, a copy of each outer
-    # local the block reads (boxed) and the method's own block when the
-    # body yields; the block cfunc reads them back at entry. A block these
-    # semantics do not cover keeps the def in the irep: a `break` or a
-    # `return` (nothing in the C API raises the VM's break), a write to an
-    # outer local, a nested block, a parameter other than a required one,
-    # and an outer local the block reads that the method writes after the
-    # call (the copy would be stale when the callee keeps the Proc).
+    # (mrb_proc_new_cfunc_with_env) that holds self, each outer local the
+    # block reads (a boxed copy, or the cell of a local the block shares
+    # with the method, see collect_cells) and the method's own block when
+    # the body yields; the block cfunc reads them back at entry. A block
+    # these semantics do not cover keeps the def in the irep: a `break`
+    # or a `return` (nothing in the C API raises the VM's break), a
+    # nested block, and a parameter other than a required one.
     def block_literal(call, block)
       unsupported("a block on #{call.name}", block) if BLOCK_REFUSED.include?(call.name.to_s)
       # mruby-task runs the block of Task.new as an irep (task.c reads
@@ -1234,7 +1259,12 @@ module PicorubyAot
           captures << node.name.to_s if node.depth > 0
         when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
              Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
-          unsupported("a block writes an outer local (#{node.name})", node) if node.depth > 0
+          if node.depth > 0
+            # collect_cells made every such local a cell; the capture
+            # then carries the cell.
+            unsupported("a block writes an outer local (#{node.name})", node) unless cell?(node.name)
+            captures << node.name.to_s
+          end
         when Prism::YieldNode
           yields = true
         when Prism::CallNode
@@ -1244,16 +1274,15 @@ module PicorubyAot
       end
       scan.call(block.body)
       captures.uniq!
-      captures.each { |name| check_capture(name, call) }
 
       # The env slots after self: each captured C local once (a `&blk`
-      # parameter and a `yield` both mean p_blk), a nil-kind local needs
-      # none.
+      # parameter and a `yield` both mean p_blk; a cell local is its
+      # cell), a nil-kind local needs none.
       slots = []
       blocals = {}
       captures.each do |name|
         c, k = local(name)
-        blocals[name] = [c, k]
+        blocals[name] = local(name)
         next if k == :nil
         slots << [c, k] unless slots.any? { |s| s[0] == c }
       end
@@ -1338,13 +1367,93 @@ module PicorubyAot
     # value the method has at the call and no later one. The method must
     # not write the local after the call, nor anywhere in a loop around it
     # (the callee may keep the Proc and call it later: a timer, a handler).
-    def check_capture(name, call)
-      start = call.location.start_offset
-      stale = local_writes(@def.body, name).any? do |w|
-        o = w.location.start_offset
-        o > start || @loops.any? { |l| l.location.start_offset <= o && w.location.end_offset <= l.location.end_offset }
+    # The locals a block shares with the method through a cell: a local
+    # a block writes, and a local a block reads that the method writes
+    # after the call or inside a loop around it (a copy in the env would
+    # be stale when the callee keeps the Proc). The cell is a one-element
+    # Array; every read and write of the local, in the method and in the
+    # block, goes through it (cell_read, cell_write), so a Proc that
+    # outlives the call sees what Ruby's closure sees. A nested block is
+    # refused in block_literal and is not looked into here.
+    def collect_cells(body)
+      @cells = {}
+      find_blocks(body, []).each do |block, call, loops|
+        reads = []
+        writes = []
+        scan_outer(block.body, reads, writes)
+        writes.each { |name| @cells[name] = true }
+        start = call.location.start_offset
+        reads.uniq.each do |name|
+          stale = local_writes(@def.body, name).any? do |w|
+            o = w.location.start_offset
+            o > start || loops.any? { |l| l.location.start_offset <= o && w.location.end_offset <= l.location.end_offset }
+          end
+          @cells[name] = true if stale
+        end
       end
-      unsupported("an outer local the block reads (#{name}) is written after the block", call) if stale
+    end
+
+    # [block, its call, the while/until nodes around the call] for every
+    # block literal in the subtree, outermost blocks only.
+    def find_blocks(node, loops, acc = [])
+      return acc if node.nil?
+      if node.is_a?(Prism::CallNode) && node.block.is_a?(Prism::BlockNode)
+        acc << [node.block, node, loops.dup]
+        find_blocks(node.receiver, loops, acc)
+        find_blocks(node.arguments, loops, acc)
+        return acc
+      end
+      inner = node.is_a?(Prism::WhileNode) || node.is_a?(Prism::UntilNode) ? loops + [node] : loops
+      node.compact_child_nodes.each { |c| find_blocks(c, inner, acc) }
+      acc
+    end
+
+    # The outer locals (depth > 0) a block body reads and writes.
+    def scan_outer(node, reads, writes)
+      return if node.nil? || node.is_a?(Prism::BlockNode) || node.is_a?(Prism::LambdaNode)
+      case node
+      when Prism::LocalVariableReadNode
+        reads << node.name.to_s if node.depth > 0
+      when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
+           Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
+        writes << node.name.to_s if node.depth > 0
+      end
+      node.compact_child_nodes.each { |c| scan_outer(c, reads, writes) }
+    end
+
+    # Make the cells at the impl's entry, after the defaults (which read
+    # the parameters as plain C locals): a parameter's cell starts with
+    # its value, any other local's with nil. From here on the local is
+    # its cell.
+    def enter_cells
+      @cells.each_key do |name|
+        src = @locals[name]
+        unsupported("a block captures the block parameter (#{name})") if src && src[0] == BLOCK_C
+        c = "c_#{name}"
+        init = src && @params.any? { |p| p[:c] == src[0] } ? box(Val.new(src[0], src[1])) : "mrb_nil_value()"
+        emit "#{c} = aot_cell_new(mrb, #{init});"
+        @locals[name] = [c, :value, :cell]
+      end
+    end
+
+    def cell?(name)
+      l = @locals[name.to_s]
+      !l.nil? && l[2] == :cell
+    end
+
+    def cell_read(node)
+      c, = local(node.name)
+      t = tmp(:value)
+      emit "#{t} = aot_cell_get(mrb, #{c});"
+      unbox_proved(node, Val.new(t, :value))
+    end
+
+    def cell_write(node, v)
+      c, = local(node.name)
+      t = tmp(:value)
+      emit "#{t} = #{box(v)};"
+      emit "aot_cell_set(mrb, #{c}, #{t});"
+      unbox_proved(node, Val.new(t, :value))
     end
 
     # The writes to the method's local `name` in the subtree; inside a

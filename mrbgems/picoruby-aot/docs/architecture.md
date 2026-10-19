@@ -284,10 +284,19 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   judges.
 - A block literal at a call site (`File.open(path) { |f| f.read }`)
   becomes a cfunc of its own. The call site makes a Proc of it with
-  `mrb_proc_new_cfunc_with_env`. The env holds self, a boxed copy of
-  each outer local the block reads, and the method's own block when the
-  body yields. The block cfunc reads them back at entry with
-  `mrb_proc_cfunc_env_get`. It reads its parameters through
+  `mrb_proc_new_cfunc_with_env`. The env holds self, each outer local
+  the block reads, and the method's own block when the body yields. The
+  block cfunc reads them back at entry with `mrb_proc_cfunc_env_get`.
+  An outer local the block only reads, and the method does not write
+  after the call, goes in as a boxed copy. An outer local the block
+  writes, or reads while the method writes it after the call or in a
+  loop around it, is a cell: a one-element Array `aot_cell_new` makes
+  when the impl starts (from the parameter's value, or nil), which both
+  the method and the block read and write through (`aot_cell_get`,
+  `aot_cell_set`). A Proc the callee keeps then sees what Ruby's
+  closure sees. A cell local is boxed in every use, whatever Spinel
+  proved; the arena holds the cell until the method returns, and the
+  Proc's env holds it after. It reads its parameters through
   `aot_block_args`, which splats one Array over several parameters and
   fills a missing one with nil, as the VM does for a block. A proved
   parameter is unboxed with the checked helper, as a def's parameter
@@ -296,12 +305,10 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   `mrb_funcall_with_block`. A compiled callee calls it with
   `mrb_funcall` on `Proc#call`; the VM's `OP_CALL` hands a cfunc Proc's
   value back to a C caller (vm.c, `VM_RETURN_C`), which the mruby of
-  this tree carries. The copy of an outer local sets the limits.
-  The def stays in the irep when the block has a `break` or a `return`
-  (nothing in the C API raises the VM's break), writes an outer local,
-  holds another block, takes a parameter other than a required one, or
-  reads an outer local the method writes after the call (a callee may
-  keep the Proc). A block on `instance_eval`, `instance_exec`,
+  this tree carries. The def stays in the irep when the block has a
+  `break` or a `return` (nothing in the C API raises the VM's break),
+  holds another block, or takes a parameter other than a required one.
+  A block on `instance_eval`, `instance_exec`,
   `class_eval`, `class_exec`, `module_eval`, `module_exec`,
   `define_method`, `define_singleton_method` or `lambda` keeps the def
   in the irep too: that block runs with another self, or needs lambda
