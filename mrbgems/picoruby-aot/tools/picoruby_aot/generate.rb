@@ -124,15 +124,20 @@ module PicorubyAot
     # singleton-ness is known. A constant or a value Spinel typed "class"
     # is a class object, so a singleton method of a class this cannot
     # name. A core kind resolves to the defs that reopen it. An "obj_X"
-    # resolves to the defs of X when the gem has any; a method X inherits
-    # lives elsewhere, and its name is searched everywhere. A receiver
-    # Spinel did not type keeps the search by name alone.
-    def resolve_receiver(file, recv, self_singleton, scope = nil)
+    # resolves to the defs of X when the sources have any, else to the
+    # hierarchy of X, or to Object's when no source defines X. A receiver
+    # Spinel did not type keeps the search by name alone, unless it is a
+    # local that one `new` fills (constructed_class) inside `def_node`.
+    def resolve_receiver(file, recv, self_singleton, scope = nil, def_node = nil)
       # A bare call reaches self's class, its ancestors and its subclasses
       # (hierarchy_scopes), or any scope when that chain is not all in
       # the sources.
       return [self_singleton, hierarchy_scopes(scope)] if recv.nil? || recv.is_a?(Prism::SelfNode)
       raw = @types.raw_type(file, recv)
+      if def_node && recv.is_a?(Prism::LocalVariableReadNode) && (raw.nil? || raw == "poly")
+        x = constructed_class(recv.name, def_node, self_singleton, scope)
+        return [false, [x]] if x && search_entries.any? { |o| scope_is?(o.scope, x) }
+      end
       if (raw == "class" || raw.nil?) && (recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode))
         # A constant names the class: its singleton methods, when any def
         # has that scope (an `Errors.new` is not `SQLite3::Database.new`).
@@ -147,9 +152,49 @@ module PicorubyAot
       if raw.start_with?("obj_")
         x = raw.sub("obj_", "").gsub("__", "::")
         return [false, [x]] if search_entries.any? { |o| scope_is?(o.scope, x) }
-        return [false, nil]
+        # X has no def of its own. A class the sources define reaches its
+        # hierarchy (a def it inherits, or one of a subclass). A class they
+        # do not define is a C class (Littlefs::File): the Ruby methods it
+        # has are reopenings of Object or Kernel.
+        full = @defined_scopes.find { |s| scope_is?(s, x) }
+        return [false, full ? hierarchy_scopes(full) : UNIVERSAL_SCOPES]
       end
       [nil, nil]
+    end
+
+    # The nodes that bind a local: writes, destructuring targets and
+    # parameters.
+    LOCAL_BINDERS = [
+      Prism::LocalVariableWriteNode, Prism::LocalVariableTargetNode,
+      Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode,
+      Prism::LocalVariableOperatorWriteNode,
+      Prism::RequiredParameterNode, Prism::OptionalParameterNode,
+      Prism::RestParameterNode, Prism::BlockParameterNode,
+      Prism::RequiredKeywordParameterNode, Prism::OptionalKeywordParameterNode,
+      Prism::KeywordRestParameterNode
+    ].freeze
+
+    # The class whose instance the local `name` holds in `def_node`, when
+    # the def binds it exactly once and that write is a call of `new`:
+    # the def's own class for `self.new` or a bare `new` in a singleton
+    # method (`file = self.new(path)` in `File.open`), or the constant
+    # receiver (`sock = TCPSocket.new(host)`). Spinel types `self` in a
+    # `class << self` as a plain Class, so it gives these locals no class.
+    def constructed_class(name, def_node, self_singleton, scope)
+      binders = []
+      local_binders(def_node, name, binders)
+      return nil unless binders.size == 1 && binders[0].is_a?(Prism::LocalVariableWriteNode)
+      v = binders[0].value
+      return nil unless v.is_a?(Prism::CallNode) && v.name == :new
+      r = v.receiver
+      return (self_singleton ? scope : nil) if r.nil? || r.is_a?(Prism::SelfNode)
+      const_name(r)
+    end
+
+    def local_binders(node, name, acc)
+      return unless node
+      acc << node if LOCAL_BINDERS.any? { |k| node.is_a?(k) } && node.name == name
+      node.child_nodes.each { |c| local_binders(c, name, acc) unless c.is_a?(Prism::DefNode) }
     end
 
     # The defs a search runs over: this gem's, plus the dependencies' while
@@ -279,7 +324,7 @@ module PicorubyAot
           end
           # Otherwise every def the call can reach: if one waits, assume
           # this call does too.
-          singleton, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope)
+          singleton, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope, e.node)
           [call, reachable_defs(name, singleton, scopes, argc)]
         end
       end
@@ -326,7 +371,7 @@ module PicorubyAot
       # A bare `sleep_ms` is the Kernel's.
       return true if recv.nil? || recv.is_a?(Prism::SelfNode)
       return false unless recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) || recv.is_a?(Prism::CallNode)
-      _, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope)
+      _, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope, e.node)
       scopes.nil?
     end
 
@@ -695,7 +740,7 @@ module PicorubyAot
           calls = []
           collect_calls(e.node.body, calls)
           calls.each do |c|
-            s, scopes = resolve_receiver(e.file, c.receiver, e.singleton, e.scope)
+            s, scopes = resolve_receiver(e.file, c.receiver, e.singleton, e.scope, e.node)
             k = [c.name.to_s, s, scopes, call_argc(c)]
             next if named.include?(k)
             named << k

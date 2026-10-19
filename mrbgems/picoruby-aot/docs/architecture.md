@@ -136,7 +136,14 @@ singleton method of any class.
 `X.new` reaches `X#initialize` as well. A String, an Array, an Integer
 and the other core kinds reach only the defs of the gem that reopen
 that class (`list.join` is `Array#join`, not `Task#join`). An object of
-class X reaches the defs of X when the gem has any. A call on a
+class X reaches the defs of X when the sources have any; else the defs
+of the hierarchy of X when a source defines X, or only the reopenings
+of Object and Kernel when none does (`Littlefs::File` is a C class:
+`@file.close` is not `Net::WebSocket::Client#close`). A local that the
+def binds once, from `self.new` or a bare `new` in a singleton method
+or from `X.new`, is an object of that class when Spinel gave it none
+(Spinel types `self` inside `class << self` as a plain Class, so
+`file = self.new(path)` in `File.open` is poly). A call on any other
 receiver Spinel did not type takes every def of its name, singleton or
 not, in any scope.
 
