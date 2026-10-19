@@ -21,11 +21,13 @@ the call. On the host build 19 defs carry a block cfunc (keyboard 5,
 socket 3, machine, markdown, picoline, regexp, uart one each, the probe
 6); 7 defs stay in the irep for the block alone (3 for a local written
 after the block, 2 for a write to an outer local, one `break`, one
-`return`). The `File.open { |f| }` shapes (editor, vfs, vim, yaml) now
-stop at the wait search, not at the block: `File.open` calls `close` on
-a poly `file`, and one `close` of that name in the build is a wait
-(`Net::WebSocket::Client#close`). The type of a local assigned from a
-bare `new` inside `class << self` is the next step there (1.6).
+`return`). `File.open { |f| }` compiles in vfs: the wait search types
+the local `file = self.new(path)` and the C class of `@file`
+(architecture, "Both searches resolve a call"). The callers in editor,
+vim and yaml still wait, because there `File.open` is a def of a
+dependency, which Spinel does not type: `@file.close` resolves by name
+to `Net::WebSocket::Client#close` (1.4). vfs `load_file` waits through
+`f.read` on the block parameter (1.4).
 
 How Spinel does it: a block is never a closure by default. A builtin
 iterator becomes a C `for` loop with the block body inside and the
@@ -84,6 +86,22 @@ wrappers among them.
   Prism nests an InterpolatedStringNode in an InterpolatedStringNode
   and the codegen refuses the inner one. About 40 defs in funicular,
   all error messages.
+- Receivers inside a dependency: Spinel types nothing there, so the
+  wait search resolves a call on a local or an instance variable of a
+  dependency def by name alone (`@file.close` in vfs `File#close` is
+  `Net::WebSocket::Client#close` when editor, vim or yaml is the gem).
+  The dependency's own `--emit-types` output would give the types, but
+  the build generates the gems in no fixed order; Spinel would have to
+  run for the dependency inside `aot-gen`, or the ivar type would have
+  to come from the RBS.
+- A block parameter of a call whose def yields a typed value
+  (`File.open(path) { |f| f.read }`: `yield(file)` with the typed
+  local) is poly; vfs `load_file` waits through it.
+- A constant that names a C class (`SQLite3::Backup.new`) reaches
+  every `initialize` of the build; the C-class rule of `obj_X` could
+  apply, but `direct_wait?` takes a constant receiver that resolves
+  to no scope as a scheduler call by name (a `sleep` or `join` on a C
+  class), so the change needs a wait list of the C classes first.
 
 ### 1.6 picoruby-shell and picoruby-funicular
 
@@ -200,10 +218,10 @@ and a device measurement of the path that matters.
 | Gem | Compiled | Blocked by | Expected gain |
 |---|---|---|---|
 | picoruby-regexp | 2 / 5 of 11 | rest parameters on the String wrappers (1.3) | Low: the engine is C; the wrappers are thin |
-| picoruby-vfs | 23 / 40 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); `File.open`, `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `File.open` and what calls it (`load_file`) wait through a poly `file.close` (1.1, 1.6); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
-| picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (the `File.open` wait, 1.1) or `getch` | Low here, high through editor, which is compiled already |
+| picoruby-vfs | 26 / 44 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `load_file` waits through `f.read` on the block parameter (1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
+| picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (`File.open` in a dependency, 1.4) or `getch` | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
-| picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` (1.1); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
+| picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
 | picoruby-shell | 19 / 38 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3); rescue on 5 (1.2) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
 | picoruby-funicular | 119 / 234 of 747 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), rescue (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
