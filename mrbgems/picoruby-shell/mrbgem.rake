@@ -15,7 +15,12 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.add_dependency 'picoruby-picomodem'
   spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-yaml'
-  spec.add_dependency 'picoruby-data'
+  # Data: mruby's own gem on mruby, the small one on mruby/c
+  if build.femtoruby?
+    spec.add_dependency 'picoruby-data'
+  else
+    spec.add_dependency 'mruby-data', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-data"
+  end
   spec.add_dependency 'picoruby-network'
   if build.posix?
     if build.femtoruby?
