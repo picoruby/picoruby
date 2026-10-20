@@ -127,13 +127,13 @@ module AOTProbe
   # countdown: a parameter) or reads while the method rewrites it in a
   # loop around the call (picks) is a cell both sides share.
   def self.weighted(a, weight)
-    acc = []
+    acc = [] #: Array[Integer]
     each_index_of(a) { |v, i| acc << v * weight + i }
     acc
   end
 
   def self.evens(a)
-    r = []
+    r = [] #: Array[Integer]
     each_index_of(a) { |v, _| next if v.odd?; r << v }
     r
   end
@@ -147,13 +147,13 @@ module AOTProbe
   end
 
   def self.plus_one(a)
-    acc = []
+    acc = [] #: Array[Integer]
     a.each { |v| acc << v + 1 }
     acc
   end
 
   def self.pairs(h)
-    acc = []
+    acc = [] #: Array[String]
     h.each { |k, v| acc << "#{k}=#{v}" }
     acc
   end
@@ -180,7 +180,7 @@ module AOTProbe
   end
 
   def self.picks(a, b)
-    r = []
+    r = [] #: Array[Integer]
     i = 0
     while i < b.size
       x = b[i]
@@ -262,7 +262,7 @@ module AOTProbe
   end
 
   def self.inverses(a)
-    r = []
+    r = [] #: Array[Integer]
     i = 0
     while i < a.size
       begin
