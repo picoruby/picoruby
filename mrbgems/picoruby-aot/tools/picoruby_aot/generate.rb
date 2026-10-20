@@ -7,6 +7,7 @@ require "prism"
 require "set"
 require_relative "gems"
 require_relative "typemap"
+require_relative "rbs_index"
 require_relative "codegen"
 
 module PicorubyAot
@@ -35,6 +36,9 @@ module PicorubyAot
       @superclass = {}
       @includes = Hash.new { |h, k| h[k] = [] }
       @dep_entries = collect_dep_defs(deps)
+      # The RBS of the gem and its dependencies: what a slot is declared
+      # to hold, for a receiver Spinel left untyped (declared_scopes).
+      @rbs = RbsIndex.new(gem.sigfiles + deps.flat_map(&:sigfiles))
     end
 
     attr_reader :entries, :waits
@@ -138,6 +142,13 @@ module PicorubyAot
         x = constructed_class(recv.name, def_node, self_singleton, scope)
         return [false, [x]] if x && search_entries.any? { |o| scope_is?(o.scope, x) }
       end
+      if def_node && (raw.nil? || raw == "poly")
+        # Spinel holds the value as a box, but the RBS declares the slot:
+        # a parameter, an instance variable, a block parameter of an
+        # iteration over a declared container, or a method's value.
+        declared = declared_scopes(declared_type(recv, def_node, self_singleton, scope), scope)
+        return declared if declared
+      end
       if (raw == "class" || raw.nil?) && (recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode))
         # A constant names the class: its singleton methods, when any def
         # has that scope (an `Errors.new` is not `SQLite3::Database.new`).
@@ -160,6 +171,185 @@ module PicorubyAot
         return [false, full ? hierarchy_scopes(full) : UNIVERSAL_SCOPES]
       end
       [nil, nil]
+    end
+
+    # The RBS type a node's value is declared to have, inside `def_node`
+    # (whose scope and singleton-ness are given), or nil:
+    # - a local that is a positional parameter of the def: the def's
+    #   signature;
+    # - a local that is a block parameter of `x.each { |e| }` and the
+    #   like, where x is declared `Array[T]` or `Hash[K, V]`: T, or K and
+    #   V by position;
+    # - an instance variable: its declaration in the class (an attr counts);
+    # - a call without arguments on a value of a declared or Spinel-typed
+    #   class: that method's or attr's declared value.
+    # An alias is expanded; `self` and a constant are left to the caller.
+    def declared_type(node, def_node, self_singleton, scope, depth = 0)
+      return nil if node.nil? || depth > 4
+      case node
+      when Prism::LocalVariableReadNode
+        if (i = positional_param_index(def_node.parameters, node.name))
+          return expand_alias(@rbs.param_type(scope, def_node.name.to_s, self_singleton, i), scope)
+        end
+        blk = enclosing_block_with_param(def_node, node)
+        return nil unless blk
+        call, position = blk
+        recv_t = declared_type(call.receiver, def_node, self_singleton, scope, depth + 1)
+        element_type(recv_t, call.name, position, scope)
+      when Prism::InstanceVariableReadNode
+        expand_alias(@rbs.ivar_type(scope, node.name.to_s), scope)
+      when Prism::CallNode
+        return nil if node.arguments || node.block
+        owner = declared_class(node.receiver, def_node, self_singleton, scope, depth + 1)
+        return nil unless owner
+        expand_alias(@rbs.return_type(owner, node.name.to_s, false), scope)
+      end
+    end
+
+    # The full scope name of the class a node's value is an instance of:
+    # Spinel's "obj_X" when it typed it, else the declared type when that
+    # names one class of the sources.
+    def declared_class(node, def_node, self_singleton, scope, depth)
+      return nil if node.nil?
+      return (self_singleton ? nil : scope) if node.is_a?(Prism::SelfNode)
+      raw = @types.raw_type(def_node_file(def_node), node)
+      if raw && raw.start_with?("obj_")
+        x = raw.sub("obj_", "").gsub("__", "::")
+        return @defined_scopes.find { |s| scope_is?(s, x) }
+      end
+      t = declared_type(node, def_node, self_singleton, scope, depth)
+      t = t.type if t.is_a?(RBS::Types::Optional)
+      return nil unless t.is_a?(RBS::Types::ClassInstance)
+      resolve_scope_name(t.name.to_s.sub(/\A::/, ""), scope)
+    end
+
+    def def_node_file(def_node)
+      @def_files ||= {}.compare_by_identity
+      @def_files[def_node] ||= (@entries + @dep_entries).find { |e| e.node.equal?(def_node) }&.file
+    end
+
+    # The index of `name` among the def's positional parameters (required,
+    # then optional), or nil.
+    def positional_param_index(params, name)
+      return nil unless params
+      list = params.requireds + params.optionals
+      i = list.index { |p| p.respond_to?(:name) && p.name == name }
+      i
+    end
+
+    # The innermost block of `def_node` whose parameters bind `name`, as
+    # [the call the block is on, the parameter's position], or nil.
+    def enclosing_block_with_param(def_node, read)
+      found = nil
+      walk = lambda do |node|
+        return if found
+        if node.is_a?(Prism::CallNode) && node.block.is_a?(Prism::BlockNode)
+          blk = node.block
+          params = blk.parameters.is_a?(Prism::BlockParametersNode) ? blk.parameters.parameters : nil
+          if params
+            list = params.requireds
+            pos = list.index { |p| p.respond_to?(:name) && p.name == read.name }
+            if pos && contains?(blk, read)
+              found = [node, pos]
+              walk.call(blk)   # an inner block may rebind the name
+              return
+            end
+          end
+        end
+        node.compact_child_nodes.each { |c| walk.call(c) unless c.is_a?(Prism::DefNode) }
+      end
+      walk.call(def_node.body)
+      found
+    end
+
+    def contains?(node, target)
+      s = node.location.start_offset
+      e = node.location.end_offset
+      target.location.start_offset >= s && target.location.end_offset <= e
+    end
+
+    # What position `pos` of the block of `method` on a value of type
+    # `t` receives: the element of an Array, the key or the value of a
+    # Hash, the index of each_with_index.
+    def element_type(t, method, pos, scope)
+      return nil unless t.is_a?(RBS::Types::ClassInstance)
+      name = t.name.to_s.sub(/\A::/, "")
+      args = t.args
+      case name
+      when "Array"
+        case method
+        when :each, :map, :select, :reject, :find, :any?, :all?, :each_entry, :filter, :flat_map, :sum, :count, :find_index
+          pos == 0 ? args[0] : nil
+        when :each_with_index
+          pos == 0 ? args[0] : (pos == 1 ? integer_type : nil)
+        end
+      when "Hash"
+        case method
+        when :each, :each_pair, :map, :select, :reject, :any?, :all?, :find, :filter, :count
+          pos == 0 ? args[0] : (pos == 1 ? args[1] : nil)
+        when :each_key then pos == 0 ? args[0] : nil
+        when :each_value then pos == 0 ? args[1] : nil
+        end
+      end
+    end
+
+    def integer_type
+      @integer_type ||= RBS::Types::ClassInstance.new(name: RBS::TypeName.parse("::Integer"), args: [], location: nil)
+    end
+
+    def expand_alias(t, scope)
+      return nil if t.nil?
+      if t.is_a?(RBS::Types::Alias)
+        a = @rbs.alias_type(t.name.to_s.sub(/\A::/, ""), scope)
+        return a ? expand_alias(a, scope) : nil
+      end
+      t
+    end
+
+    # Where a call on a value of declared type `t` can land, as
+    # resolve_receiver answers: [singleton, scopes], or nil when the
+    # declaration does not settle it (untyped, a union with an untyped
+    # member, a class the sources do not define).
+    DECLARED_CORE_SCOPES = {
+      "Array" => %w[Array Enumerable], "Hash" => %w[Hash Enumerable],
+      "String" => %w[String Comparable], "Symbol" => %w[Symbol Comparable],
+      "Integer" => %w[Integer Numeric Comparable], "Float" => %w[Float Numeric Comparable],
+      "Proc" => %w[Proc], "Time" => %w[Time Comparable], "Range" => %w[Range Enumerable],
+      "IO" => %w[IO], "Enumerator" => %w[Enumerator Enumerable],
+    }.freeze
+
+    def declared_scopes(t, scope)
+      return nil if t.nil?
+      t = expand_alias(t, scope)
+      case t
+      when RBS::Types::Optional
+        inner = declared_scopes(t.type, scope)
+        inner && [inner[0], inner[1] + %w[NilClass]]
+      when RBS::Types::Union
+        parts = t.types.map { |u| declared_scopes(u, scope) }
+        return nil if parts.any?(&:nil?)
+        singleton = parts.map(&:first).uniq
+        [singleton.size == 1 ? singleton[0] : nil, parts.flat_map(&:last).uniq]
+      when RBS::Types::Bases::Bool then [false, %w[TrueClass FalseClass] + UNIVERSAL_SCOPES]
+      when RBS::Types::Bases::Nil then [false, %w[NilClass] + UNIVERSAL_SCOPES]
+      when RBS::Types::Literal
+        v = t.literal
+        k = v.is_a?(Symbol) ? "Symbol" : v.is_a?(String) ? "String" : v.is_a?(Integer) ? "Integer" : nil
+        k && [false, DECLARED_CORE_SCOPES[k] + UNIVERSAL_SCOPES]
+      when RBS::Types::Tuple then [false, DECLARED_CORE_SCOPES["Array"] + UNIVERSAL_SCOPES]
+      when RBS::Types::Record then [false, DECLARED_CORE_SCOPES["Hash"] + UNIVERSAL_SCOPES]
+      when RBS::Types::ClassSingleton
+        x = resolve_scope_name(t.name.to_s.sub(/\A::/, ""), scope)
+        x && [true, [x]]
+      when RBS::Types::ClassInstance
+        name = t.name.to_s.sub(/\A::/, "")
+        core = DECLARED_CORE_SCOPES[name]
+        return [false, core + UNIVERSAL_SCOPES] if core
+        x = resolve_scope_name(name, scope)
+        return nil unless x
+        h = hierarchy_scopes(x)
+        h && [false, h]
+      end
     end
 
     # The nodes that bind a local: writes, destructuring targets and
