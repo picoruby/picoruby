@@ -142,12 +142,16 @@ module PicorubyAot
         x = constructed_class(recv.name, def_node, self_singleton, scope)
         return [false, [x]] if x && search_entries.any? { |o| scope_is?(o.scope, x) }
       end
-      if def_node && (raw.nil? || raw == "poly")
-        # Spinel holds the value as a box, but the RBS declares the slot:
-        # a parameter, an instance variable, a block parameter of an
-        # iteration over a declared container, or a method's value.
+      if def_node && (raw.nil? || raw == "poly" || raw == "class")
+        # Spinel holds the value as a box (or as a class it does not
+        # name), but the RBS declares the slot: a parameter, an instance
+        # variable, a block parameter of an iteration over a declared
+        # container, a local written once, or a method's value.
         declared = declared_scopes(declared_type(recv, def_node, self_singleton, scope), scope)
         return declared if declared
+        # Or an `is_a?` guard settles the class before the call runs.
+        guarded = guard_scopes(recv, def_node, scope)
+        return guarded if guarded
       end
       if (raw == "class" || raw.nil?) && (recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode))
         # A constant names the class: its singleton methods, when any def
@@ -185,19 +189,31 @@ module PicorubyAot
     #   class: that method's or attr's declared value.
     # An alias is expanded; `self` and a constant are left to the caller.
     def declared_type(node, def_node, self_singleton, scope, depth = 0)
-      return nil if node.nil? || depth > 4
+      # a chain of a local, its write, the receiver of that, its block, ...
+      # ends within a few hops; the bound keeps a cycle from running
+      return nil if node.nil? || depth > 12
       case node
       when Prism::LocalVariableReadNode
         if (i = positional_param_index(def_node.parameters, node.name))
           return expand_alias(@rbs.param_type(scope, def_node.name.to_s, self_singleton, i), scope)
         end
         blk = enclosing_block_with_param(def_node, node)
-        return nil unless blk
-        call, position = blk
-        recv_t = declared_type(call.receiver, def_node, self_singleton, scope, depth + 1)
-        element_type(recv_t, call.name, position, scope)
+        if blk
+          call, position = blk
+          recv_t = expand_alias(declared_type(call.receiver, def_node, self_singleton, scope, depth + 1), scope)
+          return expand_alias(element_type(recv_t, call.name, position, scope), scope)
+        end
+        # a local takes what the def writes to it, when every write ahead
+        # of the read is a plain assignment and all declare one type
+        binders = []
+        local_binders(def_node, node.name, binders)
+        ahead = binders.select { |b| b.location.start_offset < node.location.start_offset }
+        return nil if ahead.empty? || ahead.any? { |b| !b.is_a?(Prism::LocalVariableWriteNode) }
+        types = ahead.map { |b| expand_alias(declared_type(b.value, def_node, self_singleton, scope, depth + 1), scope) }
+        return nil if types.any?(&:nil?) || types.map(&:to_s).uniq.size != 1
+        types[0]
       when Prism::InstanceVariableReadNode
-        expand_alias(@rbs.ivar_type(scope, node.name.to_s), scope)
+        expand_alias(@rbs.ivar_type(scope, node.name.to_s, self_singleton), scope)
       when Prism::CallNode
         return nil if node.arguments || node.block
         owner = declared_class(node.receiver, def_node, self_singleton, scope, depth + 1)
@@ -217,10 +233,147 @@ module PicorubyAot
         x = raw.sub("obj_", "").gsub("__", "::")
         return @defined_scopes.find { |s| scope_is?(s, x) }
       end
-      t = declared_type(node, def_node, self_singleton, scope, depth)
-      t = t.type if t.is_a?(RBS::Types::Optional)
-      return nil unless t.is_a?(RBS::Types::ClassInstance)
-      resolve_scope_name(t.name.to_s.sub(/\A::/, ""), scope)
+      t = expand_alias(declared_type(node, def_node, self_singleton, scope, depth), scope)
+      t = expand_alias(t.type, scope) if t.is_a?(RBS::Types::Optional)
+      if t.is_a?(RBS::Types::ClassInstance)
+        x = resolve_scope_name(t.name.to_s.sub(/\A::/, ""), scope)
+        return x if x
+      end
+      k = guard_class_name(node, def_node)
+      k && resolve_scope_name(k, scope)
+    end
+
+    # ---- `is_a?` guards ----
+    #
+    # A local or an instance variable the code tests with `is_a?` before
+    # the call: `return unless x.is_a?(K)` (next, break, raise), `if
+    # x.is_a?(K)` and the then branch (an elsif too), `unless x.is_a?(K)`
+    # and the else branch, `case x when K`, and `x.is_a?(K) && ...`. Only
+    # a guard that dominates the read counts, and not when the name is
+    # written again between the guard and the read. The innermost guard
+    # names the class; `kind_of?` reads as `is_a?`.
+
+    GUARD_NAMES = %i[is_a? kind_of?].freeze
+    EXIT_NODES = [Prism::ReturnNode, Prism::NextNode, Prism::BreakNode].freeze
+
+    # The constant name the innermost dominating guard tests `read`
+    # against, or nil.
+    def guard_class_name(read, def_node)
+      return nil unless read.is_a?(Prism::LocalVariableReadNode) || read.is_a?(Prism::InstanceVariableReadNode)
+      guards = []
+      collect_guards(def_node.body, read, guards)
+      return nil if guards.empty?
+      g = guards.max_by { |node, _| node.location.start_offset }
+      return nil if written_between?(def_node.body, read, g[0].location.end_offset, read.location.start_offset)
+      g[1]
+    end
+
+    def guard_scopes(read, def_node, scope)
+      k = guard_class_name(read, def_node)
+      return nil unless k
+      core = DECLARED_CORE_SCOPES[k]
+      return [false, core + UNIVERSAL_SCOPES] if core
+      x = resolve_scope_name(k, scope)
+      return nil unless x
+      h = hierarchy_scopes(x)
+      h && [false, h]
+    end
+
+    # `recv.is_a?(K)` for the read's name: K as a constant name, or nil.
+    def guard_test(pred, read)
+      return nil unless pred.is_a?(Prism::CallNode) && GUARD_NAMES.include?(pred.name)
+      r = pred.receiver
+      return nil unless same_variable?(r, read)
+      args = pred.arguments ? pred.arguments.arguments : []
+      return nil unless args.size == 1
+      const_name(args[0])
+    end
+
+    def same_variable?(a, b)
+      a.class == b.class && a.respond_to?(:name) && a.name == b.name
+    end
+
+    # A statement that leaves the current body when the guard fails:
+    # `return x unless ...`, `next`, `break`, `raise ...`.
+    def exit_statement?(node)
+      return true if EXIT_NODES.any? { |k| node.is_a?(k) }
+      node.is_a?(Prism::CallNode) && node.receiver.nil? && node.name == :raise
+    end
+
+    def statements_of(node)
+      node.is_a?(Prism::StatementsNode) ? node.body : (node.nil? ? [] : [node])
+    end
+
+    # Walk `node`, appending [guard node, class name] for every guard that
+    # dominates `read`.
+    def collect_guards(node, read, acc)
+      return if node.nil? || node.is_a?(Prism::DefNode)
+      case node
+      when Prism::StatementsNode
+        node.body.each_with_index do |st, i|
+          # `exit unless x.is_a?(K)` ahead of the read in the same list
+          k = guard_of_exit_statement(st, read)
+          if k && node.body[(i + 1)..].any? { |later| contains?(later, read) }
+            acc << [st, k]
+          end
+        end
+      when Prism::IfNode
+        k = guard_test(node.predicate, read)
+        acc << [node, k] if k && node.statements && contains?(node.statements, read)
+        # `if !x.is_a?(K)` / `unless` with an else: the else branch
+        nk = negated_guard_test(node.predicate, read)
+        acc << [node, nk] if nk && node.subsequent && contains?(node.subsequent, read)
+      when Prism::UnlessNode
+        k = guard_test(node.predicate, read)
+        acc << [node, k] if k && node.else_clause && contains?(node.else_clause, read)
+      when Prism::CaseNode
+        if node.predicate && same_variable?(node.predicate, read)
+          node.conditions.each do |w|
+            next unless w.is_a?(Prism::WhenNode) && w.conditions.size == 1
+            k = const_name(w.conditions[0])
+            acc << [w, k] if k && w.statements && contains?(w.statements, read)
+          end
+        end
+      when Prism::AndNode
+        k = guard_test(node.left, read)
+        acc << [node, k] if k && contains?(node.right, read)
+      end
+      node.compact_child_nodes.each { |c| collect_guards(c, read, acc) }
+    end
+
+    # `exit unless x.is_a?(K)` or `exit if !x.is_a?(K)`: K, or nil.
+    def guard_of_exit_statement(st, read)
+      case st
+      when Prism::UnlessNode
+        return nil unless st.statements && statements_of(st.statements).all? { |s| exit_statement?(s) } && st.else_clause.nil?
+        guard_test(st.predicate, read)
+      when Prism::IfNode
+        return nil unless st.statements && statements_of(st.statements).all? { |s| exit_statement?(s) } && st.subsequent.nil?
+        negated_guard_test(st.predicate, read)
+      end
+    end
+
+    # `!x.is_a?(K)` as K, or nil.
+    def negated_guard_test(pred, read)
+      return nil unless pred.is_a?(Prism::CallNode) && pred.name == :! && pred.receiver
+      guard_test(pred.receiver, read)
+    end
+
+    # Is the read's variable written anywhere in `body` between the two
+    # offsets?
+    def written_between?(body, read, from, to)
+      found = false
+      walk = lambda do |node|
+        return if found || node.nil? || node.is_a?(Prism::DefNode)
+        if (read.is_a?(Prism::LocalVariableReadNode) && LOCAL_BINDERS.any? { |k| node.is_a?(k) } && node.respond_to?(:name) && node.name == read.name) ||
+           (read.is_a?(Prism::InstanceVariableReadNode) && node.is_a?(Prism::InstanceVariableWriteNode) && node.name == read.name)
+          off = node.location.start_offset
+          found = true if off > from && off < to
+        end
+        node.compact_child_nodes.each { |c| walk.call(c) }
+      end
+      walk.call(body)
+      found
     end
 
     def def_node_file(def_node)

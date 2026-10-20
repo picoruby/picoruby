@@ -13,6 +13,7 @@ module PicorubyAot
     def initialize(sigfiles)
       @methods = {}   # "Owner#name" / "Owner.name" => { params: [type...], return: type }
       @ivars = {}     # "Owner" => { "@x" => type }
+      @civars = {}    # "Owner" => { "@x" => type }, the class's own (`self.@x`)
       @aliases = {}   # "Owner::name" (and "name" at the top) => type
       sigfiles.each { |f| load_sig(f) }
     end
@@ -29,8 +30,10 @@ module PicorubyAot
       m && m[:return]
     end
 
-    def ivar_type(owner, ivar)
-      h = @ivars[owner]
+    # The declared type of an instance variable: the class's own
+    # (`self.@x`) inside a singleton method, an instance's otherwise.
+    def ivar_type(owner, ivar, singleton = false)
+      h = (singleton ? @civars : @ivars)[owner]
       h && h[ivar]
     end
 
@@ -71,6 +74,8 @@ module PicorubyAot
             @methods["#{full}#{kind}#{m.name}"] = { params: params, return: f.return_type }
           when RBS::AST::Members::InstanceVariable
             (@ivars[full] ||= {})[m.name.to_s] = m.type
+          when RBS::AST::Members::ClassInstanceVariable
+            (@civars[full] ||= {})[m.name.to_s] = m.type
           when RBS::AST::Members::AttrReader, RBS::AST::Members::AttrAccessor, RBS::AST::Members::AttrWriter
             (@ivars[full] ||= {})["@#{m.name}"] = m.type
             unless m.is_a?(RBS::AST::Members::AttrWriter)
