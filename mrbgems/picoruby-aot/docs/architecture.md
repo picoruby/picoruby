@@ -102,24 +102,33 @@ A `def` becomes a cfunc when all of these hold:
   `aot/deps.txt`; a gem the target does not carry cannot be called). A
   cfunc cannot yield to other tasks. Spinel types nothing inside
   a dependency, so there the search follows only what it can resolve: a
-  bare call to the same scope, a call on a constant to that constant's
-  singleton methods, and a call by the name of a def that reaches a
-  primitive directly (`await`, `getch`). A call of this gem on an
-  untyped receiver takes every def of its name, in the dependencies
-  too: `kvs[key]` may be `IndexedDB::KVS#[]`, which awaits. A receiver
-  Spinel left untyped that the RBS declares is resolved by the
-  declaration instead: a parameter, an instance variable (the class's
-  own, `self.@x`, in a singleton method), a block parameter of an
-  iteration over a declared `Array` or `Hash`, a local every write
-  ahead of the read assigns from a declared value, or the value of a
-  method or attr of a declared class (`patches.each` on a parameter
-  declared `Array[Patch]` is `Array#each`; `msgs.each` in
+  bare call to the same scope, a receiver the RBS or a guard settles
+  (below), and a call by the name of a def that reaches a primitive
+  directly (`await`, `getch`); `store.put(v)` in `IndexedDB::KVS#[]=`
+  reaches `Store#put`, which awaits, through `store: () -> store_like`.
+  A call of this gem on an untyped receiver takes every def of its
+  name, in the dependencies too: `kvs[key]` may be `IndexedDB::KVS#[]`,
+  which awaits. A receiver Spinel left untyped that the RBS declares is
+  resolved by the declaration instead: a parameter, an instance
+  variable (the class's own, `self.@x`, in a singleton method; declared
+  in the class or in one it inherits from or includes), a block
+  parameter of an iteration over a declared `Array` or `Hash`, an
+  element or a derived collection of a declared `Array` or `Hash`
+  (`x[k]`, `fetch`, `first`, `last`, `shift`, `pop`, `keys`, `values`,
+  `dup`, `compact`, `reverse`, `uniq`, `sort`; not a slice), a local
+  every write ahead of the read assigns from a declared value or
+  carries a `#: T` annotation (the one steep reads), or the value of a
+  method or attr declared for the receiver's class or an ancestor, or
+  for this class on a bare call (`patches.each` on a parameter declared
+  `Array[Patch]` is `Array#each`; `msgs.each` in
   `@messages.each { |attr, msgs| }` over a `Hash[Symbol, Array[String]]`
   is `Array#each`; `k.new` on a value declared `singleton(Component)`
   reaches `Component#initialize` alone). The declaration is trusted
   here as Spinel trusts it under `--rbs` and as steep checks it against
   the CRuby run. An `is_a?` guard that dominates the call settles the
-  class as well: `return unless x.is_a?(K)` (`next`, `break`, `raise`)
+  class as well, and ahead of Spinel's type and of the declaration
+  (`VDOM::VNode vnode` tested with `is_a?(VDOM::Element)` has Element's
+  `props`): `return unless x.is_a?(K)` (`next`, `break`, `raise`)
   ahead of it, the then branch of `if x.is_a?(K)`, the else branch of
   `unless`, a `when K` of `case x`, and the right side of `x.is_a?(K)
   && ...`, unless the name is written again between the guard and the

@@ -204,30 +204,73 @@ module PicorubyAot
           return expand_alias(element_type(recv_t, call.name, position, scope), scope)
         end
         # a local takes what the def writes to it, when every write ahead
-        # of the read is a plain assignment and all declare one type
+        # of the read is a plain assignment and all declare one type: the
+        # `#: T` annotation on the write's line (steep reads the same), or
+        # the declared type of the value
         binders = []
         local_binders(def_node, node.name, binders)
         ahead = binders.select { |b| b.location.start_offset < node.location.start_offset }
         return nil if ahead.empty? || ahead.any? { |b| !b.is_a?(Prism::LocalVariableWriteNode) }
-        types = ahead.map { |b| expand_alias(declared_type(b.value, def_node, self_singleton, scope, depth + 1), scope) }
+        file = def_node_file(def_node)
+        types = ahead.map do |b|
+          t = inline_annotation(file, b.location.start_line) || declared_type(b.value, def_node, self_singleton, scope, depth + 1)
+          expand_alias(t, scope)
+        end
         return nil if types.any?(&:nil?) || types.map(&:to_s).uniq.size != 1
         types[0]
       when Prism::InstanceVariableReadNode
-        expand_alias(@rbs.ivar_type(scope, node.name.to_s, self_singleton), scope)
+        # declared in this class, or in a class it inherits from or a
+        # module it includes (`@state` of Component, read in ErrorBoundary)
+        t = nil
+        ancestor_scopes(scope).each do |s|
+          t = @rbs.ivar_type(s, node.name.to_s, self_singleton)
+          break if t
+        end
+        expand_alias(t, scope)
       when Prism::CallNode
-        return nil if node.arguments || node.block
+        # a declared return type holds whatever the arguments are; with a
+        # block it may not (`each` returns self, without one an Enumerator)
+        return nil if node.block
+        # a bare call reads the declaration of this scope's own method
+        # (`store` in IndexedDB::KVS, `private def store: () -> store_like`)
+        if node.receiver.nil?
+          return expand_alias(declared_return(scope, node.name.to_s, self_singleton), scope)
+        end
+        # an element or a derived collection of a declared Array[T] or
+        # Hash[K, V]
+        if (elem = indexed_element_type(node, def_node, self_singleton, scope, depth))
+          return elem
+        end
         owner = declared_class(node.receiver, def_node, self_singleton, scope, depth + 1)
         return nil unless owner
-        expand_alias(@rbs.return_type(owner, node.name.to_s, false), scope)
+        expand_alias(declared_return(owner, node.name.to_s, false), scope)
       end
     end
 
+    # The declared return type of `name` on `owner`, found in owner's own
+    # RBS or in that of a class it inherits from or a module it includes
+    # (`props` of Component, called bare in ErrorBoundary).
+    def declared_return(owner, name, singleton)
+      ancestor_scopes(owner).each do |s|
+        t = @rbs.return_type(s, name, singleton)
+        return t if t
+      end
+      nil
+    end
+
     # The full scope name of the class a node's value is an instance of:
-    # Spinel's "obj_X" when it typed it, else the declared type when that
-    # names one class of the sources.
+    # the class an `is_a?` guard tested at this site, else Spinel's
+    # "obj_X" when it typed it, else the declared type when that names
+    # one class of the sources.
     def declared_class(node, def_node, self_singleton, scope, depth)
       return nil if node.nil?
       return (self_singleton ? nil : scope) if node.is_a?(Prism::SelfNode)
+      # the guard is narrower than Spinel's type and than a declaration
+      # (`VDOM::VNode vnode` tested with `is_a?(VDOM::Element)` has
+      # Element's props)
+      if (k = guard_class_name(node, def_node)) && (x = resolve_scope_name(k, scope))
+        return x
+      end
       raw = @types.raw_type(def_node_file(def_node), node)
       if raw && raw.start_with?("obj_")
         x = raw.sub("obj_", "").gsub("__", "::")
@@ -239,8 +282,27 @@ module PicorubyAot
         x = resolve_scope_name(t.name.to_s.sub(/\A::/, ""), scope)
         return x if x
       end
-      k = guard_class_name(node, def_node)
-      k && resolve_scope_name(k, scope)
+      nil
+    end
+
+    # The RBS type of a `#: T` comment on `line` of `file`, or nil. The
+    # comment is the inline annotation steep reads on an assignment.
+    def inline_annotation(file, line)
+      return nil unless file
+      @annotations ||= {}
+      table = @annotations[file] ||= begin
+        h = {}
+        Prism.parse(File.read(file), filepath: file).comments.each do |c|
+          next unless c.slice.start_with?("#:")
+          begin
+            h[c.location.start_line] = RBS::Parser.parse_type(c.slice.sub("#:", "").strip)
+          rescue StandardError
+            nil
+          end
+        end
+        h
+      end
+      table[line]
     end
 
     # ---- `is_a?` guards ----
@@ -446,6 +508,39 @@ module PicorubyAot
       end
     end
 
+    # The element that `x[k]`, `x.fetch(k)`, `x.first`, `x.last`, `x.shift`
+    # or `x.pop` reads from a value declared `Array[T]` or `Hash[K, V]`: T
+    # or V. (A nil result is a possibility the scopes already include.)
+    # `x[1..2]` and `x.first(2)` read a slice: left to nil.
+    def indexed_element_type(node, def_node, self_singleton, scope, depth)
+      name = node.name
+      args = node.arguments ? node.arguments.arguments : []
+      return nil if args.any? { |a| a.is_a?(Prism::RangeNode) }
+      t = declared_type(node.receiver, def_node, self_singleton, scope, depth + 1)
+      t = expand_alias(t.type, scope) if t.is_a?(RBS::Types::Optional)
+      return nil unless t.is_a?(RBS::Types::ClassInstance)
+      case t.name.to_s.sub(/\A::/, "")
+      when "Array"
+        case name
+        when :[], :fetch then args.size == 1 ? t.args[0] : nil
+        when :first, :last, :shift, :pop then args.empty? ? t.args[0] : nil
+        when :dup, :compact, :reverse, :uniq, :sort then args.empty? ? t : nil
+        end
+      when "Hash"
+        case name
+        when :[], :fetch then args.size == 1 ? t.args[1] : nil
+        when :keys then args.empty? ? array_of(t.args[0]) : nil
+        when :values then args.empty? ? array_of(t.args[1]) : nil
+        when :dup then args.empty? ? t : nil
+        end
+      end
+    end
+
+    def array_of(t)
+      return nil if t.nil?
+      RBS::Types::ClassInstance.new(name: RBS::TypeName.parse("::Array"), args: [t], location: nil)
+    end
+
     def integer_type
       @integer_type ||= RBS::Types::ClassInstance.new(name: RBS::TypeName.parse("::Integer"), args: [], location: nil)
     end
@@ -636,11 +731,14 @@ module PicorubyAot
       # Spinel typed nothing in a dependency, so a search by name through
       # the dependencies' untyped receivers would meet (`x.size`,
       # `y.to_s`) and make every def wait. Inside a dependency the search
-      # follows only what it can resolve: a bare call to the same scope,
-      # a call on a constant to that constant's singleton methods, and a
-      # call by the name of a def that reaches a primitive directly
-      # (`await`, `fetch`, `getch`). This gem's defs search by name as
-      # before, over its own defs and the dependencies'.
+      # follows a receiver that the source or the RBS settles
+      # (resolve_receiver: a bare call to the same scope, a constant, a
+      # parameter, an instance variable, a method's declared value, an
+      # `is_a?` guard; `store.put(v)` in IndexedDB::KVS#[]= reaches
+      # Store#put through `store: () -> store_like`), and a receiver
+      # nothing settles only by the name of a def that reaches a
+      # primitive directly (`await`, `fetch`, `getch`). This gem's defs
+      # search by name as before, over its own defs and the dependencies'.
       wrappers = @dep_entries.select { |e| calls[e].any? { |c| direct_wait?(e, c) } }
       # Each call is resolved once, to :direct or to the defs whose wait it
       # inherits; the fixpoint below then reads only `waits`. (Resolving
@@ -659,15 +757,12 @@ module PicorubyAot
             target = by_label["#{e.scope}#{e.singleton ? '.' : '#'}#{name}"]
             next [call, [target]] if target
           end
-          if e.status == :foreign
-            if recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode)
-              next [call, reachable_defs(name, true, [const_name(recv)], argc)]
-            end
-            next [call, wrappers.select { |o| o.name == name && accepts?(o, argc) }]
-          end
           # Otherwise every def the call can reach: if one waits, assume
           # this call does too.
           singleton, scopes = resolve_receiver(e.file, recv, e.singleton, e.scope, e.node)
+          if e.status == :foreign && scopes.nil?
+            next [call, wrappers.select { |o| o.name == name && accepts?(o, argc) }]
+          end
           [call, reachable_defs(name, singleton, scopes, argc)]
         end
       end
@@ -798,6 +893,21 @@ module PicorubyAot
     # nil when the chain leaves what the sources define through an
     # unresolved superclass or include (:open), because any def of the
     # name may then answer.
+    # `scope` and the classes and modules it inherits from or includes,
+    # nearest first, as far as the sources define them.
+    def ancestor_scopes(scope)
+      out = []
+      queue = [scope]
+      while (s = queue.shift)
+        next if s.nil? || out.include?(s)
+        out << s
+        sup = @superclass[s]
+        queue << resolve_scope_name(sup, s) if sup && sup != :open
+        @includes[s].each { |m| queue << resolve_scope_name(m, s) unless m == :open }
+      end
+      out
+    end
+
     def hierarchy_scopes(scope)
       return nil if scope.nil?
       @hierarchy ||= {}

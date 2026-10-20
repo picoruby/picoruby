@@ -35,6 +35,9 @@ MRuby::CrossBuild.new("picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do 
   conf.cc.flags << "-fwasm-exceptions"
 
   conf.picoruby(alloc_estalloc: false)
+  # picoruby-aot: the gems that declare spec.aot (funicular's VDOM path
+  # among them) compile their typed defs to C
+  conf.aot
   conf.gembox "mruby-posix"
   conf.gembox "stdlib"
 

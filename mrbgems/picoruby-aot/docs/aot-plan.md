@@ -186,7 +186,22 @@ can declare:
     a wait; funicular writes those loops as `while` now (its own rule
     for the 4KB stack as well), and the VDOM path compiles from
     `Differ.diff` through `Patcher#apply` and `Renderer#render`: 183 /
-    460 of 756, vdom.rb 29 of 35, patcher.rb 5 of 5. What vdom.rb still
+    460 of 756, vdom.rb 29 of 35, patcher.rb 5 of 5. The wasm twin
+    then differed on the DB epoch tests: `DB.persist_snapshot` was
+    compiled although `store[k] = v` reaches `IndexedDB::KVS#[]=`,
+    `store.put` and `Store#put`, which awaits; inside a dependency the
+    search had followed no receiver but a constant. It now resolves a
+    dependency's receiver as it resolves this gem's (the RBS, a guard),
+    and about 60 defs of funicular that reached `IndexedDB::KVS` through
+    an untyped `[]`, `[]=` or `empty?` went back to the irep with it.
+    The declarations that brought the VDOM path back: `child_nodes`
+    takes a `JS::Object`, `Component#instance` is a `Component?`,
+    `Patcher` declares `@doc`, `Component` declares `@state` and
+    `@suspense_states`, the accessors declare their hashes; and the
+    generator reads an element of a declared `Array` or `Hash`, a `#: T`
+    annotation on a local, a declaration of an ancestor class, and a
+    guard ahead of Spinel's type: 173 / 396 of 756, vdom.rb 29 of 35,
+    differ.rb 9 of 9, patcher.rb 5 of 5. What vdom.rb still
     keeps in the irep is a `return` in a block (the two validators,
     1.1), `super` in three `initialize` (3.1) and a rest parameter
     (1.3). The browser measurement of the VDOM path is next; after it,
@@ -292,7 +307,7 @@ and a device measurement of the path that matters.
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
 | picoruby-shell | 22 / 43 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
-| picoruby-funicular | 183 / 460 of 756 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
+| picoruby-funicular | 173 / 396 of 756 | waits through untyped receivers on about 290 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 
