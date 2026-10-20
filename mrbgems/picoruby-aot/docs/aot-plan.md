@@ -107,11 +107,19 @@ wrappers among them.
 
 ### 1.6 picoruby-shell and picoruby-funicular
 
-The owner's next targets. Both pass Spinel now: funicular since its
-RBS fix (`render_text` returns `JS::Object`), shell since
-picoruby-require defines `$LOAD_PATH = []` and the shell changes it in
-place (Spinel takes `$LOAD_PATH` as read-only, as CRuby does). What is
-left before either can declare:
+The owner's next targets. Both give their types now. Shell passes
+Spinel since picoruby-require defines `$LOAD_PATH = []` and the shell
+changes it in place (Spinel takes `$LOAD_PATH` as read-only, as CRuby
+does). Funicular is refused at 22 sites: four by the String-sharing
+seal (a mutable String handed on by a route the rule cannot carry yet,
+matz/spinel#9258; `component.rb:1054`, `db.rb:2410`,
+`html_serializer.rb:75`, `patcher.rb:250`) and 18 by codegen
+(`JSON.generate` and `JSON.parse` on the class, `instance_method`,
+`instance_exec`, `define_method` with a computed name, `Object#extend`).
+Since matz/spinel#9703 `--emit-types` writes the JSON with those
+refusals in it, so the generator reads the types of every other unit;
+the defs of a refused unit stay in the irep. What is left before either
+can declare:
 
 - shell has no picotest suite; the twin needs one before the gem can
   declare.
@@ -149,7 +157,7 @@ left before either can declare:
   in the irep (1.1, option 3; about 15 defs in vdom, differ, patcher
   and html_serializer), or 1.1 option 2 in the generator.
 
-The generator compiles 38 of 79 shell defs (the Tokenizer, the Parser,
+The generator compiles 43 of 79 shell defs (the Tokenizer, the Parser,
 PipeIO; the rest wait for the scheduler through `exec`, or take
 `*rest`). The shell's compiled defs run once per command line, so a
 device measurement decides whether shell declares at all.
@@ -220,12 +228,12 @@ and a device measurement of the path that matters.
 | Gem | Compiled | Blocked by | Expected gain |
 |---|---|---|---|
 | picoruby-regexp | 2 / 5 of 11 | rest parameters on the String wrappers (1.3) | Low: the engine is C; the wrappers are thin |
-| picoruby-vfs | 28 / 44 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `load_file` waits through `f.read` on the block parameter (1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
+| picoruby-vfs | 28 / 45 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `load_file` waits through `f.read` on the block parameter (1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
 | picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (`File.open` in a dependency, 1.4) or `getch` | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
-| picoruby-shell | 21 / 39 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
-| picoruby-funicular | 125 / 243 of 747 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
+| picoruby-shell | 22 / 43 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
+| picoruby-funicular | 121 / 240 of 747 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 
