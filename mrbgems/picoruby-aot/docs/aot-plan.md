@@ -143,10 +143,12 @@ can declare:
   - The `Hash[Symbol, ...]` seeds, measured on 2026-10-20 (Spinel
     af2466421; `tools` has no task for it, the count came from the RBS
     and the JSON): the RBS declares 164 such slots (134 parameters, 25
-    returns, 5 ivars). 82 have no def in the JSON, since their unit is
-    refused (the `Tags` methods behind the `define_method` at
-    `0_tags.rb:41`, the router behind `Object#extend`). Of the 82 the
-    JSON has, 33 keep the seed and 49 give way to untyped. The `why`
+    returns, 5 ivars). 82 of them are the `Tags` methods and the like,
+    whose Ruby is a `define_method` loop: Spinel refuses the loop
+    (`0_tags.rb:41`), and the generator's stub carries their RBS
+    signatures instead, so a call of `div` is typed and the seed holds
+    there by construction. Of the 82 the JSON types from the gem's own
+    Ruby, 33 keep the seed and 49 give way to untyped. The `why`
     chain of each of the 49 names its source, and none is a dynamic
     `send` (the seven `send` sites are one-argument sends on self, whose
     arms are the receiver's own methods since matz/spinel#9654). The
@@ -156,11 +158,17 @@ can declare:
     (`ViewContext#tag`, `#component`, `#build_element`,
     `#normalize_props`); an element of a poly Array (`patch[1]`,
     `hash[key] || {}`); and returns the compiler records no source for.
-    So the order is: lift the two refusals that hide 82 slots, then
-    type the sources (a typed constant for an empty default, the ivars
-    and returns), and only then look at the seed rule. The earlier
-    `Hash[Symbol, Integer]` parser gap is fixed upstream (matz/spinel
-    PR #9315).
+    So the order is: type the sources (a typed constant for an empty
+    default, the ivars and returns), and only then look at the seed
+    rule. The two refusals cost little in types: `0_tags.rb:41` hides
+    the tag bodies and the module body's statements, `router.rb:19`
+    (`Object#extend` of an anonymous module) hides `Router#initialize`.
+    Inlining the tag list into the `each` would lift the first (Spinel
+    unrolls a literal list), but on af2466421 the unrolled bodies read
+    the block variable as nil (reported upstream); the router's helpers
+    are defined on a `Module.new` by name at run time, which no AOT form
+    expresses, so that refusal stays. The earlier `Hash[Symbol,
+    Integer]` parser gap is fixed upstream (matz/spinel PR #9315).
   - A seeded String container that receives shared Strings settles in
     its shared form (a poly Array whose boxes hold the handles,
     matz/spinel#9626), and `--emit-types` reports it as `Array[untyped]`
