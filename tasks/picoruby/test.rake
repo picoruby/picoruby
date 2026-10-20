@@ -432,6 +432,9 @@ def gem_supported_for_test_target?(spec, vm_type)
   return false if vm_type != 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-wasm')
   return false if vm_type == 'femtoruby' && depends_on_gem?(spec.build, spec, 'picoruby-mruby')
   return false if vm_type == 'femtoruby' && conflicts_with_gem?(spec.build, spec, 'picoruby-mrubyc')
+  # The mruby builds carry mruby-data (stdlib.gembox); a gem that conflicts
+  # with it (picoruby-data, the Data of mruby/c) is tested on femtoruby.
+  return false if vm_type != 'femtoruby' && conflicts_with_gem?(spec.build, spec, 'mruby-data')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-socket')
   # The socket POSIX port links OpenSSL, which the 32-bit test build has no
   # library for (libssl-dev:i386 is rarely installed).
