@@ -108,13 +108,22 @@ A `def` becomes a cfunc when all of these hold:
   untyped receiver takes every def of its name, in the dependencies
   too: `kvs[key]` may be `IndexedDB::KVS#[]`, which awaits. A receiver
   Spinel left untyped that the RBS declares is resolved by the
-  declaration instead: a parameter, an instance variable, a block
-  parameter of an iteration over a declared `Array` or `Hash`, or the
-  value of a method or attr of a declared class (`patches.each` on a
-  parameter declared `Array[Patch]` is `Array#each`; `msgs.each` in
+  declaration instead: a parameter, an instance variable (the class's
+  own, `self.@x`, in a singleton method), a block parameter of an
+  iteration over a declared `Array` or `Hash`, a local every write
+  ahead of the read assigns from a declared value, or the value of a
+  method or attr of a declared class (`patches.each` on a parameter
+  declared `Array[Patch]` is `Array#each`; `msgs.each` in
   `@messages.each { |attr, msgs| }` over a `Hash[Symbol, Array[String]]`
-  is `Array#each`). The declaration is trusted here as Spinel trusts
-  it under `--rbs` and as steep checks it against the CRuby run.
+  is `Array#each`; `k.new` on a value declared `singleton(Component)`
+  reaches `Component#initialize` alone). The declaration is trusted
+  here as Spinel trusts it under `--rbs` and as steep checks it against
+  the CRuby run. An `is_a?` guard that dominates the call settles the
+  class as well: `return unless x.is_a?(K)` (`next`, `break`, `raise`)
+  ahead of it, the then branch of `if x.is_a?(K)`, the else branch of
+  `unless`, a `when K` of `case x`, and the right side of `x.is_a?(K)
+  && ...`, unless the name is written again between the guard and the
+  call. The innermost guard names the class.
 - The method is not a hook the VM calls while the irep loads:
   `inherited`, `included`, `extended`, `prepended`, `method_added`,
   `singleton_method_added`. The gem's own `include` runs the hook

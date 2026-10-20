@@ -175,14 +175,18 @@ can declare:
     method of a declared class. With funicular's patches as a Data
     (`VDOM::Patch`, picoruby/funicular `fix/patch-data`) that took the
     gem from 127 / 254 to 159 / 407 of 756, the Differ to 9 of 9 and
-    vdom.rb to 23 of 35. What still waits on the VDOM path sits behind
-    an `is_a?` guard the search does not read yet: `vnode.props` after
-    `return unless vnode.is_a?(VDOM::Element)` in `bind_events` (which
-    `Patcher#apply` and `Renderer#render` reach), `vnode.each` under
-    `is_a?(Array)` in `create_element`, `nodes.to_a` under
-    `is_a?(JS::Object)` in `child_nodes`. Reading the guards is the next
-    step of the search; after that, a run-time class check at a def's
-    entry that hands a receiver of a waiting class to the irep copy.
+    vdom.rb to 23 of 35. The search then took the `is_a?` guards, the
+    locals a def writes from declared values, the class's own instance
+    variables and a `singleton(X)` seed (the RBS of funicular declares
+    `component_class`, the event listener ids and the suspense timers
+    now): 182 / 457, vdom.rb 28 of 35, html_serializer.rb 10 of 10,
+    patcher.rb 3 of 5, `Renderer#render` and `render_component`
+    compiled. `Patcher#apply` and `#create_element` are left by a nested
+    block (1.1), not by a wait: a `while` form in funicular, or nested
+    blocks in the generator, is what remains on the VDOM path. After
+    that, a run-time class check at a def's entry that hands a receiver
+    of a waiting class to the irep copy, for the defs the declarations
+    cannot settle.
   - A seeded String container that receives shared Strings settles in
     its shared form (a poly Array whose boxes hold the handles,
     matz/spinel#9626), and `--emit-types` reports it as `Array[untyped]`
@@ -282,7 +286,7 @@ and a device measurement of the path that matters.
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
 | picoruby-shell | 22 / 43 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
-| picoruby-funicular | 159 / 407 of 756 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
+| picoruby-funicular | 182 / 457 of 756 | waits through untyped receivers on about 480 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 
