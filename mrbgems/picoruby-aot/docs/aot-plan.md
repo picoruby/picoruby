@@ -140,10 +140,36 @@ can declare:
     `#keys`, `#delete`. Spinel has no typed-value Hash beyond `int` and
     `string` values, so the RBS (`Hash[Symbol, Array[String]]`) cannot
     say more. A Spinel topic, not a gem one.
-  - A `Hash[Symbol, Integer]` seed fell to poly in Spinel (its parser
-    had no such kind); fixed upstream (matz/spinel PR #9315), and the
-    submodule carries it. It typed the ivars, and the def count did
-    not move: the waits behind them have other roots (above).
+  - The `Hash[Symbol, ...]` seeds, measured on 2026-10-20 (Spinel
+    af2466421; `tools` has no task for it, the count came from the RBS
+    and the JSON): the RBS declares 164 such slots (134 parameters, 25
+    returns, 5 ivars). 82 have no def in the JSON, since their unit is
+    refused (the `Tags` methods behind the `define_method` at
+    `0_tags.rb:41`, the router behind `Object#extend`). Of the 82 the
+    JSON has, 33 keep the seed and 49 give way to untyped. The `why`
+    chain of each of the 49 names its source, and none is a dynamic
+    `send` (the seven `send` sites are one-argument sends on self, whose
+    arms are the receiver's own methods since matz/spinel#9654). The
+    sources are: a value born untyped at the call (an untyped ivar
+    `@suspense_data`, a Proc call `params_proc.call(self)`, an untyped
+    return `styles_definitions`); an empty literal default `props = {}`
+    (`ViewContext#tag`, `#component`, `#build_element`,
+    `#normalize_props`); an element of a poly Array (`patch[1]`,
+    `hash[key] || {}`); and returns the compiler records no source for.
+    So the order is: lift the two refusals that hide 82 slots, then
+    type the sources (a typed constant for an empty default, the ivars
+    and returns), and only then look at the seed rule. The earlier
+    `Hash[Symbol, Integer]` parser gap is fixed upstream (matz/spinel
+    PR #9315).
+  - A seeded String container that receives shared Strings settles in
+    its shared form (a poly Array whose boxes hold the handles,
+    matz/spinel#9626), and `--emit-types` reports it as `Array[untyped]`
+    with `widened`: `index_name`, `quoted_list`, `get_state_keys` moved
+    from typed to widened for that (they still compile under
+    `--include-widened`). A report fix is drafted on the Spinel side
+    (branch `fix/emit-types-shared-seed`, WIP) and paused while the
+    Array seed rule on master settles (an Array seed over a box keeps
+    the box since 2026-10-20).
   - The same collision reaches marshal on the wasm build: `dump_hash`
     calls `keys` on its untyped object, which could be
     `IndexedDB::Store#keys` (an await), so marshal's dump path is in
