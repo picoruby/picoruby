@@ -22,7 +22,10 @@ For one gem the build does these steps:
    gem's mrblib files with their `RUBY_ENGINE == "..."` branches folded
    for mruby (Spinel answers "spinel" and would keep the mruby/c side;
    lines and columns do not move), and Ruby stubs for the C-implemented
-   methods of the dependencies, generated from their RBS.
+   methods of the dependencies, generated from their RBS. A class or a
+   method that a bare CRuby (`ruby --disable=gems`) defines gets no
+   stub: Spinel has it as a builtin. A library the generator itself
+   loads (json, rbs, prism) does not count as CRuby.
 2. Spinel writes the types. The generator keys on the node spans, kinds,
    signatures and `nullable` fields of the emit-types contract. An
    older Spinel builds and runs, but every def then stays in the irep,

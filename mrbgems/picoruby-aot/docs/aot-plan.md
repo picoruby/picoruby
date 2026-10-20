@@ -110,12 +110,13 @@ wrappers among them.
 The owner's next targets. Both give their types now. Shell passes
 Spinel since picoruby-require defines `$LOAD_PATH = []` and the shell
 changes it in place (Spinel takes `$LOAD_PATH` as read-only, as CRuby
-does). Funicular is refused at 22 sites: four by the String-sharing
+does). Funicular is refused at 12 sites: four by the String-sharing
 seal (a mutable String handed on by a route the rule cannot carry yet,
 matz/spinel#9258; `component.rb:1054`, `db.rb:2410`,
-`html_serializer.rb:75`, `patcher.rb:250`) and 18 by codegen
-(`JSON.generate` and `JSON.parse` on the class, `instance_method`,
-`instance_exec`, `define_method` with a computed name, `Object#extend`).
+`html_serializer.rb:75`, `patcher.rb:250`) and eight by codegen
+(`instance_method`, `instance_exec`, `private_instance_methods`,
+`define_method` with a computed name, `Object#extend`, a VNode argument
+no conversion keeps).
 Since matz/spinel#9703 `--emit-types` writes the JSON with those
 refusals in it, so the generator reads the types of every other unit;
 the defs of a refused unit stay in the irep. What is left before either

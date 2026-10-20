@@ -10,6 +10,7 @@
 
 require "rbs"
 require "prism"
+require "rbconfig"
 require "set"
 
 module PicorubyAot
@@ -152,7 +153,19 @@ module PicorubyAot
       end
     end
 
+    # The constants a bare CRuby (`ruby --disable=gems`) defines, by their
+    # top-level name. Only those count as CRuby's own: this process loads
+    # json, rbs and prism for its own work, and their constants (JSON, YAML
+    # through rbs) answered Object.const_defined? too, so the stub of
+    # picoruby-json left out `JSON.generate`, which Spinel then refused,
+    # and the stub of picoruby-yaml left out `YAML.load_file`, which Spinel
+    # bound by name to another gem's `load_file`.
+    def self.cruby_constants
+      @cruby_constants ||= IO.popen([RbConfig.ruby, "--disable=gems", "-e", "puts Object.constants"], &:read).split.to_set
+    end
+
     def cruby_defines_constant?(full)
+      return false unless self.class.cruby_constants.include?(full.split("::").first)
       Object.const_defined?(full)
     rescue NameError
       false
