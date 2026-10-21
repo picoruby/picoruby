@@ -54,6 +54,12 @@ typedef enum {
  UART_ERROR_BUFFER_SIZE   = -4,
  UART_ERROR_BUFFER_INUSE  = -5,
  UART_ERROR_NOMEM         = -6,
+ /* A format the hardware cannot frame. nRF52 UARTE, for one, has no
+    PARITYTYPE field and no data-bit register: 8 bits, and parity either
+    none or even. Reported rather than approximated -- a caller that asks
+    for 8O2 and silently gets 8N1 sees framing errors on the wire with
+    nothing to explain them. */
+ UART_ERROR_INVALID_FORMAT = -7,
 } uart_status_t;
 
 typedef void (*PushBuffer)(RingBuffer *ring_buffer, uint8_t ch);
@@ -130,7 +136,7 @@ int UART_unit_num_from_pins(const char *unit_name, int txd_pin, int rxd_pin);
 void UART_open(int unit_num, uint32_t txd_pin, uint32_t rxd_pin);
 uint32_t UART_set_baudrate(int unit_num, uint32_t baudrate);
 void UART_set_flow_control(int unit_num, bool cts, bool rts);
-void UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity);
+int UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity);
 void UART_set_function(uint32_t pin);
 void UART_write_blocking(int unit_num, const uint8_t *src, size_t len);
 bool UART_is_readable(int unit_num);

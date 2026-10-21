@@ -23,9 +23,14 @@ UART_set_flow_control(int unit_num, bool cts, bool rts)
 {
 }
 
-void
+int
 UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity)
 {
+  (void)unit_num;
+  (void)data_bits;
+  (void)stop_bits;
+  (void)parity;
+  return UART_ERROR_NONE;
 }
 
 void

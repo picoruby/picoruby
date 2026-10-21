@@ -280,17 +280,22 @@ UART_set_flow_control(int unit_num, bool cts, bool rts)
   (void)unit_num; (void)cts; (void)rts;
 }
 
-void
+int
 UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity)
 {
   if (unit_num < 0 || UART_INSTANCE_COUNT <= unit_num) {
-    return;
+    return UART_ERROR_INVALID_UNIT;
   }
-  /* UARTE frames 8 data bits and nothing else, and its parity is
-     even-or-none: PARITYTYPE does not exist on this part. Anything else
-     is left as it was rather than silently approximated. */
+  /*
+   * UARTE frames 8 data bits and nothing else, and its parity is
+   * even-or-none: PARITYTYPE does not exist on this part. Say so rather
+   * than leave the format as it was and answer success -- a caller that
+   * asks for 8O2 and keeps running at 8N1 sees framing errors on the
+   * wire with nothing anywhere to explain them, and this port does not
+   * report wire errors either.
+   */
   if (data_bits != 8 || parity == PARITY_ODD) {
-    return;
+    return UART_ERROR_INVALID_FORMAT;
   }
 
   NRF_UARTE_Type *uarte = instances[unit_num];
@@ -305,6 +310,7 @@ UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t pa
   config |= ((stop_bits == 2) ? UARTE_CONFIG_STOP_Two : UARTE_CONFIG_STOP_One)
             << UARTE_CONFIG_STOP_Pos;
   uarte->CONFIG = config;
+  return UART_ERROR_NONE;
 }
 
 void

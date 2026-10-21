@@ -87,7 +87,14 @@ mrb__set_format(mrb_state *mrb, mrb_value self)
   int unit_num = mrb_fixnum(mrb_iv_get(mrb, self, MRB_IVSYM(unit_num)));
   mrb_int data_bits, stop_bit, parity;
   mrb_get_args(mrb, "iii", &data_bits, &stop_bit, &parity);
-  UART_set_format(unit_num, (int32_t)data_bits, (int32_t)stop_bit, (int32_t)parity);
+  int status = UART_set_format(unit_num, (int32_t)data_bits, (int32_t)stop_bit,
+                               (int32_t)parity);
+  if (status == UART_ERROR_INVALID_FORMAT) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR,
+              "this data bits / parity combination is not available on this platform");
+  } else if (status < 0) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "UART set_format failed");
+  }
   return self;
 }
 
