@@ -53,6 +53,10 @@ module PicorubyAot
     # instructions, never under a C frame), so a compiled loop around one
     # of these spins forever and a compiled `sleep_ms` returns at once.
     WAIT_NAMES = %w[sleep sleep_ms usleep pass suspend join wait resume].freeze
+    # On a Task (the class or an instance) the methods that hand control
+    # to the scheduler. `Task.list`, `current`, `tick`, `terminate` on
+    # another task, `name` and the rest return at once.
+    TASK_WAIT_NAMES = (WAIT_NAMES + %w[value run]).freeze
     # The C primitives of picoruby-wasm that park the task until a JS
     # promise settles are named `_*_and_suspend`; the Ruby that wraps them
     # (JS::Promise#await, JS.fetch) reaches the gem through the wait
@@ -843,9 +847,9 @@ module PicorubyAot
       name = call.name.to_s
       recv = call.receiver
       return true if name.end_with?(SUSPEND_SUFFIX)
-      return true if recv.is_a?(Prism::ConstantReadNode) && recv.name == :Task
+      return TASK_WAIT_NAMES.include?(name) if recv.is_a?(Prism::ConstantReadNode) && recv.name == :Task
       raw = @types.raw_type(e.file, recv) if recv
-      return true if raw && raw =~ WAIT_RECEIVER_TYPES
+      return TASK_WAIT_NAMES.include?(name) if raw && raw =~ WAIT_RECEIVER_TYPES
       return false unless WAIT_NAMES.include?(name)
       # Task#join takes no argument: `parts.join(", ")` is Array#join.
       return false if name == "join" && call.arguments && !call.arguments.arguments.empty?
