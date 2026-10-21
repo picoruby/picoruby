@@ -1,6 +1,6 @@
 #include "esp_task_wdt.h"
 
-void
+int
 Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
 {
   esp_task_wdt_config_t twdt_config = {
@@ -9,12 +9,14 @@ Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
   };
   esp_task_wdt_init(&twdt_config);
   esp_task_wdt_add(NULL);
+  return WATCHDOG_ERROR_NONE;
 }
 
-void
+int
 Watchdog_disable(void)
 {
   esp_task_wdt_deinit();
+  return WATCHDOG_ERROR_NONE;
 }
 
 void
