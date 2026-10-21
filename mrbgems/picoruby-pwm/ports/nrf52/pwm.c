@@ -58,6 +58,9 @@ static uint32_t   assigned_pin[PWM_INSTANCE_COUNT];
 static bool       in_use[PWM_INSTANCE_COUNT];
 static uint16_t   countertop[PWM_INSTANCE_COUNT];
 static uint8_t    prescaler_of[PWM_INSTANCE_COUNT];
+/* Whether the sequence is playing. A duty change must not restart it --
+   see PWM_set_frequency_and_duty -- and only this can tell. */
+static bool       playing[PWM_INSTANCE_COUNT];
 
 static int
 index_of_pin(uint32_t pin)
@@ -70,14 +73,14 @@ index_of_pin(uint32_t pin)
   return -1;
 }
 
-void
+int
 PWM_init(uint32_t pin)
 {
   if (pin >= NUMBER_OF_PINS) {
-    return;
+    return PWM_ERROR_INVALID_PIN;
   }
   if (0 <= index_of_pin(pin)) {
-    return;  /* already bound to an instance */
+    return PWM_ERROR_NONE;  /* already bound to an instance; idempotent */
   }
 
   int idx = -1;
@@ -88,7 +91,13 @@ PWM_init(uint32_t pin)
     }
   }
   if (idx < 0) {
-    return;  /* all four instances are taken */
+    /*
+     * Every instance is taken. Reported rather than ignored: the caller
+     * would otherwise get a PWM object whose duty setter returns the
+     * number it was given while the pin stays low, and nothing anywhere
+     * says the fifth pin was one too many.
+     */
+    return PWM_ERROR_NO_INSTANCE;
   }
 
   NRF_PWM_Type *pwm = instances[idx];
@@ -100,7 +109,13 @@ PWM_init(uint32_t pin)
 
   assigned_pin[idx] = pin;
   in_use[idx] = true;
-  duty_value[idx] = 0;
+  /*
+   * Bit 15 carries the polarity and the low 15 bits the compare, so a
+   * plain 0 is not "off" -- it is the inverted sense with a compare of
+   * zero, which holds the output high for the whole period. The idle
+   * value has to carry the polarity bit to mean 0 %.
+   */
+  duty_value[idx] = PWM_POLARITY_FALLING;
   countertop[idx] = PWM_COUNTERTOP_MAX;
   prescaler_of[idx] = 0;
 
@@ -114,6 +129,7 @@ PWM_init(uint32_t pin)
   /* Restart the sequence as soon as it finishes: the output has to
      keep running without the CPU touching it again. */
   nrf_pwm_shorts_set(pwm, NRF_PWM_SHORT_LOOPSDONE_SEQSTART0_MASK);
+  return PWM_ERROR_NONE;
 }
 
 /*
@@ -202,7 +218,18 @@ PWM_set_frequency_and_duty(uint32_t pin, picorb_float_t frequency, picorb_float_
    */
   nrf_pwm_sequence_set(pwm, 0, &seq);
   nrf_pwm_sequence_set(pwm, 1, &seq);
-  nrf_pwm_task_trigger(pwm, NRF_PWM_TASK_SEQSTART0);
+  /*
+   * Only start a sequence that is not already playing. A running one
+   * re-reads the value out of RAM every period, which is what the
+   * comment above is about, so a duty change needs nothing further --
+   * while a SEQSTART0 here restarts the sequence and its LOOP counter at
+   * whatever phase the period was in, cutting it short. On a 50 Hz servo
+   * driven from a loop that is a truncated frame per step, which the
+   * servo answers with jitter.
+   */
+  if (!playing[idx]) {
+    nrf_pwm_task_trigger(pwm, NRF_PWM_TASK_SEQSTART0);
+  }
 }
 
 void
@@ -217,11 +244,13 @@ PWM_set_enabled(uint32_t pin, bool enabled)
   if (enabled) {
     nrf_pwm_enable(pwm);
     nrf_pwm_task_trigger(pwm, NRF_PWM_TASK_SEQSTART0);
+    playing[idx] = true;
   } else {
     /* STOP alone leaves the output wherever the period happened to be.
        Disable and drive the pin low so "off" means off. */
     nrf_pwm_task_trigger(pwm, NRF_PWM_TASK_STOP);
     nrf_pwm_disable(pwm);
+    playing[idx] = false;
     nrf_gpio_pin_clear(assigned_pin[idx]);
     nrf_gpio_cfg_output(assigned_pin[idx]);
   }
