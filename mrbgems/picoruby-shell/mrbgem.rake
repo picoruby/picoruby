@@ -49,7 +49,11 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   directory executable_dir
   Dir.glob("#{dir}/shell_executables/*.rb") do |rbfile|
     mrbfile = "#{executable_dir}/#{rbfile.pathmap('%n')}.c"
-    file mrbfile => [rbfile, executable_dir, executables_src] do |t|
+    # build.mrbcfile: the compiler of this build (bin/mrbc of the host
+    # build) must exist before an executable is compiled; without the
+    # prerequisite a build that makes both (the picotest binary) runs
+    # this task first and finds no mrbc.
+    file mrbfile => [rbfile, executable_dir, executables_src, build.mrbcfile] do |t|
       File.open(t.name, 'w') do |f|
         mrbc.compile_options = "--remove-lv -B%{funcname} -o-"
         mrbc.run(f, t.prerequisites[0], "executable_#{t.name.pathmap("%n").gsub('-', '_')}", cdump: false)
@@ -61,7 +65,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
     build.libmruby_objs << objfile
   end
 
-  file executables_src do |t|
+  file executables_src => [build.mrbcfile] do |t|
     mkdir_p File.dirname t.name
     pathmap = File.read("#{dir}/shell_executables/_path.txt").lines.map(&:chomp).map do
       pn = Pathname.new(_1)
