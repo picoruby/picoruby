@@ -6,9 +6,18 @@
 static void
 c_rng_random_int(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  uint8_t bytes[4];
   uint32_t ret = 0;
+
+  /* The failure-reporting call, not the byte one: a source that never
+     became ready would otherwise hand back zeros and this would return
+     0 as if it were a draw. */
+  if (rng_random_bytes_impl(bytes, sizeof(bytes)) != 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "entropy source failed");
+    return;
+  }
   for (int i = 0; i < 4; i++) {
-    ret = (ret << 8) | rng_random_byte_impl();
+    ret = (ret << 8) | bytes[i];
   }
   SET_INT_RETURN(ret);
 }
@@ -26,8 +35,10 @@ c_rng_random_string(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   unsigned char* buf = mrbc_alloc(vm, len.i);
-  for (int i = 0; i < len.i; i++) {
-    buf[i] = (unsigned char)rng_random_byte_impl();
+  if (rng_random_bytes_impl((uint8_t *)buf, (size_t)len.i) != 0) {
+    mrbc_free(vm, buf);
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "entropy source failed");
+    return;
   }
   mrbc_value ret = mrbc_string_new(vm, buf, len.i);
   mrbc_free(vm, buf);
