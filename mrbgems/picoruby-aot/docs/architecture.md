@@ -270,6 +270,40 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   `pop`, `shift`, `first`, `last`, `clear`, `key?` and `delete` resolve
   the method as the VM would and compare it with the builtin recorded
   at gem init, so a redefinition on Array itself is honoured.
+- A core method on a receiver Spinel left untyped (a widened def's
+  values) goes through a helper that tests the receiver's class at run
+  time and that the method is still the core entry recorded at gem init
+  (a C function by pointer, an mrblib proc by identity), and sends to
+  the VM otherwise: `[]`, `[]=`, `size`, `length`, `empty?`, `include?`,
+  `key?`, `keys`, `values`, `first`, `last`, `push`, `pop`, `shift`,
+  `nil?`, `is_a?`, `kind_of?`, `to_s`, `to_sym`. The helper is emitted
+  only where no compiled def of the gem is the direct target.
+- A call without arguments or block on an untyped receiver that no
+  compiled def answers goes through `aot_read0`: an `attr_reader` reads
+  the instance variable and a Data member reader the member, without a
+  call frame (the method entry is compared with the bodies class.c and
+  mruby-data give such methods, recorded at gem init); any other method,
+  and a private one on an explicit receiver, goes through
+  `mrb_funcall_argv`.
+- An iteration with a block literal (`each`, `each_pair`,
+  `each_with_index`, `map`, `select`, `any?`, `all?`, `times`) whose
+  block the method's C can hold (required parameters only; no nested
+  block, `return`, `break` or begin) is expanded in place: the generated
+  C tests at run time that the receiver is an Array, a Hash or an
+  Integer whose method is still the core one (`aot_loop_kind`), and
+  then runs the loop and the block's body itself. The block's
+  parameters and its own locals are C locals of the method; the outer
+  locals are the method's (a local the block writes is a cell already);
+  `next v` ends the turn with v; the GC arena is restored after each
+  turn, as the VM's frame pop does. No Proc, no env, no yield frame.
+  `Hash#each` walks a snapshot of the keys and values and binds the
+  pair, or the key and the value, to the parameters, as hash.rb does.
+  Any other receiver takes the Proc path below: the body is emitted once
+  per receiver kind and once as a block cfunc. A block literal on one
+  of these methods that the C cannot hold, or a `&blk` argument, goes
+  through a helper (`aot_each`, ...) that runs the loop in C and yields
+  to the Proc (`mrb_yield`) under the same run-time test, else to the VM
+  with `mrb_funcall_with_block`.
 - A string with interpolation builds a new String and appends each part
   with `mrb_str_concat`, which converts with `to_s` as the VM does.
 - `case/when` is an if chain. An Integer literal or an Integer Range
@@ -286,9 +320,10 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   implicit or `self` receiver. In a singleton method a call on `self`
   lands on another singleton method.
 - Spinel's codegen record names the callee when it has one; else the
-  generator takes a def of the same name in the receiver's class, or
-  the one def of that name in the gem. The runtime test keeps the call
-  correct whatever is chosen.
+  generator takes a def of the same name in the receiver's class (a
+  singleton def of the named class for a constant receiver,
+  `Patch.keep(...)`), or the one def of that name in the gem. The
+  runtime test keeps the call correct whatever is chosen.
 - An optional parameter reaches the impl as undef when the argument is
   not given, and the impl evaluates the default in method scope.
 - Keyword parameters follow the positionals in the impl's argument
@@ -384,7 +419,9 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   are recorded once, at registration), then the receiver's ancestors,
   then Object. A path `A::B::C` resolves `A` that way and reads `B` and
   `C` off the value before them, as the VM does; the last need not be a
-  class.
+  class. Each read site keeps its value in a static slot once that
+  value is a class or module (a class is not reassigned); any other
+  constant is looked up every time, as the VM does.
 - The VM's registers are GC roots; the generated C's locals are not. A
   value the C holds is safe while its owner references it or while it
   is in the GC arena (every allocation, every `mrb_funcall` result). A
