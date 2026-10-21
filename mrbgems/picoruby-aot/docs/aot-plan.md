@@ -204,7 +204,30 @@ can declare:
     differ.rb 9 of 9, patcher.rb 5 of 5. What vdom.rb still
     keeps in the irep is a `return` in a block (the two validators,
     1.1), `super` in three `initialize` (3.1) and a rest parameter
-    (1.3). The browser measurement of the VDOM path is next; after it,
+    (1.3).
+  - The browser measurement (~/work/funicular-bench, Chrome, a keyed
+    list of 200 items diffed and patched 20 times; `bench_diff` runs
+    2000 diffs alone). The first AOT build ran the diff 1.6x SLOWER than
+    the irep: every call in a widened def was `mrb_funcall_argv` (1254
+    sites), every `each` made a Proc, and the VM's send is cheaper than
+    a funcall from C. Three rounds of generator work, each checked with
+    a Performance profile (`--profiling-funcs` keeps the names,
+    `PICORB_WASM_PROFILING=1`): the generic guarded helpers on untyped
+    receivers, `aot_read0` for attr and Data readers, direct calls to
+    singleton defs through a constant receiver; then C loops for the
+    core iterations, a slot per constant read site, and a method cache
+    of 1024 entries for the wasm build (`mrb_vm_find_method` took a
+    tenth of the diff); then the iteration blocks expanded in place.
+    Per round: diff 1.44 -> 0.74 ms (irep 1.44; 2000 diffs alone 1.39 ->
+    0.65 ms, 2.1x), build 1.39 -> 1.27 ms, patch 0.69 -> 0.75 ms (the
+    DOM calls and emscripten's JS trampolines, which the AOT does not
+    touch). What remains in the profile of the diff: the GC (335 ms of
+    about 2 s; Patch objects, the key map, temporaries), the method
+    lookups before each direct call and reader (`aot_method_is`,
+    `aot_method_same`, `aot_read0`: about 220 ms), and the JS
+    trampolines of emscripten's setjmp/longjmp (about 350 ms; a build
+    with `-fwasm-exceptions -sSUPPORT_LONGJMP=wasm` would remove them
+    for the irep as well, a platform task outside this gem). After it,
     a run-time class check at a def's entry that hands a receiver of a
     waiting class to the irep copy, for the defs the declarations
     cannot settle.
@@ -313,6 +336,13 @@ The measurements that keep them undeclared are in section 3.
 
 ## 3. Decided against
 
+- **A gem is declared only when a measurement shows a gain.** A
+  compiled gem costs code size (funicular's wasm 2141863 -> 2397546 B;
+  on an RP2040 or RP2350 the flash budget is the limit), and a gem whose
+  hot path is C or the JS bridge (picoruby-wasm: `JS::Object#[]`,
+  `method_missing`, `respond_to?` are C) gains nothing from it. No
+  declaration for consistency's sake, and no declaration for a gem
+  that merely passes the twin.
 - **vfs, vram, vim and yaml are not declared.** Measured on pico2_w
   (prod, one irb line, the median of three runs): `File.expand_path` +
   `File.dirname` x200 ran 0.88x, because the compiled def's work is one

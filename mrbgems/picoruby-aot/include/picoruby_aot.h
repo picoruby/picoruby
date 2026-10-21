@@ -299,6 +299,80 @@ mrb_value aot_block_arg(mrb_state *mrb, mrb_value v);
    env (mrb_proc_cfunc_env_get); see codegen.rb, block_literal. */
 void aot_block_args(mrb_state *mrb, mrb_int n, mrb_value *out);
 
+/* Core methods on a receiver Spinel left untyped (a widened def's
+   values). Each helper tests the receiver's class and that the method is
+   still the core entry recorded at gem init (a C function by pointer, an
+   mrblib proc by identity), answers in place when it is, and sends to
+   the VM otherwise. */
+mrb_value aot_aref(mrb_state *mrb, mrb_value r, mrb_value i);
+mrb_value aot_aset(mrb_state *mrb, mrb_value r, mrb_value i, mrb_value v);
+mrb_value aot_size(mrb_state *mrb, mrb_value r);
+mrb_value aot_length(mrb_state *mrb, mrb_value r);
+mrb_value aot_empty_p(mrb_state *mrb, mrb_value r);
+mrb_value aot_include_p(mrb_state *mrb, mrb_value r, mrb_value v);
+mrb_value aot_keys(mrb_state *mrb, mrb_value r);
+mrb_value aot_values(mrb_state *mrb, mrb_value r);
+mrb_value aot_first(mrb_state *mrb, mrb_value r);
+mrb_value aot_last(mrb_state *mrb, mrb_value r);
+mrb_value aot_is_a_p(mrb_state *mrb, mrb_value r, mrb_value k);
+mrb_value aot_kind_of_p(mrb_state *mrb, mrb_value r, mrb_value k);
+mrb_value aot_nil_p(mrb_state *mrb, mrb_value r);
+mrb_value aot_to_s(mrb_state *mrb, mrb_value r);
+mrb_value aot_to_sym(mrb_state *mrb, mrb_value r);
+
+/* `r.mid` with no argument and no block, on an untyped receiver: an
+   attr_reader reads the instance variable and a Data member reader the
+   member, without a call frame; any other method goes through
+   mrb_funcall_argv. With explicit_recv a private method takes the VM,
+   which raises NoMethodError as for `r.m`. */
+mrb_value aot_read0(mrb_state *mrb, mrb_value r, mrb_sym mid, int explicit_recv);
+
+/* `r.each { }` (an Array, or a Hash: each and each_pair yield the
+   [key, value] pair), `r.each_with_index { }`, `r.map { }`,
+   `r.select { }`, `r.any? { }`, `r.all? { }` on an Array and `n.times { }`
+   on an Integer, on an untyped receiver: when the method is still the
+   core one the loop runs in C and yields to the block (mrb_yield; a
+   `break` unwinds as through any cfunc); anything else, and a nil
+   block, goes to the VM. */
+mrb_value aot_each(mrb_state *mrb, mrb_value r, mrb_value blk);
+mrb_value aot_each_pair(mrb_state *mrb, mrb_value r, mrb_value blk);
+mrb_value aot_each_with_index(mrb_state *mrb, mrb_value r, mrb_value blk);
+mrb_value aot_map(mrb_state *mrb, mrb_value r, mrb_value blk);
+mrb_value aot_select(mrb_state *mrb, mrb_value r, mrb_value blk);
+mrb_value aot_any_p(mrb_state *mrb, mrb_value r, mrb_value blk);
+mrb_value aot_all_p(mrb_state *mrb, mrb_value r, mrb_value blk);
+mrb_value aot_times(mrb_state *mrb, mrb_value r, mrb_value blk);
+
+/* An iteration with a block literal, expanded in place (codegen.rb,
+   inline_loop): aot_loop_kind says whether the receiver is an Array, a
+   Hash or an Integer whose method `mid` is still the core one, so the
+   generated C may run the loop and the block's body itself; 0 sends the
+   call to the VM with a Proc of the block. aot_splat_args binds one
+   element to a block's parameters as the VM does (one Array over several
+   parameters is splat, a missing one is nil). */
+#define AOT_LOOP_ARRAY 1
+#define AOT_LOOP_HASH 2
+#define AOT_LOOP_INT 3
+int aot_loop_kind(mrb_state *mrb, mrb_value r, mrb_sym mid);
+void aot_splat_args(mrb_state *mrb, mrb_value v, mrb_int n, mrb_value *out);
+
+/* A constant read site's cache: the value once it is a class or module
+   (a class is not reassigned; any other constant is looked up each time
+   as the VM does). Zero-initialized static storage. */
+struct aot_cslot {
+  mrb_value v;
+  int set;
+};
+
+static inline void
+aot_cslot_fill(struct aot_cslot *s, mrb_value v)
+{
+  if (mrb_class_p(v) || mrb_module_p(v)) {
+    s->v = v;
+    s->set = 1;
+  }
+}
+
 /* Boxing shorthands kept as macros so the generated C reads evenly. */
 #define AOT_BOX_INT(mrb, i)   aot_box_int((mrb), (i))
 #define AOT_BOX_FLOAT(mrb, f) mrb_float_value((mrb), (f))

@@ -79,6 +79,30 @@ module PicorubyAot
       ["length", 0] => "aot_hash_size", ["delete", 1] => "aot_hash_delete",
     }.freeze
 
+    # Core methods on a receiver Spinel left untyped (a widened def's
+    # values): the helper tests the class and the method at run time and
+    # sends to the VM when the receiver is anything else. Emitted only
+    # where no compiled def of this gem is the direct target.
+    GENERIC_METHODS = {
+      ["[]", 1] => "aot_aref", ["[]=", 2] => "aot_aset",
+      ["size", 0] => "aot_size", ["length", 0] => "aot_length",
+      ["empty?", 0] => "aot_empty_p", ["include?", 1] => "aot_include_p",
+      ["key?", 1] => "aot_hash_key_p", ["has_key?", 1] => "aot_hash_key_p",
+      ["keys", 0] => "aot_keys", ["values", 0] => "aot_values",
+      ["first", 0] => "aot_first", ["last", 0] => "aot_last",
+      ["push", 1] => "aot_ary_push", ["pop", 0] => "aot_ary_pop", ["shift", 0] => "aot_ary_shift",
+      ["nil?", 0] => "aot_nil_p", ["is_a?", 1] => "aot_is_a_p", ["kind_of?", 1] => "aot_kind_of_p",
+      ["to_s", 0] => "aot_to_s", ["to_sym", 0] => "aot_to_sym",
+    }.freeze
+
+    # Iterations with a block literal on an untyped receiver: a C loop
+    # over an Array that yields to the block, else the VM.
+    LOOP_METHODS = {
+      "each" => "aot_each", "each_pair" => "aot_each_pair", "each_with_index" => "aot_each_with_index",
+      "map" => "aot_map", "select" => "aot_select", "any?" => "aot_any_p", "all?" => "aot_all_p",
+      "times" => "aot_times",
+    }.freeze
+
     # Boxed binary operators with a guarded helper (picoruby_aot.h).
     GUARDED = {
       "+" => "aot_add", "-" => "aot_sub", "*" => "aot_mul", "/" => "aot_div", "%" => "aot_mod",
@@ -92,7 +116,7 @@ module PicorubyAot
     # hidden parameter. nil when the caller gave no block.
     BLOCK_C = "p_blk"
 
-    def initialize(typemap, file, def_node, scope:, cfunc_name:, singleton: false, syms: {}, paths: {}, targets: {})
+    def initialize(typemap, file, def_node, scope:, cfunc_name:, singleton: false, syms: {}, paths: {}, consts: {}, targets: {})
       @types = typemap
       @file = file
       @def = def_node
@@ -104,6 +128,7 @@ module PicorubyAot
       @cells = {}        # ruby name -> true for a local a block shares with the method (collect_cells)
       @syms = syms       # ruby name -> c static name, shared by the translation unit
       @paths = paths     # "A::B" -> c static name of its aot_path, shared likewise
+      @consts = consts   # [scope, "A::B"] -> c static name of its aot_cslot, shared likewise
       # Spinel callee label ("Point#dist2") -> { cfunc:, kinds:, private: }
       # for the defs of this gem that compile; a direct call goes to one.
       @targets = targets
@@ -112,6 +137,8 @@ module PicorubyAot
       @loops = []        # the while/until nodes around the code being emitted
       @block_functions = [] # the C of each block literal's cfunc, in order
       @in_block = false  # emitting a block literal's body
+      @inline = nil      # the inline loop being emitted (inline_loop): its next label and value
+      @inline_seq = 0
       @begins = 0        # begin blocks so far (names their C functions)
       @regions = {}.compare_by_identity # BeginNode -> the locals its body and its clauses own
       @ud = nil          # the userdata C variable while emitting a begin's function
@@ -240,6 +267,16 @@ module PicorubyAot
 
     def self.sym_decls(syms)
       syms.values.map { |c| "static mrb_sym #{c};\n" }.join
+    end
+
+    # One slot per constant read site's (scope, path): it keeps the value
+    # once that is a class or module (aot_cslot_fill).
+    def self.const_decls(consts)
+      consts.values.map { |c| "static struct aot_cslot #{c};\n" }.join
+    end
+
+    def const_slot(path)
+      @consts[[@scope, path]] ||= "cc_#{@consts.size}"
     end
 
     def arity_spec
@@ -858,25 +895,38 @@ module PicorubyAot
         emit "}"
         Val.new(t, :value)
       when Prism::ConstantReadNode
+        # The slot keeps the value once it is a class or module: the
+        # lookup (each lexical scope, then the ancestors) runs once per
+        # site, as a class is not reassigned. Any other value (a Hash, a
+        # String, an Integer) is looked up every time, as the VM does.
         t = tmp(:value)
+        slot = const_slot(node.name.to_s)
         scope = @scope.empty? ? "NULL" : "&#{Compiler.path_name(@paths, @scope)}"
-        emit "#{t} = aot_const_get(mrb, self, #{scope}, #{sym(node.name)});"
+        emit "if (#{slot}.set) { #{t} = #{slot}.v; } else {"
+        emit "  #{t} = aot_const_get(mrb, self, #{scope}, #{sym(node.name)});"
+        emit "  aot_cslot_fill(&#{slot}, #{t});"
+        emit "}"
         Val.new(t, :value)
       when Prism::ConstantPathNode
         # As the VM reads `A::B::C`: the first name lexically (OP_GETCONST),
         # each later one off the value before it (OP_GETMCNST, which raises
         # TypeError when that value is not a class or module). The last
-        # need not be a class: `IRQ::HANDLER` is a Hash.
+        # need not be a class: `IRQ::HANDLER` is a Hash. The whole path
+        # has one slot, as a ConstantReadNode has.
         parts = constant_path(node)
         t = tmp(:value)
+        slot = const_slot(parts.map { |p| p.nil? ? "" : p }.join("::"))
+        emit "if (#{slot}.set) { #{t} = #{slot}.v; } else {"
         if parts.first.nil?
-          emit "#{t} = mrb_obj_value(mrb->object_class);"
+          emit "  #{t} = mrb_obj_value(mrb->object_class);"
           parts.shift
         else
           scope = @scope.empty? ? "NULL" : "&#{Compiler.path_name(@paths, @scope)}"
-          emit "#{t} = aot_const_get(mrb, self, #{scope}, #{sym(parts.shift)});"
+          emit "  #{t} = aot_const_get(mrb, self, #{scope}, #{sym(parts.shift)});"
         end
-        parts.each { |name| emit "#{t} = mrb_const_get(mrb, #{t}, #{sym(name)});" }
+        parts.each { |name| emit "  #{t} = mrb_const_get(mrb, #{t}, #{sym(name)});" }
+        emit "  aot_cslot_fill(&#{slot}, #{t});"
+        emit "}"
         Val.new(t, :value)
       when Prism::IfNode then conditional(node, false)
       when Prism::UnlessNode then conditional(node, true)
@@ -908,6 +958,15 @@ module PicorubyAot
           unsupported("next with several values", node) if node.arguments && node.arguments.arguments.size > 1
           v = node.arguments ? expr(node.arguments.arguments.first) : Val.new("mrb_nil_value()", :nil)
           emit "return #{box(v)};"
+          return Val.new("mrb_nil_value()", :nil)
+        end
+        if @inline && @loop_depth == @inline[:depth]
+          # `next v` in an inline loop's body ends this turn with v.
+          unsupported("next with several values", node) if node.arguments && node.arguments.arguments.size > 1
+          v = node.arguments ? expr(node.arguments.arguments.first) : Val.new("mrb_nil_value()", :nil)
+          emit "#{@inline[:bv]} = #{box(v)};"
+          emit "goto #{@inline[:label]};"
+          @inline[:used] = true
           return Val.new("mrb_nil_value()", :nil)
         end
         emit_next(node)
@@ -1209,6 +1268,13 @@ module PicorubyAot
           kw << [e.key.unescaped, expr(e.value)]
         end
       end
+      # An iteration whose block can run in place: the loop and the body
+      # in the method's own C (inline_loop), the Proc path behind a
+      # run-time test of the receiver.
+      if node.block.is_a?(Prism::BlockNode) && node.receiver && argv.empty? && kw.empty? &&
+         LOOP_METHODS[name] && !@in_block && inline_loop_ok?(node.block) && direct_target(node, argv, kw).nil?
+        return inline_loop(node, recv, name)
+      end
       # `&blk` or the block literal last, as Ruby evaluates it.
       blk = node.block.is_a?(Prism::BlockNode) ? block_literal(node, node.block) : block_pass(node)
       return call_with_block(node, recv, name, argv, kw, blk) if blk
@@ -1232,6 +1298,14 @@ module PicorubyAot
                  elsif raw.to_s.end_with?("_hash") then HASH_METHODS[[name, argv.size]]
                  end
         if helper
+          t = tmp(:value)
+          emit "#{t} = #{helper}(mrb, #{([box(recv)] + argv.map { |x| box(x) }).join(', ')});"
+          return argv.last if name == "[]="
+          return unbox_proved(node, Val.new(t, :value))
+        end
+        # the receiver untyped: the helper decides by its class at run time
+        helper = GENERIC_METHODS[[name, argv.size]]
+        if helper && direct_target(node, argv, kw).nil?
           t = tmp(:value)
           emit "#{t} = #{helper}(mrb, #{([box(recv)] + argv.map { |x| box(x) }).join(', ')});"
           return argv.last if name == "[]="
@@ -1272,6 +1346,184 @@ module PicorubyAot
       t = tmp(:value)
       dispatch(node, t, recv, name, argv, kw, blk)
       Val.new(t, :value)
+    end
+
+    # ---- inline loops --------------------------------------------------
+
+    # The receivers an iteration's loop can run in place for, by method
+    # name (aot_loop_kind answers which one the receiver is at run time).
+    INLINE_KINDS = {
+      "each" => [:array, :hash], "each_pair" => [:hash],
+      "each_with_index" => [:array], "map" => [:array], "select" => [:array],
+      "any?" => [:array], "all?" => [:array], "times" => [:int],
+    }.freeze
+    LOOP_KIND_C = { array: "AOT_LOOP_ARRAY", hash: "AOT_LOOP_HASH", int: "AOT_LOOP_INT" }.freeze
+
+    # A block whose body the method's C can hold: required parameters
+    # only, no nested block, no `return`, no `break` (the Proc path, which
+    # the slow branch needs as well, refuses them too), and no begin (its
+    # regions and jumps are laid out for a method body or a block cfunc).
+    def inline_loop_ok?(block)
+      p = block.parameters
+      return false unless p.nil? || (p.is_a?(Prism::BlockParametersNode) && p.locals.empty? &&
+        (p.parameters.nil? || (p.parameters.rest.nil? && p.parameters.keyword_rest.nil? && p.parameters.block.nil? &&
+          p.parameters.optionals.empty? && p.parameters.posts.empty? && p.parameters.keywords.empty? &&
+          p.parameters.requireds.all? { |r| r.is_a?(Prism::RequiredParameterNode) })))
+      ok = true
+      scan = lambda do |node|
+        return unless ok && node
+        case node
+        when Prism::BlockNode, Prism::LambdaNode, Prism::ReturnNode, Prism::BreakNode, Prism::BeginNode,
+             Prism::RescueModifierNode, Prism::RetryNode, Prism::RedoNode
+          ok = false
+          return
+        end
+        node.compact_child_nodes.each { |c| scan.call(c) }
+      end
+      scan.call(block.body)
+      ok
+    end
+
+    # `recv.each { |x| body }` and the other LOOP_METHODS with a block
+    # literal: when the receiver is an Array, a Hash or an Integer whose
+    # method is still the core one, the loop runs in the method's C and
+    # the body runs in place, with the block's parameters and its own
+    # locals as C locals of the method and the outer locals as they are
+    # (a local the block writes is a cell already, see collect_cells).
+    # No Proc, no env, no yield frame. The GC arena is restored after
+    # each turn, as the VM's frame pop does. Any other receiver takes
+    # the Proc path (block_literal and the aot_each helpers), so the body
+    # is emitted once per kind and once as a block cfunc.
+    def inline_loop(node, recv, name)
+      block = node.block
+      r = tmp(:value)
+      emit "#{r} = #{box(recv)};"
+      t = tmp(:value)
+      lk = "ilX#{@inline_seq += 1}"
+      @locals["\0#{lk}"] = [lk, :int]
+      emit "#{lk} = aot_loop_kind(mrb, #{r}, #{sym(name)});"
+      INLINE_KINDS[name].each_with_index do |kind, i|
+        emit "#{i.zero? ? 'if' : '} else if'} (#{lk} == #{LOOP_KIND_C[kind]}) {"
+        inline_body(kind, name, r, t, block)
+      end
+      emit "} else {"
+      blk = block_literal(node, block)
+      emit_funcall(t, Val.new(r, :value), name, [], [], blk, node)
+      emit "}"
+      Val.new(t, :value)
+    end
+
+    # The locals the block itself introduces (depth 0 at a write), to be
+    # C locals of their own: a method local of the same name written
+    # later is another variable of another kind.
+    def block_local_names(block)
+      names = []
+      scan = lambda do |node|
+        return unless node
+        case node
+        when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
+             Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
+          names << node.name.to_s if node.depth.zero?
+        end
+        node.compact_child_nodes.each { |c| scan.call(c) }
+      end
+      scan.call(block.body)
+      names.uniq
+    end
+
+    def inline_body(kind, name, r, t, block)
+      n = @inline_seq += 1
+      params = block_params(block)
+      saved = {}
+      fresh = lambda do |ruby_name, k|
+        c = "il#{n}_#{ruby_name}"
+        saved[ruby_name] = @locals[ruby_name] unless saved.key?(ruby_name)
+        @locals[ruby_name] = [c, k]
+        @locals["\0#{c}"] = [c, k]
+        c
+      end
+      pcs = params.map { |p| [fresh.call(p[:name], p[:kind]), p[:kind]] }
+      block_local_names(block).each { |nm| fresh.call(nm, :value) unless params.any? { |p| p[:name] == nm } }
+      i = "ilI#{n}"
+      @locals["\0#{i}"] = [i, :int]
+      bv = "ilV#{n}"
+      @locals["\0#{bv}"] = [bv, :value]
+      label = "ilN#{n}"
+      bind = lambda do |c, k, src_boxed|
+        emit "#{c} = #{k == :value ? src_boxed : "#{PARAM_UNBOX[k]}(mrb, #{src_boxed})"};"
+      end
+      out = nil
+      case kind
+      when :array
+        if %w[map select].include?(name)
+          out = "ilO#{n}"
+          @locals["\0#{out}"] = [out, :value]
+          emit "#{out} = mrb_ary_new(mrb);"
+        end
+        emit "#{t} = #{name == 'all?' ? 'mrb_true_value()' : 'mrb_false_value()'};" if %w[any? all?].include?(name)
+        emit "for (#{i} = 0; #{i} < RARRAY_LEN(#{r}); #{i}++) {"
+        emit "int ilA#{n} = mrb_gc_arena_save(mrb);"
+        emit "mrb_value ilE#{n} = RARRAY_PTR(#{r})[#{i}];"
+        if name == "each_with_index"
+          bind.call(pcs[0][0], pcs[0][1], "ilE#{n}") if pcs[0]
+          if pcs[1]
+            c, k = pcs[1]
+            emit(k == :int ? "#{c} = (aot_int)#{i};" : "#{c} = #{k == :value ? "mrb_int_value(mrb, #{i})" : "#{PARAM_UNBOX[k]}(mrb, mrb_int_value(mrb, #{i}))"};")
+          end
+          pcs[2..].to_a.each { |c, k| bind.call(c, k, "mrb_nil_value()") }
+        elsif pcs.size == 1
+          bind.call(pcs[0][0], pcs[0][1], "ilE#{n}")
+        elsif pcs.size > 1
+          emit "{ mrb_value ilS#{n}[#{pcs.size}];"
+          emit "  aot_splat_args(mrb, ilE#{n}, #{pcs.size}, ilS#{n});"
+          pcs.each_with_index { |(c, k), j| bind.call(c, k, "ilS#{n}[#{j}]") }
+          emit "}"
+        end
+      when :hash
+        kv = "ilK#{n}"
+        vv = "ilL#{n}"
+        @locals["\0#{kv}"] = [kv, :value]
+        @locals["\0#{vv}"] = [vv, :value]
+        emit "#{kv} = mrb_hash_keys(mrb, #{r});"
+        emit "#{vv} = mrb_hash_values(mrb, #{r});"
+        emit "for (#{i} = 0; #{i} < RARRAY_LEN(#{kv}); #{i}++) {"
+        emit "int ilA#{n} = mrb_gc_arena_save(mrb);"
+        emit "mrb_value ilE#{n} = RARRAY_PTR(#{kv})[#{i}];"
+        emit "mrb_value ilW#{n} = #{i} < RARRAY_LEN(#{vv}) ? RARRAY_PTR(#{vv})[#{i}] : mrb_nil_value();"
+        if pcs.size == 1
+          bind.call(pcs[0][0], pcs[0][1], "mrb_assoc_new(mrb, ilE#{n}, ilW#{n})")
+        elsif pcs.size > 1
+          bind.call(pcs[0][0], pcs[0][1], "ilE#{n}")
+          bind.call(pcs[1][0], pcs[1][1], "ilW#{n}")
+          pcs[2..].to_a.each { |c, k| bind.call(c, k, "mrb_nil_value()") }
+        end
+      when :int
+        emit "for (#{i} = 0; #{i} < (aot_int)mrb_integer(#{r}); #{i}++) {"
+        emit "int ilA#{n} = mrb_gc_arena_save(mrb);"
+        if pcs[0]
+          c, k = pcs[0]
+          emit(k == :int ? "#{c} = (aot_int)#{i};" : "#{c} = #{k == :value ? "mrb_int_value(mrb, #{i})" : "#{PARAM_UNBOX[k]}(mrb, mrb_int_value(mrb, #{i}))"};")
+        end
+        pcs[1..].to_a.each { |c, k| bind.call(c, k, "mrb_nil_value()") }
+      end
+      emit "(void)ilE#{n};" if kind != :int
+      emit "(void)ilW#{n};" if kind == :hash
+      saved_inline = @inline
+      @inline = { label: label, bv: bv, depth: @loop_depth, used: false }
+      last = statements(block.body)
+      emit "#{bv} = #{box(last)};"
+      emit "#{label}:" if @inline[:used]
+      @inline = saved_inline
+      case name
+      when "map" then emit "mrb_ary_push(mrb, #{out}, #{bv});"
+      when "select" then emit "if (mrb_test(#{bv})) mrb_ary_push(mrb, #{out}, ilE#{n});"
+      when "any?" then emit "if (mrb_test(#{bv})) { #{t} = mrb_true_value(); mrb_gc_arena_restore(mrb, ilA#{n}); break; }"
+      when "all?" then emit "if (!mrb_test(#{bv})) { #{t} = mrb_false_value(); mrb_gc_arena_restore(mrb, ilA#{n}); break; }"
+      end
+      emit "mrb_gc_arena_restore(mrb, ilA#{n});"
+      emit "}"
+      emit "#{t} = #{out || r};" unless %w[any? all?].include?(name)
+      saved.each { |nm, prev| prev ? @locals[nm] = prev : @locals.delete(nm) }
     end
 
     # ---- block literals ------------------------------------------------
@@ -1345,11 +1597,12 @@ module PicorubyAot
       params.each { |p| blocals[p[:name]] = [p[:c], p[:kind]] unless blocals.key?(p[:name]) }
 
       fn = "#{@cfunc}_blk#{@block_functions.size + 1}"
-      saved = [@out, @locals, @loop_depth, @loops, @in_block, @ud, @outer_loops]
+      saved = [@out, @locals, @loop_depth, @loops, @in_block, @ud, @outer_loops, @inline]
       @locals = blocals
       @loop_depth = 0
       @loops = []
       @in_block = true
+      @inline = nil
       # A begin inside the block is refused (begin_block), so no jump of
       # the block's own is recorded in a begin's userdata.
       @ud = nil
@@ -1381,7 +1634,7 @@ module PicorubyAot
         decl << "  #{CTYPE[kind]} #{c}#{init};\n"
       end
       @block_functions << "static mrb_value\n#{fn}(mrb_state *mrb, mrb_value self)\n{\n#{decl}#{body}}\n\n"
-      @out, @locals, @loop_depth, @loops, @in_block, @ud, @outer_loops = saved
+      @out, @locals, @loop_depth, @loops, @in_block, @ud, @outer_loops, @inline = saved
 
       # The Proc, at the call site: the env values boxed, in slot order.
       t = tmp(:value)
@@ -1802,15 +2055,31 @@ module PicorubyAot
         emit "if (aot_method_is(mrb, #{box(recv)}, #{sym(name)}, #{target[:cfunc]})) {"
         emit "  #{t} = #{target[:cfunc]}_impl(mrb, #{box(recv)}#{args});"
         emit "} else {"
-        emit_funcall(t, recv, name, argv, kw, blk)
+        emit_funcall(t, recv, name, argv, kw, blk, node)
         emit "}"
       else
-        emit_funcall(t, recv, name, argv, kw, blk)
+        emit_funcall(t, recv, name, argv, kw, blk, node)
       end
     end
 
-    def emit_funcall(t, recv, name, argv, kw = [], blk = nil)
+    # The VM call. With `node`, two calls on an untyped receiver take a
+    # helper that answers in place when it can: an iteration with a
+    # block (aot_each: a C loop over an Array), and a call without
+    # arguments (aot_read0: an attr_reader or a Data member read without
+    # a frame).
+    def emit_funcall(t, recv, name, argv, kw = [], blk = nil, node = nil)
       return emit_funcall_kw(t, recv, name, argv, kw, blk) unless kw.empty?
+      if node && argv.empty?
+        if blk && LOOP_METHODS[name]
+          emit "#{t} = #{LOOP_METHODS[name]}(mrb, #{box(recv)}, #{blk.code});"
+          return
+        end
+        if blk.nil?
+          explicit = !(node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode))
+          emit "#{t} = aot_read0(mrb, #{box(recv)}, #{sym(name)}, #{explicit ? 1 : 0});"
+          return
+        end
+      end
       b = blk ? blk.code : nil
       if argv.empty?
         emit "#{t} = #{b ? "mrb_funcall_with_block(mrb, #{box(recv)}, #{sym(name)}, 0, NULL, #{b})" : "mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, 0, NULL)"};"
@@ -1879,6 +2148,7 @@ module PicorubyAot
     def direct_target(node, argv, kw = [])
       name = node.name.to_s
       self_call = node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode)
+      const_recv = node.receiver.is_a?(Prism::ConstantReadNode) || node.receiver.is_a?(Prism::ConstantPathNode)
       rec = @types.codegen_record(@file, node)
       label =
         if rec && rec["dispatch"] == "direct" && rec["callee"]
@@ -1887,6 +2157,9 @@ module PicorubyAot
           # In a singleton method `self` is the class: the call lands on
           # another singleton method ("Marshal.dump_object").
           "#{@scope}#{@singleton ? '.' : '#'}#{name}"
+        elsif const_recv
+          # `Patch.keep(...)`: a singleton method of the named class
+          "#{const_path_name(node.receiver)}.#{name}"
         else
           raw = @types.raw_type(@file, node.receiver)
           raw.to_s.start_with?("obj_") ? "#{raw.sub('obj_', '').gsub('__', '::')}##{name}" : nil
@@ -1898,7 +2171,7 @@ module PicorubyAot
         # (A method a module gives the class, `JSON::Common#expect` called
         # from `JSON::Parser`, is found this way too.) A self call in a
         # singleton method looks among the singleton methods instead.
-        sep = @singleton && self_call ? "." : "#"
+        sep = (@singleton && self_call) || const_recv ? "." : "#"
         cands = @targets.select { |l, _| l.end_with?(sep + name) && !l.include?(sep == "." ? "#" : ".") }
         if cands.size > 1 && label
           leaf = label.split("::").last.split("__").last
@@ -1916,6 +2189,15 @@ module PicorubyAot
       return nil unless kw.all? { |k, _| names.include?(k) }
       return nil unless (t[:kw] || []).all? { |p| !p[:required] || kw.assoc(p[:name]) }
       t.merge(label: label)
+    end
+
+    # "A::B" for a constant receiver; the leaf alone when a part is not a
+    # constant (`x::Y`).
+    def const_path_name(node)
+      return node.name.to_s if node.is_a?(Prism::ConstantReadNode)
+      node.full_name
+    rescue StandardError
+      node.name.to_s
     end
 
     # `l op r`. Both unboxed: pure C. Otherwise a guarded helper when the
