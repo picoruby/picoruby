@@ -133,3 +133,25 @@ See [example/uart_event_picoruby.rb](example/uart_event_picoruby.rb).
 - `clear_rx_buffer()` - Discard buffered input, and forget the last read timestamp with it
 - `clear_tx_buffer()` - Clear transmit buffer
 - `flush()` - Wait for TX to complete
+
+## nRF52 notes
+
+- Units are `NRF52_UART0` and `NRF52_UART1`, mapping to UARTE0 and UARTE1.
+  `NRF52_UARTE0` / `NRF52_UARTE1` are accepted as aliases.
+- This is the peripheral UART, not the console. On R2P2-nRF the console is
+  USB CDC and lives in the product's own HAL, so both instances are free.
+- Any pin can carry TXD or RXD; the peripheral routes them from its own
+  side, so there is no fixed pin table as on RP2040.
+- The receiver is a one-byte DMA that re-arms itself in hardware, so there
+  is one interrupt per character and a byte can be lost if the handler is
+  delayed past one character time (87 us at 115200). Suitable for a
+  console, a GPS module or a modem; not for sustained high-rate bursts.
+- Baud rates come from a fixed table and the nearest is chosen: 1200 up to
+  1000000, including 31250 (MIDI), 56000, 115200 and 921600.
+  `set_baudrate` returns what was actually applied.
+- 8 data bits only. Parity may be none or even -- the hardware has no odd
+  parity. 1 or 2 stop bits. A request outside this leaves the format
+  unchanged rather than approximating it.
+- Hardware flow control is not available: the API carries no CTS/RTS pin
+  numbers, and nRF52 has no fixed pins to fall back on.
+- `break` is not supported; UARTE offers no task to hold TXD low.

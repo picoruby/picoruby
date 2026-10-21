@@ -86,7 +86,16 @@ c__set_format(mrbc_vm *vm, mrbc_value v[], int argc)
   int32_t data_bits = GET_INT_ARG(1);
   int32_t stop_bits = GET_INT_ARG(2);
   int32_t parity = GET_INT_ARG(3);
-  UART_set_format(unit_num, data_bits, stop_bits, parity);
+  int status = UART_set_format(unit_num, data_bits, stop_bits, parity);
+  if (status == UART_ERROR_INVALID_FORMAT) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError),
+               "this data bits / parity combination is not available on this platform");
+    return;
+  }
+  if (status < 0) {
+    mrbc_raise(vm, MRBC_CLASS(RuntimeError), "UART set_format failed");
+    return;
+  }
 }
 
 static void
