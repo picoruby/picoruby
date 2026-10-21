@@ -149,9 +149,9 @@
          <strong>tutorial_main.rb</strong> runs the demo.
          Together they pause six times at <code>binding.irb</code>.</p>
       <pre><code># tutorial_helper.rb
-def double(n)
+def double(x)
   binding.irb       # &larr; Pause 5b: paused inside the method
-  n * 2
+  x * 2
 end
 
 # tutorial_main.rb
@@ -369,7 +369,7 @@ answer</code></pre>
           Notice the pause header now shows
           <em>tutorial_helper.rb</em> instead of <em>tutorial_main.rb</em>
           &mdash; the debugger crossed a file boundary!<br>
-          The sidebar shows <em>n = 100</em>
+          The sidebar shows <em>x = 100</em>
           (the argument; you changed <code>count</code> to 100 in Step&nbsp;6).
         </div>
       </div>
@@ -377,17 +377,19 @@ answer</code></pre>
       <!-- ====== Pause 5b ====== -->
       <div class="pause-label">Pause 5b &mdash; tutorial_helper.rb &mdash; inside double()</div>
       <p>We are now paused <strong>inside</strong> <code>double()</code>,
-         about to execute <code>n * 2</code>.</p>
+         about to execute <code>x * 2</code>.</p>
 
       <div class="step">
         <div class="step-heading"><span class="step-num">20</span>Inspect the argument, then step out</div>
-        Type: <code>n</code> to check the argument value.
+        Type: <code>x</code> to check the argument value.
+        (The argument is not named <code>n</code>: <code>n</code> is the
+        <em>next</em> command, so the panel would step instead.)
         <div class="expected">
           <em>=&gt; 100</em>
         </div>
         Now type: <code>s</code>
         <div class="expected">
-          Executes <code>n * 2</code> and returns to the caller.<br>
+          Executes <code>x * 2</code> and returns to the caller.<br>
           The sidebar now shows <em>total = 200</em>, <em>answer = nil</em>.<br>
           We are back in <em>tutorial_main.rb</em>, about to execute
           <code>answer = "#{'{'}name{'}'} v#{'{'}total{'}'}"</code>.
