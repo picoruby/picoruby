@@ -107,6 +107,16 @@ wrappers among them.
 
 ### 1.6 picoruby-shell and picoruby-funicular
 
+Both are declared now. The shell got its picotest suite (tokenizer,
+parser, pipe) and `spec.aot` once a pico2_w showed the parser at 6.7 ms
+for "ls" and 52 ms for a 33-character pipeline in the irep, 3.1 and
+17.5 ms compiled (a command cycle `echo hi` 57 -> 41 ms): 45 of 79 defs
+compile, the 21 that wait for real (the exec path through
+`Sandbox#wait`, the setup sleeps, `getch`) stay in the irep, and a
+`Task.list` or `terminate` no longer counts as a wait. Freeing the exec
+path would take a launch/await split with the wait at `run_shell`,
+which is not planned: the parser is where the time was.
+
 The owner's next targets. Both give their types now. Shell passes
 Spinel since picoruby-require defines `$LOAD_PATH = []` and the shell
 changes it in place (Spinel takes `$LOAD_PATH` as read-only, as CRuby
@@ -333,7 +343,6 @@ and a device measurement of the path that matters.
 | picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (`File.open` in a dependency, 1.4) or `getch` | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
-| picoruby-shell | 22 / 43 of 79 | no picotest suite (1.6); 18 defs wait through `exec`; `*rest` on 10 (1.3) | Unknown: the compiled defs (Tokenizer, Parser, PipeIO) run once per command line; measure the shell first |
 | picoruby-funicular | 173 / 396 of 756 | waits through untyped receivers on about 290 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
