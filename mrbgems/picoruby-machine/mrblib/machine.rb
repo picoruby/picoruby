@@ -3,7 +3,7 @@ module Machine
 
   def self.posix?
     # Platform name is defined in picoruby-require
-    !%w(RP2040 RP2350 ESP32).include?(RUBY_PLATFORM)
+    !%w(RP2040 RP2350 ESP32 NRF52).include?(RUBY_PLATFORM)
   end
 
   def self.reboot(wait_ms = 0)
