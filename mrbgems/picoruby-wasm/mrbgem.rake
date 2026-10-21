@@ -83,6 +83,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
     sh <<~CMD
       emcc #{optdebug} \
+      -fwasm-exceptions -s SUPPORT_LONGJMP=wasm \
       -s WASM=1 \
       -s EXPORT_ES6=1 \
       -s MODULARIZE=1 \
