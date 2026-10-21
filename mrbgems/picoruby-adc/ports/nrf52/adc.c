@@ -90,7 +90,6 @@ driver_start(void)
   if (nrfx_saadc_init(&config, saadc_event_handler) != NRFX_SUCCESS) {
     return false;
   }
-  driver_ready = true;
 
   /*
    * Offset auto-calibration, once. Without it every reading carries a
@@ -99,14 +98,32 @@ driver_start(void)
    * zero, so nothing about the output reveals the miscalibration.
    *
    * Bounded: calibration is tens of microseconds, and a SAADC that never
-   * raises CALIBRATEDONE must not take the whole VM down with it. An
-   * uncalibrated converter still reads, just less accurately near zero.
+   * raises CALIBRATEDONE must not take the whole VM down with it.
    */
   calibration_done = false;
   if (nrfx_saadc_calibrate_offset() == NRFX_SUCCESS) {
     for (uint32_t spins = 0; spins < 1000000u && !calibration_done; spins++) {
     }
+    if (!calibration_done) {
+      /*
+       * Give the driver its state back. nrfx_saadc_calibrate_offset
+       * leaves adc_state at CALIBRATION until CALIBRATEDONE arrives, and
+       * every entry point refuses to run while it sits there --
+       * nrfx_saadc_channel_init and nrfx_saadc_sample_convert both
+       * return NRFX_ERROR_BUSY. Returning from here without clearing it
+       * would make the first ADC.new fail and every retry after it fail
+       * the same way until the board is power cycled, rather than
+       * leaving an uncalibrated converter that still reads.
+       * nrfx_saadc_abort is the one call that resolves the state without
+       * the event: it moves CALIBRATION straight to IDLE.
+       */
+      nrfx_saadc_abort();
+    }
   }
+
+  /* Only now: a caller that reaches ADC_init has a driver that will
+     accept a channel. */
+  driver_ready = true;
   return true;
 }
 
