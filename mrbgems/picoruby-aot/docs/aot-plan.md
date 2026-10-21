@@ -225,9 +225,13 @@ can declare:
     about 2 s; Patch objects, the key map, temporaries), the method
     lookups before each direct call and reader (`aot_method_is`,
     `aot_method_same`, `aot_read0`: about 220 ms), and the JS
-    trampolines of emscripten's setjmp/longjmp (about 350 ms; a build
-    with `-fwasm-exceptions -sSUPPORT_LONGJMP=wasm` would remove them
-    for the irep as well, a platform task outside this gem). After it,
+    trampolines of emscripten's setjmp/longjmp (about 350 ms). The
+    trampolines went with picoruby-wasm's move to WebAssembly exceptions
+    (`-fwasm-exceptions -sSUPPORT_LONGJMP=wasm`, master, PR #543), which
+    is the irep baseline from here on: irep 1.06 ms per diff, compiled
+    0.50 ms (0.47x, the same ratio as under the JS scheme); the bench's
+    build 1.15 -> 0.96 ms, diff 1.27 -> 0.55 ms, patch 0.70 -> 0.60 ms,
+    so the DOM path is no longer slower compiled. After it,
     a run-time class check at a def's entry that hands a receiver of a
     waiting class to the irep copy, for the defs the declarations
     cannot settle.
