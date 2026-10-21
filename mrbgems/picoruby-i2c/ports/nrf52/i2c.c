@@ -45,6 +45,7 @@ static NRF_TWIM_Type *const instances[I2C_UNIT_COUNT] = { NRF_TWIM0, NRF_TWIM1 }
 
 typedef struct {
   bool     initialized;
+  bool     holding;      /* suspended mid-transaction for a repeated start */
   int8_t   sda_pin;
   int8_t   scl_pin;
 } i2c_unit_t;
@@ -70,6 +71,11 @@ I2C_unit_name_to_unit_num(const char *unit_name)
  * request down to one the hardware can actually produce rather than up:
  * a device rated for 100 kHz must not be driven at 250 kHz because the
  * caller asked for 150 kHz.
+ *
+ * 100 kHz is the floor, and a request below it is the one case met from
+ * above -- there is nothing slower to round to. A caller that derated
+ * its device below the standard rate therefore does not get what it
+ * asked for, which is the one deviation from the rule above.
  */
 static nrf_twim_frequency_t
 frequency_from_hz(uint32_t hz)
@@ -91,6 +97,13 @@ I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
   }
   if (sda_pin < 0 || scl_pin < 0 ||
       (uint32_t)sda_pin >= NUMBER_OF_PINS || (uint32_t)scl_pin >= NUMBER_OF_PINS) {
+    return I2C_ERROR_UNDETERMINED;
+  }
+  /* One pad cannot carry both lines. nrfx asserts on this; without the
+     assert the unit is programmed with SCL and SDA on the same pin and
+     every transfer spins out its whole timeout with nothing on the bus
+     to explain why. */
+  if (sda_pin == scl_pin) {
     return I2C_ERROR_UNDETERMINED;
   }
 
@@ -130,6 +143,9 @@ I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
   units[unit_num].sda_pin = sda_pin;
   units[unit_num].scl_pin = scl_pin;
   units[unit_num].initialized = true;
+  /* Disabling the unit above released the lines, so whatever a previous
+     configuration was holding is gone with it. */
+  units[unit_num].holding = false;
   return I2C_ERROR_NONE;
 }
 
@@ -251,6 +267,33 @@ start_and_resume(NRF_TWIM_Type *twim, nrf_twim_task_t start_task)
   nrf_twim_task_trigger(twim, NRF_TWIM_TASK_RESUME);
 }
 
+/*
+ * End a transaction that a previous phase left suspended for a repeated
+ * start.
+ *
+ * Every path that gives up before arming a transfer of its own has to do
+ * this. The bus is still held, so SCL stays low for as long as the
+ * program runs, and the next unrelated transfer would RESUME into the
+ * abandoned transaction rather than starting its own -- a write to one
+ * address emitted as a repeated start inside another address's
+ * transaction.
+ *
+ * Tracked in software because the SUSPENDED event is cleared by the wait
+ * that observed it, so the peripheral offers no way to ask afterwards.
+ * Used only to decide whether to release, never to decide whether to
+ * RESUME: start_and_resume does that unconditionally, for the reason
+ * given above it.
+ */
+static void
+release_if_holding(int unit_num)
+{
+  if (!units[unit_num].holding) {
+    return;
+  }
+  abort_transfer(instances[unit_num]);
+  units[unit_num].holding = false;
+}
+
 int
 I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t *src, size_t len,
                      bool nostop, uint32_t timeout_us)
@@ -263,27 +306,41 @@ I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t *src, size_t len,
    * literal, say -- would transfer garbage or fault, so refuse it the
    * way Nordic's own driver does rather than sending something wrong.
    */
+  /*
+   * Each of the refusals below releases the bus first. A preceding phase
+   * may have left the transaction suspended for a repeated start, and
+   * returning from here without ending it leaves SCL low indefinitely.
+   */
   if (addr >= 0x80) {
+    release_if_holding(unit_num);
     return I2C_ERROR_UNDETERMINED;  /* 7-bit addressing only */
   }
   /* MAXCNT is 16 bits; a longer request would truncate into the field and
      silently move the wrong amount. */
   if (len > 0xFFFFu) {
+    release_if_holding(unit_num);
     return I2C_ERROR_UNDETERMINED;
   }
   /* Nothing to move. TWIM would never raise LASTTX/LASTRX for an empty
      buffer, so the STOP shortcut would never fire and the wait would run
-     the whole timeout before failing. */
+     the whole timeout before failing. Releasing is the right answer even
+     for nostop: a phase that moves no bytes cannot hold a transaction
+     open for one that never comes. */
   if (len == 0) {
+    release_if_holding(unit_num);
     return 0;
   }
   if (!IS_IN_RAM(src)) {
+    release_if_holding(unit_num);
     return I2C_ERROR_UNDETERMINED;
   }
 
   NRF_TWIM_Type *twim = instances[unit_num];
 
   begin_transfer(unit_num, addr);
+  /* The suspended transaction, if there was one, is being continued into
+     this transfer; whether the bus stays held is decided below. */
+  units[unit_num].holding = false;
   nrf_twim_tx_buffer_set(twim, src, len);
   nrf_twim_shorts_set(twim, nostop ? (uint32_t)NRF_TWIM_SHORT_LASTTX_SUSPEND_MASK
                                    : (uint32_t)NRF_TWIM_SHORT_LASTTX_STOP_MASK);
@@ -293,8 +350,10 @@ I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t *src, size_t len,
                         nostop ? NRF_TWIM_EVENT_SUSPENDED : NRF_TWIM_EVENT_STOPPED,
                         timeout_us);
   if (result < 0) {
+    /* wait_for aborted the transaction, so nothing is held. */
     return result;
   }
+  units[unit_num].holding = nostop;
 
   /*
    * Report what actually moved, not what was asked for. A premature STOP
@@ -308,6 +367,18 @@ I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t *src, size_t len,
        nrfx reinitialises it the same way. */
     nrf_twim_disable(twim);
     nrf_twim_enable(twim);
+    /*
+     * That power cycle took the suspended transaction with it, so a
+     * caller holding the bus for a repeated start has nothing left to
+     * continue into. Report it: returning the short count would let the
+     * next phase open a fresh transaction the slave reads as unrelated
+     * -- a read with no register address latched, answered from wherever
+     * its internal pointer happens to sit.
+     */
+    units[unit_num].holding = false;
+    if (nostop) {
+      return I2C_ERROR_UNDETERMINED;
+    }
   }
   return (int)moved;
 }
@@ -319,27 +390,41 @@ I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t *dst, size_t len,
   if (unit_num < 0 || I2C_UNIT_COUNT <= unit_num || !units[unit_num].initialized) {
     return I2C_ERROR_INVALID_UNIT;
   }
+  /*
+   * Each of the refusals below releases the bus first. A preceding phase
+   * may have left the transaction suspended for a repeated start, and
+   * returning from here without ending it leaves SCL low indefinitely.
+   */
   if (addr >= 0x80) {
+    release_if_holding(unit_num);
     return I2C_ERROR_UNDETERMINED;  /* 7-bit addressing only */
   }
   /* MAXCNT is 16 bits; a longer request would truncate into the field and
      silently move the wrong amount. */
   if (len > 0xFFFFu) {
+    release_if_holding(unit_num);
     return I2C_ERROR_UNDETERMINED;
   }
   /* Nothing to move. TWIM would never raise LASTTX/LASTRX for an empty
      buffer, so the STOP shortcut would never fire and the wait would run
-     the whole timeout before failing. */
+     the whole timeout before failing. Releasing is the right answer even
+     for nostop: a phase that moves no bytes cannot hold a transaction
+     open for one that never comes. */
   if (len == 0) {
+    release_if_holding(unit_num);
     return 0;
   }
   if (!IS_IN_RAM(dst)) {
+    release_if_holding(unit_num);
     return I2C_ERROR_UNDETERMINED;
   }
 
   NRF_TWIM_Type *twim = instances[unit_num];
 
   begin_transfer(unit_num, addr);
+  /* The suspended transaction, if there was one, is being continued into
+     this transfer; whether the bus stays held is decided below. */
+  units[unit_num].holding = false;
   nrf_twim_rx_buffer_set(twim, dst, len);
   /* The HAL enum lists LASTTX_SUSPEND but not LASTRX_SUSPEND, though the
      register has both. nrf_twim_shorts_set takes a raw mask, so use the
@@ -353,8 +438,10 @@ I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t *dst, size_t len,
                         nostop ? NRF_TWIM_EVENT_SUSPENDED : NRF_TWIM_EVENT_STOPPED,
                         timeout_us);
   if (result < 0) {
+    /* wait_for aborted the transaction, so nothing is held. */
     return result;
   }
+  units[unit_num].holding = nostop;
 
   /*
    * Report what actually moved, not what was asked for. A premature STOP
@@ -368,6 +455,18 @@ I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t *dst, size_t len,
        nrfx reinitialises it the same way. */
     nrf_twim_disable(twim);
     nrf_twim_enable(twim);
+    /*
+     * That power cycle took the suspended transaction with it, so a
+     * caller holding the bus for a repeated start has nothing left to
+     * continue into. Report it: returning the short count would let the
+     * next phase open a fresh transaction the slave reads as unrelated
+     * -- a read with no register address latched, answered from wherever
+     * its internal pointer happens to sit.
+     */
+    units[unit_num].holding = false;
+    if (nostop) {
+      return I2C_ERROR_UNDETERMINED;
+    }
   }
   return (int)moved;
 }
