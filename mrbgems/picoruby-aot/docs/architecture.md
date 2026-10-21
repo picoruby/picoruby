@@ -95,7 +95,9 @@ A `def` becomes a cfunc when all of these hold:
   `private` precedes it there).
 - The body uses only the supported syntax (section 3.1).
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
-  `Task.pass`, `join`, `suspend`, a Task receiver, and on wasm the
+  `Task.pass`, `join`, `suspend`, `value`, `Task.run` and the other
+  scheduler methods on a Task receiver (`Task.list`, `current`, `tick`,
+  `terminate`, `name` return at once), and on wasm the
   `_*_and_suspend` primitives behind `JS::Promise#await` and `JS.fetch`),
   directly or through another method of the gem or of another gem of
   the build (`aot-gen --deps`, the build's gem set written to
