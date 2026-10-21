@@ -46,14 +46,15 @@ latched_reset_reason(void)
   return reset_reason;
 }
 
-void
+int
 Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
 {
   /* CRV, RREN and CONFIG are ignored once the WDT is running, so a
-     second call would silently keep the first timeout. Return instead:
-     the caller asked for something this hardware cannot give. */
+     second call cannot change the timeout. Say so: a caller that asked
+     for 30 s and kept the 1 s it set earlier would otherwise find out
+     when the board resets under it. */
   if (nrf_wdt_started()) {
-    return;
+    return WATCHDOG_ERROR_ALREADY_ON;
   }
 
   /*
@@ -80,7 +81,7 @@ Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
    * millisecond is a caller mistake, not a watchdog.
    */
   if (ticks < WDT_TICKS_MIN) {
-    return;
+    return WATCHDOG_ERROR_INVALID_VALUE;
   }
   nrf_wdt_reload_value_set((uint32_t)(ticks - 1));
 
@@ -92,14 +93,23 @@ Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
 
   nrf_wdt_reload_request_enable(NRF_WDT_RR0);
   nrf_wdt_task_trigger(NRF_WDT_TASK_START);
+  return WATCHDOG_ERROR_NONE;
 }
 
-void
+int
 Watchdog_disable(void)
 {
-  /* Not supported: the nRF52 WDT has no stop task, and clearing
-   * CONFIG/RREN while it runs has no effect. Once enabled it must be
-   * fed until reset. */
+  /*
+   * The nRF52 WDT has no stop task -- nrf_wdt_task_t has exactly one
+   * member -- and clearing CONFIG or RREN while it runs has no effect.
+   * Once enabled it must be fed until something resets the part.
+   *
+   * Reported rather than ignored. A script that enables the watchdog for
+   * one phase and disables it for a long flash write or a network fetch
+   * would otherwise be reset partway through, having been told the
+   * watchdog was off.
+   */
+  return WATCHDOG_ERROR_UNSUPPORTED;
 }
 
 void
