@@ -19,6 +19,8 @@ MRuby::CrossBuild.new("picoruby-wasm-test") do |conf|
   conf.cc.command = 'emcc'
   conf.linker.command = 'emcc'
   conf.archiver.command = 'emar'
+  # setjmp/longjmp through WebAssembly exceptions, as picoruby-wasm.rb
+  conf.cc.flags << "-fwasm-exceptions"
 
   conf.picoruby(alloc_estalloc: false)
 

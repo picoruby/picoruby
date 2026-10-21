@@ -26,6 +26,13 @@ MRuby::CrossBuild.new("picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do 
   conf.cc.command = 'emcc'
   conf.linker.command = 'emcc'
   conf.archiver.command = 'emar'
+  # setjmp/longjmp (mruby's exceptions, mrb_protect, the funcall
+  # boundary) through WebAssembly exceptions, not through JS: with the
+  # default (-sSUPPORT_LONGJMP=emscripten) every call out of a function
+  # that holds a setjmp crosses into JS and back (invoke_*). Every object
+  # of the build needs the flag; the link (mrbgem.rake) adds the
+  # matching -sSUPPORT_LONGJMP=wasm.
+  conf.cc.flags << "-fwasm-exceptions"
 
   conf.picoruby(alloc_estalloc: false)
   conf.gembox "mruby-posix"
