@@ -106,16 +106,39 @@ I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
   if (sda_pin == scl_pin) {
     return I2C_ERROR_UNDETERMINED;
   }
+  /*
+   * TWIM0/1 and SPIM0/1 are one peripheral, not two: NRF_TWIM0_BASE ==
+   * NRF_SPIM0_BASE, and SPIM's PSEL.SCK/MOSI sit at the same offsets as
+   * TWIM's PSEL.SCL/SDA. Enabling TWIM over a live SPI unit therefore
+   * repoints its pins and changes what the registers mean, leaving
+   * picoruby-spi driving a peripheral that is no longer a SPIM -- and
+   * neither gem's state says anything about why its transfers stopped
+   * completing. ENABLE is the one register that reads back which
+   * personality is active (TWIM 6, SPIM 7), so ask it and refuse rather
+   * than take the peripheral over.
+   */
+  if (instances[unit_num]->ENABLE == SPIM_ENABLE_ENABLE_Enabled) {
+    return I2C_ERROR_UNDETERMINED;
+  }
 
   NRF_TWIM_Type *twim = instances[unit_num];
 
-  /* Reconfiguring a live unit: stop driving before the pins move. */
   if (units[unit_num].initialized) {
+    /*
+     * Another I2C object already holds this unit. Reconfiguring it for a
+     * different pair of pins used to hand the old ones back to the GPIO
+     * defaults, which releases the lines of a bus that object is still
+     * using while it goes on reporting its original pins. The same pins
+     * are a reconfiguration of one bus and allowed; a different pair is
+     * refused, since this gem has no close for the first object to have
+     * released it with.
+     */
+    if (units[unit_num].sda_pin != sda_pin || units[unit_num].scl_pin != scl_pin) {
+      return I2C_ERROR_UNDETERMINED;
+    }
+    /* Same pins, reconfigured below. Stop driving first: PSEL and
+       FREQUENCY are written while the unit is disabled. */
     nrf_twim_disable(twim);
-    /* Hand the old pins back. They were left driving open-drain with a
-       pull-up, and the application may want them for something else. */
-    nrf_gpio_cfg_default((uint32_t)units[unit_num].sda_pin);
-    nrf_gpio_cfg_default((uint32_t)units[unit_num].scl_pin);
   }
 
   /*
