@@ -169,14 +169,39 @@ SPI_gpio_init(spi_unit_info_t *unit_info)
 
   NRF_SPIM_Type *spim = instances[index];
 
+  /*
+   * SPIM0/1 and TWIM0/1 are one peripheral, not two: NRF_SPIM0_BASE ==
+   * NRF_TWIM0_BASE, and TWIM's PSEL.SCL/SDA sit at the same offsets as
+   * SPIM's PSEL.SCK/MOSI. Enabling SPIM over a live I2C unit therefore
+   * repoints its pins and changes what the registers mean, leaving
+   * picoruby-i2c driving a peripheral that is no longer a TWIM -- and
+   * neither gem's state says anything about why its transfers stopped
+   * completing. ENABLE is the one register that reads back which
+   * personality is active (TWIM 6, SPIM 7), so ask it and refuse rather
+   * than take the peripheral over.
+   */
+  if (spim->ENABLE == TWIM_ENABLE_ENABLE_Enabled) {
+    return SPI_ERROR_UNDETERMINED;
+  }
+
   if (initialized[index]) {
-    nrf_spim_disable(spim);
-    /* Hand the previous pins back rather than leaving them driven. */
-    for (int i = 0; i < 3; i++) {
-      if (0 <= configured_pins[index][i]) {
-        nrf_gpio_cfg_default((uint32_t)configured_pins[index][i]);
-      }
+    /*
+     * Another SPI object already holds this unit. Reconfiguring it for a
+     * different set of pins used to hand the old ones back to the GPIO
+     * defaults -- tri-stating the clock of a bus that object is still
+     * using, possibly with CS asserted -- while that object went on
+     * reporting its original pins. The same pins are a reconfiguration
+     * of one bus and allowed; different pins are refused, since this gem
+     * has no close for the first object to have released it with.
+     */
+    if (configured_pins[index][0] != unit_info->sck_pin ||
+        configured_pins[index][1] != unit_info->copi_pin ||
+        configured_pins[index][2] != unit_info->cipo_pin) {
+      return SPI_ERROR_UNDETERMINED;
     }
+    /* Same pins, and they are reconfigured below. PSEL and FREQUENCY are
+       written while disabled, as the peripheral requires. */
+    nrf_spim_disable(spim);
   }
 
   /*
