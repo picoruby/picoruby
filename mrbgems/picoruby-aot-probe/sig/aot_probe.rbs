@@ -22,6 +22,55 @@ module AOTProbe
   def self.forward_with_keywords: (untyped callee, Integer value) { (Integer) -> untyped } -> untyped
   def self.call_or_value: (Integer x) ?{ (Integer) -> untyped } -> untyped
   def self.without_block: (Integer x) -> Integer
+  def self.weighted: (Array[Integer] a, Integer weight) -> Array[Integer]
+  def self.evens: (Array[Integer] a) -> Array[Integer]
+  def self.offsets: (Array[Integer] a) { (Integer) -> void } -> Integer
+  def self.doubled: (Integer x) -> Integer
+  def self.plus_one: (Array[Integer] a) -> Array[Integer]
+  def self.pairs: (Hash[String, Integer] h) -> Array[String]
+  def self.first_over: (Array[Integer] a, Integer n) -> Integer
+  def self.last_seen: (Array[Integer] a) -> Integer?
+  def self.summed: (Array[Integer] a) -> Integer
+  def self.countdown: (Array[Integer] a, Integer n) -> Integer
+  def self.picks: (Array[Integer] a, Array[Integer] b) -> Array[Integer]
+  def self.joined: (Array[Integer] a) -> String
+  def self.fetch_or: (Array[Integer] a, Integer i, Integer d) -> Integer
+  def self.sum_until_error: (Array[Integer] a) -> Integer
+  def self.error_class: (Array[Integer] a) -> untyped
+  def self.with_log: (Array[Symbol] log, Array[Integer] a, Integer i) -> Integer
+  def self.early: (Array[Integer] a) -> untyped
+  def self.early_with_ensure: (Array[Symbol] log, Array[Integer] a) -> untyped
+  def self.joined_until_error: (Array[Integer] a, Integer i) -> String?
+  def self.inverses: (Array[Integer] a) -> Array[Integer]
+  def self.nested: (Array[Integer] a, untyped i) -> untyped
+
+  class Tagged
+    def ==: (untyped other) -> bool
+    def one: (Integer x) -> bool
+    def two: (Integer x) -> bool
+  end
+
+  module Registry
+    def self.define: (Integer x) -> Integer
+  end
+
+  class Builder
+    def define: (Integer x) -> Integer
+  end
+
+  DEFINED: Integer
+
+  module Countable
+    def self.included: (Module base) -> void
+
+    module ClassMethods
+      def count_of: (Array[Integer] a) -> Integer
+    end
+  end
+
+  class Counted
+    extend Countable::ClassMethods
+  end
 
   class Clock
     @last_us: Integer

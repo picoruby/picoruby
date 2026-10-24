@@ -43,12 +43,29 @@ module MRuby
         exclude << " --include-widened" if aot_include_widened
         workspace = "#{build.build_dir}/aot-workspace"
         manifest = "#{aot_dir}/manifest.json"
+        # The gems of this build, one per line. The generator's wait search
+        # looks into their defs (a call into a gem that suspends the task
+        # keeps the caller in the irep), so the set is an input of the C:
+        # the file changes only when the set does, and the C depends on it.
+        deps_file = "#{aot_dir}/deps.txt"
+        deps_text = -> { build.gems.map(&:name).sort.join("\n") + "\n" }
+        deps_task = file deps_file do
+          mkdir_p aot_dir
+          File.write(deps_file, deps_text.call)
+        end
+        # A file task runs only when its file is missing; this one runs
+        # when the content would differ, and leaves the mtime alone
+        # otherwise, so the C is not regenerated on every build.
+        deps_task.define_singleton_method(:needed?) do
+          !File.exist?(deps_file) || File.read(deps_file) != deps_text.call
+        end
         # mrbgem.rake is a prerequisite because aot_exclude and
         # aot_include_widened live there: a changed flag regenerates.
-        file aot_c => rbfiles + sigfiles + tool_srcs + ["#{dir}/mrbgem.rake"] + build.aot_spinel_prereqs do |t|
+        file aot_c => rbfiles + sigfiles + tool_srcs + ["#{dir}/mrbgem.rake", deps_file] + build.aot_spinel_prereqs do |t|
           _pp "AOT", aot_c.relative_path
           mkdir_p aot_dir
-          sh %Q[SPINEL="#{build.aot_spinel}" ruby "#{tool}" --gem #{name} --workspace "#{workspace}" --out-c "#{aot_c}" --out-rb "#{aot_dir}/rb" --manifest "#{manifest}"#{exclude}]
+          deps = File.read(deps_file).split("\n").join(",")
+          sh %Q[SPINEL="#{build.aot_spinel}" ruby "#{tool}" --gem #{name} --workspace "#{workspace}" --out-c "#{aot_c}" --out-rb "#{aot_dir}/rb" --manifest "#{manifest}"#{exclude} --deps #{deps}]
         end
         aot_rbfiles.each { |f| file f => aot_c }
         cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-aot/include"

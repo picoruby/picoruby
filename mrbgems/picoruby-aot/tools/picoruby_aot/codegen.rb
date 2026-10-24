@@ -79,6 +79,30 @@ module PicorubyAot
       ["length", 0] => "aot_hash_size", ["delete", 1] => "aot_hash_delete",
     }.freeze
 
+    # Core methods on a receiver Spinel left untyped (a widened def's
+    # values): the helper tests the class and the method at run time and
+    # sends to the VM when the receiver is anything else. Emitted only
+    # where no compiled def of this gem is the direct target.
+    GENERIC_METHODS = {
+      ["[]", 1] => "aot_aref", ["[]=", 2] => "aot_aset",
+      ["size", 0] => "aot_size", ["length", 0] => "aot_length",
+      ["empty?", 0] => "aot_empty_p", ["include?", 1] => "aot_include_p",
+      ["key?", 1] => "aot_hash_key_p", ["has_key?", 1] => "aot_hash_key_p",
+      ["keys", 0] => "aot_keys", ["values", 0] => "aot_values",
+      ["first", 0] => "aot_first", ["last", 0] => "aot_last",
+      ["push", 1] => "aot_ary_push", ["pop", 0] => "aot_ary_pop", ["shift", 0] => "aot_ary_shift",
+      ["nil?", 0] => "aot_nil_p", ["is_a?", 1] => "aot_is_a_p", ["kind_of?", 1] => "aot_kind_of_p",
+      ["to_s", 0] => "aot_to_s", ["to_sym", 0] => "aot_to_sym",
+    }.freeze
+
+    # Iterations with a block literal on an untyped receiver: a C loop
+    # over an Array that yields to the block, else the VM.
+    LOOP_METHODS = {
+      "each" => "aot_each", "each_pair" => "aot_each_pair", "each_with_index" => "aot_each_with_index",
+      "map" => "aot_map", "select" => "aot_select", "any?" => "aot_any_p", "all?" => "aot_all_p",
+      "times" => "aot_times",
+    }.freeze
+
     # Boxed binary operators with a guarded helper (picoruby_aot.h).
     GUARDED = {
       "+" => "aot_add", "-" => "aot_sub", "*" => "aot_mul", "/" => "aot_div", "%" => "aot_mod",
@@ -92,7 +116,7 @@ module PicorubyAot
     # hidden parameter. nil when the caller gave no block.
     BLOCK_C = "p_blk"
 
-    def initialize(typemap, file, def_node, scope:, cfunc_name:, singleton: false, syms: {}, paths: {}, targets: {})
+    def initialize(typemap, file, def_node, scope:, cfunc_name:, singleton: false, syms: {}, paths: {}, consts: {}, targets: {})
       @types = typemap
       @file = file
       @def = def_node
@@ -100,14 +124,27 @@ module PicorubyAot
       @singleton = singleton   # a singleton method: `self` is the class, a self call lands on "Scope.name"
       @cfunc = cfunc_name
       @tmp = 0
-      @locals = {}       # ruby name -> [c name, kind]
+      @locals = {}       # ruby name -> [c name, kind] ([c name, :value, :cell] for a cell local)
+      @cells = {}        # ruby name -> true for a local a block shares with the method (collect_cells)
       @syms = syms       # ruby name -> c static name, shared by the translation unit
       @paths = paths     # "A::B" -> c static name of its aot_path, shared likewise
+      @consts = consts   # [scope, "A::B"] -> c static name of its aot_cslot, shared likewise
       # Spinel callee label ("Point#dist2") -> { cfunc:, kinds:, private: }
       # for the defs of this gem that compile; a direct call goes to one.
       @targets = targets
       @direct_refs = []  # the labels this def calls directly
       @loop_depth = 0
+      @loops = []        # the while/until nodes around the code being emitted
+      @block_functions = [] # the C of each block literal's cfunc, in order
+      @in_block = false  # emitting a block literal's body
+      @inline = nil      # the inline loop being emitted (inline_loop): its next label and value
+      @inline_seq = 0
+      @begins = 0        # begin blocks so far (names their C functions)
+      @regions = {}.compare_by_identity # BeginNode -> the locals its body and its clauses own
+      @ud = nil          # the userdata C variable while emitting a begin's function
+      @private = {}      # the locals the begin region being emitted owns
+      @outer_loops = 0   # loops around the begin whose function is being emitted
+      @jumps = {}        # the jumps the current begin's functions record
     end
 
     attr_reader :direct_refs
@@ -181,10 +218,13 @@ module PicorubyAot
     # arguments with mrb_get_args and calls the impl.
     def compile
       check_params unless @params
+      collect_cells(@def.body)
+      collect_begin_cells(@def.body)
       infer_local_kinds(@def.body)
       body = +""
       @out = body
       emit_defaults
+      enter_cells
       if @def.body
         last = statements(@def.body)
         emit "return #{box(last)};"
@@ -192,10 +232,12 @@ module PicorubyAot
         emit "return mrb_nil_value();"
       end
       param_names = @params.map { |p| p[:c] }
-      s = +""
+      dead = drop_unused_temps(body, param_names)
+      # The block cfuncs first: the impl names them.
+      s = @block_functions.join
       s << "static mrb_value\n#{impl_name}(mrb_state *mrb, mrb_value self#{impl_params})\n{\n"
       @locals.each_value do |c, kind|
-        next if kind == :nil || param_names.include?(c)
+        next if kind == :nil || param_names.include?(c) || dead.include?(c)
         init = kind == :value ? " = mrb_nil_value()" : " = 0"
         s << "  #{CTYPE[kind]} #{c}#{init};\n"
       end
@@ -227,6 +269,16 @@ module PicorubyAot
       syms.values.map { |c| "static mrb_sym #{c};\n" }.join
     end
 
+    # One slot per constant read site's (scope, path): it keeps the value
+    # once that is a class or module (aot_cslot_fill).
+    def self.const_decls(consts)
+      consts.values.map { |c| "static struct aot_cslot #{c};\n" }.join
+    end
+
+    def const_slot(path)
+      @consts[[@scope, path]] ||= "cc_#{@consts.size}"
+    end
+
     def arity_spec
       pos = @params.reject { |p| p[:kw] || p[:block] }
       req = pos.count { |p| !p[:optional] }
@@ -254,6 +306,44 @@ module PicorubyAot
       name = "t#{@tmp}"
       @locals["\0tmp#{@tmp}"] = [name, kind]
       name
+    end
+
+    # A right side with no effect: dropping its assignment loses nothing.
+    PURE_RHS = /\A(mrb_(nil|true|false|undef)_value\(\)|\(\(aot_int\)-?\d+LL\)|-?\d+(\.\d+)?|[A-Za-z_]\w*)\z/
+
+    # A local the body only assigns (the result slot of an `if` that is a
+    # statement, a value the next statement never reads, a Ruby `_`) drew
+    # -Wunused-but-set-variable on every such function. Such a local
+    # loses its declaration; each assignment keeps its right side for the
+    # effects, or goes when the right side has none. A parameter stays.
+    # Returns the names dropped.
+    def drop_unused_temps(body, param_names)
+      dead = []
+      temps = @locals.map { |_, (c, _)| c }.reject { |c| param_names.include?(c) }
+      # To a fixpoint: `t12 = t11;` is t11's only read, and goes with t12.
+      # (`loop` is this class's while-loop emitter, hence `while`.)
+      changed = true
+      while changed
+        changed = false
+        temps.each do |c|
+          next if dead.include?(c)
+          uses = body.scan(/\b#{c}\b/).size
+          assigns = body.scan(/^\s*#{c} = .*;( \})?\n/).size
+          next unless uses == assigns
+          dead << c
+          changed = true
+          next if uses == 0
+          body.gsub!(/^(\s*)#{c} = (.*);( \})?\n/) do
+            indent, rhs, close = $1, $2, $3
+            if rhs =~ PURE_RHS
+              close ? "#{indent}#{close.strip}\n" : ""
+            else
+              "#{indent}(void)(#{rhs});#{close}\n"
+            end
+          end
+        end
+      end
+      dead
     end
 
     def sym(name)
@@ -316,6 +406,20 @@ module PicorubyAot
       when :nil then "0"
       else "mrb_test(#{v.code})"
       end
+    end
+
+    # A comparison is emitted as `(a == b)`; inside `if (...)` the second
+    # pair draws clang's -Wparentheses-equality. A condition that is one
+    # parenthesized expression goes in without its own pair.
+    def strip_parens(code)
+      return code unless code.start_with?("(") && code.end_with?(")")
+      depth = 0
+      code.each_char.with_index do |ch, i|
+        depth += 1 if ch == "("
+        depth -= 1 if ch == ")"
+        return code if depth == 0 && i < code.size - 1
+      end
+      code[1..-2]
     end
 
     # ---- params --------------------------------------------------------
@@ -482,6 +586,8 @@ module PicorubyAot
       collect_writes(body, writes)
       kinds = {}
       writes.each { |name, _| kinds[name] = nil unless @locals.key?(name) }
+      # A cell local holds a boxed value whatever it is assigned.
+      @cells.each_key { |name| kinds[name] = :value if kinds.key?(name) }
       3.times do
         changed = false
         writes.each do |name, value|
@@ -511,8 +617,10 @@ module PicorubyAot
         acc << [node.name.to_s, nil]
       when Prism::MultiWriteNode
         node.lefts.each { |t| acc << [t.name.to_s, nil] if t.is_a?(Prism::LocalVariableTargetNode) }
-      when Prism::BlockNode, Prism::LambdaNode
-        unsupported("block", node)
+      when Prism::BlockNode
+        return # compiled apart, with locals of its own (block_literal)
+      when Prism::LambdaNode
+        unsupported("lambda", node)
       end
       node.child_nodes.each { |c| collect_writes(c, acc) }
     end
@@ -719,21 +827,41 @@ module PicorubyAot
       when Prism::StatementsNode
         statements(node)
       when Prism::LocalVariableReadNode
+        return cell_read(node) if cell?(node.name)
         c, k = local(node.name)
         Val.new(c, k)
       when Prism::LocalVariableWriteNode
+        return cell_write(node, expr(node.value)) if cell?(node.name)
         c, k = local(node.name)
         v = expr(node.value)
+        check_plain_write(node)
         emit "#{c} = #{coerce(v, k)};"
         Val.new(c, k)
       when Prism::LocalVariableOperatorWriteNode
+        if cell?(node.name)
+          cur = cell_read(node)
+          return cell_write(node, binop(node.binary_operator.to_s, cur, expr(node.value), node))
+        end
         c, k = local(node.name)
         v = binop(node.binary_operator.to_s, Val.new(c, k), expr(node.value), node)
+        check_plain_write(node)
         emit "#{c} = #{coerce(v, k)};"
         Val.new(c, k)
       when Prism::LocalVariableOrWriteNode
+        if cell?(node.name)
+          c, = local(node.name)
+          t = tmp(:value)
+          emit "#{t} = aot_cell_get(mrb, #{c});"
+          emit "if (!mrb_test(#{t})) {"
+          v = expr(node.value)
+          emit "#{t} = #{box(v)};"
+          emit "aot_cell_set(mrb, #{c}, #{t});"
+          emit "}"
+          return Val.new(t, :value)
+        end
         c, k = local(node.name)
         unsupported("||= on an unboxed local", node) unless k == :value
+        check_plain_write(node)
         emit "if (!mrb_test(#{c})) {"
         v = expr(node.value)
         emit "#{c} = #{box(v)};"
@@ -767,25 +895,38 @@ module PicorubyAot
         emit "}"
         Val.new(t, :value)
       when Prism::ConstantReadNode
+        # The slot keeps the value once it is a class or module: the
+        # lookup (each lexical scope, then the ancestors) runs once per
+        # site, as a class is not reassigned. Any other value (a Hash, a
+        # String, an Integer) is looked up every time, as the VM does.
         t = tmp(:value)
+        slot = const_slot(node.name.to_s)
         scope = @scope.empty? ? "NULL" : "&#{Compiler.path_name(@paths, @scope)}"
-        emit "#{t} = aot_const_get(mrb, self, #{scope}, #{sym(node.name)});"
+        emit "if (#{slot}.set) { #{t} = #{slot}.v; } else {"
+        emit "  #{t} = aot_const_get(mrb, self, #{scope}, #{sym(node.name)});"
+        emit "  aot_cslot_fill(&#{slot}, #{t});"
+        emit "}"
         Val.new(t, :value)
       when Prism::ConstantPathNode
         # As the VM reads `A::B::C`: the first name lexically (OP_GETCONST),
         # each later one off the value before it (OP_GETMCNST, which raises
         # TypeError when that value is not a class or module). The last
-        # need not be a class: `IRQ::HANDLER` is a Hash.
+        # need not be a class: `IRQ::HANDLER` is a Hash. The whole path
+        # has one slot, as a ConstantReadNode has.
         parts = constant_path(node)
         t = tmp(:value)
+        slot = const_slot(parts.map { |p| p.nil? ? "" : p }.join("::"))
+        emit "if (#{slot}.set) { #{t} = #{slot}.v; } else {"
         if parts.first.nil?
-          emit "#{t} = mrb_obj_value(mrb->object_class);"
+          emit "  #{t} = mrb_obj_value(mrb->object_class);"
           parts.shift
         else
           scope = @scope.empty? ? "NULL" : "&#{Compiler.path_name(@paths, @scope)}"
-          emit "#{t} = aot_const_get(mrb, self, #{scope}, #{sym(parts.shift)});"
+          emit "  #{t} = aot_const_get(mrb, self, #{scope}, #{sym(parts.shift)});"
         end
-        parts.each { |name| emit "#{t} = mrb_const_get(mrb, #{t}, #{sym(name)});" }
+        parts.each { |name| emit "  #{t} = mrb_const_get(mrb, #{t}, #{sym(name)});" }
+        emit "  aot_cslot_fill(&#{slot}, #{t});"
+        emit "}"
         Val.new(t, :value)
       when Prism::IfNode then conditional(node, false)
       when Prism::UnlessNode then conditional(node, true)
@@ -800,19 +941,35 @@ module PicorubyAot
         Val.new(t, :value)
       when Prism::WhileNode then loop(node, false)
       when Prism::UntilNode then loop(node, true)
+      when Prism::BeginNode then begin_block(node)
       when Prism::ReturnNode
+        unsupported("return in a block", node) if @in_block
         unsupported("return with several values", node) if node.arguments && node.arguments.arguments.size > 1
         v = node.arguments ? expr(node.arguments.arguments.first) : Val.new("mrb_nil_value()", :nil)
-        emit "return #{box(v)};"
+        emit_return(box(v))
         Val.new("mrb_nil_value()", :nil)
       when Prism::BreakNode
-        unsupported("break outside a while loop", node) if @loop_depth.zero?
         unsupported("break with a value", node) if node.arguments
-        emit "break;"
+        emit_break(node)
         Val.new("mrb_nil_value()", :nil)
       when Prism::NextNode
-        unsupported("next outside a while loop", node) if @loop_depth.zero?
-        emit "continue;"
+        if @in_block && @loop_depth.zero?
+          # `next v` ends this call of the block with v.
+          unsupported("next with several values", node) if node.arguments && node.arguments.arguments.size > 1
+          v = node.arguments ? expr(node.arguments.arguments.first) : Val.new("mrb_nil_value()", :nil)
+          emit "return #{box(v)};"
+          return Val.new("mrb_nil_value()", :nil)
+        end
+        if @inline && @loop_depth == @inline[:depth]
+          # `next v` in an inline loop's body ends this turn with v.
+          unsupported("next with several values", node) if node.arguments && node.arguments.arguments.size > 1
+          v = node.arguments ? expr(node.arguments.arguments.first) : Val.new("mrb_nil_value()", :nil)
+          emit "#{@inline[:bv]} = #{box(v)};"
+          emit "goto #{@inline[:label]};"
+          @inline[:used] = true
+          return Val.new("mrb_nil_value()", :nil)
+        end
+        emit_next(node)
         Val.new("mrb_nil_value()", :nil)
       when Prism::AndNode then logical(node, "&&")
       when Prism::OrNode then logical(node, "||")
@@ -862,7 +1019,7 @@ module PicorubyAot
       end
       kind = join_kind(v1.kind, v2.kind)
       result = kind == :nil ? nil : tmp(kind)
-      emit "if (#{cond}) {"
+      emit "if (#{strip_parens(cond)}) {"
       @out << then_code
       emit "#{result} = #{coerce(v1, kind)};" if result
       emit "} else {"
@@ -899,7 +1056,7 @@ module PicorubyAot
       arms.each_with_index do |(test_code, test, body_code, v), i|
         emit "} else {" if i > 0
         @out << test_code
-        emit "if (#{test}) {"
+        emit "if (#{strip_parens(test)}) {"
         @out << body_code
         emit "#{result} = #{coerce(v, kind)};" if result
       end
@@ -969,16 +1126,64 @@ module PicorubyAot
           end
         end
       targets.each_with_index do |t, i|
-        v = values[i] || Val.new("mrb_nil_value()", :nil)
-        case t
-        when Prism::LocalVariableTargetNode
-          c, k = local(t.name)
-          emit "#{c} = #{coerce(v, k)};"
-        when Prism::InstanceVariableTargetNode
-          emit "mrb_iv_set(mrb, self, #{sym(t.name)}, #{box(v)});"
-        end
+        write_target(t, values[i] || Val.new("mrb_nil_value()", :nil))
       end
       Val.new("mrb_nil_value()", :nil)
+    end
+
+    # Assign `v` to a target node: a local (its cell when it has one) or
+    # an instance variable.
+    def write_target(t, v)
+      case t
+      when Prism::LocalVariableTargetNode
+        return cell_write(t, v) if cell?(t.name)
+        c, k = local(t.name)
+        check_plain_write(t)
+        emit "#{c} = #{coerce(v, k)};"
+      when Prism::InstanceVariableTargetNode
+        emit "mrb_iv_set(mrb, self, #{sym(t.name)}, #{box(v)});"
+      else
+        unsupported("#{t.class.name.split('::').last} as an assignment target", t)
+      end
+    end
+
+    # `return v` leaves the method; inside a begin's C function it is
+    # recorded as a jump and the function returns v as its result.
+    def emit_return(code)
+      if @ud
+        @jumps[:return] = true
+        emit "#{@ud}->jump = AOT_JUMP_RETURN;"
+      end
+      emit "return #{code};"
+    end
+
+    # `break` and `next` go to the C loop when one is open in this
+    # function; inside a begin's C function with the loop outside they
+    # are recorded as a jump the method's C makes after the begin.
+    def emit_break(node)
+      if @loop_depth > 0
+        emit "break;"
+      elsif @in_block
+        unsupported("break in a block", node)
+      elsif @ud && @outer_loops > 0
+        @jumps[:break] = true
+        emit "#{@ud}->jump = AOT_JUMP_BREAK;"
+        emit "return mrb_nil_value();"
+      else
+        unsupported("break outside a while loop", node)
+      end
+    end
+
+    def emit_next(node)
+      if @loop_depth > 0
+        emit "continue;"
+      elsif @ud && @outer_loops > 0
+        @jumps[:next] = true
+        emit "#{@ud}->jump = AOT_JUMP_NEXT;"
+        emit "return mrb_nil_value();"
+      else
+        unsupported("next outside a while loop", node)
+      end
     end
 
     def loop(node, negate)
@@ -986,10 +1191,12 @@ module PicorubyAot
       emit "for (;;) {"
       c = expr(node.predicate)
       cond = truthy(c)
-      cond = "!(#{cond})" unless negate
+      cond = negate ? strip_parens(cond) : "!(#{cond})"
       emit "if (#{cond}) break;"
       @loop_depth += 1
+      @loops << node
       statements(node.statements) if node.statements
+      @loops.pop
       @loop_depth -= 1
       emit "}"
       Val.new("mrb_nil_value()", :nil)
@@ -1035,7 +1242,6 @@ module PicorubyAot
     end
 
     def call(node, recv = nil)
-      unsupported("block", node) if node.block && !node.block.is_a?(Prism::BlockArgumentNode)
       return safe_call(node) if node.safe_navigation? && recv.nil?
       args = node.arguments ? node.arguments.arguments : []
       kw_node = nil
@@ -1062,8 +1268,15 @@ module PicorubyAot
           kw << [e.key.unescaped, expr(e.value)]
         end
       end
-      # `&blk` last, as Ruby evaluates it.
-      blk = block_pass(node)
+      # An iteration whose block can run in place: the loop and the body
+      # in the method's own C (inline_loop), the Proc path behind a
+      # run-time test of the receiver.
+      if node.block.is_a?(Prism::BlockNode) && node.receiver && argv.empty? && kw.empty? &&
+         LOOP_METHODS[name] && !@in_block && inline_loop_ok?(node.block) && direct_target(node, argv, kw).nil?
+        return inline_loop(node, recv, name)
+      end
+      # `&blk` or the block literal last, as Ruby evaluates it.
+      blk = node.block.is_a?(Prism::BlockNode) ? block_literal(node, node.block) : block_pass(node)
       return call_with_block(node, recv, name, argv, kw, blk) if blk
 
       if node.receiver && argv.size == 1 && kw.empty?
@@ -1085,6 +1298,14 @@ module PicorubyAot
                  elsif raw.to_s.end_with?("_hash") then HASH_METHODS[[name, argv.size]]
                  end
         if helper
+          t = tmp(:value)
+          emit "#{t} = #{helper}(mrb, #{([box(recv)] + argv.map { |x| box(x) }).join(', ')});"
+          return argv.last if name == "[]="
+          return unbox_proved(node, Val.new(t, :value))
+        end
+        # the receiver untyped: the helper decides by its class at run time
+        helper = GENERIC_METHODS[[name, argv.size]]
+        if helper && direct_target(node, argv, kw).nil?
           t = tmp(:value)
           emit "#{t} = #{helper}(mrb, #{([box(recv)] + argv.map { |x| box(x) }).join(', ')});"
           return argv.last if name == "[]="
@@ -1127,6 +1348,691 @@ module PicorubyAot
       Val.new(t, :value)
     end
 
+    # ---- inline loops --------------------------------------------------
+
+    # The receivers an iteration's loop can run in place for, by method
+    # name (aot_loop_kind answers which one the receiver is at run time).
+    INLINE_KINDS = {
+      "each" => [:array, :hash], "each_pair" => [:hash],
+      "each_with_index" => [:array], "map" => [:array], "select" => [:array],
+      "any?" => [:array], "all?" => [:array], "times" => [:int],
+    }.freeze
+    LOOP_KIND_C = { array: "AOT_LOOP_ARRAY", hash: "AOT_LOOP_HASH", int: "AOT_LOOP_INT" }.freeze
+
+    # A block whose body the method's C can hold: required parameters
+    # only, no nested block, no `return`, no `break` (the Proc path, which
+    # the slow branch needs as well, refuses them too), and no begin (its
+    # regions and jumps are laid out for a method body or a block cfunc).
+    def inline_loop_ok?(block)
+      p = block.parameters
+      return false unless p.nil? || (p.is_a?(Prism::BlockParametersNode) && p.locals.empty? &&
+        (p.parameters.nil? || (p.parameters.rest.nil? && p.parameters.keyword_rest.nil? && p.parameters.block.nil? &&
+          p.parameters.optionals.empty? && p.parameters.posts.empty? && p.parameters.keywords.empty? &&
+          p.parameters.requireds.all? { |r| r.is_a?(Prism::RequiredParameterNode) })))
+      ok = true
+      scan = lambda do |node|
+        return unless ok && node
+        case node
+        when Prism::BlockNode, Prism::LambdaNode, Prism::ReturnNode, Prism::BreakNode, Prism::BeginNode,
+             Prism::RescueModifierNode, Prism::RetryNode, Prism::RedoNode
+          ok = false
+          return
+        end
+        node.compact_child_nodes.each { |c| scan.call(c) }
+      end
+      scan.call(block.body)
+      ok
+    end
+
+    # `recv.each { |x| body }` and the other LOOP_METHODS with a block
+    # literal: when the receiver is an Array, a Hash or an Integer whose
+    # method is still the core one, the loop runs in the method's C and
+    # the body runs in place, with the block's parameters and its own
+    # locals as C locals of the method and the outer locals as they are
+    # (a local the block writes is a cell already, see collect_cells).
+    # No Proc, no env, no yield frame. The GC arena is restored after
+    # each turn, as the VM's frame pop does. Any other receiver takes
+    # the Proc path (block_literal and the aot_each helpers), so the body
+    # is emitted once per kind and once as a block cfunc.
+    def inline_loop(node, recv, name)
+      block = node.block
+      r = tmp(:value)
+      emit "#{r} = #{box(recv)};"
+      t = tmp(:value)
+      lk = "ilX#{@inline_seq += 1}"
+      @locals["\0#{lk}"] = [lk, :int]
+      emit "#{lk} = aot_loop_kind(mrb, #{r}, #{sym(name)});"
+      INLINE_KINDS[name].each_with_index do |kind, i|
+        emit "#{i.zero? ? 'if' : '} else if'} (#{lk} == #{LOOP_KIND_C[kind]}) {"
+        inline_body(kind, name, r, t, block)
+      end
+      emit "} else {"
+      blk = block_literal(node, block)
+      emit_funcall(t, Val.new(r, :value), name, [], [], blk, node)
+      emit "}"
+      Val.new(t, :value)
+    end
+
+    # The locals the block itself introduces (depth 0 at a write), to be
+    # C locals of their own: a method local of the same name written
+    # later is another variable of another kind.
+    def block_local_names(block)
+      names = []
+      scan = lambda do |node|
+        return unless node
+        case node
+        when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
+             Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
+          names << node.name.to_s if node.depth.zero?
+        end
+        node.compact_child_nodes.each { |c| scan.call(c) }
+      end
+      scan.call(block.body)
+      names.uniq
+    end
+
+    def inline_body(kind, name, r, t, block)
+      n = @inline_seq += 1
+      params = block_params(block)
+      saved = {}
+      fresh = lambda do |ruby_name, k|
+        c = "il#{n}_#{ruby_name}"
+        saved[ruby_name] = @locals[ruby_name] unless saved.key?(ruby_name)
+        @locals[ruby_name] = [c, k]
+        @locals["\0#{c}"] = [c, k]
+        c
+      end
+      pcs = params.map { |p| [fresh.call(p[:name], p[:kind]), p[:kind]] }
+      block_local_names(block).each { |nm| fresh.call(nm, :value) unless params.any? { |p| p[:name] == nm } }
+      i = "ilI#{n}"
+      @locals["\0#{i}"] = [i, :int]
+      bv = "ilV#{n}"
+      @locals["\0#{bv}"] = [bv, :value]
+      label = "ilN#{n}"
+      bind = lambda do |c, k, src_boxed|
+        emit "#{c} = #{k == :value ? src_boxed : "#{PARAM_UNBOX[k]}(mrb, #{src_boxed})"};"
+      end
+      out = nil
+      case kind
+      when :array
+        if %w[map select].include?(name)
+          out = "ilO#{n}"
+          @locals["\0#{out}"] = [out, :value]
+          emit "#{out} = mrb_ary_new(mrb);"
+        end
+        emit "#{t} = #{name == 'all?' ? 'mrb_true_value()' : 'mrb_false_value()'};" if %w[any? all?].include?(name)
+        emit "for (#{i} = 0; #{i} < RARRAY_LEN(#{r}); #{i}++) {"
+        emit "int ilA#{n} = mrb_gc_arena_save(mrb);"
+        emit "mrb_value ilE#{n} = RARRAY_PTR(#{r})[#{i}];"
+        if name == "each_with_index"
+          bind.call(pcs[0][0], pcs[0][1], "ilE#{n}") if pcs[0]
+          if pcs[1]
+            c, k = pcs[1]
+            emit(k == :int ? "#{c} = (aot_int)#{i};" : "#{c} = #{k == :value ? "mrb_int_value(mrb, #{i})" : "#{PARAM_UNBOX[k]}(mrb, mrb_int_value(mrb, #{i}))"};")
+          end
+          pcs[2..].to_a.each { |c, k| bind.call(c, k, "mrb_nil_value()") }
+        elsif pcs.size == 1
+          bind.call(pcs[0][0], pcs[0][1], "ilE#{n}")
+        elsif pcs.size > 1
+          emit "{ mrb_value ilS#{n}[#{pcs.size}];"
+          emit "  aot_splat_args(mrb, ilE#{n}, #{pcs.size}, ilS#{n});"
+          pcs.each_with_index { |(c, k), j| bind.call(c, k, "ilS#{n}[#{j}]") }
+          emit "}"
+        end
+      when :hash
+        kv = "ilK#{n}"
+        vv = "ilL#{n}"
+        @locals["\0#{kv}"] = [kv, :value]
+        @locals["\0#{vv}"] = [vv, :value]
+        emit "#{kv} = mrb_hash_keys(mrb, #{r});"
+        emit "#{vv} = mrb_hash_values(mrb, #{r});"
+        emit "for (#{i} = 0; #{i} < RARRAY_LEN(#{kv}); #{i}++) {"
+        emit "int ilA#{n} = mrb_gc_arena_save(mrb);"
+        emit "mrb_value ilE#{n} = RARRAY_PTR(#{kv})[#{i}];"
+        emit "mrb_value ilW#{n} = #{i} < RARRAY_LEN(#{vv}) ? RARRAY_PTR(#{vv})[#{i}] : mrb_nil_value();"
+        if pcs.size == 1
+          bind.call(pcs[0][0], pcs[0][1], "mrb_assoc_new(mrb, ilE#{n}, ilW#{n})")
+        elsif pcs.size > 1
+          bind.call(pcs[0][0], pcs[0][1], "ilE#{n}")
+          bind.call(pcs[1][0], pcs[1][1], "ilW#{n}")
+          pcs[2..].to_a.each { |c, k| bind.call(c, k, "mrb_nil_value()") }
+        end
+      when :int
+        emit "for (#{i} = 0; #{i} < (aot_int)mrb_integer(#{r}); #{i}++) {"
+        emit "int ilA#{n} = mrb_gc_arena_save(mrb);"
+        if pcs[0]
+          c, k = pcs[0]
+          emit(k == :int ? "#{c} = (aot_int)#{i};" : "#{c} = #{k == :value ? "mrb_int_value(mrb, #{i})" : "#{PARAM_UNBOX[k]}(mrb, mrb_int_value(mrb, #{i}))"};")
+        end
+        pcs[1..].to_a.each { |c, k| bind.call(c, k, "mrb_nil_value()") }
+      end
+      emit "(void)ilE#{n};" if kind != :int
+      emit "(void)ilW#{n};" if kind == :hash
+      saved_inline = @inline
+      @inline = { label: label, bv: bv, depth: @loop_depth, used: false }
+      last = statements(block.body)
+      emit "#{bv} = #{box(last)};"
+      emit "#{label}:" if @inline[:used]
+      @inline = saved_inline
+      case name
+      when "map" then emit "mrb_ary_push(mrb, #{out}, #{bv});"
+      when "select" then emit "if (mrb_test(#{bv})) mrb_ary_push(mrb, #{out}, ilE#{n});"
+      when "any?" then emit "if (mrb_test(#{bv})) { #{t} = mrb_true_value(); mrb_gc_arena_restore(mrb, ilA#{n}); break; }"
+      when "all?" then emit "if (!mrb_test(#{bv})) { #{t} = mrb_false_value(); mrb_gc_arena_restore(mrb, ilA#{n}); break; }"
+      end
+      emit "mrb_gc_arena_restore(mrb, ilA#{n});"
+      emit "}"
+      emit "#{t} = #{out || r};" unless %w[any? all?].include?(name)
+      saved.each { |nm, prev| prev ? @locals[nm] = prev : @locals.delete(nm) }
+    end
+
+    # ---- block literals ------------------------------------------------
+
+    # A call whose block an env Proc cannot stand in for: the block runs
+    # with another self, or becomes a method or a lambda (strict arity, a
+    # local `return`).
+    BLOCK_REFUSED = %w[instance_eval instance_exec class_eval class_exec module_eval module_exec
+                       define_method define_singleton_method lambda].freeze
+
+    # `recv.m(args) { |params| body }`: the body becomes a cfunc of its own
+    # and the call site makes a Proc of it with an env
+    # (mrb_proc_new_cfunc_with_env) that holds self, each outer local the
+    # block reads (a boxed copy, or the cell of a local the block shares
+    # with the method, see collect_cells) and the method's own block when
+    # the body yields; the block cfunc reads them back at entry. A block
+    # these semantics do not cover keeps the def in the irep: a `break`
+    # or a `return` (nothing in the C API raises the VM's break), a
+    # nested block, and a parameter other than a required one.
+    def block_literal(call, block)
+      unsupported("a block on #{call.name}", block) if BLOCK_REFUSED.include?(call.name.to_s)
+      # mruby-task runs the block of Task.new as an irep (task.c reads
+      # proc->body.irep), which a cfunc Proc is not.
+      recv = call.receiver
+      recv_name = recv.is_a?(Prism::ConstantReadNode) || recv.is_a?(Prism::ConstantPathNode) ? recv.name.to_s : nil
+      unsupported("a block on Task.new", block) if call.name == :new && recv_name == "Task"
+      unsupported("nested block", block) if @in_block
+      params = block_params(block)
+      captures = []
+      yields = false
+      scan = lambda do |node|
+        case node
+        when nil then return
+        when Prism::BlockNode, Prism::LambdaNode then unsupported("nested block", node)
+        when Prism::ReturnNode then unsupported("return in a block", node)
+        when Prism::LocalVariableReadNode
+          captures << node.name.to_s if node.depth > 0
+        when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
+             Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
+          if node.depth > 0
+            # collect_cells made every such local a cell; the capture
+            # then carries the cell.
+            unsupported("a block writes an outer local (#{node.name})", node) unless cell?(node.name)
+            captures << node.name.to_s
+          end
+        when Prism::YieldNode
+          yields = true
+        when Prism::CallNode
+          yields = true if node.receiver.nil? && node.name == :block_given? && node.arguments.nil?
+        end
+        node.compact_child_nodes.each { |c| scan.call(c) }
+      end
+      scan.call(block.body)
+      captures.uniq!
+
+      # The env slots after self: each captured C local once (a `&blk`
+      # parameter and a `yield` both mean p_blk; a cell local is its
+      # cell), a nil-kind local needs none.
+      slots = []
+      blocals = {}
+      captures.each do |name|
+        c, k = local(name)
+        blocals[name] = local(name)
+        next if k == :nil
+        slots << [c, k] unless slots.any? { |s| s[0] == c }
+      end
+      if yields && slots.none? { |s| s[0] == BLOCK_C }
+        slots << [BLOCK_C, :value]
+        blocals["\0blk"] = [BLOCK_C, :value]
+      end
+      params.each { |p| blocals[p[:name]] = [p[:c], p[:kind]] unless blocals.key?(p[:name]) }
+
+      fn = "#{@cfunc}_blk#{@block_functions.size + 1}"
+      saved = [@out, @locals, @loop_depth, @loops, @in_block, @ud, @outer_loops, @inline]
+      @locals = blocals
+      @loop_depth = 0
+      @loops = []
+      @in_block = true
+      @inline = nil
+      # A begin inside the block is refused (begin_block), so no jump of
+      # the block's own is recorded in a begin's userdata.
+      @ud = nil
+      @outer_loops = 0
+      infer_local_kinds(block.body)
+      body = +""
+      @out = body
+      # self and the captures from the env, before anything else runs.
+      emit "self = mrb_proc_cfunc_env_get(mrb, 0);"
+      emit "(void)self;"
+      slots.each_with_index do |(c, k), i|
+        emit "#{c} = #{coerce(Val.new("mrb_proc_cfunc_env_get(mrb, #{i + 1})", :value), k)};"
+      end
+      unless params.empty?
+        emit "{ mrb_value bargv[#{params.size}];"
+        emit "  aot_block_args(mrb, #{params.size}, bargv);"
+        params.each_with_index do |p, i|
+          emit "  #{p[:c]} = #{p[:kind] == :value ? "bargv[#{i}]" : "#{PARAM_UNBOX[p[:kind]]}(mrb, bargv[#{i}])"};"
+        end
+        emit "}"
+      end
+      last = statements(block.body)
+      emit "return #{box(last)};"
+      dead = drop_unused_temps(body, [])
+      decl = +""
+      @locals.each_value do |c, kind|
+        next if kind == :nil || dead.include?(c)
+        init = kind == :value ? " = mrb_nil_value()" : " = 0"
+        decl << "  #{CTYPE[kind]} #{c}#{init};\n"
+      end
+      @block_functions << "static mrb_value\n#{fn}(mrb_state *mrb, mrb_value self)\n{\n#{decl}#{body}}\n\n"
+      @out, @locals, @loop_depth, @loops, @in_block, @ud, @outer_loops, @inline = saved
+
+      # The Proc, at the call site: the env values boxed, in slot order.
+      t = tmp(:value)
+      vals = ["self"] + slots.map { |c, k| box(Val.new(c, k)) }
+      a = "env#{@tmp}"
+      emit "{ mrb_value #{a}[] = { #{vals.join(', ')} };"
+      emit "  #{t} = mrb_obj_value(mrb_proc_new_cfunc_with_env(mrb, #{fn}, #{vals.size}, #{a})); }"
+      Val.new(t, :value)
+    end
+
+    # The block's parameters: required ones only, each a boxed argument the
+    # block cfunc reads through aot_block_args (one Array over several
+    # parameters is splat and a missing argument is nil, as the VM does for
+    # a block), unboxed when Spinel proved its kind, as a def's parameter.
+    def block_params(block)
+      p = block.parameters
+      return [] if p.nil?
+      unsupported("numbered or `it` block parameter", block) unless p.is_a?(Prism::BlockParametersNode)
+      unsupported("block-local variables", block) unless p.locals.empty?
+      inner = p.parameters
+      return [] if inner.nil?
+      if inner.rest || inner.keyword_rest || inner.block || !inner.optionals.empty? || !inner.posts.empty? || !inner.keywords.empty?
+        unsupported("block parameter other than a required one", block)
+      end
+      seen = {}
+      inner.requireds.each_with_index.map do |r, i|
+        unsupported("destructuring block parameter", r) unless r.is_a?(Prism::RequiredParameterNode)
+        kind = @types.scalar(@file, r)
+        kind = :value if kind.nil? || param_tested?(r.name)
+        name = r.name.to_s
+        # `|_, _|`: the second `_` is a slot of its own, read by nothing.
+        c = seen[name] ? "b_#{name}_#{i}" : "b_#{name}"
+        seen[name] = true
+        { name: c == "b_#{name}" ? name : "\0#{c}", c: c, kind: kind }
+      end
+    end
+
+    # The env holds a copy of the outer local, so the block must see the
+    # value the method has at the call and no later one. The method must
+    # not write the local after the call, nor anywhere in a loop around it
+    # (the callee may keep the Proc and call it later: a timer, a handler).
+    # The locals a block shares with the method through a cell: a local
+    # a block writes, and a local a block reads that the method writes
+    # after the call or inside a loop around it (a copy in the env would
+    # be stale when the callee keeps the Proc). The cell is a one-element
+    # Array; every read and write of the local, in the method and in the
+    # block, goes through it (cell_read, cell_write), so a Proc that
+    # outlives the call sees what Ruby's closure sees. A nested block is
+    # refused in block_literal and is not looked into here.
+    def collect_cells(body)
+      @cells = {}
+      find_blocks(body, []).each do |block, call, loops|
+        reads = []
+        writes = []
+        scan_outer(block.body, reads, writes)
+        writes.each { |name| @cells[name] = true }
+        start = call.location.start_offset
+        reads.uniq.each do |name|
+          stale = local_writes(@def.body, name).any? do |w|
+            o = w.location.start_offset
+            o > start || loops.any? { |l| l.location.start_offset <= o && w.location.end_offset <= l.location.end_offset }
+          end
+          @cells[name] = true if stale
+        end
+      end
+    end
+
+    # [block, its call, the while/until nodes around the call] for every
+    # block literal in the subtree, outermost blocks only.
+    def find_blocks(node, loops, acc = [])
+      return acc if node.nil?
+      if node.is_a?(Prism::CallNode) && node.block.is_a?(Prism::BlockNode)
+        acc << [node.block, node, loops.dup]
+        find_blocks(node.receiver, loops, acc)
+        find_blocks(node.arguments, loops, acc)
+        return acc
+      end
+      inner = node.is_a?(Prism::WhileNode) || node.is_a?(Prism::UntilNode) ? loops + [node] : loops
+      node.compact_child_nodes.each { |c| find_blocks(c, inner, acc) }
+      acc
+    end
+
+    # The outer locals (depth > 0) a block body reads and writes.
+    def scan_outer(node, reads, writes)
+      return if node.nil? || node.is_a?(Prism::BlockNode) || node.is_a?(Prism::LambdaNode)
+      case node
+      when Prism::LocalVariableReadNode
+        reads << node.name.to_s if node.depth > 0
+      when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
+           Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
+        writes << node.name.to_s if node.depth > 0
+      end
+      node.compact_child_nodes.each { |c| scan_outer(c, reads, writes) }
+    end
+
+    # Make the cells at the impl's entry, after the defaults (which read
+    # the parameters as plain C locals): a parameter's cell starts with
+    # its value, any other local's with nil. From here on the local is
+    # its cell.
+    def enter_cells
+      @cells.each_key do |name|
+        src = @locals[name]
+        unsupported("a block captures the block parameter (#{name})") if src && src[0] == BLOCK_C
+        c = "c_#{name}"
+        init = src && @params.any? { |p| p[:c] == src[0] } ? box(Val.new(src[0], src[1])) : "mrb_nil_value()"
+        emit "#{c} = aot_cell_new(mrb, #{init});"
+        @locals[name] = [c, :value, :cell]
+      end
+    end
+
+    def cell?(name)
+      l = @locals[name.to_s]
+      !l.nil? && l[2] == :cell
+    end
+
+    def cell_read(node)
+      c, = local(node.name)
+      t = tmp(:value)
+      emit "#{t} = aot_cell_get(mrb, #{c});"
+      unbox_proved(node, Val.new(t, :value))
+    end
+
+    def cell_write(node, v)
+      c, = local(node.name)
+      t = tmp(:value)
+      emit "#{t} = #{box(v)};"
+      emit "aot_cell_set(mrb, #{c}, #{t});"
+      unbox_proved(node, Val.new(t, :value))
+    end
+
+    # The writes to the method's local `name` in the subtree; inside a
+    # block only those that reach out (depth > 0), a block-local of the
+    # same name is another variable.
+    def local_writes(node, name, acc = [], in_block = false)
+      return acc if node.nil?
+      in_block = true if node.is_a?(Prism::BlockNode)
+      case node
+      when Prism::LocalVariableWriteNode, Prism::LocalVariableOperatorWriteNode,
+           Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode, Prism::LocalVariableTargetNode
+        acc << node if node.name.to_s == name && (!in_block || node.depth > 0)
+      end
+      node.compact_child_nodes.each { |c| local_writes(c, name, acc, in_block) }
+      acc
+    end
+
+    # ---- begin/rescue/ensure -------------------------------------------
+
+    # The body of a begin runs as a C function of its own under
+    # mrb_protect_error, and so do its rescue clauses, together in a
+    # second function that protects the body and matches the exception.
+    # mrb_protect_error restores the GC arena after the function it ran,
+    # so an object the body made and kept in a C local of the method
+    # would be unprotected. The locals are therefore split by region (the
+    # body, the clauses, and the rest of the method with the ensure
+    # clause): a local that the body or the clauses write and another
+    # region references is a cell (as a local a block writes is); a local
+    # that one region alone references is a plain C local of that
+    # region's function, unless the begin sits in a loop and the region
+    # reads the local before it writes it (the value carries over from
+    # the last turn, so it is a cell too). Every other local the function
+    # reads is a copy in the userdata, taken when the function is called.
+    # Records the owned locals of each region in @regions.
+    def collect_begin_cells(body)
+      refs = []
+      local_refs(body, refs, 0)
+      find_begins(body, [], []).each do |b, loops|
+        regions = { body: [b.statements], rescue: rescue_nodes(b.rescue_clause) }
+        by_region = Hash.new { |h, k| h[k] = [] }
+        refs.each do |r|
+          region = regions.find { |_, nodes| nodes.any? { |n| n && within?(r[:node], n) } }
+          by_region[region ? region[0] : :out] << r
+        end
+        priv = { body: {}, rescue: {} }
+        refs.map { |r| r[:name] }.uniq.each do |name|
+          uses = by_region.select { |_, rs| rs.any? { |r| r[:name] == name } }.keys
+          writes = by_region.select { |_, rs| rs.any? { |r| r[:name] == name && r[:write] } }.keys - [:out]
+          next if writes.empty?
+          if writes.any? { |w| (uses - [w]).any? }
+            @cells[name] = true
+            next
+          end
+          region = writes.first
+          first = by_region[region].select { |r| r[:name] == name }.min_by { |r| r[:order] }
+          if !loops.empty? && !first[:plain]
+            @cells[name] = true
+          else
+            priv[region][name] = true
+          end
+        end
+        @regions[b] = priv
+      end
+    end
+
+    # Every reference to a local of the method in the subtree: inside a
+    # block only those that reach out to the method's scope. `order` is
+    # where the reference takes effect (a plain write at its end, since
+    # its right side runs first), `plain` marks a write that reads
+    # nothing before it.
+    def local_refs(node, acc, depth)
+      return if node.nil? || node.is_a?(Prism::DefNode)
+      inner = node.is_a?(Prism::BlockNode) || node.is_a?(Prism::LambdaNode) ? depth + 1 : depth
+      case node
+      when Prism::LocalVariableReadNode
+        acc << { name: node.name.to_s, node: node, write: false, order: node.location.start_offset } if node.depth == depth
+      when Prism::LocalVariableWriteNode, Prism::LocalVariableTargetNode
+        acc << { name: node.name.to_s, node: node, write: true, plain: true, order: node.location.end_offset } if node.depth == depth
+      when Prism::LocalVariableOperatorWriteNode, Prism::LocalVariableOrWriteNode, Prism::LocalVariableAndWriteNode
+        acc << { name: node.name.to_s, node: node, write: true, plain: false, order: node.location.start_offset } if node.depth == depth
+      end
+      node.compact_child_nodes.each { |c| local_refs(c, acc, inner) }
+    end
+
+    # [BeginNode, the while/until nodes around it] for every begin in the
+    # subtree outside a block literal (a begin inside one is refused).
+    def find_begins(node, loops, acc)
+      return acc if node.nil? || node.is_a?(Prism::BlockNode) || node.is_a?(Prism::LambdaNode) || node.is_a?(Prism::DefNode)
+      acc << [node, loops.dup] if node.is_a?(Prism::BeginNode)
+      inner = node.is_a?(Prism::WhileNode) || node.is_a?(Prism::UntilNode) ? loops + [node] : loops
+      node.compact_child_nodes.each { |c| find_begins(c, inner, acc) }
+      acc
+    end
+
+    # The rescue clauses from `first` on, in order.
+    def rescue_nodes(first)
+      nodes = []
+      r = first
+      while r
+        nodes << r
+        r = r.subsequent
+      end
+      nodes
+    end
+
+    def within?(node, outer)
+      outer.location.start_offset <= node.location.start_offset && node.location.end_offset <= outer.location.end_offset
+    end
+
+    # Inside a begin's function a plain (non-cell) local is written only
+    # when the region owns it (collect_begin_cells). Anything else is a
+    # hole in that analysis, and is refused rather than compiled.
+    def check_plain_write(node)
+      return unless @ud
+      name = node.name.to_s
+      unsupported("internal: #{name} written outside its region", node) unless @private[name]
+    end
+
+    # `begin body rescue A => e; clause ensure final end`. The body is a
+    # C function run under mrb_protect_error; with rescue clauses a
+    # second function protects it, matches the exception against each
+    # clause's classes in order (aot_rescue_p, StandardError for a bare
+    # rescue), binds `=> e`, runs the clause, and re-raises when no
+    # clause matches. The method's C fills a userdata struct (self and
+    # every local the functions read), calls the function, directly or
+    # under mrb_protect_error when there is an ensure clause, runs the
+    # ensure clause, re-raises an exception the ensure clause held back,
+    # and makes the jump a function recorded (emit_return, emit_break,
+    # emit_next). The value of the begin is the body's or the clause's,
+    # which mrb_protect_error protected.
+    def begin_block(node)
+      unsupported("begin inside a block", node) if @in_block
+      unsupported("else in a begin", node) if node.else_clause
+      priv = @regions[node] || { body: {}, rescue: {} }
+      n = (@begins += 1)
+      st = "struct #{@cfunc}_ud#{n}"
+      members = {}
+      saved_jumps = @jumps
+      @jumps = {}
+      body_fn = "#{@cfunc}_bg#{n}"
+      fns = begin_function(body_fn, st, members, priv[:body]) do
+        node.statements ? statements(node.statements) : Val.new("mrb_nil_value()", :nil)
+      end
+      fn = body_fn
+      if node.rescue_clause
+        fn = "#{@cfunc}_rs#{n}"
+        fns << begin_function(fn, st, members, priv[:rescue]) { rescue_clauses(node.rescue_clause, body_fn) }
+      end
+      jumps = @jumps
+      @jumps = saved_jumps
+      decl = "#{st} {\n  mrb_value self;\n  int jump;\n" + members.map { |c, k| "  #{CTYPE[k]} #{c};\n" }.join + "};\n\n"
+      @block_functions << decl << fns
+
+      u = "ud#{n}"
+      t = tmp(:value)
+      emit "{ #{st} #{u};"
+      emit "  #{u}.self = self;"
+      emit "  #{u}.jump = 0;"
+      members.each_key { |c| emit "  #{u}.#{c} = #{c};" }
+      if node.ensure_clause
+        e = tmp(:bool)
+        emit "  #{t} = mrb_protect_error(mrb, #{fn}, &#{u}, &#{e});"
+        if node.ensure_clause.statements
+          v = statements(node.ensure_clause.statements)
+          emit "(void)(#{v.code});" unless v.kind == :nil
+        end
+        emit "  if (#{e}) mrb_exc_raise(mrb, #{t});"
+      else
+        emit "  #{t} = #{fn}(mrb, &#{u});"
+      end
+      if jumps[:return]
+        emit "  if (#{u}.jump == AOT_JUMP_RETURN) {"
+        emit_return(t)
+        emit "  }"
+      end
+      if jumps[:break]
+        emit "  if (#{u}.jump == AOT_JUMP_BREAK) {"
+        emit_break(node)
+        emit "  }"
+      end
+      if jumps[:next]
+        emit "  if (#{u}.jump == AOT_JUMP_NEXT) {"
+        emit_next(node)
+        emit "  }"
+      end
+      emit "}"
+      Val.new(t, :value)
+    end
+
+    # One C function of a begin: `fn(mrb, void *p)` with p the userdata
+    # struct `st`. The block emits the statements and returns their
+    # value. The function declares each local it names: a cell and a
+    # local another region owns come from the userdata (and join
+    # `members`, which the method's C fills); a local this region owns
+    # and a temp are its own.
+    def begin_function(fn, st, members, priv)
+      saved = [@out, @loop_depth, @loops, @ud, @outer_loops, @private]
+      known = @locals.keys
+      @outer_loops += @loop_depth
+      @loop_depth = 0
+      @loops = []
+      @ud = "ud"
+      @private = priv
+      body = +""
+      @out = body
+      v = yield
+      emit "return #{box(v)};"
+      dead = drop_unused_temps(body, [])
+      decl = +"  #{st} *ud = (#{st} *)p;\n  mrb_value self = ud->self;\n  (void)self;\n"
+      slots = @params.map { |p| [p[:name] || "\0blk", [p[:c], p[:kind]], true] }
+      slots += @locals.map { |name, l| [name, l, known.include?(name)] }
+      seen = {}
+      slots.each do |name, (c, kind, flag), outer|
+        next if seen[c] || kind == :nil || dead.include?(c) || body !~ /\b#{c}\b/
+        seen[c] = true
+        if outer && (flag == :cell || !priv[name])
+          members[c] = kind
+          decl << "  #{CTYPE[kind]} #{c} = ud->#{c};\n"
+        else
+          decl << "  #{CTYPE[kind]} #{c}#{kind == :value ? ' = mrb_nil_value()' : ' = 0'};\n"
+        end
+      end
+      (@locals.keys - known).each { |k| @locals.delete(k) }
+      @out, @loop_depth, @loops, @ud, @outer_loops, @private = saved
+      "static mrb_value\n#{fn}(mrb_state *mrb, void *p)\n{\n#{decl}#{body}}\n\n"
+    end
+
+    # The rescue function's statements: the body under mrb_protect_error,
+    # then the clauses as an if/else chain over the exception. A clause's
+    # classes are evaluated only when the clauses before it did not
+    # match, as the VM does.
+    def rescue_clauses(first, body_fn)
+      r = tmp(:value)
+      e = tmp(:bool)
+      emit "#{r} = mrb_protect_error(mrb, #{body_fn}, ud, &#{e});"
+      emit "if (!#{e}) return #{r};"
+      # A `break` of a block the body yielded to unwinds as a break
+      # object, which no clause can ask for its class (it has none): on
+      # it goes, as the VM's OP_RESCUE lets it.
+      emit "if (mrb_break_p(#{r})) mrb_exc_raise(mrb, #{r});"
+      arms = rescue_nodes(first).map do |c|
+        test_code, test = capture do
+          if c.exceptions.empty?
+            "mrb_obj_is_kind_of(mrb, #{r}, E_STANDARD_ERROR)"
+          else
+            c.exceptions.map do |k|
+              unsupported("splat in a rescue clause", k) if k.is_a?(Prism::SplatNode)
+              "aot_rescue_p(mrb, #{r}, #{box(expr(k))})"
+            end.join(" || ")
+          end
+        end
+        body_code, v = capture do
+          write_target(c.reference, Val.new(r, :value)) if c.reference
+          c.statements ? statements(c.statements) : Val.new("mrb_nil_value()", :nil)
+        end
+        [test_code, test, body_code, v]
+      end
+      arms.each_with_index do |(test_code, test, body_code, v), i|
+        emit "} else {" if i > 0
+        @out << test_code
+        emit "if (#{strip_parens(test)}) {"
+        @out << body_code
+        emit "#{r} = #{box(v)};"
+      end
+      emit "} else {"
+      emit "mrb_exc_raise(mrb, #{r});"
+      arms.size.times { emit "}" }
+      Val.new(r, :value)
+    end
+
     # The call itself, into `t`: a direct call to the impl when Spinel
     # bound this call to one def of this gem that compiles too and the
     # receiver's method is still that cfunc; a redefinition, an override
@@ -1149,15 +2055,31 @@ module PicorubyAot
         emit "if (aot_method_is(mrb, #{box(recv)}, #{sym(name)}, #{target[:cfunc]})) {"
         emit "  #{t} = #{target[:cfunc]}_impl(mrb, #{box(recv)}#{args});"
         emit "} else {"
-        emit_funcall(t, recv, name, argv, kw, blk)
+        emit_funcall(t, recv, name, argv, kw, blk, node)
         emit "}"
       else
-        emit_funcall(t, recv, name, argv, kw, blk)
+        emit_funcall(t, recv, name, argv, kw, blk, node)
       end
     end
 
-    def emit_funcall(t, recv, name, argv, kw = [], blk = nil)
+    # The VM call. With `node`, two calls on an untyped receiver take a
+    # helper that answers in place when it can: an iteration with a
+    # block (aot_each: a C loop over an Array), and a call without
+    # arguments (aot_read0: an attr_reader or a Data member read without
+    # a frame).
+    def emit_funcall(t, recv, name, argv, kw = [], blk = nil, node = nil)
       return emit_funcall_kw(t, recv, name, argv, kw, blk) unless kw.empty?
+      if node && argv.empty?
+        if blk && LOOP_METHODS[name]
+          emit "#{t} = #{LOOP_METHODS[name]}(mrb, #{box(recv)}, #{blk.code});"
+          return
+        end
+        if blk.nil?
+          explicit = !(node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode))
+          emit "#{t} = aot_read0(mrb, #{box(recv)}, #{sym(name)}, #{explicit ? 1 : 0});"
+          return
+        end
+      end
       b = blk ? blk.code : nil
       if argv.empty?
         emit "#{t} = #{b ? "mrb_funcall_with_block(mrb, #{box(recv)}, #{sym(name)}, 0, NULL, #{b})" : "mrb_funcall_argv(mrb, #{box(recv)}, #{sym(name)}, 0, NULL)"};"
@@ -1226,6 +2148,7 @@ module PicorubyAot
     def direct_target(node, argv, kw = [])
       name = node.name.to_s
       self_call = node.receiver.nil? || node.receiver.is_a?(Prism::SelfNode)
+      const_recv = node.receiver.is_a?(Prism::ConstantReadNode) || node.receiver.is_a?(Prism::ConstantPathNode)
       rec = @types.codegen_record(@file, node)
       label =
         if rec && rec["dispatch"] == "direct" && rec["callee"]
@@ -1234,6 +2157,9 @@ module PicorubyAot
           # In a singleton method `self` is the class: the call lands on
           # another singleton method ("Marshal.dump_object").
           "#{@scope}#{@singleton ? '.' : '#'}#{name}"
+        elsif const_recv
+          # `Patch.keep(...)`: a singleton method of the named class
+          "#{const_path_name(node.receiver)}.#{name}"
         else
           raw = @types.raw_type(@file, node.receiver)
           raw.to_s.start_with?("obj_") ? "#{raw.sub('obj_', '').gsub('__', '::')}##{name}" : nil
@@ -1245,7 +2171,7 @@ module PicorubyAot
         # (A method a module gives the class, `JSON::Common#expect` called
         # from `JSON::Parser`, is found this way too.) A self call in a
         # singleton method looks among the singleton methods instead.
-        sep = @singleton && self_call ? "." : "#"
+        sep = (@singleton && self_call) || const_recv ? "." : "#"
         cands = @targets.select { |l, _| l.end_with?(sep + name) && !l.include?(sep == "." ? "#" : ".") }
         if cands.size > 1 && label
           leaf = label.split("::").last.split("__").last
@@ -1263,6 +2189,15 @@ module PicorubyAot
       return nil unless kw.all? { |k, _| names.include?(k) }
       return nil unless (t[:kw] || []).all? { |p| !p[:required] || kw.assoc(p[:name]) }
       t.merge(label: label)
+    end
+
+    # "A::B" for a constant receiver; the leaf alone when a part is not a
+    # constant (`x::Y`).
+    def const_path_name(node)
+      return node.name.to_s if node.is_a?(Prism::ConstantReadNode)
+      node.full_name
+    rescue StandardError
+      node.name.to_s
     end
 
     # `l op r`. Both unboxed: pure C. Otherwise a guarded helper when the
