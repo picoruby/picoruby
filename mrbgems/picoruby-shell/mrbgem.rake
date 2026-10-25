@@ -6,8 +6,8 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby Shell library'
   # The tokenizer, the parser and the job setup compile with picoruby-aot:
-  # on a pico2_w Shell::Parser takes 6.7 ms for "ls" and 52 ms for a
-  # 33-character pipeline in the irep, 3.1 and 17.5 ms compiled. The
+  # on a pico2_w Shell::Parser takes 5.3 ms for "ls" and 32.9 ms for a
+  # 33-character pipeline in the irep, 2.3 and 8.3 ms compiled. The
   # defs that wait for the scheduler (the exec path through
   # Sandbox#wait, the setup sleeps, getch) stay in the irep.
   spec.aot = true
