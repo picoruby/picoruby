@@ -100,6 +100,40 @@ class SandboxTest < Picotest::Test
     $sandbox_test_log = nil
   end
 
+  # A task that suspends itself waits for an event. JS::Promise#await on
+  # wasm works this way: the task resumes when the Promise settles. wait
+  # must keep waiting until the task finishes (issue #545: require returned
+  # before the rest of the file ran).
+  def test_wait_keeps_waiting_while_the_task_suspends_itself
+    skip "the helper task needs Task.new" if femtoruby?
+    sandbox = Sandbox.new
+    assert sandbox.compile <<~RUBY
+      me = Task.current
+      Task.new { sleep_ms 20; me.resume }
+      me.suspend
+      :resumed
+    RUBY
+    sandbox.execute
+    assert_equal true, sandbox.wait(timeout: 2000)
+    assert_equal :DORMANT, sandbox.state
+    assert_equal :resumed, sandbox.result
+  end
+
+  # Sandbox#suspend is the job control path (Ctrl-Z in the shell). The
+  # task is not waiting for anything, so wait returns.
+  def test_wait_returns_when_the_sandbox_is_suspended_from_outside
+    skip "the helper task needs Task.new" if femtoruby?
+    sandbox = Sandbox.new
+    assert sandbox.compile "sleep_ms 10_000; :never"
+    sandbox.execute
+    # wait clears @suspended on entry. The helper sleeps long enough that
+    # this task reaches wait first, even through a GC pause (20 to 40 ms).
+    Task.new { sleep_ms 200; sandbox.suspend }
+    assert_equal true, sandbox.wait(timeout: 2000)
+    assert_equal :SUSPENDED, sandbox.state
+    sandbox.terminate
+  end
+
   # Regression test for sandbox re-running the previous script
   # when its task was suspended inside a method call.
   def test_execute_runs_new_script_after_suspend_in_method
@@ -113,7 +147,8 @@ class SandboxTest < Picotest::Test
       :old
     RUBY
     sandbox.execute
-    sandbox.wait(timeout: nil)
+    # Nothing resumes this task, so wait would not return. Poll instead.
+    assert wait_for_state(sandbox, :SUSPENDED)
 
     assert sandbox.compile <<~RUBY
       :new
