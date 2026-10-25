@@ -184,6 +184,117 @@ class AOTProbeTest < Picotest::Test
     assert_equal(8, AOTProbe.call_or_value(7) { |v| v + 1 })
   end
 
+  def test_block_literal_reads_outer_locals
+    assert_equal([30, 41, 52], AOTProbe.weighted([3, 4, 5], 10))
+    assert_equal([1 << 32], AOTProbe.weighted([1 << 31], 2))
+  end
+
+  def test_block_literal_next
+    assert_equal([2, 4], AOTProbe.evens([1, 2, 3, 4]))
+  end
+
+  def test_block_literal_yields_to_the_method_block
+    seen = []
+    assert_equal(2, AOTProbe.offsets([5, 6]) { |v| seen << v })
+    assert_equal([5, 7], seen)
+  end
+
+  def test_block_literal_value_is_the_call_value
+    assert_equal(14, AOTProbe.doubled(7))
+  end
+
+  def test_block_literal_through_a_core_method
+    assert_equal([2, 3], AOTProbe.plus_one([1, 2]))
+    assert_equal(["a=1", "b=2"], AOTProbe.pairs({ "a" => 1, "b" => 2 }))
+  end
+
+  def test_block_literal_with_break_keeps_the_irep
+    assert_equal(3, AOTProbe.first_over([1, 3, 5], 2))
+    assert_equal(2, AOTProbe.first_over([1, 2], 5))
+  end
+
+  def test_block_literal_writes_an_outer_local_through_a_cell
+    assert_equal(3, AOTProbe.last_seen([1, 2, 3]))
+    assert_nil(AOTProbe.last_seen([]))
+    assert_equal(0 * 0 + 5 * 1 + 7 * 2, AOTProbe.summed([0, 5, 7]))
+    assert_equal(1 << 40, AOTProbe.summed([0, 1 << 40]))
+    assert_equal(7, AOTProbe.countdown([1, 2, 3], 10))
+    assert_equal(10, AOTProbe.countdown([], 10))
+  end
+
+  def test_block_literal_reads_a_local_the_loop_rewrites
+    assert_equal([2, 2, 1], AOTProbe.picks([1, 2, 2], [2, 1, 9]))
+  end
+
+  def test_rescue_by_class
+    assert_equal(7, AOTProbe.fetch_or([5, 7], 1, -1))
+    assert_equal(-1, AOTProbe.fetch_or([5, 7], 9, -1))
+    assert_raise(TypeError) { AOTProbe.fetch_or([5, 7], "x", -1) }
+  end
+
+  def test_rescue_around_a_loop_that_writes_cells
+    assert_equal(6, AOTProbe.sum_until_error([1, 2, 3]))
+    assert_equal((1 << 40) + 1, AOTProbe.sum_until_error([1 << 40, 1]))
+    assert_equal(0, AOTProbe.sum_until_error([]))
+  end
+
+  def test_rescue_binds_the_exception
+    assert_equal(IndexError, AOTProbe.error_class([1]))
+  end
+
+  def test_ensure_runs_on_both_paths
+    log = []
+    assert_equal(5, AOTProbe.with_log(log, [5], 0))
+    assert_equal([:done], log)
+    assert_raise(IndexError) { AOTProbe.with_log(log, [5], 3) }
+    assert_equal([:done, :done], log)
+  end
+
+  def test_return_from_the_body
+    assert_equal(:empty, AOTProbe.early([]))
+    assert_equal(4, AOTProbe.early([4]))
+    log = []
+    assert_equal(:empty, AOTProbe.early_with_ensure(log, []))
+    assert_equal(4, AOTProbe.early_with_ensure(log, [4]))
+    assert_equal([:done, :done], log)
+  end
+
+  def test_return_from_a_rescue_clause
+    assert_equal("12", AOTProbe.joined_until_error([1, 2], 0))
+    assert_equal("2", AOTProbe.joined_until_error([1, 2], 1))
+    assert_nil(AOTProbe.joined_until_error([1, 2], 2))
+  end
+
+  def test_next_and_break_through_a_begin_in_a_loop
+    assert_equal([50, 0, 25], AOTProbe.inverses([2, 20, 0, 4, 1, 5]))
+  end
+
+  def test_nested_begin
+    assert_equal(3, AOTProbe.nested([3], 0))
+    assert_equal(:index, AOTProbe.nested([3], 5))
+    assert_equal(:type, AOTProbe.nested([3], "x"))
+  end
+
+  def test_join_on_an_array_is_not_a_task_join
+    assert_equal("1,2", AOTProbe.joined([1, 2, 3]))
+  end
+
+  def test_equality_beside_a_define_method_block
+    assert_true(AOTProbe::Tagged.new == AOTProbe::Tagged.new)
+    assert_false(AOTProbe::Tagged.new == 1)
+    assert_true(AOTProbe::Tagged.new.one(1))
+    assert_false(AOTProbe::Tagged.new.two(2))
+  end
+
+  def test_included_hook_runs_while_the_irep_loads
+    assert_equal(3, AOTProbe::Counted.count_of([1, 2, 3]))
+  end
+
+  def test_class_body_call_names_the_singleton_only
+    assert_equal(2, AOTProbe::DEFINED)
+    assert_equal(6, AOTProbe::Builder.new.define(3))
+  end
+
   def test_clock_keeps_a_bignum_timestamp
     clock = AOTProbe::Clock.new
     clock.observe((1 << 31) - 100)

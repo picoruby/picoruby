@@ -54,9 +54,10 @@ AOT build with the widened defs; the summaries must match:
 rake "test:gems:aot_twin[picoruby-json]"
 rake test:gems:aot_twin      # every gem
 rake test:gems:aot_twin32    # the 32-bit host build, where a Bignum shows
+rake test:gems:aot_twin_wasm # the wasm build, under the Node runner
 ```
 
-CI runs both. See `docs/architecture.md` section 5.
+CI runs all three. See `docs/architecture.md` section 5.
 
 ## Layout
 

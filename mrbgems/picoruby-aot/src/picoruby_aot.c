@@ -750,6 +750,23 @@ aot_block_arg(mrb_state *mrb, mrb_value v)
 }
 
 void
+aot_block_args(mrb_state *mrb, mrb_int n, mrb_value *out)
+{
+  mrb_int argc = mrb_get_argc(mrb);
+  const mrb_value *argv = mrb_get_argv(mrb);
+  mrb_int i;
+
+  if (n > 1 && argc == 1 && mrb_array_p(argv[0])) {
+    mrb_value ary = argv[0];
+    argc = RARRAY_LEN(ary);
+    argv = RARRAY_PTR(ary);
+  }
+  for (i = 0; i < n; i++) {
+    out[i] = i < argc ? argv[i] : mrb_nil_value();
+  }
+}
+
+void
 aot_raise_obj(mrb_state *mrb, mrb_value klass, const char *msg)
 {
   if (!mrb_class_p(klass)) {
@@ -758,10 +775,501 @@ aot_raise_obj(mrb_state *mrb, mrb_value klass, const char *msg)
   mrb_raise(mrb, mrb_class_ptr(klass), msg);
 }
 
+/* ---- core methods on an untyped receiver ---------------------------- */
+
+/* The core methods a widened def calls on a receiver Spinel left
+   untyped, recorded at gem init as the method entry Array, Hash, Kernel
+   or String then had: a C function (compared by pointer) or an mrblib
+   proc (compared by proc). The helper answers in place only while the
+   receiver's class still resolves the name to that entry; a receiver of
+   another class, or a redefinition, takes the VM. */
+static struct {
+  mrb_method_t ary_each, ary_each_with_index, ary_map, ary_select, ary_any_p, ary_all_p, ary_include_p;
+  mrb_method_t hash_each, hash_each_pair, hash_keys, hash_values, hash_empty_p;
+  mrb_method_t int_times;
+  mrb_method_t obj_is_a_p, obj_kind_of_p, obj_nil_p, nil_nil_p;
+  mrb_method_t str_to_s, str_to_sym, sym_to_s, sym_to_sym;
+  mrb_func_t data_ref[4], data_ref_env;
+  mrb_func_t attr_reader;
+} aot_bm;
+
+static mrb_method_t
+aot_method_of(mrb_state *mrb, struct RClass *c, mrb_sym mid)
+{
+  return mrb_method_search_vm(mrb, &c, mid);
+}
+
+/* The receiver's method is still the entry recorded for it. */
+static mrb_bool
+aot_method_same(mrb_state *mrb, mrb_value recv, mrb_sym mid, mrb_method_t ref)
+{
+  struct RClass *c = mrb_class(mrb, recv);
+  mrb_method_t m;
+  if (MRB_METHOD_UNDEF_P(ref)) return FALSE;
+  m = mrb_method_search_vm(mrb, &c, mid);
+  if (MRB_METHOD_UNDEF_P(m)) return FALSE;
+  if (MRB_METHOD_FUNC_P(m) || MRB_METHOD_FUNC_P(ref)) {
+    return MRB_METHOD_FUNC_P(m) && MRB_METHOD_FUNC_P(ref) && MRB_METHOD_FUNC(m) == MRB_METHOD_FUNC(ref);
+  }
+  return MRB_METHOD_PROC(m) == MRB_METHOD_PROC(ref);
+}
+
+static void
+aot_methods_init(mrb_state *mrb)
+{
+  struct RClass *a = mrb->array_class;
+  struct RClass *h = mrb->hash_class;
+  struct RClass *o = mrb->object_class;
+  struct RClass *s = mrb->string_class;
+  struct RClass *y = mrb->symbol_class;
+  aot_bm.ary_each = aot_method_of(mrb, a, MRB_SYM(each));
+  aot_bm.ary_each_with_index = aot_method_of(mrb, a, MRB_SYM(each_with_index));
+  aot_bm.ary_map = aot_method_of(mrb, a, MRB_SYM(map));
+  aot_bm.ary_select = aot_method_of(mrb, a, MRB_SYM(select));
+  aot_bm.ary_any_p = aot_method_of(mrb, a, MRB_SYM_Q(any));
+  aot_bm.ary_all_p = aot_method_of(mrb, a, MRB_SYM_Q(all));
+  aot_bm.ary_include_p = aot_method_of(mrb, a, MRB_SYM_Q(include));
+  aot_bm.hash_each = aot_method_of(mrb, h, MRB_SYM(each));
+  aot_bm.hash_each_pair = aot_method_of(mrb, h, MRB_SYM(each_pair));
+  aot_bm.int_times = aot_method_of(mrb, mrb->integer_class, MRB_SYM(times));
+  aot_bm.hash_keys = aot_method_of(mrb, h, MRB_SYM(keys));
+  aot_bm.hash_values = aot_method_of(mrb, h, MRB_SYM(values));
+  aot_bm.hash_empty_p = aot_method_of(mrb, h, MRB_SYM_Q(empty));
+  aot_bm.obj_is_a_p = aot_method_of(mrb, o, MRB_SYM_Q(is_a));
+  aot_bm.obj_kind_of_p = aot_method_of(mrb, o, MRB_SYM_Q(kind_of));
+  aot_bm.obj_nil_p = aot_method_of(mrb, o, MRB_SYM_Q(nil));
+  aot_bm.nil_nil_p = aot_method_of(mrb, mrb->nil_class, MRB_SYM_Q(nil));
+  aot_bm.str_to_s = aot_method_of(mrb, s, MRB_SYM(to_s));
+  aot_bm.str_to_sym = aot_method_of(mrb, s, MRB_SYM(to_sym));
+  aot_bm.sym_to_s = aot_method_of(mrb, y, MRB_SYM(to_s));
+  aot_bm.sym_to_sym = aot_method_of(mrb, y, MRB_SYM(to_sym));
+  /* The body of an attr_reader (class.c, an env proc that holds the ivar
+     name): a probe class shows it. */
+  aot_bm.attr_reader = NULL;
+  {
+    int ai = mrb_gc_arena_save(mrb);
+    struct RClass *probe = mrb_class_new(mrb, mrb->object_class);
+    mrb_value nm = mrb_symbol_value(mrb_intern_lit(mrb, "aot_probe"));
+    mrb_method_t m;
+    mrb_funcall_argv(mrb, mrb_obj_value(probe), MRB_SYM(attr_reader), 1, &nm);
+    m = aot_method_of(mrb, probe, mrb_symbol(nm));
+    if (!MRB_METHOD_UNDEF_P(m) && MRB_METHOD_PROC_P(m) && MRB_PROC_CFUNC_P(MRB_METHOD_PROC(m))) {
+      aot_bm.attr_reader = MRB_PROC_CFUNC(MRB_METHOD_PROC(m));
+    }
+    mrb_gc_arena_restore(mrb, ai);
+  }
+  /* mruby-data's member readers: one C function per member index below
+     four, one env proc (the index in the env) above. Both are static in
+     data.c; a probe Data of five members shows them. */
+  memset(aot_bm.data_ref, 0, sizeof(aot_bm.data_ref));
+  aot_bm.data_ref_env = NULL;
+  if (mrb_class_defined_id(mrb, MRB_SYM(Data))) {
+    struct RClass *data = mrb_class_get_id(mrb, MRB_SYM(Data));
+    if (mrb_respond_to(mrb, mrb_obj_value(data), MRB_SYM(define))) {
+      int ai = mrb_gc_arena_save(mrb);
+      mrb_value names[5];
+      mrb_value probe;
+      int i;
+      for (i = 0; i < 5; i++) {
+        char nm[8];
+        nm[0] = 'm'; nm[1] = (char)('0' + i); nm[2] = 0;
+        names[i] = mrb_symbol_value(mrb_intern_cstr(mrb, nm));
+      }
+      probe = mrb_funcall_argv(mrb, mrb_obj_value(data), MRB_SYM(define), 5, names);
+      if (mrb_class_p(probe)) {
+        for (i = 0; i < 5; i++) {
+          mrb_method_t m = aot_method_of(mrb, mrb_class_ptr(probe), mrb_symbol(names[i]));
+          if (MRB_METHOD_UNDEF_P(m) || !MRB_METHOD_CFUNC_P(m)) continue;
+          if (i < 4) aot_bm.data_ref[i] = MRB_METHOD_CFUNC(m);
+          else aot_bm.data_ref_env = MRB_METHOD_CFUNC(m);
+        }
+      }
+      mrb_gc_arena_restore(mrb, ai);
+    }
+  }
+}
+
+mrb_value
+aot_aref(mrb_state *mrb, mrb_value r, mrb_value i)
+{
+  if (mrb_array_p(r)) return aot_ary_aref(mrb, r, i);
+  if (mrb_hash_p(r)) return aot_hash_aref(mrb, r, i);
+  return aot_send1(mrb, r, MRB_OPSYM(aref), i);
+}
+
+mrb_value
+aot_aset(mrb_state *mrb, mrb_value r, mrb_value i, mrb_value v)
+{
+  if (mrb_array_p(r)) return aot_ary_aset(mrb, r, i, v);
+  if (mrb_hash_p(r)) return aot_hash_aset(mrb, r, i, v);
+  return aot_send2(mrb, r, MRB_OPSYM(aset), i, v);
+}
+
+mrb_value
+aot_size(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_array_p(r)) return aot_ary_size(mrb, r);
+  if (mrb_hash_p(r)) return aot_hash_size(mrb, r);
+  if (mrb_string_p(r)) return aot_str_size(mrb, r);
+  return aot_send0(mrb, r, MRB_SYM(size));
+}
+
+mrb_value
+aot_length(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_array_p(r)) return aot_ary_length(mrb, r);
+  if (mrb_hash_p(r) && aot_builtin_p(mrb, r, MRB_SYM(length), aot_bi.hash_size)) return aot_hash_size(mrb, r);
+  if (mrb_string_p(r)) return aot_str_length(mrb, r);
+  return aot_send0(mrb, r, MRB_SYM(length));
+}
+
+mrb_value
+aot_empty_p(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_array_p(r)) return aot_ary_empty_p(mrb, r);
+  if (mrb_hash_p(r) && aot_method_same(mrb, r, MRB_SYM_Q(empty), aot_bm.hash_empty_p)) {
+    return mrb_bool_value(mrb_hash_size(mrb, r) == 0);
+  }
+  if (mrb_string_p(r)) return aot_str_empty_p(mrb, r);
+  return aot_send0(mrb, r, MRB_SYM_Q(empty));
+}
+
+mrb_value
+aot_include_p(mrb_state *mrb, mrb_value r, mrb_value v)
+{
+  if (mrb_hash_p(r)) return aot_hash_key_p(mrb, r, v);
+  if (mrb_array_p(r) && aot_method_same(mrb, r, MRB_SYM_Q(include), aot_bm.ary_include_p)) {
+    mrb_int i;
+    for (i = 0; i < RARRAY_LEN(r); i++) {
+      if (mrb_equal(mrb, RARRAY_PTR(r)[i], v)) return mrb_true_value();
+    }
+    return mrb_false_value();
+  }
+  return aot_send1(mrb, r, MRB_SYM_Q(include), v);
+}
+
+mrb_value
+aot_keys(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_hash_p(r) && aot_method_same(mrb, r, MRB_SYM(keys), aot_bm.hash_keys)) return mrb_hash_keys(mrb, r);
+  return aot_send0(mrb, r, MRB_SYM(keys));
+}
+
+mrb_value
+aot_values(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_hash_p(r) && aot_method_same(mrb, r, MRB_SYM(values), aot_bm.hash_values)) return mrb_hash_values(mrb, r);
+  return aot_send0(mrb, r, MRB_SYM(values));
+}
+
+mrb_value
+aot_first(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_array_p(r)) return aot_ary_first(mrb, r);
+  return aot_send0(mrb, r, MRB_SYM(first));
+}
+
+mrb_value
+aot_last(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_array_p(r)) return aot_ary_last(mrb, r);
+  return aot_send0(mrb, r, MRB_SYM(last));
+}
+
+static mrb_value
+aot_kind_of(mrb_state *mrb, mrb_value r, mrb_value k, mrb_sym mid, mrb_method_t ref)
+{
+  if ((mrb_class_p(k) || mrb_module_p(k)) && aot_method_same(mrb, r, mid, ref)) {
+    return mrb_bool_value(mrb_obj_is_kind_of(mrb, r, mrb_class_ptr(k)));
+  }
+  return aot_send1(mrb, r, mid, k);
+}
+
+mrb_value
+aot_is_a_p(mrb_state *mrb, mrb_value r, mrb_value k)
+{
+  return aot_kind_of(mrb, r, k, MRB_SYM_Q(is_a), aot_bm.obj_is_a_p);
+}
+
+mrb_value
+aot_kind_of_p(mrb_state *mrb, mrb_value r, mrb_value k)
+{
+  return aot_kind_of(mrb, r, k, MRB_SYM_Q(kind_of), aot_bm.obj_kind_of_p);
+}
+
+mrb_value
+aot_nil_p(mrb_state *mrb, mrb_value r)
+{
+  if (aot_method_same(mrb, r, MRB_SYM_Q(nil), mrb_nil_p(r) ? aot_bm.nil_nil_p : aot_bm.obj_nil_p)) {
+    return mrb_bool_value(mrb_nil_p(r));
+  }
+  return aot_send0(mrb, r, MRB_SYM_Q(nil));
+}
+
+mrb_value
+aot_to_s(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_string_p(r) && aot_method_same(mrb, r, MRB_SYM(to_s), aot_bm.str_to_s)) return r;
+  if (mrb_symbol_p(r) && aot_method_same(mrb, r, MRB_SYM(to_s), aot_bm.sym_to_s)) {
+    return mrb_sym_str(mrb, mrb_symbol(r));
+  }
+  return aot_send0(mrb, r, MRB_SYM(to_s));
+}
+
+mrb_value
+aot_to_sym(mrb_state *mrb, mrb_value r)
+{
+  if (mrb_symbol_p(r) && aot_method_same(mrb, r, MRB_SYM(to_sym), aot_bm.sym_to_sym)) return r;
+  if (mrb_string_p(r) && aot_method_same(mrb, r, MRB_SYM(to_sym), aot_bm.str_to_sym)) {
+    return mrb_symbol_value(mrb_intern_str(mrb, r));
+  }
+  return aot_send0(mrb, r, MRB_SYM(to_sym));
+}
+
+/* A Data member by index, as data.c reads it. */
+static mrb_value
+aot_data_member(mrb_state *mrb, mrb_value r, mrb_int i)
+{
+  if (!mrb_array_p(r) && mrb_type(r) != MRB_TT_STRUCT) return mrb_undef_value();
+  if (RARRAY_PTR(r) == NULL || RARRAY_LEN(r) <= i) return mrb_nil_value();
+  return aot_protect(mrb, RARRAY_PTR(r)[i]);
+}
+
+mrb_value
+aot_read0(mrb_state *mrb, mrb_value r, mrb_sym mid, int explicit_recv)
+{
+  struct RClass *c = mrb_class(mrb, r);
+  mrb_method_t m = mrb_method_search_vm(mrb, &c, mid);
+  if (!MRB_METHOD_UNDEF_P(m) && !(explicit_recv && MRB_METHOD_VISIBILITY(m) == MRB_METHOD_PRIVATE_FL)) {
+    if (MRB_METHOD_PROC_P(m)) {
+      const struct RProc *p = MRB_METHOD_PROC(m);
+      if (MRB_PROC_CFUNC_P(p) && MRB_PROC_ENV(p) != NULL) {
+        mrb_value e0 = MRB_PROC_ENV(p)->stack[0];
+        if (aot_bm.attr_reader != NULL && MRB_PROC_CFUNC(p) == aot_bm.attr_reader && mrb_symbol_p(e0)) {
+          return aot_protect(mrb, mrb_iv_get(mrb, r, mrb_symbol(e0)));
+        }
+        if (aot_bm.data_ref_env != NULL && MRB_PROC_CFUNC(p) == aot_bm.data_ref_env && mrb_integer_p(e0)) {
+          mrb_value v = aot_data_member(mrb, r, mrb_integer(e0));
+          if (!mrb_undef_p(v)) return v;
+        }
+      }
+    }
+    else {
+      int i;
+      for (i = 0; i < 4; i++) {
+        if (aot_bm.data_ref[i] != NULL && MRB_METHOD_FUNC(m) == aot_bm.data_ref[i]) {
+          mrb_value v = aot_data_member(mrb, r, i);
+          if (!mrb_undef_p(v)) return v;
+          break;
+        }
+      }
+    }
+  }
+  return mrb_funcall_argv(mrb, r, mid, 0, NULL);
+}
+
+/* Hash#each as hash.rb runs it: over a snapshot of the keys and values,
+   one [key, value] pair per yield. */
+static mrb_value
+aot_hash_each(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  int ai0 = mrb_gc_arena_save(mrb);
+  mrb_value keys = mrb_hash_keys(mrb, r);
+  mrb_value vals = mrb_hash_values(mrb, r);
+  mrb_int len = RARRAY_LEN(keys);
+  mrb_int i;
+  for (i = 0; i < len; i++) {
+    int ai = mrb_gc_arena_save(mrb);
+    mrb_value pair[2];
+    pair[0] = RARRAY_PTR(keys)[i];
+    pair[1] = i < RARRAY_LEN(vals) ? RARRAY_PTR(vals)[i] : mrb_nil_value();
+    mrb_yield(mrb, blk, mrb_ary_new_from_values(mrb, 2, pair));
+    mrb_gc_arena_restore(mrb, ai);
+  }
+  mrb_gc_arena_restore(mrb, ai0);
+  return r;
+}
+
+mrb_value
+aot_each(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  if (!mrb_nil_p(blk)) {
+    if (mrb_array_p(r) && aot_method_same(mrb, r, MRB_SYM(each), aot_bm.ary_each)) {
+      mrb_int i;
+      for (i = 0; i < RARRAY_LEN(r); i++) {
+        int ai = mrb_gc_arena_save(mrb);
+        mrb_yield(mrb, blk, RARRAY_PTR(r)[i]);
+        mrb_gc_arena_restore(mrb, ai);
+      }
+      return r;
+    }
+    if (mrb_hash_p(r) && aot_method_same(mrb, r, MRB_SYM(each), aot_bm.hash_each)) {
+      return aot_hash_each(mrb, r, blk);
+    }
+  }
+  return mrb_funcall_with_block(mrb, r, MRB_SYM(each), 0, NULL, blk);
+}
+
+mrb_value
+aot_each_pair(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  if (!mrb_nil_p(blk) && mrb_hash_p(r) && aot_method_same(mrb, r, MRB_SYM(each_pair), aot_bm.hash_each_pair)) {
+    return aot_hash_each(mrb, r, blk);
+  }
+  return mrb_funcall_with_block(mrb, r, MRB_SYM(each_pair), 0, NULL, blk);
+}
+
+mrb_value
+aot_select(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  if (!mrb_nil_p(blk) && mrb_array_p(r) && aot_method_same(mrb, r, MRB_SYM(select), aot_bm.ary_select)) {
+    mrb_value out = mrb_ary_new(mrb);
+    mrb_int i;
+    for (i = 0; i < RARRAY_LEN(r); i++) {
+      int ai = mrb_gc_arena_save(mrb);
+      mrb_value e = RARRAY_PTR(r)[i];
+      if (mrb_test(mrb_yield(mrb, blk, e))) mrb_ary_push(mrb, out, e);
+      mrb_gc_arena_restore(mrb, ai);
+    }
+    return out;
+  }
+  return mrb_funcall_with_block(mrb, r, MRB_SYM(select), 0, NULL, blk);
+}
+
+mrb_value
+aot_any_p(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  if (!mrb_nil_p(blk) && mrb_array_p(r) && aot_method_same(mrb, r, MRB_SYM_Q(any), aot_bm.ary_any_p)) {
+    mrb_int i;
+    for (i = 0; i < RARRAY_LEN(r); i++) {
+      int ai = mrb_gc_arena_save(mrb);
+      mrb_bool hit = mrb_test(mrb_yield(mrb, blk, RARRAY_PTR(r)[i]));
+      mrb_gc_arena_restore(mrb, ai);
+      if (hit) return mrb_true_value();
+    }
+    return mrb_false_value();
+  }
+  return mrb_funcall_with_block(mrb, r, MRB_SYM_Q(any), 0, NULL, blk);
+}
+
+mrb_value
+aot_all_p(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  if (!mrb_nil_p(blk) && mrb_array_p(r) && aot_method_same(mrb, r, MRB_SYM_Q(all), aot_bm.ary_all_p)) {
+    mrb_int i;
+    for (i = 0; i < RARRAY_LEN(r); i++) {
+      int ai = mrb_gc_arena_save(mrb);
+      mrb_bool hit = mrb_test(mrb_yield(mrb, blk, RARRAY_PTR(r)[i]));
+      mrb_gc_arena_restore(mrb, ai);
+      if (!hit) return mrb_false_value();
+    }
+    return mrb_true_value();
+  }
+  return mrb_funcall_with_block(mrb, r, MRB_SYM_Q(all), 0, NULL, blk);
+}
+
+mrb_value
+aot_times(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  if (!mrb_nil_p(blk) && mrb_integer_p(r) && aot_method_same(mrb, r, MRB_SYM(times), aot_bm.int_times)) {
+    mrb_int n = mrb_integer(r);
+    mrb_int i;
+    for (i = 0; i < n; i++) {
+      int ai = mrb_gc_arena_save(mrb);
+      mrb_yield(mrb, blk, mrb_int_value(mrb, i));
+      mrb_gc_arena_restore(mrb, ai);
+    }
+    return r;
+  }
+  return mrb_funcall_with_block(mrb, r, MRB_SYM(times), 0, NULL, blk);
+}
+
+mrb_value
+aot_each_with_index(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  if (!mrb_nil_p(blk) && mrb_array_p(r) && aot_method_same(mrb, r, MRB_SYM(each_with_index), aot_bm.ary_each_with_index)) {
+    mrb_int i;
+    for (i = 0; i < RARRAY_LEN(r); i++) {
+      int ai = mrb_gc_arena_save(mrb);
+      mrb_value argv[2];
+      argv[0] = RARRAY_PTR(r)[i];
+      argv[1] = mrb_int_value(mrb, i);
+      mrb_yield_argv(mrb, blk, 2, argv);
+      mrb_gc_arena_restore(mrb, ai);
+    }
+    return r;
+  }
+  return mrb_funcall_with_block(mrb, r, MRB_SYM(each_with_index), 0, NULL, blk);
+}
+
+mrb_value
+aot_map(mrb_state *mrb, mrb_value r, mrb_value blk)
+{
+  if (!mrb_nil_p(blk) && mrb_array_p(r) && aot_method_same(mrb, r, MRB_SYM(map), aot_bm.ary_map)) {
+    mrb_value out = mrb_ary_new_capa(mrb, RARRAY_LEN(r));
+    mrb_int i;
+    for (i = 0; i < RARRAY_LEN(r); i++) {
+      int ai = mrb_gc_arena_save(mrb);
+      mrb_ary_push(mrb, out, mrb_yield(mrb, blk, RARRAY_PTR(r)[i]));
+      mrb_gc_arena_restore(mrb, ai);
+    }
+    return out;
+  }
+  return mrb_funcall_with_block(mrb, r, MRB_SYM(map), 0, NULL, blk);
+}
+
+int
+aot_loop_kind(mrb_state *mrb, mrb_value r, mrb_sym mid)
+{
+  if (mrb_array_p(r)) {
+    mrb_method_t ref;
+    switch (mid) {
+    case MRB_SYM(each): ref = aot_bm.ary_each; break;
+    case MRB_SYM(each_with_index): ref = aot_bm.ary_each_with_index; break;
+    case MRB_SYM(map): ref = aot_bm.ary_map; break;
+    case MRB_SYM(select): ref = aot_bm.ary_select; break;
+    case MRB_SYM_Q(any): ref = aot_bm.ary_any_p; break;
+    case MRB_SYM_Q(all): ref = aot_bm.ary_all_p; break;
+    default: return 0;
+    }
+    return aot_method_same(mrb, r, mid, ref) ? AOT_LOOP_ARRAY : 0;
+  }
+  if (mrb_hash_p(r)) {
+    mrb_method_t ref;
+    switch (mid) {
+    case MRB_SYM(each): ref = aot_bm.hash_each; break;
+    case MRB_SYM(each_pair): ref = aot_bm.hash_each_pair; break;
+    default: return 0;
+    }
+    return aot_method_same(mrb, r, mid, ref) ? AOT_LOOP_HASH : 0;
+  }
+  if (mrb_integer_p(r) && mid == MRB_SYM(times)) {
+    return aot_method_same(mrb, r, mid, aot_bm.int_times) ? AOT_LOOP_INT : 0;
+  }
+  return 0;
+}
+
+void
+aot_splat_args(mrb_state *mrb, mrb_value v, mrb_int n, mrb_value *out)
+{
+  mrb_int argc = 1;
+  const mrb_value *argv = &v;
+  mrb_int i;
+  (void)mrb;
+  if (n > 1 && mrb_array_p(v)) {
+    argc = RARRAY_LEN(v);
+    argv = RARRAY_PTR(v);
+  }
+  for (i = 0; i < n; i++) {
+    out[i] = i < argc ? argv[i] : mrb_nil_value();
+  }
+}
+
 void
 mrb_picoruby_aot_gem_init(mrb_state *mrb)
 {
   aot_builtins_init(mrb);
+  aot_methods_init(mrb);
 }
 
 void

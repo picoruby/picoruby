@@ -29,8 +29,10 @@ module PSG
     @noise_period: Integer
     @stopped: bool
     @task: Task?
+    @handled_count: Integer
 
     attr_reader allocator: MIDIBASE::VoiceAllocator
+    attr_reader handled_count: Integer
     def initialize: (Driver driver, ?voice_count: Integer, ?voice_pools: voice_pool_config_t?) -> void
     def start: () -> self
     def handle: (MIDIBASE::event_t event, ?source: MIDIBASE::Router::source_t, ?priority: Integer, ?timestamp_us: Integer?, **MIDIBASE::context_value_t context) -> bool

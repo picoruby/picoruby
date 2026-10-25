@@ -22,6 +22,10 @@ MRuby::CrossBuild.new("picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do 
   conf.cc.defines << "MRB_INT32"
   conf.cc.defines << "MRB_WORD_BOXING"
   conf.cc.defines << "MRB_UTF8_STRING"
+  # The method cache: mruby's default of 256 entries thrashes under a
+  # browser app's class count (a VDOM diff spent a tenth of its time in
+  # mrb_vm_find_method). Build-wide: the cache sits in mrb_state.
+  conf.cc.defines << "MRB_METHOD_CACHE_SIZE=1024"
 
   conf.cc.command = 'emcc'
   conf.linker.command = 'emcc'
@@ -35,6 +39,9 @@ MRuby::CrossBuild.new("picoruby-wasm#{ENV['PICORB_DEBUG'] ? '-debug' : ''}") do 
   conf.cc.flags << "-fwasm-exceptions"
 
   conf.picoruby(alloc_estalloc: false)
+  # picoruby-aot: the gems that declare spec.aot (funicular's VDOM path
+  # among them) compile their typed defs to C
+  conf.aot
   conf.gembox "mruby-posix"
   conf.gembox "stdlib"
 

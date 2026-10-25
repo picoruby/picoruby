@@ -10,6 +10,10 @@ module PSG
     DEFAULT_SOURCE = MIDIBASE::DEFAULT_SOURCE
 
     attr_reader :allocator
+    # The number of events the synth task has finished. A caller that
+    # pushed an event waits for this count to grow; a Task.pass is not a
+    # barrier because the synth task can be preempted inside an event.
+    attr_reader :handled_count
 
     def initialize(driver, voice_count: 3, voice_pools: nil)
       unless 0 < voice_count && voice_count <= 3
@@ -23,6 +27,7 @@ module PSG
       @sustained = {}
       @program_cursors = Array.new(voice_count)
       @queue = Task::Queue.new
+      @handled_count = 0
       @free_midi_messages = [] #: Array[PSG::Synth::midi_message_t]
       i = 0
       while i < MIDI_MESSAGE_POOL_SIZE
@@ -100,6 +105,7 @@ module PSG
           next
         end
         process(envelope[0], envelope[1], envelope[2], envelope[3])
+        @handled_count += 1
         envelope[0] = nil
         envelope[1] = nil
         envelope[2] = 0

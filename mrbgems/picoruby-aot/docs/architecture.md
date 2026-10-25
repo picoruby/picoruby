@@ -22,7 +22,10 @@ For one gem the build does these steps:
    gem's mrblib files with their `RUBY_ENGINE == "..."` branches folded
    for mruby (Spinel answers "spinel" and would keep the mruby/c side;
    lines and columns do not move), and Ruby stubs for the C-implemented
-   methods of the dependencies, generated from their RBS.
+   methods of the dependencies, generated from their RBS. A class or a
+   method that a bare CRuby (`ruby --disable=gems`) defines gets no
+   stub: Spinel has it as a builtin. A library the generator itself
+   loads (json, rbs, prism) does not count as CRuby.
 2. Spinel writes the types. The generator keys on the node spans, kinds,
    signatures and `nullable` fields of the emit-types contract. An
    older Spinel builds and runs, but every def then stays in the irep,
@@ -92,8 +95,50 @@ A `def` becomes a cfunc when all of these hold:
   `private` precedes it there).
 - The body uses only the supported syntax (section 3.1).
 - The method does not wait for the scheduler (`sleep`, `sleep_ms`,
-  `Task.pass`, `join`, `suspend`, a Task receiver), directly or through
-  another method of the gem. A cfunc cannot yield to other tasks.
+  `Task.pass`, `join`, `suspend`, `value`, `Task.run` and the other
+  scheduler methods on a Task receiver (`Task.list`, `current`, `tick`,
+  `terminate`, `name` return at once), and on wasm the
+  `_*_and_suspend` primitives behind `JS::Promise#await` and `JS.fetch`),
+  directly or through another method of the gem or of another gem of
+  the build (`aot-gen --deps`, the build's gem set written to
+  `aot/deps.txt`; a gem the target does not carry cannot be called). A
+  cfunc cannot yield to other tasks. Spinel types nothing inside
+  a dependency, so there the search follows only what it can resolve: a
+  bare call to the same scope, a receiver the RBS or a guard settles
+  (below), and a call by the name of a def that reaches a primitive
+  directly (`await`, `getch`); `store.put(v)` in `IndexedDB::KVS#[]=`
+  reaches `Store#put`, which awaits, through `store: () -> store_like`.
+  A call of this gem on an untyped receiver takes every def of its
+  name, in the dependencies too: `kvs[key]` may be `IndexedDB::KVS#[]`,
+  which awaits. A receiver Spinel left untyped that the RBS declares is
+  resolved by the declaration instead: a parameter, an instance
+  variable (the class's own, `self.@x`, in a singleton method; declared
+  in the class or in one it inherits from or includes), a block
+  parameter of an iteration over a declared `Array` or `Hash`, an
+  element or a derived collection of a declared `Array` or `Hash`
+  (`x[k]`, `fetch`, `first`, `last`, `shift`, `pop`, `keys`, `values`,
+  `dup`, `compact`, `reverse`, `uniq`, `sort`; not a slice), a local
+  every write ahead of the read assigns from a declared value or
+  carries a `#: T` annotation (the one steep reads), or the value of a
+  method or attr declared for the receiver's class or an ancestor, or
+  for this class on a bare call (`patches.each` on a parameter declared
+  `Array[Patch]` is `Array#each`; `msgs.each` in
+  `@messages.each { |attr, msgs| }` over a `Hash[Symbol, Array[String]]`
+  is `Array#each`; `k.new` on a value declared `singleton(Component)`
+  reaches `Component#initialize` alone). The declaration is trusted
+  here as Spinel trusts it under `--rbs` and as steep checks it against
+  the CRuby run. An `is_a?` guard that dominates the call settles the
+  class as well, and ahead of Spinel's type and of the declaration
+  (`VDOM::VNode vnode` tested with `is_a?(VDOM::Element)` has Element's
+  `props`): `return unless x.is_a?(K)` (`next`, `break`, `raise`)
+  ahead of it, the then branch of `if x.is_a?(K)`, the else branch of
+  `unless`, a `when K` of `case x`, and the right side of `x.is_a?(K)
+  && ...`, unless the name is written again between the guard and the
+  call. The innermost guard names the class.
+- The method is not a hook the VM calls while the irep loads:
+  `inherited`, `included`, `extended`, `prepended`, `method_added`,
+  `singleton_method_added`. The gem's own `include` runs the hook
+  before the cfuncs are registered.
 - No class-body code of the gem reads or calls the method's name when
   the irep loads: an `alias`, `alias_method`, a visibility call with a
   symbol (`private :x`, `module_function :x`), or a plain call at
@@ -101,13 +146,43 @@ A `def` becomes a cfunc when all of these hold:
   wherever it sits (under an `if` too), and transitively every def such
   a method calls. Such code runs before the cfuncs are registered. A
   gem init that fails there is swallowed by `mrb_protect_error`, and
-  every later gem stays uninitialized.
+  every later gem stays uninitialized. The body of a `define_method`
+  block, a `lambda`, a `proc` or a `Proc.new` at class-body level runs
+  later and is not load-time code.
+
+Both searches resolve a call as far as Spinel's type of its receiver
+allows. A bare call reaches a method of the same class (singleton or
+instance, as the caller is), of its ancestors through `class X < Y`
+and `include`, or of its subclasses, as the sources define them; when
+that chain leaves the sources (a superclass that is an expression, an
+`include` of a non-constant) it reaches any class. A def that cannot
+take the call's positional arguments is not the one called
+(`parts.join(", ")` is never a `def join` without parameters, nor
+`Task#join`). A constant reaches the singleton methods
+of the class it names (`Errors.new` is not `SQLite3::Database.new`;
+`JSON::JSONError.new`, a class without defs, reaches no gem def), or
+of any class when neither the gem nor a gem of the build defines that
+name and it is not a core class; a value typed `class` reaches a
+singleton method of any class.
+`X.new` reaches `X#initialize` as well. A String, an Array, an Integer
+and the other core kinds reach only the defs of the gem that reopen
+that class (`list.join` is `Array#join`, not `Task#join`). An object of
+class X reaches the defs of X when the sources have any; else the defs
+of the hierarchy of X when a source defines X, or only the reopenings
+of Object and Kernel when none does (`Littlefs::File` is a C class:
+`@file.close` is not `Net::WebSocket::Client#close`). A local that the
+def binds once, from `self.new` or a bare `new` in a singleton method
+or from `X.new`, is an object of that class when Spinel gave it none
+(Spinel types `self` inside `class << self` as a plain Class, so
+`file = self.new(path)` in `File.open` is poly). A call on any other
+receiver Spinel did not type takes every def of its name, singleton or
+not, in any scope.
 
 Every other def stays in the irep. The reasons the sweep over every gem
 shows, largest first: no type record (gems outside the host build, or
 Spinel refused the gem), a wait for the scheduler, a name read at load,
-a block literal at a call site, a rest parameter, `begin`/`rescue`,
-`super`, `**rest`, a bare `raise`, `a[i] op= x`, a splat argument, a
+a block literal at a call site, a rest parameter, a `begin` inside a
+block, `super`, `**rest`, a bare `raise`, `a[i] op= x`, a splat argument, a
 binary string literal, `break` with a value, a dynamic constant path.
 The counts move with every change; `tools/aot-gen --manifest` for one
 gem, or the sweep in `aot-plan.md`, gives the current ones.
@@ -129,10 +204,11 @@ Literals (Array and Hash without a splat), locals, instance and global
 variables, constants and constant paths, `if`/`unless`/`while`/`until`/
 `case`, `return`, `break`, `next`, `and`/`or`/`not`, multiple assignment
 to locals and instance variables, Range literals, string interpolation,
-method calls (`&.`, keyword arguments and a forwarded `&blk` included;
-a block literal at a call site is not), `yield`, `block_given?`, and
-`raise` with a literal message or a constant class and a literal
-message.
+method calls (`&.`, keyword arguments, a forwarded `&blk` and a block
+literal included), `yield`, `block_given?`, `begin`/`rescue`/`ensure`
+(a rescue clause with classes and `=> e`; not `else`, `retry` or the
+`x rescue y` modifier), and `raise` with a literal message or a
+constant class and a literal message.
 
 ## 4. The generated C
 
@@ -196,6 +272,40 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   `pop`, `shift`, `first`, `last`, `clear`, `key?` and `delete` resolve
   the method as the VM would and compare it with the builtin recorded
   at gem init, so a redefinition on Array itself is honoured.
+- A core method on a receiver Spinel left untyped (a widened def's
+  values) goes through a helper that tests the receiver's class at run
+  time and that the method is still the core entry recorded at gem init
+  (a C function by pointer, an mrblib proc by identity), and sends to
+  the VM otherwise: `[]`, `[]=`, `size`, `length`, `empty?`, `include?`,
+  `key?`, `keys`, `values`, `first`, `last`, `push`, `pop`, `shift`,
+  `nil?`, `is_a?`, `kind_of?`, `to_s`, `to_sym`. The helper is emitted
+  only where no compiled def of the gem is the direct target.
+- A call without arguments or block on an untyped receiver that no
+  compiled def answers goes through `aot_read0`: an `attr_reader` reads
+  the instance variable and a Data member reader the member, without a
+  call frame (the method entry is compared with the bodies class.c and
+  mruby-data give such methods, recorded at gem init); any other method,
+  and a private one on an explicit receiver, goes through
+  `mrb_funcall_argv`.
+- An iteration with a block literal (`each`, `each_pair`,
+  `each_with_index`, `map`, `select`, `any?`, `all?`, `times`) whose
+  block the method's C can hold (required parameters only; no nested
+  block, `return`, `break` or begin) is expanded in place: the generated
+  C tests at run time that the receiver is an Array, a Hash or an
+  Integer whose method is still the core one (`aot_loop_kind`), and
+  then runs the loop and the block's body itself. The block's
+  parameters and its own locals are C locals of the method; the outer
+  locals are the method's (a local the block writes is a cell already);
+  `next v` ends the turn with v; the GC arena is restored after each
+  turn, as the VM's frame pop does. No Proc, no env, no yield frame.
+  `Hash#each` walks a snapshot of the keys and values and binds the
+  pair, or the key and the value, to the parameters, as hash.rb does.
+  Any other receiver takes the Proc path below: the body is emitted once
+  per receiver kind and once as a block cfunc. A block literal on one
+  of these methods that the C cannot hold, or a `&blk` argument, goes
+  through a helper (`aot_each`, ...) that runs the loop in C and yields
+  to the Proc (`mrb_yield`) under the same run-time test, else to the VM
+  with `mrb_funcall_with_block`.
 - A string with interpolation builds a new String and appends each part
   with `mrb_str_concat`, which converts with `to_s` as the VM does.
 - `case/when` is an if chain. An Integer literal or an Integer Range
@@ -212,9 +322,10 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   implicit or `self` receiver. In a singleton method a call on `self`
   lands on another singleton method.
 - Spinel's codegen record names the callee when it has one; else the
-  generator takes a def of the same name in the receiver's class, or
-  the one def of that name in the gem. The runtime test keeps the call
-  correct whatever is chosen.
+  generator takes a def of the same name in the receiver's class (a
+  singleton def of the named class for a constant receiver,
+  `Patch.keep(...)`), or the one def of that name in the gem. The
+  runtime test keeps the call correct whatever is chosen.
 - An optional parameter reaches the impl as undef when the argument is
   not given, and the impl evaluates the default in method scope.
 - Keyword parameters follow the positionals in the impl's argument
@@ -238,9 +349,71 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   waits for the scheduler under a compiled method cannot be switched
   away from, as a callee behind `mrb_funcall` cannot. The gem's author
   judges.
+- A block literal at a call site (`File.open(path) { |f| f.read }`)
+  becomes a cfunc of its own. The call site makes a Proc of it with
+  `mrb_proc_new_cfunc_with_env`. The env holds self, each outer local
+  the block reads, and the method's own block when the body yields. The
+  block cfunc reads them back at entry with `mrb_proc_cfunc_env_get`.
+  An outer local the block only reads, and the method does not write
+  after the call, goes in as a boxed copy. An outer local the block
+  writes, or reads while the method writes it after the call or in a
+  loop around it, is a cell: a one-element Array `aot_cell_new` makes
+  when the impl starts (from the parameter's value, or nil), which both
+  the method and the block read and write through (`aot_cell_get`,
+  `aot_cell_set`). A Proc the callee keeps then sees what Ruby's
+  closure sees. A cell local is boxed in every use, whatever Spinel
+  proved; the arena holds the cell until the method returns, and the
+  Proc's env holds it after. It reads its parameters through
+  `aot_block_args`, which splats one Array over several parameters and
+  fills a missing one with nil, as the VM does for a block. A proved
+  parameter is unboxed with the checked helper, as a def's parameter
+  is. `next` ends one call of the block with its value. The Proc goes
+  to a compiled callee's impl directly or to the VM with
+  `mrb_funcall_with_block`. A compiled callee calls it with
+  `mrb_funcall` on `Proc#call`; the VM's `OP_CALL` hands a cfunc Proc's
+  value back to a C caller (vm.c, `VM_RETURN_C`), which the mruby of
+  this tree carries. The def stays in the irep when the block has a
+  `break` or a `return` (nothing in the C API raises the VM's break),
+  holds another block, or takes a parameter other than a required one.
+  A block on `instance_eval`, `instance_exec`,
+  `class_eval`, `class_exec`, `module_eval`, `module_exec`,
+  `define_method`, `define_singleton_method` or `lambda` keeps the def
+  in the irep too: that block runs with another self, or needs lambda
+  semantics. So does a block on `Task.new`: mruby-task runs it as an
+  irep.
 - `raise "msg"` and `raise Klass, "msg"` are raised in C; every other
-  form goes to `Kernel#raise` through the VM.
+  form goes to `Kernel#raise` through the VM. A bare `raise` keeps the
+  def in the irep.
 - Other calls go through `mrb_funcall_argv`.
+- `begin`/`rescue`/`ensure`. The body of a begin becomes a C function
+  of its own, which `mrb_protect_error` runs (the core API behind
+  mruby-error's `mrb_rescue` and `mrb_ensure`, which not every target
+  links). With rescue clauses a second function protects the body and,
+  on an exception, tests the clauses in order (`aot_rescue_p`, which
+  asks `kind_of?` of a class or module and raises TypeError on anything
+  else, as `OP_RESCUE` does; a bare `rescue` is StandardError), binds
+  `=> e`, runs the clause, and re-raises with `mrb_exc_raise` when no
+  clause matches. A break object of a block the body yielded to passes
+  every clause, as in the VM. The method's C fills a userdata struct
+  (self and every local the functions read), calls the function,
+  directly or under `mrb_protect_error` when there is an ensure clause,
+  runs the ensure clause, and re-raises an exception the ensure clause
+  held back. `return`, `break` and `next` inside a function cannot
+  leave the method by themselves: the function records the jump in the
+  userdata and returns, and the method's C makes the jump after the
+  ensure clause ran. The value of a `return` is the function's result,
+  which `mrb_protect_error` protects. A begin inside a block literal
+  keeps the def in the irep; a begin inside a begin nests the same way.
+  The locals are split by region (the body, the clauses, the rest of
+  the method with the ensure clause): a local the body or the clauses
+  write and another region references is a cell, as a local a block
+  writes is (`mrb_protect_error` restores the GC arena after the
+  function, so an object the body made and left in a C local of the
+  method would be unprotected); a local that one region alone
+  references is a plain local of that function, unless the begin sits
+  in a loop and the region reads it before it writes it (the value
+  carries over from the last turn); every other local the function
+  reads is a copy taken when the function is called.
 
 ### 4.4 Constants, GC and the stack
 
@@ -248,7 +421,9 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   are recorded once, at registration), then the receiver's ancestors,
   then Object. A path `A::B::C` resolves `A` that way and reads `B` and
   `C` off the value before them, as the VM does; the last need not be a
-  class.
+  class. Each read site keeps its value in a static slot once that
+  value is a class or module (a class is not reassigned); any other
+  constant is looked up every time, as the VM does.
 - The VM's registers are GC roots; the generated C's locals are not. A
   value the C holds is safe while its owner references it or while it
   is in the GC arena (every allocation, every `mrb_funcall` result). A
@@ -256,12 +431,20 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   element `[]`, `first`, `shift` or `pop` hands out, a Hash `[]` or
   `delete`) is pushed to the arena at the read, which protects it until
   the outermost cfunc returns to the VM. An immediate needs nothing.
+  `mrb_protect_error` restores the arena after the function it ran and
+  protects only its result: hence the cells of a begin (4.3).
 - A direct call runs on the C stack, with no mruby frame: a backtrace
   does not list it, and deep recursion through compiled methods is
   bounded by the C stack. Each impl calls `mrb_c_stack_check` on entry.
   On a build with `MRB_USE_C_STACK_CHECK` (the R2P2 targets) a recursion
   that reaches the stack floor raises SystemStackError; without the
   macro the call is nothing.
+- The generated C compiles without warnings under `-Wall -Wextra` on
+  gcc and clang. A local the body only assigns (the result slot of an
+  `if` used as a statement, a Ruby `_`) is not declared; each of its
+  assignments keeps its right side for the effects, or goes when the
+  right side has none. A comparison inside `if (...)` has no
+  parentheses of its own.
 
 ## 5. Verification
 
@@ -276,16 +459,20 @@ up as a changed count.
 rake "test:gems:aot_twin[picoruby-json,picoruby-midibase-mml]"
 rake test:gems:aot_twin      # every gem test:gems:picoruby runs
 rake test:gems:aot_twin32    # the same on the 32-bit host build
+rake test:gems:aot_twin_wasm # the same on the wasm build
 ```
 
 The host is 64-bit, so the twin there never meets a Bignum. The 32-bit
 host build (`picoruby32-test.rb`: MRB_INT32, word boxing, mruby-bigint)
 does. `picoruby-aot-probe` is a gem of typed methods the tests feed
 values past the 31-bit fixnum and past `mrb_int`, plus the keyword and
-block shapes; it exists for the twin and is not for a device build. CI
-runs both twins (`test-picoruby-aot`, `test-picoruby-aot32` in
-`.github/workflows/c-cpp.yml`). The logs land under `build/aot-twin/`
-and `build/aot-twin32/`.
+block shapes; it exists for the twin and is not for a device build. The
+wasm twin builds `picoruby-wasm-test.rb` with emcc three times and runs
+the gems `test:gems:wasm` runs (funicular among them) under the Node
+runner. CI runs the three twins (`test-picoruby-aot`,
+`test-picoruby-aot32`, `test-picoruby-aot-wasm` in
+`.github/workflows/c-cpp.yml`). The logs land under `build/aot-twin/`,
+`build/aot-twin32/` and `build/aot-twin-wasm/`.
 
 Before a gem is declared with `spec.aot`, it needs a picotest suite the
 twin can run and a device measurement of the path that matters.

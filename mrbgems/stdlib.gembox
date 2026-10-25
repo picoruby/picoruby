@@ -13,7 +13,13 @@ MRuby::GemBox.new do |conf|
     conf.gem core: "picoruby-eval"
   end
   conf.gem core: "picoruby-marshal"
-  conf.gem core: 'picoruby-data'
+  # Data: mruby's own gem on mruby (members as methods, ==, with, keyword
+  # new), the small one on mruby/c
+  if vm_mrubyc?
+    conf.gem core: 'picoruby-data'
+  else
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-data"
+  end
   unless wasm?
     # Not useful on WASM. terminus and karmatic_arcade also pull in
     # picoruby-bdffont, so excluding them here keeps it out of WASM too.

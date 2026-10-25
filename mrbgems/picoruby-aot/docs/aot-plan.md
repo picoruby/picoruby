@@ -12,10 +12,22 @@ Ordered by the ratio of defs gained to design needed.
 
 ### 1.1 A block literal at a call site
 
-A def that passes a block (`File.open(path) { |f| ... }` in most of
-them) stays in the irep, because the generated C would have to make the
-Proc. The sweep over every gem counts 57 such defs; 24 of them are in
-the host build.
+A block literal is a cfunc Proc with an env (architecture 4.3). An
+outer local the block writes, or reads while the method rewrites it,
+is a cell both sides share. The block cannot do a `break` or a method
+`return`: nothing in the C API raises the VM's break. A def still
+stays in the irep when its block holds another block or takes a
+parameter other than a required one. On the host build 27 defs carry
+a block cfunc (keyboard 6, socket 3, markdown 2, drb, machine,
+picoline, regexp, uart, vfs one each, the probe 10); 2 defs stay in
+the irep for the block alone (one `break`, one `return`).
+`File.open { |f| }` compiles in vfs: the wait search types
+the local `file = self.new(path)` and the C class of `@file`
+(architecture, "Both searches resolve a call"). The callers in editor,
+vim and yaml still wait, because there `File.open` is a def of a
+dependency, which Spinel does not type: `@file.close` resolves by name
+to `Net::WebSocket::Client#close` (1.4). vfs `load_file` waits through
+`f.read` on the block parameter (1.4).
 
 How Spinel does it: a block is never a closure by default. A builtin
 iterator becomes a C `for` loop with the block body inside and the
@@ -24,37 +36,31 @@ into its caller; `next` is `continue`, `break v` a `goto` out of the
 loop, `return` the method's C return. Only a block that is stored or
 passed on becomes a C function with a capture struct, and a captured
 local the block writes becomes a GC cell both sides read through.
-Spinel owns the whole program. picoruby-aot shares the VM, and mruby
-has no `break` or method `return` from a cfunc Proc (nothing in the C
-API raises the VM's break).
+Spinel owns the whole program; picoruby-aot shares the VM.
 
 Options, in the order to try:
 
-1. A cfunc Proc with an env (`mrb_proc_new_cfunc_with_env`): `self` and
-   the outer locals the block reads travel in the env, the call site
-   hands it over with `mrb_funcall_with_block`. A block with `break`, a
-   `return`, a write to an outer local or a nested block keeps the def
-   in the irep. The `open { |f| }` shape is exactly this; the aim is
-   that the def compiles, not that the block is fast. An outer local the
-   block writes can follow later as a one-element Array in the env.
+1. A nested block that reads outer locals: the same env chain one
+   level further (a cell of the outer method passes through the
+   middle block's env).
 2. A block over a core receiver with `each`, `times`, `each_byte`,
    `downto`, where Spinel's record says `inlined: true`, becomes a C
    loop with the guarded element access when `aot_method_is` says the
-   iterator is still the builtin; the Proc of option 1 is the fallback
-   when it is not. `next`, `break` and `return` map as Spinel maps them.
-   The owner's gems have almost no hot block loop (the `while` rule),
-   so this waits for a device profile that shows one.
+   iterator is still the builtin; the env Proc is the fallback when it
+   is not. `next`, `break` and `return` map as Spinel maps them. The
+   owner's gems have almost no hot block loop (the `while` rule), so
+   this waits for a device profile that shows one.
 3. Leave the def in the irep and rewrite the hot loop with `while`.
 
 ### 1.2 `begin`/`rescue`/`ensure`
 
-A rescue in C needs `mrb_protect_error` or `mrb_rescue_exceptions`
-around the body as a nested C function, with the locals the body
-assigns passed by reference; `ensure` needs `mrb_ensure`. The body
-inside the closure cannot `return` from the method directly. Decide
-first whether to compile only the forms without `return`/`break`
-inside the protected body. About 30 defs, mostly net and midibase. A
-bare `raise` in a rescue needs this too.
+A begin compiles (architecture 4.3). On the host build 14 gem defs
+carry one (socket 3, websocket 4, midibase 3, adc, benchmark, mqtt,
+sqlite3 one each; the probe 9 more). The other 57 defs with a begin
+stay in the irep for a wait or a widened parameter, not for the begin.
+What is left of the syntax: a begin inside a block literal (picoline
+`readline` and `ask`), a bare `raise` (yaml `is_integer?`), `retry`,
+`else`, and the `x rescue y` modifier (one site in the aot gems).
 
 ### 1.3 Rest and splat
 
@@ -74,6 +80,198 @@ wrappers among them.
 - `private :x` and the other visibility calls with a symbol could be
   honoured by the generator and blanked from the Ruby, instead of
   keeping the named def in the irep.
+- Adjacent string literals with interpolation (`"a #{x}" \ "b #{y}"`):
+  Prism nests an InterpolatedStringNode in an InterpolatedStringNode
+  and the codegen refuses the inner one. About 40 defs in funicular,
+  all error messages.
+- Receivers inside a dependency: Spinel types nothing there, so the
+  wait search resolves a call on a local or an instance variable of a
+  dependency def by name alone (`@file.close` in vfs `File#close` is
+  `Net::WebSocket::Client#close` when editor, vim or yaml is the gem).
+  Left as is (2026-10-19): it holds back 5 defs (editor 2, vim 2, yaml
+  1), all the `File.open { }` shape, on paths that run once. If it is
+  ever worth it: `aot-gen` runs Spinel for each declared dependency
+  into the workspace (cached by the mtimes of its mrblib and sig),
+  merges those records into the TypeMap, and the foreign branch of the
+  wait search resolves receivers through `resolve_receiver`. The
+  `:source` mode of the workspace is not the way (slower, and a refusal
+  in a dependency sinks the gem).
+- A block parameter of a call whose def yields a typed value
+  (`File.open(path) { |f| f.read }`: `yield(file)` with the typed
+  local) is poly; vfs `load_file` waits through it.
+- A constant that names a C class (`SQLite3::Backup.new`) reaches
+  every `initialize` of the build; the C-class rule of `obj_X` could
+  apply, but `direct_wait?` takes a constant receiver that resolves
+  to no scope as a scheduler call by name (a `sleep` or `join` on a C
+  class), so the change needs a wait list of the C classes first.
+
+### 1.6 picoruby-shell and picoruby-funicular
+
+Both are declared now. The shell got its picotest suite (tokenizer,
+parser, pipe) and `spec.aot` once a pico2_w showed the parser at 6.7 ms
+for "ls" and 52 ms for a 33-character pipeline in the irep, 3.1 and
+17.5 ms compiled (a command cycle `echo hi` 57 -> 41 ms): 45 of 79 defs
+compile, the 21 that wait for real (the exec path through
+`Sandbox#wait`, the setup sleeps, `getch`) stay in the irep, and a
+`Task.list` or `terminate` no longer counts as a wait. Freeing the exec
+path would take a launch/await split with the wait at `run_shell`,
+which is not planned: the parser is where the time was.
+
+The owner's next targets. Both give their types now. Shell passes
+Spinel since picoruby-require defines `$LOAD_PATH = []` and the shell
+changes it in place (Spinel takes `$LOAD_PATH` as read-only, as CRuby
+does). Funicular is refused at 12 sites: four by the String-sharing
+seal (a mutable String handed on by a route the rule cannot carry yet,
+matz/spinel#9258; `component.rb:1054`, `db.rb:2410`,
+`html_serializer.rb:75`, `patcher.rb:250`) and eight by codegen
+(`instance_method`, `instance_exec`, `private_instance_methods`,
+`define_method` with a computed name, `Object#extend`, a VNode argument
+no conversion keeps).
+Since matz/spinel#9703 `--emit-types` writes the JSON with those
+refusals in it, so the generator reads the types of every other unit;
+the defs of a refused unit stay in the irep. What is left before either
+can declare:
+
+- shell has no picotest suite; the twin needs one before the gem can
+  declare.
+- funicular: the types. On wasm a JS call may suspend the task
+  (`JS::Promise#await`, `IndexedDB::Store#[]`), and the wait search
+  takes a call on an untyped receiver for every def of its name, so an
+  untyped `x[]` or `x.each` keeps its caller in the irep. The wasm twin
+  found the two shapes that ran wrong when compiled (an `await` under a
+  cfunc returns at once; the `included` hook) and the search is sound
+  now, at 117 typed / 227 widened of 747 on the wasm build, `VDOM.diff`,
+  `VDOM.patch` and `Renderer#render` in the irep. What is left behind
+  the waits, by their roots (the first call of each excluded def that
+  is a primitive or resolves to another gem's def):
+  - A Hash value or an Array element Spinel can only box
+    (`@messages.each { |attr, msgs| msgs.each }`: `msgs` is poly) on
+    about 50 roots, which then meet `IndexedDB::Store#each`, `#empty?`,
+    `#keys`, `#delete`. Spinel has no typed-value Hash beyond `int` and
+    `string` values, so the RBS (`Hash[Symbol, Array[String]]`) cannot
+    say more. A Spinel topic, not a gem one.
+  - The `Hash[Symbol, ...]` seeds, measured on 2026-10-20 (Spinel
+    af2466421; `tools` has no task for it, the count came from the RBS
+    and the JSON): the RBS declares 164 such slots (134 parameters, 25
+    returns, 5 ivars). 82 of them are the `Tags` methods and the like,
+    whose Ruby is a `define_method` loop: Spinel refuses the loop
+    (`0_tags.rb:41`), and the generator's stub carries their RBS
+    signatures instead, so a call of `div` is typed and the seed holds
+    there by construction. Of the 82 the JSON types from the gem's own
+    Ruby, 33 keep the seed and 49 give way to untyped. The `why`
+    chain of each of the 49 names its source, and none is a dynamic
+    `send` (the seven `send` sites are one-argument sends on self, whose
+    arms are the receiver's own methods since matz/spinel#9654). The
+    sources are: a value born untyped at the call (an untyped ivar
+    `@suspense_data`, a Proc call `params_proc.call(self)`, an untyped
+    return `styles_definitions`); an empty literal default `props = {}`
+    (`ViewContext#tag`, `#component`, `#build_element`,
+    `#normalize_props`); an element of a poly Array (`patch[1]`,
+    `hash[key] || {}`); and returns the compiler records no source for.
+    So the order is: type the sources (a typed constant for an empty
+    default, the ivars and returns), and only then look at the seed
+    rule. The two refusals cost little in types: `0_tags.rb:41` hides
+    the tag bodies and the module body's statements, `router.rb:19`
+    (`Object#extend` of an anonymous module) hides `Router#initialize`.
+    Inlining the tag list into the `each` would lift the first (Spinel
+    unrolls a literal list), but on af2466421 the unrolled bodies read
+    the block variable as nil (reported upstream); the router's helpers
+    are defined on a `Module.new` by name at run time, which no AOT form
+    expresses, so that refusal stays. The earlier `Hash[Symbol,
+    Integer]` parser gap is fixed upstream (matz/spinel PR #9315).
+  - The wait search reads the RBS where Spinel left a receiver untyped
+    (architecture.md, section 2): a parameter, an instance variable, a
+    block parameter over a declared Array or Hash, or the value of a
+    method of a declared class. With funicular's patches as a Data
+    (`VDOM::Patch`, picoruby/funicular `fix/patch-data`) that took the
+    gem from 127 / 254 to 159 / 407 of 756, the Differ to 9 of 9 and
+    vdom.rb to 23 of 35. The search then took the `is_a?` guards, the
+    locals a def writes from declared values, the class's own instance
+    variables and a `singleton(X)` seed (the RBS of funicular declares
+    `component_class`, the event listener ids and the suspense timers
+    now): 182 / 457, vdom.rb 28 of 35, html_serializer.rb 10 of 10,
+    patcher.rb 3 of 5, `Renderer#render` and `render_component`
+    compiled. `Patcher#apply`, `#create_element` and
+    `Renderer#render_element` were left by a nested block (1.1), not by
+    a wait; funicular writes those loops as `while` now (its own rule
+    for the 4KB stack as well), and the VDOM path compiles from
+    `Differ.diff` through `Patcher#apply` and `Renderer#render`: 183 /
+    460 of 756, vdom.rb 29 of 35, patcher.rb 5 of 5. The wasm twin
+    then differed on the DB epoch tests: `DB.persist_snapshot` was
+    compiled although `store[k] = v` reaches `IndexedDB::KVS#[]=`,
+    `store.put` and `Store#put`, which awaits; inside a dependency the
+    search had followed no receiver but a constant. It now resolves a
+    dependency's receiver as it resolves this gem's (the RBS, a guard),
+    and about 60 defs of funicular that reached `IndexedDB::KVS` through
+    an untyped `[]`, `[]=` or `empty?` went back to the irep with it.
+    The declarations that brought the VDOM path back: `child_nodes`
+    takes a `JS::Object`, `Component#instance` is a `Component?`,
+    `Patcher` declares `@doc`, `Component` declares `@state` and
+    `@suspense_states`, the accessors declare their hashes; and the
+    generator reads an element of a declared `Array` or `Hash`, a `#: T`
+    annotation on a local, a declaration of an ancestor class, and a
+    guard ahead of Spinel's type: 173 / 396 of 756, vdom.rb 29 of 35,
+    differ.rb 9 of 9, patcher.rb 5 of 5. What vdom.rb still
+    keeps in the irep is a `return` in a block (the two validators,
+    1.1), `super` in three `initialize` (3.1) and a rest parameter
+    (1.3).
+  - The browser measurement (~/work/funicular-bench, Chrome, a keyed
+    list of 200 items diffed and patched 20 times; `bench_diff` runs
+    2000 diffs alone). The first AOT build ran the diff 1.6x SLOWER than
+    the irep: every call in a widened def was `mrb_funcall_argv` (1254
+    sites), every `each` made a Proc, and the VM's send is cheaper than
+    a funcall from C. Three rounds of generator work, each checked with
+    a Performance profile (`--profiling-funcs` keeps the names,
+    `PICORB_WASM_PROFILING=1`): the generic guarded helpers on untyped
+    receivers, `aot_read0` for attr and Data readers, direct calls to
+    singleton defs through a constant receiver; then C loops for the
+    core iterations, a slot per constant read site, and a method cache
+    of 1024 entries for the wasm build (`mrb_vm_find_method` took a
+    tenth of the diff); then the iteration blocks expanded in place.
+    Per round: diff 1.44 -> 0.74 ms (irep 1.44; 2000 diffs alone 1.39 ->
+    0.65 ms, 2.1x), build 1.39 -> 1.27 ms, patch 0.69 -> 0.75 ms (the
+    DOM calls and emscripten's JS trampolines, which the AOT does not
+    touch). What remains in the profile of the diff: the GC (335 ms of
+    about 2 s; Patch objects, the key map, temporaries), the method
+    lookups before each direct call and reader (`aot_method_is`,
+    `aot_method_same`, `aot_read0`: about 220 ms), and the JS
+    trampolines of emscripten's setjmp/longjmp (about 350 ms). The
+    trampolines went with picoruby-wasm's move to WebAssembly exceptions
+    (`-fwasm-exceptions -sSUPPORT_LONGJMP=wasm`, master, PR #543), which
+    is the irep baseline from here on: irep 1.06 ms per diff, compiled
+    0.50 ms (0.47x, the same ratio as under the JS scheme); the bench's
+    build 1.15 -> 0.96 ms, diff 1.27 -> 0.55 ms, patch 0.70 -> 0.60 ms,
+    so the DOM path is no longer slower compiled. After it,
+    a run-time class check at a def's entry that hands a receiver of a
+    waiting class to the irep copy, for the defs the declarations
+    cannot settle.
+  - A seeded String container that receives shared Strings settles in
+    its shared form (a poly Array whose boxes hold the handles,
+    matz/spinel#9626), and `--emit-types` reports it as `Array[untyped]`
+    with `widened`: `index_name`, `quoted_list`, `get_state_keys` moved
+    from typed to widened for that (they still compile under
+    `--include-widened`). A report fix is drafted on the Spinel side
+    (branch `fix/emit-types-shared-seed`, WIP) and paused while the
+    Array seed rule on master settles (an Array seed over a box keeps
+    the box since 2026-10-20).
+  - The same collision reaches marshal on the wasm build: `dump_hash`
+    calls `keys` on its untyped object, which could be
+    `IndexedDB::Store#keys` (an await), so marshal's dump path is in
+    the irep there (14/19 typed on wasm, 18/19 on the host and the
+    device, which carry no IndexedDB).
+  - A class-valued receiver (`component_vnode.component_class.new`,
+    RBS `singleton(Component)`, Spinel `class`) reaches every
+    `initialize`; the record's `rbs` string could narrow it.
+  - A `Hash[Integer, ...]` seed is dropped by the extractor (no kind).
+- funicular, after the types: a browser measurement of the VDOM path,
+  then the `while` rewrite of the hot-path defs a block literal keeps
+  in the irep (1.1, option 3; about 15 defs in vdom, differ, patcher
+  and html_serializer), or 1.1 option 2 in the generator.
+
+The generator compiles 43 of 79 shell defs (the Tokenizer, the Parser,
+PipeIO; the rest wait for the scheduler through `exec`, or take
+`*rest`). The shell's compiled defs run once per command line, so a
+device measurement decides whether shell declares at all.
 
 ### 1.5 Beyond the generator
 
@@ -135,21 +333,29 @@ look for `mrb_method_search_vm`. If it does not show, do neither.
 The gems the owner wants compiled that do not declare `spec.aot` yet.
 Counts are typed / widened of the defs the generator sees, from
 `tools/aot-gen --include-widened`. Before a gem is declared it needs a
-picotest suite the twin can run (all of these have one) and a device
-measurement of the path that matters.
+picotest suite the twin can run (shell has none; the others have one)
+and a device measurement of the path that matters.
 
 | Gem | Compiled | Blocked by | Expected gain |
 |---|---|---|---|
-| picoruby-regexp | 2 / 4 of 11 | rest parameters on the String wrappers (1.3), a block literal in `__sub_common` (1.1) | Low: the engine is C; the wrappers are thin |
-| picoruby-vfs | 22 / 40 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); block literals in `Dir.glob` and `load_file` (1.1); `File.open`, `Dir.open`, `VFS.sanitize` and 20 more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
-| picoruby-vim | 3 / 4 of 6 | block literals in `_start` and `initialize` (1.1) | Low here, high through editor, which is compiled already |
+| picoruby-regexp | 2 / 5 of 11 | rest parameters on the String wrappers (1.3) | Low: the engine is C; the wrappers are thin |
+| picoruby-vfs | 28 / 45 of 71 | rest parameters on `gets`, `printf`, `chmod`, `utime` (1.3); `Dir.open`, `VFS.sanitize` and more named at load (`alias`, `private :x`, `VFS.pwd`; 1.4); `load_file` waits through `f.read` on the block parameter (1.4); `VFS.split`, `sanitize_and_split`, `File.dirname` widened (a tuple return) | Moderate: the file I/O is C, the path and mode logic is Ruby |
+| picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (`File.open` in a dependency, 1.4) or `getch` | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
-| picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); a block literal in `load_file` (1.1); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
+| picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
+| picoruby-funicular | 173 / 396 of 756 | waits through untyped receivers on about 290 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 
 ## 3. Decided against
 
+- **A gem is declared only when a measurement shows a gain.** A
+  compiled gem costs code size (funicular's wasm 2141863 -> 2397546 B;
+  on an RP2040 or RP2350 the flash budget is the limit), and a gem whose
+  hot path is C or the JS bridge (picoruby-wasm: `JS::Object#[]`,
+  `method_missing`, `respond_to?` are C) gains nothing from it. No
+  declaration for consistency's sake, and no declaration for a gem
+  that merely passes the twin.
 - **vfs, vram, vim and yaml are not declared.** Measured on pico2_w
   (prod, one irb line, the median of three runs): `File.expand_path` +
   `File.dirname` x200 ran 0.88x, because the compiled def's work is one
