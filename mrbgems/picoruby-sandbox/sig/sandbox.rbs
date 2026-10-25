@@ -4,6 +4,7 @@ class Sandbox
 
   @result: Object | nil
   @script: String
+  @suspended_task: bool
 
   attr_accessor error: Exception?
 
@@ -11,7 +12,9 @@ class Sandbox
   def compile: (String script, ?remove_lv: bool, ?filename: String?) -> bool
   def compile_from_memory: (Integer address, Integer size, ?remove_lv: bool) -> bool
   def resume: () -> bool
-  def suspend: () -> bool
+  def resume_task: () -> bool
+  def suspend: () -> nil
+  def suspend_task: () -> nil
   def terminate: () -> bool
   def close: () -> nil
   def stop: () -> bool

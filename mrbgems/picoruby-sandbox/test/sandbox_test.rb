@@ -50,6 +50,56 @@ class SandboxTest < Picotest::Test
     assert_equal false, sandbox.stop
   end
 
+  # Poll until the sandbox task reaches the state, or give up after 2 sec.
+  def wait_for_state(sandbox, state)
+    n = 0
+    while sandbox.state != state
+      sleep_ms 5
+      n += 5
+      return false if 2000 < n
+    end
+    true
+  end
+
+  def test_suspend_and_resume_a_running_task
+    sandbox = Sandbox.new
+    assert sandbox.compile "sleep_ms 50; :done"
+    sandbox.execute
+    sandbox.suspend
+    assert_equal :SUSPENDED, sandbox.state
+    assert_equal true, sandbox.resume
+    assert wait_for_state(sandbox, :DORMANT)
+    assert_equal :done, sandbox.result
+  end
+
+  # Job control (Ctrl-Z, fg) must not resume a task that suspended itself:
+  # the event the task waits for resumes it. A resume from outside would
+  # run the task before the event.
+  def test_resume_does_not_resume_a_task_that_suspended_itself
+    skip "the helper task needs Task.new" if femtoruby?
+    $sandbox_test_log = []
+    sandbox = Sandbox.new
+    assert sandbox.compile <<~RUBY
+      me = Task.current
+      Task.new { sleep_ms 100; $sandbox_test_log << :event; me.resume }
+      me.suspend
+      $sandbox_test_log << :after
+      :done
+    RUBY
+    sandbox.execute
+    assert wait_for_state(sandbox, :SUSPENDED)
+    sandbox.suspend
+    assert_equal false, sandbox.resume
+    sleep_ms 20
+    assert_equal :SUSPENDED, sandbox.state
+    assert_equal [], $sandbox_test_log
+    assert wait_for_state(sandbox, :DORMANT)
+    assert_equal [:event, :after], $sandbox_test_log
+    assert_equal :done, sandbox.result
+  ensure
+    $sandbox_test_log = nil
+  end
+
   # Regression test for sandbox re-running the previous script
   # when its task was suspended inside a method call.
   def test_execute_runs_new_script_after_suspend_in_method

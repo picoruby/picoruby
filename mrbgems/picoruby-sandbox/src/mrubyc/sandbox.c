@@ -332,13 +332,13 @@ mrbc_sandbox_init(mrbc_vm *vm)
 
   mrbc_define_method(vm, class_Sandbox, "compile", c_sandbox_compile);
   mrbc_define_method(vm, class_Sandbox, "compile_from_memory", c_sandbox_compile_from_memory);
-  mrbc_define_method(vm, class_Sandbox, "resume",  c_sandbox_resume);
+  mrbc_define_method(vm, class_Sandbox, "resume_task", c_sandbox_resume);
   mrbc_define_method(vm, class_Sandbox, "execute", c_sandbox_execute);
   mrbc_define_method(vm, class_Sandbox, "state",   c_sandbox_state);
   mrbc_define_method(vm, class_Sandbox, "result",  c_sandbox_result);
   mrbc_define_method(vm, class_Sandbox, "error",   c_sandbox_error);
   mrbc_define_method(vm, class_Sandbox, "stop",    c_sandbox_stop);
-  mrbc_define_method(vm, class_Sandbox, "suspend", c_sandbox_suspend);
+  mrbc_define_method(vm, class_Sandbox, "suspend_task", c_sandbox_suspend);
   mrbc_define_method(vm, class_Sandbox, "free_parser", c_sandbox_free_parser);
   mrbc_define_method(vm, class_Sandbox, "exec_mrb", c_sandbox_exec_mrb);
   mrbc_define_method(vm, class_Sandbox, "exec_mrb_from_memory", c_sandbox_exec_mrb_from_memory);

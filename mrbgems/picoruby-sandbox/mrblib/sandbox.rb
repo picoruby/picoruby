@@ -4,6 +4,28 @@ class Sandbox
 
   TIMEOUT = 10_000 # 10 sec
 
+  # suspend and resume are job control (Ctrl-Z and fg in the shell). A
+  # task that suspended itself waits for an event, and the event resumes
+  # it: JS::Promise#await on wasm, or Task#suspend with a resume from
+  # another task. suspend leaves such a task as it is, and resume does
+  # not resume it. A resume from outside would run the task before the
+  # event, and the resume from the event would then hit a later suspend
+  # of the same task. @suspended_task records that suspend changed the
+  # task state, so resume undoes only that.
+  def suspend
+    unless state == :SUSPENDED
+      suspend_task
+      @suspended_task = true
+    end
+    nil
+  end
+
+  def resume
+    return false unless @suspended_task
+    @suspended_task = false
+    resume_task
+  end
+
   def wait(timeout: TIMEOUT)
     sleep_ms 5
     signal_self_manage = Machine.pop_signal_self_manage
