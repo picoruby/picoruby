@@ -4,15 +4,22 @@ class Sandbox
 
   TIMEOUT = 10_000 # 10 sec
 
-  # suspend and resume are job control (Ctrl-Z and fg in the shell). A
-  # task that suspended itself waits for an event, and the event resumes
-  # it: JS::Promise#await on wasm, or Task#suspend with a resume from
-  # another task. suspend leaves such a task as it is, and resume does
-  # not resume it. A resume from outside would run the task before the
-  # event, and the resume from the event would then hit a later suspend
-  # of the same task. @suspended_task records that suspend changed the
-  # task state, so resume undoes only that.
+  # The task state :SUSPENDED has two sources:
+  # - Sandbox#suspend. This is job control (Ctrl-Z and fg in the shell).
+  #   Nobody is going to resume the task on its own, so wait returns.
+  # - The task suspends itself to wait for an event: JS::Promise#await on
+  #   wasm (issue #545), or Task#suspend with a resume from another task.
+  #   The event resumes the task, so wait keeps waiting, as it does for
+  #   sleep, and resume from outside must not run the task before the
+  #   event (the resume from the event would then hit a later suspend of
+  #   the same task).
+  # @suspended records that suspend was called. wait clears it on entry:
+  # a suspend from an earlier wait (irb suspends the sandbox between
+  # lines) must not end the next one.
+  # @suspended_task records that suspend changed the task state, so
+  # resume undoes only that.
   def suspend
+    @suspended = true
     unless state == :SUSPENDED
       suspend_task
       @suspended_task = true
@@ -27,6 +34,7 @@ class Sandbox
   end
 
   def wait(timeout: TIMEOUT)
+    @suspended = false
     sleep_ms 5
     signal_self_manage = Machine.pop_signal_self_manage
     loop(timeout, signal_self_manage)
@@ -73,7 +81,7 @@ class Sandbox
 
   def loop(timeout, signal_self_manage)
     n = 5
-    while self.state != :DORMANT && self.state != :SUSPENDED do
+    while self.state != :DORMANT && !(@suspended && self.state == :SUSPENDED) do
       unless signal_self_manage
         # poll_signal reports the pending signal as a value (:INT / :TSTP / nil)
         # instead of raising Interrupt / SignalException, so Ctrl-C and Ctrl-Z

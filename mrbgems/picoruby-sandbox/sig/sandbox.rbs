@@ -4,6 +4,7 @@ class Sandbox
 
   @result: Object | nil
   @script: String
+  @suspended: bool
   @suspended_task: bool
 
   attr_accessor error: Exception?
