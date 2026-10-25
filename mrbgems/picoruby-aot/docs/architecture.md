@@ -77,9 +77,10 @@ The R2P2 configs build with AOT when `PICORB_AOT=1` is set. FemtoRuby
 (mruby/c) ignores `aot`. A gem without an mrblib keeps the plain path.
 
 The gems that declare `spec.aot`: picoruby-json, picoruby-editor,
-picoruby-midibase-mml, picoruby-keyboard, picoruby-uri and
-picoruby-marshal (marshal with `aot_include_widened`). picoruby-aot-probe
-declares it for the twin only.
+picoruby-midibase-mml, picoruby-keyboard, picoruby-uri, picoruby-marshal,
+picoruby-shell and picoruby-funicular (marshal, shell and funicular with
+`aot_include_widened`). picoruby-aot-probe declares it for the twin only.
+Shell is not in the wasm build; funicular is only there.
 
 ## 3. Which defs compile
 
@@ -487,11 +488,25 @@ three runs, the irep against the same firmware with the gem compiled:
 | editor | `display_width` | 9.2x |
 | uri | `URI.parse` x200 | 1.18x |
 | marshal | `Marshal.load(Marshal.dump(h))` x200 | 2.14x (widened defs included) |
+| shell | `Shell::Parser.new("ls").parse` x100 | 2.2x (6.7 -> 3.1 ms per parse) |
+| shell | a 33-character pipeline parsed x100 | 3.0x (52 -> 17.5 ms per parse) |
+
+The shell's parser is a share of every command cycle: `echo hi` from
+the keystroke to the next prompt went from 57 to 41 ms on the same
+board. The 21 shell defs that wait for the scheduler (the exec path
+through `Sandbox#wait`, the setup sleeps, `getch`) stay in the irep.
 
 Flash: about +16 KB of ELF text for uri, vfs, vram and marshal
-together, +51 KB for json, editor, mml and keyboard. RAM: about +1 KB.
-The generated C is 2 to 3 times the size of the irep it replaces on
-Thumb-2.
+together, +51 KB for json, editor, mml and keyboard, +10.7 KB for shell.
+RAM: about +1 KB. The generated C is 2 to 3 times the size of the irep
+it replaces on Thumb-2.
+
+Funicular runs on the wasm build only, so its measurement is in the
+browser (Chrome, a keyed list of 200 items, `~/work/funicular-bench`):
+one VDOM diff takes 1.06 ms in the irep and 0.50 ms compiled, the
+bench's build 1.15 -> 0.96 ms, patch 0.70 -> 0.60 ms. The wasm grows
+from 2141863 to 2397546 bytes. The remaining time of the diff is the
+GC, the method lookups before the direct calls and the DOM calls.
 
 ## 6. Tools and layout
 

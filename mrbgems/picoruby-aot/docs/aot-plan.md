@@ -105,155 +105,75 @@ wrappers among them.
   to no scope as a scheduler call by name (a `sleep` or `join` on a C
   class), so the change needs a wait list of the C classes first.
 
-### 1.6 picoruby-shell and picoruby-funicular
+### 1.5 picoruby-shell and picoruby-funicular: the defs still in the irep
 
-Both are declared now. The shell got its picotest suite (tokenizer,
-parser, pipe) and `spec.aot` once a pico2_w showed the parser at 6.7 ms
-for "ls" and 52 ms for a 33-character pipeline in the irep, 3.1 and
-17.5 ms compiled (a command cycle `echo hi` 57 -> 41 ms): 45 of 79 defs
-compile, the 21 that wait for real (the exec path through
-`Sandbox#wait`, the setup sleeps, `getch`) stay in the irep, and a
-`Task.list` or `terminate` no longer counts as a wait. Freeing the exec
-path would take a launch/await split with the wait at `run_shell`,
-which is not planned: the parser is where the time was.
+Funicular compiles 173 typed / 396 widened of 756 defs on the wasm
+build (vdom.rb 29 of 35, differ.rb 9 of 9, patcher.rb 5 of 5; the VDOM
+path from `Differ.diff` through `Patcher#apply` and `Renderer#render`
+is compiled). The measurement is in `architecture.md`, section 5.
+Spinel refuses 12 sites: four by the String-sharing seal (a mutable
+String handed on by a route the rule cannot carry yet, matz/spinel#9258;
+`component.rb:1054`, `db.rb:2410`, `html_serializer.rb:75`,
+`patcher.rb:250`) and eight by codegen (`instance_method`,
+`instance_exec`, `private_instance_methods`, `define_method` with a
+computed name, `Object#extend`, a VNode argument no conversion keeps).
+`--emit-types` writes the JSON with the refusals in it, so the defs of
+a refused unit stay in the irep and every other unit is typed. What
+keeps the rest in the irep, and what would free it:
 
-The owner's next targets. Both give their types now. Shell passes
-Spinel since picoruby-require defines `$LOAD_PATH = []` and the shell
-changes it in place (Spinel takes `$LOAD_PATH` as read-only, as CRuby
-does). Funicular is refused at 12 sites: four by the String-sharing
-seal (a mutable String handed on by a route the rule cannot carry yet,
-matz/spinel#9258; `component.rb:1054`, `db.rb:2410`,
-`html_serializer.rb:75`, `patcher.rb:250`) and eight by codegen
-(`instance_method`, `instance_exec`, `private_instance_methods`,
-`define_method` with a computed name, `Object#extend`, a VNode argument
-no conversion keeps).
-Since matz/spinel#9703 `--emit-types` writes the JSON with those
-refusals in it, so the generator reads the types of every other unit;
-the defs of a refused unit stay in the irep. What is left before either
-can declare:
-
-- shell has no picotest suite; the twin needs one before the gem can
-  declare.
+- The shell's exec path (21 defs through `Sandbox#wait`, the setup
+  sleeps, `getch`) is not planned: a launch/await split with the wait
+  at `run_shell` would free it, and the parser is where the time was.
 - funicular: the types. On wasm a JS call may suspend the task
   (`JS::Promise#await`, `IndexedDB::Store#[]`), and the wait search
   takes a call on an untyped receiver for every def of its name, so an
-  untyped `x[]` or `x.each` keeps its caller in the irep. The wasm twin
-  found the two shapes that ran wrong when compiled (an `await` under a
-  cfunc returns at once; the `included` hook) and the search is sound
-  now, at 117 typed / 227 widened of 747 on the wasm build, `VDOM.diff`,
-  `VDOM.patch` and `Renderer#render` in the irep. What is left behind
-  the waits, by their roots (the first call of each excluded def that
-  is a primitive or resolves to another gem's def):
+  untyped `x[]`, `x.each` or `x.empty?` keeps its caller in the irep
+  (about 60 defs reach `IndexedDB::KVS` that way). What is behind the
+  waits, by their roots (the first call of each excluded def that is a
+  primitive or resolves to another gem's def):
   - A Hash value or an Array element Spinel can only box
     (`@messages.each { |attr, msgs| msgs.each }`: `msgs` is poly) on
     about 50 roots, which then meet `IndexedDB::Store#each`, `#empty?`,
     `#keys`, `#delete`. Spinel has no typed-value Hash beyond `int` and
     `string` values, so the RBS (`Hash[Symbol, Array[String]]`) cannot
     say more. A Spinel topic, not a gem one.
-  - The `Hash[Symbol, ...]` seeds, measured on 2026-10-20 (Spinel
-    af2466421; `tools` has no task for it, the count came from the RBS
-    and the JSON): the RBS declares 164 such slots (134 parameters, 25
-    returns, 5 ivars). 82 of them are the `Tags` methods and the like,
-    whose Ruby is a `define_method` loop: Spinel refuses the loop
-    (`0_tags.rb:41`), and the generator's stub carries their RBS
-    signatures instead, so a call of `div` is typed and the seed holds
-    there by construction. Of the 82 the JSON types from the gem's own
-    Ruby, 33 keep the seed and 49 give way to untyped. The `why`
-    chain of each of the 49 names its source, and none is a dynamic
-    `send` (the seven `send` sites are one-argument sends on self, whose
-    arms are the receiver's own methods since matz/spinel#9654). The
-    sources are: a value born untyped at the call (an untyped ivar
-    `@suspense_data`, a Proc call `params_proc.call(self)`, an untyped
-    return `styles_definitions`); an empty literal default `props = {}`
+  - The `Hash[Symbol, ...]` seeds: the RBS declares 164 such slots,
+    and of the 82 the JSON types from the gem's own Ruby, 49 give way
+    to untyped. Their sources (the `why` chain of each) are a value
+    born untyped at the call (an untyped ivar `@suspense_data`, a Proc
+    call `params_proc.call(self)`, an untyped return
+    `styles_definitions`), an empty literal default `props = {}`
     (`ViewContext#tag`, `#component`, `#build_element`,
-    `#normalize_props`); an element of a poly Array (`patch[1]`,
-    `hash[key] || {}`); and returns the compiler records no source for.
-    So the order is: type the sources (a typed constant for an empty
+    `#normalize_props`), an element of a poly Array (`patch[1]`,
+    `hash[key] || {}`), and returns the compiler records no source for.
+    The order is: type the sources (a typed constant for an empty
     default, the ivars and returns), and only then look at the seed
-    rule. The two refusals cost little in types: `0_tags.rb:41` hides
-    the tag bodies and the module body's statements, `router.rb:19`
-    (`Object#extend` of an anonymous module) hides `Router#initialize`.
-    Inlining the tag list into the `each` would lift the first (Spinel
-    unrolls a literal list), but on af2466421 the unrolled bodies read
-    the block variable as nil (reported upstream); the router's helpers
-    are defined on a `Module.new` by name at run time, which no AOT form
-    expresses, so that refusal stays. The earlier `Hash[Symbol,
-    Integer]` parser gap is fixed upstream (matz/spinel PR #9315).
-  - The wait search reads the RBS where Spinel left a receiver untyped
-    (architecture.md, section 2): a parameter, an instance variable, a
-    block parameter over a declared Array or Hash, or the value of a
-    method of a declared class. With funicular's patches as a Data
-    (`VDOM::Patch`, picoruby/funicular `fix/patch-data`) that took the
-    gem from 127 / 254 to 159 / 407 of 756, the Differ to 9 of 9 and
-    vdom.rb to 23 of 35. The search then took the `is_a?` guards, the
-    locals a def writes from declared values, the class's own instance
-    variables and a `singleton(X)` seed (the RBS of funicular declares
-    `component_class`, the event listener ids and the suspense timers
-    now): 182 / 457, vdom.rb 28 of 35, html_serializer.rb 10 of 10,
-    patcher.rb 3 of 5, `Renderer#render` and `render_component`
-    compiled. `Patcher#apply`, `#create_element` and
-    `Renderer#render_element` were left by a nested block (1.1), not by
-    a wait; funicular writes those loops as `while` now (its own rule
-    for the 4KB stack as well), and the VDOM path compiles from
-    `Differ.diff` through `Patcher#apply` and `Renderer#render`: 183 /
-    460 of 756, vdom.rb 29 of 35, patcher.rb 5 of 5. The wasm twin
-    then differed on the DB epoch tests: `DB.persist_snapshot` was
-    compiled although `store[k] = v` reaches `IndexedDB::KVS#[]=`,
-    `store.put` and `Store#put`, which awaits; inside a dependency the
-    search had followed no receiver but a constant. It now resolves a
-    dependency's receiver as it resolves this gem's (the RBS, a guard),
-    and about 60 defs of funicular that reached `IndexedDB::KVS` through
-    an untyped `[]`, `[]=` or `empty?` went back to the irep with it.
-    The declarations that brought the VDOM path back: `child_nodes`
-    takes a `JS::Object`, `Component#instance` is a `Component?`,
-    `Patcher` declares `@doc`, `Component` declares `@state` and
-    `@suspense_states`, the accessors declare their hashes; and the
-    generator reads an element of a declared `Array` or `Hash`, a `#: T`
-    annotation on a local, a declaration of an ancestor class, and a
-    guard ahead of Spinel's type: 173 / 396 of 756, vdom.rb 29 of 35,
-    differ.rb 9 of 9, patcher.rb 5 of 5. What vdom.rb still
-    keeps in the irep is a `return` in a block (the two validators,
-    1.1), `super` in three `initialize` (3.1) and a rest parameter
-    (1.3).
-  - The browser measurement (~/work/funicular-bench, Chrome, a keyed
-    list of 200 items diffed and patched 20 times; `bench_diff` runs
-    2000 diffs alone). The first AOT build ran the diff 1.6x SLOWER than
-    the irep: every call in a widened def was `mrb_funcall_argv` (1254
-    sites), every `each` made a Proc, and the VM's send is cheaper than
-    a funcall from C. Three rounds of generator work, each checked with
-    a Performance profile (`--profiling-funcs` keeps the names,
-    `PICORB_WASM_PROFILING=1`): the generic guarded helpers on untyped
-    receivers, `aot_read0` for attr and Data readers, direct calls to
-    singleton defs through a constant receiver; then C loops for the
-    core iterations, a slot per constant read site, and a method cache
-    of 1024 entries for the wasm build (`mrb_vm_find_method` took a
-    tenth of the diff); then the iteration blocks expanded in place.
-    Per round: diff 1.44 -> 0.74 ms (irep 1.44; 2000 diffs alone 1.39 ->
-    0.65 ms, 2.1x), build 1.39 -> 1.27 ms, patch 0.69 -> 0.75 ms (the
-    DOM calls and emscripten's JS trampolines, which the AOT does not
-    touch). What remains in the profile of the diff: the GC (335 ms of
-    about 2 s; Patch objects, the key map, temporaries), the method
-    lookups before each direct call and reader (`aot_method_is`,
-    `aot_method_same`, `aot_read0`: about 220 ms), and the JS
-    trampolines of emscripten's setjmp/longjmp (about 350 ms). The
-    trampolines went with picoruby-wasm's move to WebAssembly exceptions
-    (`-fwasm-exceptions -sSUPPORT_LONGJMP=wasm`, master, PR #543), which
-    is the irep baseline from here on: irep 1.06 ms per diff, compiled
-    0.50 ms (0.47x, the same ratio as under the JS scheme); the bench's
-    build 1.15 -> 0.96 ms, diff 1.27 -> 0.55 ms, patch 0.70 -> 0.60 ms,
-    so the DOM path is no longer slower compiled. After it,
-    a run-time class check at a def's entry that hands a receiver of a
-    waiting class to the irep copy, for the defs the declarations
-    cannot settle.
+    rule. The refusals `0_tags.rb:41` (the `define_method` loop; the
+    generator's stub carries the RBS signatures of the tags instead)
+    and `router.rb:19` (`Object#extend` of a `Module.new`, which no
+    AOT form expresses) stay.
+  - What vdom.rb keeps in the irep is a `return` in a block (the two
+    validators, 1.1), `super` in three `initialize` (1.4) and a rest
+    parameter (1.3).
+  - For the defs the declarations cannot settle: a run-time class check
+    at a def's entry that hands a receiver of a waiting class to the
+    irep copy.
+  - What remains in the browser profile of the diff, after the
+    generator rounds and WebAssembly exceptions: the GC (about a sixth
+    of the diff; Patch objects, the key map, temporaries, a funicular
+    topic), the method lookups before each direct call and reader
+    (`aot_method_is`, `aot_method_same`, `aot_read0`, about a tenth;
+    1.6), and the DOM calls. The profile recipe: `--profiling-funcs`
+    keeps the names (`PICORB_WASM_PROFILING=1`), a Chrome Performance
+    trace, and the bench pages in `~/work/funicular-bench`.
   - A seeded String container that receives shared Strings settles in
     its shared form (a poly Array whose boxes hold the handles,
     matz/spinel#9626), and `--emit-types` reports it as `Array[untyped]`
-    with `widened`: `index_name`, `quoted_list`, `get_state_keys` moved
-    from typed to widened for that (they still compile under
-    `--include-widened`). A report fix is drafted on the Spinel side
-    (branch `fix/emit-types-shared-seed`, WIP) and paused while the
-    Array seed rule on master settles (an Array seed over a box keeps
-    the box since 2026-10-20).
+    with `widened`: `index_name`, `quoted_list`, `get_state_keys` are
+    widened for that (they still compile under `--include-widened`). A
+    report fix is drafted on the Spinel side (branch
+    `fix/emit-types-shared-seed`, WIP) and paused while the Array seed
+    rule on master settles.
   - The same collision reaches marshal on the wasm build: `dump_hash`
     calls `keys` on its untyped object, which could be
     `IndexedDB::Store#keys` (an await), so marshal's dump path is in
@@ -263,17 +183,8 @@ can declare:
     RBS `singleton(Component)`, Spinel `class`) reaches every
     `initialize`; the record's `rbs` string could narrow it.
   - A `Hash[Integer, ...]` seed is dropped by the extractor (no kind).
-- funicular, after the types: a browser measurement of the VDOM path,
-  then the `while` rewrite of the hot-path defs a block literal keeps
-  in the irep (1.1, option 3; about 15 defs in vdom, differ, patcher
-  and html_serializer), or 1.1 option 2 in the generator.
 
-The generator compiles 43 of 79 shell defs (the Tokenizer, the Parser,
-PipeIO; the rest wait for the scheduler through `exec`, or take
-`*rest`). The shell's compiled defs run once per command line, so a
-device measurement decides whether shell declares at all.
-
-### 1.5 Beyond the generator
+### 1.6 Beyond the generator
 
 Two ideas cut the method searches that the generated C makes. Measure
 first: the device build uses `MRB_CONSTRAINED_BASELINE_PROFILE`, which
@@ -333,8 +244,8 @@ look for `mrb_method_search_vm`. If it does not show, do neither.
 The gems the owner wants compiled that do not declare `spec.aot` yet.
 Counts are typed / widened of the defs the generator sees, from
 `tools/aot-gen --include-widened`. Before a gem is declared it needs a
-picotest suite the twin can run (shell has none; the others have one)
-and a device measurement of the path that matters.
+picotest suite the twin can run (each of these has one) and a device
+measurement of the path that matters.
 
 | Gem | Compiled | Blocked by | Expected gain |
 |---|---|---|---|
@@ -343,7 +254,6 @@ and a device measurement of the path that matters.
 | picoruby-vim | 1 / 1 of 6 | every def waits through editor's `load_file_into_buffer`, `save_file_from_buffer` (`File.open` in a dependency, 1.4) or `getch` | Low here, high through editor, which is compiled already |
 | picoruby-vram | 5 / 5 of 5 | nothing | Low: `VRAM` itself is C; `Delegatable` forwards |
 | picoruby-yaml | 5 / 11 of 13 | `load`, `dump`, `parse`, `serialize`, `parse_value` and the two split helpers are widened (a YAML value is any type); `load_file` waits through `File.open` in a dependency (1.4); a bare `raise` in `is_integer?` (1.2) | Low: the parser is line-based on C String methods |
-| picoruby-funicular | 173 / 396 of 756 | waits through untyped receivers on about 290 (1.6: the types); blocks with `break`, `return` or an outer-local write (1.1), adjacent interpolated strings (1.4), a begin inside a block (1.2), `*rest` and `**rest` (1.3) behind them | Unknown: VDOM diff, patch and render are in the irep until the types come; then a browser measurement |
 
 The measurements that keep them undeclared are in section 3.
 
