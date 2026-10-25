@@ -192,8 +192,16 @@ class PSGSynthTest < Picotest::Test
   end
 
   def process(event, source = :mml, priority = 0)
+    handled = @synth.handled_count
     @synth.handle(event, source: source, priority: priority)
-    Task.pass
+    settle(handled)
+  end
+
+  # Wait until the synth task has finished the event pushed after
+  # `handled` events. Task.pass is not a barrier: the synth task can be
+  # preempted inside an event (a GC pause exhausts its timeslice).
+  def settle(handled)
+    assert wait_until { handled < @synth.handled_count }
   end
 
   def use_synth(voice_pools)
@@ -202,9 +210,6 @@ class PSGSynthTest < Picotest::Test
     @synth = PSG::Synth.new(@driver, voice_pools: voice_pools).start
   end
 
-  # The synth task may be preempted in the middle of handling an event
-  # (a GC pause is enough to exhaust its timeslice), so a single Task.pass
-  # or a fixed sleep is not a reliable barrier. Poll instead.
   def wait_until(timeout_ms = 500)
     deadline = Task.tick + timeout_ms
     while !yield
@@ -225,8 +230,9 @@ class PSGSynthTest < Picotest::Test
   end
 
   def test_direct_handle_uses_default_source
+    handled = @synth.handled_count
     @synth.handle([:note_on, 0, 60, 100])
-    Task.pass
+    settle(handled)
     assert_not_nil @synth.allocator.voice_for(
       0,
       60,
@@ -410,13 +416,15 @@ class PSGSynthTest < Picotest::Test
 
   def test_named_voice_program_can_be_started_and_stopped
     PSG.define_voice_program(:test_effect, [[100, 2, 15, 100]])
+    handled = @synth.handled_count
     @synth.trigger_program(:test_effect, source: :game)
-    Task.pass
+    settle(handled)
     voice = @synth.allocator.voice_for(PSG::Synth::PROGRAM_CHANNEL, :test_effect.object_id, source: :game)
     assert_not_nil voice
 
+    handled = @synth.handled_count
     @synth.stop_program(:test_effect, source: :game)
-    Task.pass
+    settle(handled)
     assert_nil @synth.allocator.voice_for(PSG::Synth::PROGRAM_CHANNEL, :test_effect.object_id, source: :game)
   end
 
