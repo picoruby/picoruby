@@ -62,11 +62,15 @@ module Kernel
   def require_file(name)
     lps = load_paths(name)
     lpi = 0
+    exts = if name.end_with?(".rb") || name.end_with?(".mrb")
+             [""]
+           else
+             [".mrb", ".rb"]
+           end
     while lpi < lps.size
-      exts = ["mrb", "rb"]
       ei = 0
       while ei < exts.size
-        path = File.expand_path("#{name}.#{exts[ei]}", lps[lpi])
+        path = File.expand_path("#{name}#{exts[ei]}", lps[lpi])
         if File.file?(path)
           return (required?(path) ? false : load_file(path))
         end
