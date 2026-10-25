@@ -788,7 +788,7 @@ static struct {
   mrb_method_t hash_each, hash_each_pair, hash_keys, hash_values, hash_empty_p;
   mrb_method_t int_times;
   mrb_method_t obj_is_a_p, obj_kind_of_p, obj_nil_p, nil_nil_p;
-  mrb_method_t str_to_s, str_to_sym, sym_to_s, sym_to_sym;
+  mrb_method_t str_to_s, str_to_sym, str_include_p, sym_to_s, sym_to_sym;
   mrb_func_t data_ref[4], data_ref_env;
   mrb_func_t attr_reader;
 } aot_bm;
@@ -841,6 +841,7 @@ aot_methods_init(mrb_state *mrb)
   aot_bm.nil_nil_p = aot_method_of(mrb, mrb->nil_class, MRB_SYM_Q(nil));
   aot_bm.str_to_s = aot_method_of(mrb, s, MRB_SYM(to_s));
   aot_bm.str_to_sym = aot_method_of(mrb, s, MRB_SYM(to_sym));
+  aot_bm.str_include_p = aot_method_of(mrb, s, MRB_SYM_Q(include));
   aot_bm.sym_to_s = aot_method_of(mrb, y, MRB_SYM(to_s));
   aot_bm.sym_to_sym = aot_method_of(mrb, y, MRB_SYM(to_sym));
   /* The body of an attr_reader (class.c, an env proc that holds the ivar
@@ -944,6 +945,10 @@ aot_include_p(mrb_state *mrb, mrb_value r, mrb_value v)
       if (mrb_equal(mrb, RARRAY_PTR(r)[i], v)) return mrb_true_value();
     }
     return mrb_false_value();
+  }
+  if (mrb_string_p(r) && mrb_string_p(v) &&
+      aot_method_same(mrb, r, MRB_SYM_Q(include), aot_bm.str_include_p)) {
+    return mrb_bool_value(0 <= mrb_str_index(mrb, r, RSTRING_PTR(v), RSTRING_LEN(v), 0));
   }
   return aot_send1(mrb, r, MRB_SYM_Q(include), v);
 }

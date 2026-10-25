@@ -488,13 +488,13 @@ three runs, the irep against the same firmware with the gem compiled:
 | editor | `display_width` | 9.2x |
 | uri | `URI.parse` x200 | 1.18x |
 | marshal | `Marshal.load(Marshal.dump(h))` x200 | 2.14x (widened defs included) |
-| shell | `Shell::Parser.new("ls").parse` x100 | 2.2x (6.7 -> 3.1 ms per parse) |
-| shell | a 33-character pipeline parsed x100 | 3.0x (52 -> 17.5 ms per parse) |
+| shell | `Shell::Parser.new("ls").parse` x100 | 2.3x (5.3 -> 2.3 ms per parse) |
+| shell | a 33-character pipeline parsed x100 | 4.0x (32.9 -> 8.3 ms per parse) |
 
-The shell's parser is a share of every command cycle: `echo hi` from
-the keystroke to the next prompt went from 57 to 41 ms on the same
-board. The 21 shell defs that wait for the scheduler (the exec path
-through `Sandbox#wait`, the setup sleeps, `getch`) stay in the irep.
+The shell's parser is a share of every command cycle (about 1 ms per
+character in the irep, a quarter of that compiled). The 21 shell defs
+that wait for the scheduler (the exec path through `Sandbox#wait`, the
+setup sleeps, `getch`) stay in the irep.
 
 Flash: about +16 KB of ELF text for uri, vfs, vram and marshal
 together, +51 KB for json, editor, mml and keyboard, +10.7 KB for shell.

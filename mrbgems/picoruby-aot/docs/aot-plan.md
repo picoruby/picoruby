@@ -186,11 +186,31 @@ keeps the rest in the irep, and what would free it:
 
 ### 1.6 Beyond the generator
 
-Two ideas cut the method searches that the generated C makes. Measure
-first: the device build uses `MRB_CONSTRAINED_BASELINE_PROFILE`, which
-defines `MRB_NO_METHOD_CACHE`, so on the device every search walks the
-ancestor chain and its khash tables. Profile a hot gem on the device and
-look for `mrb_method_search_vm`. If it does not show, do neither.
+Two ideas cut the method searches that the generated C makes. The
+device build uses `MRB_CONSTRAINED_BASELINE_PROFILE`, which defines
+`MRB_NO_METHOD_CACHE`, so on the device every search walks the ancestor
+chain and its khash tables.
+
+The profile (pico2_w prod with AOT, an irb loop halted at random by gdb
+60 times, the innermost frame counted; the recipe is `gdb_sample.sh`
+and `tally_samples.rb` in the session scratchpad: halt, `bt 10`,
+continue, with `set pagination off`):
+
+| Loop | Samples in `mrb_vm_find_method` | From `aot_method_same` / `aot_method_is` |
+|---|---|---|
+| `Shell::Parser` on a 33-character pipeline | 21 of 60 | 4 |
+| `JSON.parse` of a 90-byte object | 8 of 60 | 7 |
+
+In the shell 17 of the 21 came from `Array#include?` on the tokenizer's
+character sets: `mrb_equal` searched `String#==` for every element, and
+`mrb_funcall_argv` searched it again. The tokenizer tests its character
+sets with `String#include?` now (one C scan), and mruby gets an
+`idx_class` slot for `String#==` so that `mrb_equal` and `OP_EQ` compare
+two Strings from C (~/work/mruby branch `string-eq-slot`). In JSON the
+searches are `aot_nil_p` on an untyped `byte` and one `aot_method_is`.
+The guard searches of the generated C are 7 to 12 percent of the
+samples: the epoch counter below would gain that much on these paths,
+so it waits for a path where the share is larger.
 
 - A lighter funcall for a resolved method. `aot_method_is` and the
   guarded helpers search the method, then fall back to `mrb_funcall_argv`,
@@ -227,7 +247,8 @@ look for `mrb_method_search_vm`. If it does not show, do neither.
     bit. `RClass` keeps no list of its subclasses, so there is no way to
     propagate the change. The epoch counter is the practical form.
 
-  Preferred: the epoch counter, after the profile shows the search.
+  Preferred: the epoch counter, when a profile shows the guard searches
+  above the 7 to 12 percent measured so far.
 - `mrb_funcall_argv_kw(mrb, self, mid, argc, argv, kw_hash)`: a funcall
   that sets the frame's keyword flag, so a call with keywords from C
   needs no Ruby trampoline. An mruby proposal.
