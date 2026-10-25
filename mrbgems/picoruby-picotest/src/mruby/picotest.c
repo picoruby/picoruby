@@ -120,6 +120,7 @@ picotest_double_define_method(mrb_state *mrb, mrb_value self)
     snprintf(buf, sizeof(buf), "S_%p_%d", mrb_ptr(doubled_obj), method_name);
     singleton_class = mrb_define_class(mrb, buf, super_class);
     mrb_basic_ptr(doubled_obj)->c = singleton_class;
+    mrb_field_write_barrier(mrb, mrb_basic_ptr(doubled_obj), (struct RBasic*)singleton_class);
     mrb_define_method_id(mrb, singleton_class, method_name, mruby_method_missing_for_double, MRB_ARGS_ANY());
     return mrb_str_new_cstr(mrb, buf);
   } else if (tt == MRB_TT_CLASS || tt == MRB_TT_MODULE || tt == MRB_TT_SCLASS) {
@@ -130,6 +131,12 @@ picotest_double_define_method(mrb_state *mrb, mrb_value self)
     singleton_class->mt = NULL;
     singleton_class->iv = NULL;
     mrb_basic_ptr(doubled_obj)->c = singleton_class;
+    // The doubled class may be black (already marked) while the new
+    // singleton class is white. Without the barrier an incremental GC
+    // sweeps the singleton class and the method lookup walks a freed
+    // RClass (crashed after six stub(File) calls in one test file).
+    // prepare_singleton_class in class.c does the same.
+    mrb_field_write_barrier(mrb, mrb_basic_ptr(doubled_obj), (struct RBasic*)singleton_class);
     mrb_define_method_id(mrb, singleton_class, method_name, mruby_method_missing_for_double, MRB_ARGS_ANY());
     // Return class pointer as integer (for remove_singleton to find it)
     return mrb_int_value(mrb, (mrb_int)(uintptr_t)singleton_class);
