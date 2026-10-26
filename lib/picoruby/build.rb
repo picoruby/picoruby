@@ -6,6 +6,37 @@ module MRuby
   end
 
   class Build
+    # The mruby-compiler gem the build compiles with: the submodule under
+    # mrbgems by default. $PICORB_MRUBY_COMPILER names another checkout (a
+    # path, relative to MRUBY_ROOT or absolute), e.g. the copy inside the
+    # mruby submodule while a change there is tried before mruby-compiler2
+    # syncs it.
+    def mruby_compiler_dir
+      @mruby_compiler_dir ||= if (dir = ENV['PICORB_MRUBY_COMPILER']) && !dir.empty?
+        File.expand_path(dir, MRUBY_ROOT)
+      else
+        "#{MRUBY_ROOT}/mrbgems/mruby-compiler"
+      end
+    end
+
+    # Every request for the core gem (a gembox, a dependency, build_mrbc_exec)
+    # lands on that checkout. mruby-bin-mrbc comes from the same place when
+    # that checkout has one beside it: the two gems are synced from mruby
+    # together, and the tool's rake names the compiler's Prism headers.
+    alias_method :original_gem, :gem
+    def gem(gem_src, &block)
+      if ENV['PICORB_MRUBY_COMPILER'] && gem_src.is_a?(Hash)
+        case gem_src[:core]
+        when 'mruby-compiler'
+          gem_src = mruby_compiler_dir
+        when 'mruby-bin-mrbc'
+          mrbc_dir = File.join(File.dirname(mruby_compiler_dir), 'mruby-bin-mrbc')
+          gem_src = mrbc_dir if File.exist?("#{mrbc_dir}/mrbgem.rake")
+        end
+      end
+      original_gem(gem_src, &block)
+    end
+
     # Override
     def build_mrbc_exec
       gem core: 'mruby-compiler' unless @gems['mruby-compiler']
@@ -43,11 +74,14 @@ module MRuby
     alias_method :vm_mrubyc?, :femtoruby?
 
     def common
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/include"
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include"
+      cc.include_paths << "#{mruby_compiler_dir}/include"
       # Prism's generated headers (ast.h, diagnostic.h) are written under
       # build_root, not into the submodule, so every gem needs this path too.
+      # It goes before the checkout's include directory: a checkout that once
+      # generated its templates in place still holds them (ignored by git),
+      # and those are from the Prism of that time.
       cc.include_paths << "#{build_root}/prism/include"
+      cc.include_paths << "#{mruby_compiler_dir}/lib/prism/include"
       # Workaround: To avoid error in compiling gem_init.c
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include"
       # Pass PICORUBY_VERSION to mruby-compiler
@@ -67,7 +101,7 @@ module MRuby
     end
 
     def rite_version
-      mrc_dump = File.read("#{MRUBY_ROOT}/mrbgems/mruby-compiler/include/mrc_dump.h")
+      mrc_dump = File.read("#{mruby_compiler_dir}/include/mrc_dump.h")
       ident = mrc_dump[/#define RITE_BINARY_IDENT\s+"(.+?)"/, 1]
       major = mrc_dump[/#define RITE_BINARY_MAJOR_VER\s+"(.+?)"/, 1]
       minor = mrc_dump[/#define RITE_BINARY_MINOR_VER\s+"(.+?)"/, 1]

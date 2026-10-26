@@ -211,11 +211,10 @@ mrb_sandbox_result(mrb_state *mrb, mrb_value self)
 {
   SS();
 
-  /* Built on the mrb heap, not through pm_options_scopes_init() and
-     friends: those take from Prism's allocator, which is the arena of the
-     compiler context that is current, and that arena is freed with its
-     context while these options must outlive it (they are used by the
-     next compile, after the previous context is gone). */
+  /* Built on the mrb heap and freed by free_options(), not through
+     pm_options_scopes_init() and pm_options_cleanup(): these options outlive
+     the compiler context (the next compile reads them, after the previous
+     context is gone), so they are the sandbox's own. */
   pm_options_t *options = (pm_options_t *)mrb_calloc(mrb, 1, sizeof(pm_options_t));
   options->scopes_count = 1;
   options->scopes = (pm_options_scope_t *)mrb_calloc(mrb, 1, sizeof(pm_options_scope_t));
@@ -234,7 +233,7 @@ mrb_sandbox_result(mrb_state *mrb, mrb_value self)
          the next call overwrites. */
       char *copy = (char *)mrb_malloc(mrb, len + 1);
       memcpy(copy, name, len + 1);
-      pm_string_constant_init(&scope->locals[j], copy, len);
+      pm_string_init(&scope->locals[j], (const uint8_t *)copy, len);
     }
   }
   free_options(mrb, ss);
