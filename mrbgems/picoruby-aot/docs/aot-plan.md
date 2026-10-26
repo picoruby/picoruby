@@ -187,9 +187,16 @@ keeps the rest in the irep, and what would free it:
 ### 1.6 Beyond the generator
 
 Two ideas cut the method searches that the generated C makes. The
-device build uses `MRB_CONSTRAINED_BASELINE_PROFILE`, which defines
-`MRB_NO_METHOD_CACHE`, so on the device every search walks the ancestor
-chain and its khash tables.
+device build had mruby's constrained profile, which defines
+`MRB_NO_METHOD_CACHE`, so every search walked the ancestor chain and its
+khash tables. Since picoruby-mruby's mrbgem.rake took the baseline
+profile with a 64-entry method cache (pico2_w, R2P2 prod with AOT: the
+shell parser 8.7 to 7.7 ms on the 33-character pipeline, 2.67 to 2.40 ms
+on `ls`; `JSON.parse` unchanged at 3.75 ms, as its compiled path has no
+search left; 256 entries gained 3 percent more for 5 KB, 32 entries
+missed so often that `JSON.parse` got slower), a search that hits the
+cache costs a hash and two compares. The epoch counter below would take
+that down to two compares at the call site.
 
 The profile (pico2_w prod with AOT, an irb loop halted at random by gdb
 60 times, the innermost frame counted; the recipe is `gdb_sample.sh`
