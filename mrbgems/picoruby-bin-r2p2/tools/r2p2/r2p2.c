@@ -200,8 +200,13 @@ main(int argc, char **argv)
 #else
   mrb_state *mrb = mrb_open();
 #endif
-  if (mrb == NULL) {
+  if (MRB_OPEN_FAILURE(mrb)) {
+    /* NULL: the heap or the state allocation failed. mrb->exc: a gem
+       init raised and every gem after it is uninitialized, so the
+       first symptom would be a require that answers false. */
     fprintf(stderr, "mrb_open failed\n");
+    mrb_print_error(mrb); /* handles NULL */
+    mrb_close(mrb);       /* handles NULL */
     return 1;
   }
   global_mrb = mrb;

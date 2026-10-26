@@ -254,10 +254,6 @@ so it waits for a path where the share is larger.
   needs no Ruby trampoline. An mruby proposal.
 - `SystemStackError#message` prints the class name, not "stack level
   too deep" (mruby follow-up).
-- A gem init that raises is swallowed by `mrb_protect_error` in
-  `init_mrbgems_body`, and every later gem stays uninitialized; the
-  first symptom is `require` answering false. A loud failure at init
-  would be a PicoRuby or mruby change worth making.
 - Spinel: rest parameter typing (1.3).
 
 ## 2. Candidate gems
