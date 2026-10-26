@@ -107,16 +107,16 @@ wrappers among them.
 
 ### 1.5 picoruby-shell and picoruby-funicular: the defs still in the irep
 
-Funicular compiles 173 typed / 396 widened of 756 defs on the wasm
+Funicular compiles 178 typed / 403 widened of 756 defs on the wasm
 build (vdom.rb 29 of 35, differ.rb 9 of 9, patcher.rb 5 of 5; the VDOM
 path from `Differ.diff` through `Patcher#apply` and `Renderer#render`
 is compiled). The measurement is in `architecture.md`, section 5.
-Spinel refuses 12 sites: four by the String-sharing seal (a mutable
-String handed on by a route the rule cannot carry yet, matz/spinel#9258;
-`component.rb:1054`, `db.rb:2410`, `html_serializer.rb:75`,
-`patcher.rb:250`) and eight by codegen (`instance_method`,
+Spinel refuses 8 sites, all by codegen (`instance_method`,
 `instance_exec`, `private_instance_methods`, `define_method` with a
 computed name, `Object#extend`, a VNode argument no conversion keeps).
+The four refusals of the String-sharing seal (matz/spinel#9258) are
+gone since Spinel fac2462a; that freed the seven `Router` route
+methods, `Patcher#apply`, `Patcher#create_element` and `VDOM.patch`.
 `--emit-types` writes the JSON with the refusals in it, so the defs of
 a refused unit stay in the irep and every other unit is typed. What
 keeps the rest in the irep, and what would free it:
