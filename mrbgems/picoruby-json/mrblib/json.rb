@@ -497,10 +497,12 @@ module JSON
           result << json.byteslice(run_start, index - run_start).to_s if run_start < index
           index = parse_escape(result, index + 1)
           run_start = index
-        elsif byte.nil?
-          raise JSON::ParserError.new("Unterminated string")
-        else
+        elsif byte
+          # A plain byte. The truth test costs no method search; nil? on
+          # an Integer searched Kernel#nil? for every byte of a string.
           index += 1
+        else
+          raise JSON::ParserError.new("Unterminated string")
         end
       end
       if run_start < index

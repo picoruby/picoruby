@@ -206,11 +206,15 @@ character sets: `mrb_equal` searched `String#==` for every element, and
 `mrb_funcall_argv` searched it again. The tokenizer tests its character
 sets with `String#include?` now (one C scan), and mruby has an
 `idx_class` slot for `String#==` so that `mrb_equal` and `OP_EQ` compare
-two Strings from C (mruby f53fa6d96, in lib/mruby). In JSON the
-searches are `aot_nil_p` on an untyped `byte` and one `aot_method_is`.
-The guard searches of the generated C are 7 to 12 percent of the
-samples: the epoch counter below would gain that much on these paths,
-so it waits for a path where the share is larger.
+two Strings from C (mruby f53fa6d96, in lib/mruby). In JSON 7 of the 8
+were `aot_nil_p`: `parse_string` tested every plain byte of a string
+with `byte.nil?`, a search for `Kernel#nil?` from Integer. The test is
+a truth test now (`elsif byte`): `JSON.parse` of a 91-byte object takes
+3.7 ms compiled instead of 5.0 ms on the pico2_w. What remains for the
+guards of the generated C (`aot_method_is`, `aot_method_same`) is 4 of
+60 samples in the shell and 1 of 60 in JSON: the epoch counter below
+would gain that much on these paths, so it waits for a path where the
+share is larger.
 
 - A lighter funcall for a resolved method. `aot_method_is` and the
   guarded helpers search the method, then fall back to `mrb_funcall_argv`,
