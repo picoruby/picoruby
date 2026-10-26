@@ -1,4 +1,7 @@
-MRuby::Build.new do |conf|
+# Test runner for `rake test:gems:femtoruby`. Named, so that it builds
+# under build/femtoruby-test and leaves build/host (rake femtoruby:debug)
+# alone.
+MRuby::Build.new('femtoruby-test') do |conf|
 
   conf.toolchain
 

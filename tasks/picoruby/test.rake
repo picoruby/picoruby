@@ -190,7 +190,9 @@ def run_test_for_gems(vm_type, specified_gem)
     # A cross build of the host (picoruby32-test.rb) lands under its own name
     ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/picoruby32-test/bin/picoruby")
   else
-    ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
+    # The test configs are named builds (picoruby-test.rb, femtoruby-test.rb)
+    # and land under their own names, apart from build/host.
+    ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/#{vm_type}-test/bin/#{vm_type}")
   end
 
   puts "Strategy: Full build for"

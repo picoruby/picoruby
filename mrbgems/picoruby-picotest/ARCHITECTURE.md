@@ -86,7 +86,7 @@ skip "WASM only" unless wasm?
 | Variable | Description |
 |---|---|
 | `RUBY` | Path to target VM binary |
-| `PICORB_TEST_TARGET_VM` | Set by test.rake to `./build/host/bin/{vm_type}` |
+| `PICORB_TEST_TARGET_VM` | Set by test.rake to `./build/{vm_type}-test/bin/{vm_type}` (`./build/picoruby32-test/bin/picoruby` for the 32-bit build) |
 | `SKIP_BUILD` | Skip building the target binary |
 | `PICORB_DEBUG` | Enable debug build |
 | `MRUBY_CONFIG` | Build config path |
