@@ -321,6 +321,12 @@ The measurements that keep them undeclared are in section 3.
   switches VM contexts between instructions, never under a C frame; a
   compiled loop around `sleep_ms` would spin. Such a def and everything
   that calls it stay in the irep, and no generator work changes that.
+- **No `OP_JMPNIL` shortcut for `nil?`.** The irep compiles `if x.nil?`
+  to `OP_JMPNIL` and never calls the method, so a redefined `nil?` is
+  ignored there. Spinel follows CRuby, where the call happens, and the
+  generated C keeps the guarded `aot_nil_p`. Hot code that only needs
+  the truth of a value tests the value itself (`elsif byte`), as
+  picoruby-json does since b8798cce.
 
 ## 4. How to keep this document current
 
