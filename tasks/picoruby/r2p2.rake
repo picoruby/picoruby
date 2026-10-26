@@ -119,14 +119,9 @@ namespace :r2p2 do
               FileUtils.cd MRUBY_ROOT do
                 sh "MRUBY_CONFIG=#{config} PICORB_BOARD=#{board} #{mode=='debug' ? 'PICORB_DEBUG=1' : ''} rake"
               end
-              # The mruby-compiler checkout the library was built with; the
-              # firmware's own C reads its headers. See Build#mruby_compiler_dir.
-              compiler_dir = ENV['PICORB_MRUBY_COMPILER'].to_s
-              compiler_dir = compiler_dir.empty? ? "#{MRUBY_ROOT}/mrbgems/mruby-compiler" : File.expand_path(compiler_dir, MRUBY_ROOT)
               defs = <<~DEFS
                 -D PICORUBY_ROOT=#{MRUBY_ROOT} \
                 -D R2P2_GEM_DIR=#{R2P2_GEM_DIR} \
-                -D MRUBY_COMPILER_DIR=#{compiler_dir} \
                 -D EXTRA_LIBRARY_PATH=#{mruby_build_path}/lib \
                 -D EXTRA_INCLUDE_DIR=#{mruby_build_path}/include \
                 -D PICO_CYW43_SUPPORTED=1 \

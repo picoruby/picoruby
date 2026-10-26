@@ -265,22 +265,16 @@ elseif(PICORB_VM_MRUBYC)
   )
 endif()
 
-# The mruby-compiler checkout the library was built with (tasks/picoruby/r2p2.rake
-# passes it; the submodule unless $PICORB_MRUBY_COMPILER named another).
-if(NOT MRUBY_COMPILER_DIR)
-  set(MRUBY_COMPILER_DIR ${PICORUBY_ROOT}/mrbgems/mruby-compiler)
-endif()
-
 target_include_directories(${PROJECT_NAME} PRIVATE
   ${CMAKE_BINARY_DIR}/mrb
   ${R2P2_GEM_DIR}/include
   ${PICORUBY_ROOT}/include
-  ${MRUBY_COMPILER_DIR}/include
-  # Prism's generated headers are written under build_root, not the checkout;
-  # before the checkout's include directory, which may hold older generated
+  ${PICORUBY_ROOT}/mrbgems/mruby-compiler/include
+  # Prism's generated headers are written under build_root, not the submodule;
+  # before the submodule's include directory, which may hold older generated
   # headers of its own.
   ${PICORUBY_ROOT}/build/prism/include
-  ${MRUBY_COMPILER_DIR}/lib/prism/include
+  ${PICORUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include
   ${PICORUBY_ROOT}/build/${MRUBY_CONFIG}/include
   ${PICORUBY_ROOT}/mrbgems/picoruby-socket/include
 

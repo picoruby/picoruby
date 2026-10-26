@@ -39,6 +39,10 @@ MRuby::CrossBuild.new("r2p2-femtoruby-pico_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
   # Prism arena block size: 8KB is host-sized, a REPL line parses in about
   # 6KB on a 32-bit target, so 2KB blocks waste less of the heap.
   conf.cc.defines << "PM_ARENA_INITIAL_SIZE=2048"
+  # The constant pool starts at 128 entries: the compiler interns the 58
+  # presyms into it at every parse, and a pool that grows to hold them
+  # leaves each outgrown array behind in the arena.
+  conf.cc.defines << "PM_CONSTANT_POOL_MIN_CAPACITY=128"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "USE_WIFI"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
