@@ -9,6 +9,7 @@ class Shell
     def initialize: (*String params) -> void
     def exec: () -> bool
     def resume: () -> void
+    def poll_pending_suspend: () -> bool
     def state: () -> Symbol
     def close: () -> void
     private def trap: () -> void

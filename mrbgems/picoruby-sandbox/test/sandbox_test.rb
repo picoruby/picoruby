@@ -134,6 +134,66 @@ class SandboxTest < Picotest::Test
     sandbox.terminate
   end
 
+  # Polls until poll_pending_suspend suspends the task.
+  def poll_until_suspended(sandbox)
+    n = 0
+    until sandbox.poll_pending_suspend
+      sleep_ms 1
+      n += 1
+      return false if 2000 < n
+    end
+    true
+  end
+
+  # Ctrl-Z on a task that suspended itself leaves the suspend pending.
+  # When the event resumes the task, the poll suspends it again and the
+  # task stays suspended until resume (fg).
+  def test_pending_suspend_catches_the_task_after_the_event
+    skip "the helper task needs Task.new" if femtoruby?
+    sandbox = Sandbox.new
+    assert sandbox.compile <<~RUBY
+      me = Task.current
+      Task.new { sleep_ms 50; me.resume }
+      me.suspend
+      sleep_ms 300
+      :done
+    RUBY
+    sandbox.execute
+    assert wait_for_state(sandbox, :SUSPENDED)
+    sandbox.suspend
+    # Before the event the poll has nothing to do.
+    assert_equal false, sandbox.poll_pending_suspend
+    assert_equal :SUSPENDED, sandbox.state
+    assert poll_until_suspended(sandbox)
+    assert_equal :SUSPENDED, sandbox.state
+    sleep_ms 400
+    assert_equal :SUSPENDED, sandbox.state
+    assert_equal true, sandbox.resume
+    assert wait_for_state(sandbox, :DORMANT)
+    assert_equal :done, sandbox.result
+  end
+
+  # resume (fg) before the event drops the pending suspend: the task
+  # waits for its event and then runs to the end.
+  def test_resume_before_the_event_drops_the_pending_suspend
+    skip "the helper task needs Task.new" if femtoruby?
+    sandbox = Sandbox.new
+    assert sandbox.compile <<~RUBY
+      me = Task.current
+      Task.new { sleep_ms 50; me.resume }
+      me.suspend
+      :done
+    RUBY
+    sandbox.execute
+    assert wait_for_state(sandbox, :SUSPENDED)
+    sandbox.suspend
+    assert_equal false, sandbox.resume
+    assert wait_for_state(sandbox, :DORMANT)
+    assert_equal false, sandbox.poll_pending_suspend
+    assert_equal :DORMANT, sandbox.state
+    assert_equal :done, sandbox.result
+  end
+
   # Regression test for sandbox re-running the previous script
   # when its task was suspended inside a method call.
   def test_execute_runs_new_script_after_suspend_in_method

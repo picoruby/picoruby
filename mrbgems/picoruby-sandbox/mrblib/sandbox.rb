@@ -18,16 +18,48 @@ class Sandbox
   # lines) must not end the next one.
   # @suspended_task records that suspend changed the task state, so
   # resume undoes only that.
+  # @suspend_pending records a suspend that found the task suspended by
+  # itself. The event resumes the task, and the shell then calls
+  # poll_pending_suspend while it waits for input: the first poll that
+  # finds the task running (or sleeping) suspends it. The task runs
+  # until that poll, one or two timeslices, and a poll runs only while
+  # the shell is at the prompt. A stop flag in mruby-task would settle
+  # this in C: resume would leave a stopped task suspended and record
+  # the resume, and the continue would apply it, as SIGSTOP and SIGCONT
+  # do for a process blocked in read(2). That change is pending for the
+  # long-term design of mruby-task.
   def suspend
     @suspended = true
-    unless state == :SUSPENDED
+    if state == :SUSPENDED
+      @suspend_pending = true
+    else
       suspend_task
       @suspended_task = true
     end
     nil
   end
 
+  # Returns true when it suspended the task.
+  def poll_pending_suspend
+    return false unless @suspend_pending
+    case state
+    when :SUSPENDED
+      return false
+    when :DORMANT
+      # The task finished before any poll. Nothing to suspend.
+      @suspend_pending = false
+      return false
+    end
+    @suspend_pending = false
+    suspend_task
+    @suspended_task = true
+    true
+  end
+
   def resume
+    # A resume (fg) before the event: the task waits for the event as it
+    # did before the suspend, and the caller's wait follows it.
+    @suspend_pending = false
     return false unless @suspended_task
     @suspended_task = false
     resume_task
