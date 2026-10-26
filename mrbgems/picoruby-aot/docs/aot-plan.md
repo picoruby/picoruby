@@ -204,9 +204,9 @@ continue, with `set pagination off`):
 In the shell 17 of the 21 came from `Array#include?` on the tokenizer's
 character sets: `mrb_equal` searched `String#==` for every element, and
 `mrb_funcall_argv` searched it again. The tokenizer tests its character
-sets with `String#include?` now (one C scan), and mruby gets an
+sets with `String#include?` now (one C scan), and mruby has an
 `idx_class` slot for `String#==` so that `mrb_equal` and `OP_EQ` compare
-two Strings from C (~/work/mruby branch `string-eq-slot`). In JSON the
+two Strings from C (mruby f53fa6d96, in lib/mruby). In JSON the
 searches are `aot_nil_p` on an untyped `byte` and one `aot_method_is`.
 The guard searches of the generated C are 7 to 12 percent of the
 samples: the epoch counter below would gain that much on these paths,
