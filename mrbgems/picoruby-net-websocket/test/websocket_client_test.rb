@@ -252,6 +252,150 @@ class WebSocketTest < Picotest::Test
       assert_equal(expected_path, client.path)
     end
   end
+
+  # A socket double for the handshake. It answers every readpartial from a
+  # canned HTTP response and records close.
+  class FakeSocket
+    attr_reader :written, :closed_count
+
+    def initialize(response)
+      @response = response
+      @pos = 0
+      @written = ""
+      @closed_count = 0
+    end
+
+    def write(data)
+      @written << data
+      data.size
+    end
+
+    def readpartial(n)
+      raise EOFError if @response.size <= @pos
+      chunk = @response[@pos, n] || ""
+      @pos += chunk.size
+      chunk
+    end
+
+    def close
+      @closed_count += 1
+    end
+
+    def closed?
+      0 < @closed_count
+    end
+  end
+
+  # Prepended onto the singleton classes of TCPSocket and SSLSocket. It
+  # raises $ws_test_open_error when that is set and calls the original
+  # method otherwise. A stub cannot raise (picotest evaluates the block
+  # once, at stub time), and remove_method on the singleton class would
+  # delete the C-defined SSLSocket.open itself, so the module stays in.
+  module RaisingOpen
+    def new(*args)
+      e = $ws_test_open_error
+      raise e if e
+      super
+    end
+
+    def open(*args)
+      e = $ws_test_open_error
+      raise e if e
+      super
+    end
+  end
+
+  def install_raising_open
+    return if $ws_test_raising_open_installed
+    class << TCPSocket
+      prepend RaisingOpen
+    end
+    class << SSLSocket
+      prepend RaisingOpen
+    end
+    $ws_test_raising_open_installed = true
+  end
+
+  def connect_error_with_open_raising(client, error)
+    install_raising_open
+    $ws_test_open_error = error
+    begin
+      client.connect
+    rescue Net::WebSocket::WebSocketError => e
+      return e
+    ensure
+      $ws_test_open_error = nil
+    end
+    nil
+  end
+
+  # On mruby/c, stub() on a C-defined class method overwrites the C entry in
+  # the class method table and clear_doubles removes it. Module#prepend is
+  # not available there either. These tests replace TCPSocket.new and
+  # SSLSocket.open, so they run on PicoRuby only.
+  def skip_unless_class_stub_is_safe
+    skip "stub of a C-defined class method is not safe on mruby/c" unless picoruby?
+  end
+
+  def test_connect_wraps_tcp_error_in_websocket_error
+    skip_unless_class_stub_is_safe
+    client = Net::WebSocket::Client.new("ws://example.com:8080/socket")
+    error = connect_error_with_open_raising(client, SocketError.new("getaddrinfo failed"))
+    assert(error.is_a?(Net::WebSocket::WebSocketError))
+    assert(error.message.include?("example.com:8080"))
+    assert(error.message.include?("getaddrinfo failed"))
+    assert_false(client.connected?)
+  end
+
+  def test_connect_wraps_ssl_error_in_websocket_error
+    skip_unless_class_stub_is_safe
+    client = Net::WebSocket::Client.new("wss://secure.example.com")
+    client.ssl_context = "mock_context"
+    error = connect_error_with_open_raising(client, RuntimeError.new("SSL connection failed"))
+    assert(error.is_a?(Net::WebSocket::WebSocketError))
+    assert(error.message.include?("secure.example.com:443"))
+    assert(error.message.include?("SSL connection failed"))
+    assert_false(client.connected?)
+  end
+
+  def test_connect_does_not_call_connect_after_ssl_open
+    skip_unless_class_stub_is_safe
+    fake = FakeSocket.new("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\n")
+    stub(SSLSocket).open { fake }
+    client = Net::WebSocket::Client.new("wss://secure.example.com/ws")
+    client.ssl_context = "mock_context"
+    # FakeSocket has no connect method, so a connect call would raise
+    assert(client.connect)
+    assert(client.connected?)
+    assert(fake.written.start_with?("GET /ws HTTP/1.1\r\n"))
+  end
+
+  def test_connect_closes_socket_when_handshake_fails
+    skip_unless_class_stub_is_safe
+    fake = FakeSocket.new("HTTP/1.1 403 Forbidden\r\nContent-Length: 0\r\n\r\n")
+    stub(TCPSocket).new { fake }
+    client = Net::WebSocket::Client.new("ws://example.com/ws")
+    assert_raise(Net::WebSocket::HandshakeError) do
+      client.connect
+    end
+    assert_equal(1, fake.closed_count)
+    assert_false(client.connected?)
+    assert_raise(Net::WebSocket::WebSocketError) do
+      client.send_text("test")
+    end
+  end
+
+  def test_connect_closes_socket_when_server_closes_during_handshake
+    skip_unless_class_stub_is_safe
+    fake = FakeSocket.new("HTTP/1.1 101")
+    stub(TCPSocket).new { fake }
+    client = Net::WebSocket::Client.new("ws://example.com/ws")
+    assert_raise(Net::WebSocket::ConnectionClosed) do
+      client.connect
+    end
+    assert_equal(1, fake.closed_count)
+    assert_false(client.connected?)
+  end
 end
 
 # Note: Integration tests that require actual WebSocket server

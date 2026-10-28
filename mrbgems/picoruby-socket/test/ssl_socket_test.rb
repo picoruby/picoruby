@@ -93,10 +93,9 @@ class SSLSocketTest < Picotest::Test
   # end
 
   # def test_ssl_socket_open
-  #   tcp_socket = TCPSocket.open('example.com', 443)
   #   ctx = SSLContext.new
   #   ctx.verify_mode = SSLContext::VERIFY_NONE
-  #   ssl_socket = SSLSocket.open(tcp_socket, ctx)
+  #   ssl_socket = SSLSocket.open('example.com', 443, ctx)
   #   assert_false(ssl_socket.closed?)
   #   ssl_socket.close
   # end
