@@ -46,7 +46,6 @@ module Net
 
           # Create SSL socket
           socket = SSLSocket.open(@host, @port, @ssl_context)
-          socket.connect  # Perform SSL handshake
           @socket = socket
         else
           @socket = TCPSocket.new(@host, @port)

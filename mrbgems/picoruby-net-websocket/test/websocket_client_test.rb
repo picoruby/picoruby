@@ -52,6 +52,20 @@ class WebSocketTest < Picotest::Test
     assert_equal(false, client.connected?)
   end
 
+  def test_connect_with_wss_uses_the_socket_ssl_socket_open_returns
+    # SSLSocket.open has done the TLS handshake. A second connect on that
+    # socket fails with "SSL handshake failed" on every port, so connect
+    # must use the socket as it is. The fake socket has no connect method.
+    client = Net::WebSocket::Client.new("wss://example.com")
+    client.ssl_context = "ctx"
+    socket = Object.new
+    stub(socket).closed? { false }
+    stub(SSLSocket).open { socket }
+    stub(client).perform_handshake { true }
+    assert(client.connect)
+    assert(client.connected?)
+  end
+
   def test_add_header
     client = Net::WebSocket::Client.new("ws://example.com")
     client.add_header("Authorization", "Bearer token123")
