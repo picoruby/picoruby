@@ -12,6 +12,13 @@ typedef struct {
   uint32_t frequency;
   int8_t sda_pin;
   int8_t scl_pin;
+  // A write without STOP (the outputs of I2C#read) is held here and sent
+  // with the read that follows as one transaction, so that the read starts
+  // with a repeated start as it does on RP2040. Many devices take a STOP
+  // between the register address and the read as the end of the access.
+  uint8_t pending[16];
+  size_t pending_len;
+  uint8_t pending_addr;
 } i2c_bus_context_t;
 
 // Context for each I2C port (ESP32 has a maximum of 2 ports)
@@ -53,6 +60,15 @@ I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bool n
     return I2C_ERROR_INVALID_UNIT;
   }
 
+  i2c_bus_context_t *ctx = &i2c_contexts[unit_num];
+  size_t pending_len = ctx->pending_len;
+  ctx->pending_len = 0;
+  if (0 < pending_len && ctx->pending_addr != addr) {
+    // The held write was for another device: send it on its own, with STOP.
+    I2C_write_timeout_us(unit_num, ctx->pending_addr, ctx->pending, pending_len, false, timeout_us);
+    pending_len = 0;
+  }
+
   i2c_reclaim_pins(unit_num);
 
   i2c_device_config_t dev_cfg = {
@@ -73,7 +89,11 @@ I2C_read_timeout_us(int unit_num, uint8_t addr, uint8_t* dst, size_t len, bool n
     timeout_ms = 10;
   }
 
-  err = i2c_master_receive(dev_handle, dst, len, timeout_ms);
+  if (0 < pending_len) {
+    err = i2c_master_transmit_receive(dev_handle, ctx->pending, pending_len, dst, len, timeout_ms);
+  } else {
+    err = i2c_master_receive(dev_handle, dst, len, timeout_ms);
+  }
 
   i2c_master_bus_rm_device(dev_handle);
 
@@ -89,6 +109,16 @@ I2C_write_timeout_us(int unit_num, uint8_t addr, uint8_t* src, size_t len, bool 
 {
   if (!i2c_contexts[unit_num].initialized) {
     return I2C_ERROR_INVALID_UNIT;
+  }
+
+  i2c_bus_context_t *ctx = &i2c_contexts[unit_num];
+  ctx->pending_len = 0;
+  if (nostop && len <= sizeof(ctx->pending)) {
+    // Held until the next read. A longer write goes out with STOP as before.
+    memcpy(ctx->pending, src, len);
+    ctx->pending_len = len;
+    ctx->pending_addr = addr;
+    return len;
   }
 
   i2c_reclaim_pins(unit_num);
@@ -157,6 +187,7 @@ I2C_gpio_init(int unit_num, uint32_t frequency, int8_t sda_pin, int8_t scl_pin)
   }
 
   i2c_contexts[unit_num].initialized = true;
+  i2c_contexts[unit_num].pending_len = 0;
   i2c_contexts[unit_num].frequency = frequency;
   i2c_contexts[unit_num].sda_pin = sda_pin;
   i2c_contexts[unit_num].scl_pin = scl_pin;
