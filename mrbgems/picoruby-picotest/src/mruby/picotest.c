@@ -160,13 +160,14 @@ picotest_double_define_method_any_instance_of(mrb_state *mrb, mrb_value self)
 static mrb_value
 picotest_double_remove_singleton(mrb_state *mrb, mrb_value self)
 {
-  mrb_value doubled_obj = mrb_iv_get(mrb, self, MRB_SYM(doubled_obj));
+  /* The Ruby side stores these as @doubled_obj and @singleton_class_name */
+  mrb_value doubled_obj = mrb_iv_get(mrb, self, MRB_IVSYM(doubled_obj));
 
   enum mrb_vtype tt = mrb_type(doubled_obj);
   if (tt == MRB_TT_OBJECT || tt == MRB_TT_PROC || tt == MRB_TT_ARRAY ||
       tt == MRB_TT_STRING || tt == MRB_TT_RANGE || tt == MRB_TT_HASH ||
       tt == MRB_TT_CDATA || tt == MRB_TT_EXCEPTION) {
-    mrb_value singleton_class_name = mrb_iv_get(mrb, self, MRB_SYM(singleton_class_name));
+    mrb_value singleton_class_name = mrb_iv_get(mrb, self, MRB_IVSYM(singleton_class_name));
     if (mrb_string_p(singleton_class_name)) {
       struct RClass *singleton_class = mrb_class_get(mrb, mrb_string_cstr(mrb, singleton_class_name));
       struct RClass **cls = &mrb_basic_ptr(doubled_obj)->c;
@@ -179,7 +180,7 @@ picotest_double_remove_singleton(mrb_state *mrb, mrb_value self)
     }
   } else if (tt == MRB_TT_CLASS || tt == MRB_TT_MODULE || tt == MRB_TT_SCLASS) {
     // Class/Module stubs: singleton_class_name holds class pointer as integer
-    mrb_value ref = mrb_iv_get(mrb, self, MRB_SYM(singleton_class_name));
+    mrb_value ref = mrb_iv_get(mrb, self, MRB_IVSYM(singleton_class_name));
     if (mrb_integer_p(ref)) {
       struct RClass *singleton_class = (struct RClass*)(uintptr_t)mrb_integer(ref);
       struct RClass **cls = &mrb_basic_ptr(doubled_obj)->c;
