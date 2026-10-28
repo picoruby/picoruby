@@ -245,6 +245,11 @@ c_ssl_socket_connect(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
+  /* SSLSocket.open already connected; connect is then a no-op */
+  if (!SSLSocket_closed(vm, wrapper->ptr)) {
+    return;
+  }
+
   /* Perform SSL handshake */
   if (!SSLSocket_connect(vm, wrapper->ptr)) {
 #if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
