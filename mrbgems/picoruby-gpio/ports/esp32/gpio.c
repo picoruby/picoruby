@@ -14,6 +14,8 @@ void
 GPIO_init(uint8_t pin)
 {
   gpio_reset_pin(pin);
+  // gpio_reset_pin enables the pull-up. Start without pulls, so that IN floats.
+  gpio_set_pull_mode(pin, GPIO_FLOATING);
 }
 
 void
@@ -41,13 +43,13 @@ GPIO_open_drain(uint8_t pin)
 void
 GPIO_pull_up(uint8_t pin)
 {
-  gpio_pullup_en(pin);
+  gpio_set_pull_mode(pin, GPIO_PULLUP_ONLY);
 }
 
 void
 GPIO_pull_down(uint8_t pin)
 {
-  gpio_pulldown_en(pin);
+  gpio_set_pull_mode(pin, GPIO_PULLDOWN_ONLY);
 }
 
 int
