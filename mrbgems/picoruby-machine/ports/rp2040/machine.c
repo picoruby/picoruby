@@ -323,36 +323,17 @@ picorb_hal_init(void)
   irq_set_priority(ALARM_IRQ, PICO_HIGHEST_IRQ_PRIORITY);
   timer_hw->alarm[ALARM_NUM] = timer_hw->timerawl + US_PER_MS;
 
-  clocks_hw->sleep_en0 = 0;
-#if defined(PICO_RP2040)
-  clocks_hw->sleep_en1 =
-  CLOCKS_SLEEP_EN1_CLK_SYS_TIMER_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
-  | CLOCKS_SLEEP_EN1_CLK_USB_USBCTRL_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
-  | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS
-  | CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
-#elif defined(PICO_RP2350)
-  clocks_hw->sleep_en1 =
-  CLOCKS_SLEEP_EN1_CLK_SYS_TIMER0_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_TIMER1_BITS
-  /* The TICKS block feeds the system timers their 1MHz tick. Without
-   * these two bits it stops whenever a core sleeps, the timers stop
-   * counting, no alarm ever fires, and WFI/WFE never wake -- the
-   * long-standing "__wfi does not wake up on RP2350" mystery. RP2040
-   * has no TICKS block (its timer tick comes from the watchdog). */
-  | CLOCKS_SLEEP_EN1_CLK_REF_TICKS_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_TICKS_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_USBCTRL_BITS
-  | CLOCKS_SLEEP_EN1_CLK_USB_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_UART0_BITS
-  | CLOCKS_SLEEP_EN1_CLK_PERI_UART0_BITS
-  | CLOCKS_SLEEP_EN1_CLK_SYS_UART1_BITS
-  | CLOCKS_SLEEP_EN1_CLK_PERI_UART1_BITS;
-#else
-  #error "Unsupported Board"
-#endif
+  /* Keep every clock running while the cores sleep in __wfi
+   * (picorb_hal_idle_cpu). On RP2350 even a plain WFI, SLEEPDEEP
+   * clear, deasserts the system clock request, so any clock left out
+   * of SLEEP_EN0/1 stops whenever the VM idles: a mask here once
+   * froze the TICKS block (no alarm, no wakeup) and then PWM, and it
+   * would equally freeze PIO, DMA, SPI, I2C, ADC and GPIO edge
+   * detection. Low power is Machine.sleep's job; the SDK sets its own
+   * keep mask there. The reset value is all ones; write it anyway so
+   * this does not depend on what ran before. */
+  clocks_hw->sleep_en0 = CLOCKS_SLEEP_EN0_RESET;
+  clocks_hw->sleep_en1 = CLOCKS_SLEEP_EN1_RESET;
 
   mutex_init(&usb_mutex);
   usb_pump_irq_num = (int)user_irq_claim_unused(true);
@@ -414,12 +395,9 @@ picorb_hal_idle_cpu(mrb_state *mrb)
     return;
   }
 #endif
-  /* Plain WFI on both chips. This historically hung on RP2350 -- not
-   * because of WFI itself, but because the sleep_en1 mask set in
-   * picorb_hal_init gated the TICKS block while the core slept: the
-   * timers stopped counting, so the 1ms alarm could never fire and
-   * nothing woke the core. With CLK_*_TICKS kept enabled during
-   * sleep, the tick IRQ wakes WFI normally. */
+  /* Plain WFI on both chips; the 1ms tick IRQ wakes it. This relies on
+   * picorb_hal_init leaving SLEEP_EN0/1 all ones: on RP2350 a WFI gates
+   * every clock missing from them, the timer tick and PWM included. */
   __wfi();
 }
 
@@ -823,8 +801,9 @@ machine_sleep_run(bool deep, bool use_timer, uint32_t ms, int pin, bool edge, bo
   irq_set_enabled(ALARM_IRQ, false);
   alarm_stopped = true;
 
-  /* The SDK's wake path sets sleep_en0/1 to all-ones; the HAL's
-   * boot-time mask is ours to put back. */
+  /* The SDK narrows sleep_en0/1 to its keep mask for the sleep. Put
+   * back whatever the HAL had, so the restore does not depend on what
+   * the SDK's wake path writes. */
   saved_en0 = clocks_hw->sleep_en0;
   saved_en1 = clocks_hw->sleep_en1;
   mask_saved = true;
