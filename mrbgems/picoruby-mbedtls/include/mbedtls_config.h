@@ -44,6 +44,10 @@
 #define MBEDTLS_ECP_DP_SECP384R1_ENABLED
 #define MBEDTLS_ECP_DP_SECP256R1_ENABLED
 #define MBEDTLS_ECP_DP_CURVE25519_ENABLED
+/* Fast modular reduction for the NIST curves. Without it an ECDSA verify
+   takes 1.1 s (P-256) / 2.9 s (P-384) on RP2350, and an ECDSA certificate
+   chain does not fit in the 10 s handshake timeout. */
+#define MBEDTLS_ECP_NIST_OPTIM
 #define MBEDTLS_KEY_EXCHANGE_ECDHE_ECDSA_ENABLED
 #define MBEDTLS_KEY_EXCHANGE_ECDHE_RSA_ENABLED
 #define MBEDTLS_X509_CRT_PARSE_C
@@ -63,6 +67,11 @@
 #define MBEDTLS_SHA1_C
 #define MBEDTLS_SHA224_C
 #define MBEDTLS_SHA256_C
+/* SHA-384 is needed to parse ecdsa-with-SHA384 certificates (Let's Encrypt
+   ECDSA chains); without it mbedTLS silently drops them from the chain and
+   verifies the ServerKeyExchange with the key of another certificate. */
+#define MBEDTLS_SHA384_C
+#define MBEDTLS_SHA512_C
 //#define MBEDTLS_SHA256_ALT
 
 /* custom allocator */
