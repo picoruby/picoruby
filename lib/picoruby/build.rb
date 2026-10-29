@@ -44,8 +44,8 @@ module MRuby
 
     def common
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/include"
-      # Prism's generated headers (ast.h, diagnostic.h) are written under
-      # build_root, not into the submodule, so every gem needs this path too.
+      # Prism's generated headers (ast.h, internal/diagnostic.h) are written
+      # under build_root, not into the submodule, so every gem needs this path too.
       # It goes before the submodule's include directory: a checkout that once
       # generated its templates in place still holds them (ignored by git),
       # and those are from the Prism of that time.
