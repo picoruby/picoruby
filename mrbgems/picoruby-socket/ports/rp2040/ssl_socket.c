@@ -23,6 +23,13 @@
 #define SSL_RECV_BUF_SIZE 4096
 #endif
 
+/* How long the blocking connect waits for the TLS handshake. An ECDSA
+ * certificate chain costs several ECDSA verifications on the device, and
+ * a weak Wi-Fi link adds retransmissions, so 10 s was too short. */
+#ifndef SSL_HANDSHAKE_TIMEOUT_MS
+#define SSL_HANDSHAKE_TIMEOUT_MS 30000
+#endif
+
 /* SSL connection states */
 #define SSL_STATE_NONE           0
 #define SSL_STATE_CONNECTING     1
@@ -638,7 +645,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 
   /* Wait for connection to establish */
   D("SSL: waiting for connection");
-  int max_wait = 1000;  /* 10 seconds (10ms * 1000) */
+  int max_wait = SSL_HANDSHAKE_TIMEOUT_MS / 10;
   while (ssl_sock->state == SSL_STATE_CONNECTING && max_wait-- > 0) {
     Net_busy_wait_ms(10);
   }
