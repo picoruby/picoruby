@@ -1,5 +1,7 @@
 #include "esp_task_wdt.h"
 
+static bool subscribed = false;
+
 void
 Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
 {
@@ -8,12 +10,18 @@ Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
     .trigger_panic = pause_on_debug,
   };
   esp_task_wdt_init(&twdt_config);
-  esp_task_wdt_add(NULL);
+  if (!subscribed && esp_task_wdt_add(NULL) == ESP_OK) {
+    subscribed = true;
+  }
 }
 
 void
 Watchdog_disable(void)
 {
+  if (subscribed) {
+    esp_task_wdt_delete(NULL);
+    subscribed = false;
+  }
   esp_task_wdt_deinit();
 }
 
