@@ -525,8 +525,10 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   }
 
   if (!tls_config) {
+    /* altcp_tls_create_config_client*() returns NULL both when it runs out
+     * of memory and when a CA, certificate or key PEM does not parse. */
     D("SSL: TLS config failed");
-    Net_set_last_error("SSL TLS config allocation failed");
+    Net_set_last_error("SSL TLS config failed: out of memory or invalid CA/cert/key PEM");
     return false;
   }
   D("SSL: TLS config ok");
