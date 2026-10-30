@@ -148,6 +148,25 @@ prompt. The target is now halted; the owner drives it from that pane
 (`bt`, `c`, `b <fn>`, `si`, ...), and this agent may send commands into it
 with `send-keys` when asked.
 
+**RP2350: restore CPACR before the first `c` after a connect.** On the
+first gdb connection openocd probes the flash by running bootrom code on
+core 0 (`RP2350 rev 2, QSPI Flash ...` in the openocd pane). The probe
+leaves CPACR (0xE000ED88) at 0xC000: only the RCP is enabled, and the GPIO
+coprocessor, the DCP and the FPU that the SDK runtime init turned on are
+off. If the firmware is simply continued, the first GPIO coprocessor
+instruction (the cyw43 driver's `gpio_put` in `cyw43_arch_poll`) HardFaults
+with CFSR = 0x80000 (NOCP) and the USB serial goes silent. `monitor flash
+probe 0` does the same. A plain halt/`c` does not. Check and restore:
+
+```bash
+tmux send-keys -t <gdb_pane_id> "p/x *(unsigned int*)0xe000ed88" Enter   # 0xc000 = cleared
+tmux send-keys -t <gdb_pane_id> "set *(unsigned int*)0xe000ed88 = 0xf0c303" Enter
+tmux send-keys -t <gdb_pane_id> "c" Enter
+```
+
+`monitor reset init` + `c` also restores it (runtime init runs again), and
+the `load` + `run` path in step 7 is not affected. RP2040 has no CPACR.
+
 ### 6. Report
 
 Give a compact status table: openocd pane + chip, build target + result, gdb
@@ -210,6 +229,15 @@ Then do the `run` and `y` steps. The next boot rewrites `/bin`.
 - **A rebuilt shell executable still runs the old version**: the flash file
   system cache. Delete `/etc/ruby-description` on the board and restart. See
   step 7.
+- **RP2350 HardFaults right after `c` following a gdb connect or `monitor
+  flash probe 0`** (`hardfault_handler_c`, CFSR 0x80000 NOCP, PC in
+  `gpioc_bit_out_put`): the flash probe cleared CPACR. Restore it or reset.
+  See step 5.
+- **mbedTLS debug output is not on the console**: with PICORB_DEBUG the
+  rp2040 port logs mbedTLS at level 3 through `debug_printf`, which goes to
+  stderr = the second CDC interface (`...-if02`, usually ttyACM5), not the
+  shell console (`-if00`). Open that port without `stty` (its tcsetattr
+  blocks) and read it alongside the console.
 
 ## Cleanup (only when the user asks to end the session)
 

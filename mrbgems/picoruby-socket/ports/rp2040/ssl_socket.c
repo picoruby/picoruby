@@ -23,6 +23,13 @@
 #define SSL_RECV_BUF_SIZE 4096
 #endif
 
+/* How long the blocking connect waits for the TLS handshake. An ECDSA
+ * certificate chain costs several ECDSA verifications on the device, and
+ * a weak Wi-Fi link adds retransmissions, so 10 s was too short. */
+#ifndef SSL_HANDSHAKE_TIMEOUT_MS
+#define SSL_HANDSHAKE_TIMEOUT_MS 30000
+#endif
+
 /* SSL connection states */
 #define SSL_STATE_NONE           0
 #define SSL_STATE_CONNECTING     1
@@ -518,11 +525,32 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
   }
 
   if (!tls_config) {
+    /* altcp_tls_create_config_client*() returns NULL both when it runs out
+     * of memory and when a CA, certificate or key PEM does not parse. */
     D("SSL: TLS config failed");
-    Net_set_last_error("SSL TLS config allocation failed");
+    Net_set_last_error("SSL TLS config failed: out of memory or invalid CA/cert/key PEM");
     return false;
   }
   D("SSL: TLS config ok");
+
+  /* Map SSLContext#verify_mode onto the mbedTLS authmode. altcp's default
+   * is VERIFY_OPTIONAL: the chain is verified but a failure is ignored,
+   * which spends several ECDSA operations for nothing and lets the
+   * handshake go on with an untrusted key. VERIFY_NONE skips the
+   * verification. VERIFY_PEER is enforced only when a CA is set; without
+   * one there is nothing to verify against, so the OPTIONAL default is
+   * kept for compatibility. altcp_tls_config starts with mbedtls_ssl_config
+   * as its first member. */
+  {
+    mbedtls_ssl_config *conf = (mbedtls_ssl_config *)tls_config;
+    if (ssl_sock->ssl_ctx->verify_mode == SSL_VERIFY_NONE) {
+      mbedtls_ssl_conf_authmode(conf, MBEDTLS_SSL_VERIFY_NONE);
+    } else if (ssl_sock->ssl_ctx->ca_data != NULL) {
+      mbedtls_ssl_conf_authmode(conf, MBEDTLS_SSL_VERIFY_REQUIRED);
+    } else {
+      D("SSL: verify_mode is VERIFY_PEER but no CA is set; the certificate is not verified");
+    }
+  }
 
 #ifdef PICORB_DEBUG
   /* Enable mbedTLS debug output (level 3: informational)
@@ -541,6 +569,22 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
     return false;
   }
   D("SSL: TLS PCB ok");
+
+  /* The hostname gives the server its SNI and gives mbedTLS the name to
+   * check the certificate against. mbedTLS 3.6 refuses VERIFY_REQUIRED
+   * when no hostname was ever set. */
+  {
+    mbedtls_ssl_context *ssl = (mbedtls_ssl_context *)altcp_tls_context(ssl_sock->tls_pcb);
+    int ret = mbedtls_ssl_set_hostname(ssl, ssl_sock->hostname);
+    if (ret != 0) {
+      D("SSL: set_hostname failed: -0x%04x", (unsigned int)-ret);
+      Net_set_last_error("SSL set_hostname failed: -0x%04x", (unsigned int)-ret);
+      altcp_abort(ssl_sock->tls_pcb);
+      ssl_sock->tls_pcb = NULL;
+      altcp_tls_free_config(tls_config);
+      return false;
+    }
+  }
 
   /* Store config for cleanup */
   if (ssl_sock->ssl_ctx->tls_config) {
@@ -603,7 +647,7 @@ SSLSocket_connect(picorb_state *vm, picorb_ssl_socket_t *ssl_sock)
 
   /* Wait for connection to establish */
   D("SSL: waiting for connection");
-  int max_wait = 1000;  /* 10 seconds (10ms * 1000) */
+  int max_wait = SSL_HANDSHAKE_TIMEOUT_MS / 10;
   while (ssl_sock->state == SSL_STATE_CONNECTING && max_wait-- > 0) {
     Net_busy_wait_ms(10);
   }
