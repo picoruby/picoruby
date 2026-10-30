@@ -32,10 +32,10 @@ conf.gem :core => 'picoruby-websocket'
 ### Simple Connection
 
 ```ruby
-require 'websocket'
+require 'net/websocket'
 
 # Connect to WebSocket server
-ws = WebSocket::Client.new("ws://echo.websocket.org")
+ws = Net::WebSocket::Client.new("ws://echo.websocket.org")
 ws.connect
 
 # Send a text message
@@ -52,9 +52,9 @@ ws.close
 ### With Block
 
 ```ruby
-require 'websocket'
+require 'net/websocket'
 
-WebSocket::Client.connect("ws://echo.websocket.org") do |ws|
+Net::WebSocket::Client.connect("ws://echo.websocket.org") do |ws|
   ws.send_text("Hello!")
   response = ws.receive
   puts response
@@ -65,7 +65,7 @@ end
 ### Send and Receive
 
 ```ruby
-ws = WebSocket::Client.new("ws://example.com/socket")
+ws = Net::WebSocket::Client.new("ws://example.com/socket")
 ws.connect
 
 # Send text
@@ -93,7 +93,7 @@ ws.close
 ### Ping/Pong
 
 ```ruby
-ws = WebSocket::Client.new("ws://example.com")
+ws = Net::WebSocket::Client.new("ws://example.com")
 ws.connect
 
 # Send ping
@@ -107,7 +107,7 @@ ws.close
 ### Custom Headers
 
 ```ruby
-ws = WebSocket::Client.new("ws://example.com/socket")
+ws = Net::WebSocket::Client.new("ws://example.com/socket")
 
 # Add custom headers
 ws.add_header("Authorization", "Bearer token123")
@@ -119,10 +119,10 @@ ws.connect
 ### Secure WebSocket (WSS)
 
 ```ruby
-require 'websocket'
+require 'net/websocket'
 
 # Connect to wss:// (secure WebSocket)
-ws = WebSocket::Client.new("wss://secure.example.com/socket")
+ws = Net::WebSocket::Client.new("wss://secure.example.com/socket")
 
 # Optional: Configure custom SSL context
 ctx = SSLContext.new
@@ -142,7 +142,7 @@ ws.close
 
 ```ruby
 # Disable certificate verification (not recommended for production)
-ws = WebSocket::Client.new("wss://localhost:8443/socket")
+ws = Net::WebSocket::Client.new("wss://localhost:8443/socket")
 
 ctx = SSLContext.new
 ctx.verify_mode = SSLContext::VERIFY_NONE  # Disable verification
@@ -153,12 +153,12 @@ ws.connect
 
 ## API Reference
 
-### WebSocket::Client
+### Net::WebSocket::Client
 
 #### Class Methods
 
-- `WebSocket::Client.new(url)` - Create new WebSocket client
-- `WebSocket::Client.connect(url) { |ws| ... }` - Connect with block
+- `Net::WebSocket::Client.new(url)` - Create new WebSocket client
+- `Net::WebSocket::Client.connect(url) { |ws| ... }` - Connect with block
 
 #### Instance Methods
 
@@ -192,9 +192,9 @@ ws.connect
 ## Example: Real-time Chat
 
 ```ruby
-require 'websocket'
+require 'net/websocket'
 
-ws = WebSocket::Client.new("ws://chat.example.com/socket")
+ws = Net::WebSocket::Client.new("ws://chat.example.com/socket")
 ws.add_header("Authorization", "Bearer mytoken")
 ws.connect
 
@@ -216,7 +216,7 @@ end
 ## Example: IoT Device
 
 ```ruby
-require 'websocket'
+require 'net/websocket'
 
 def read_sensor_data
   {
@@ -226,7 +226,7 @@ def read_sensor_data
   }
 end
 
-ws = WebSocket::Client.new("ws://iot.example.com/device/sensor001")
+ws = Net::WebSocket::Client.new("ws://iot.example.com/device/sensor001")
 ws.connect
 
 # Send sensor data every 10 seconds
