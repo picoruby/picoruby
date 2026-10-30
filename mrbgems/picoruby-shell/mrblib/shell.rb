@@ -454,7 +454,7 @@ class Shell
     # While the shell waits for input, a job that got Ctrl-Z while its
     # task was suspended by itself is suspended as soon as its event
     # resumes it (Sandbox#poll_pending_suspend).
-    @editor.idle_handler = -> { poll_jobs }
+    @editor.idle_handler = Proc.new { poll_jobs }
     @editor.start do |editor, buffer, c|
       case c
       when 2 # Ctrl-B (STX) - enter machine communication mode
