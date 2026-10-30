@@ -32,8 +32,7 @@ init_options(pm_options_t *options)
   if (!options) {
     return;
   }
-  pm_string_t *encoding = &options->encoding;
-  pm_string_constant_init(encoding, "UTF-8", 5);
+  pm_string_init(&options->encoding, (const uint8_t *)"UTF-8", 5);
 }
 
 #if defined(PICORB_VM_MRUBY)

@@ -44,10 +44,13 @@ module MRuby
 
     def common
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/include"
-      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include"
-      # Prism's generated headers (ast.h, diagnostic.h) are written under
-      # build_root, not into the submodule, so every gem needs this path too.
+      # Prism's generated headers (ast.h, internal/diagnostic.h) are written
+      # under build_root, not into the submodule, so every gem needs this path too.
+      # It goes before the submodule's include directory: a checkout that once
+      # generated its templates in place still holds them (ignored by git),
+      # and those are from the Prism of that time.
       cc.include_paths << "#{build_root}/prism/include"
+      cc.include_paths << "#{MRUBY_ROOT}/mrbgems/mruby-compiler/lib/prism/include"
       # Workaround: To avoid error in compiling gem_init.c
       cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/include"
       # Pass PICORUBY_VERSION to mruby-compiler
