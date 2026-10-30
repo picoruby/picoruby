@@ -1,4 +1,4 @@
-# picoruby-websocket
+# picoruby-net-websocket
 
 WebSocket client and server for PicoRuby.
 
@@ -14,19 +14,26 @@ This is a pure Ruby implementation of WebSocket (RFC 6455) client and server for
 - Close handshake
 - Frame masking (client-to-server)
 - Fragmented messages support
-- Uses TCPSocket from picoruby-socket-class
+- Uses TCPSocket and SSLSocket from picoruby-socket
 
 ## Installation
 
-Requires `picoruby-socket-class` and `picoruby-base_encoding` gems.
-
-Add to your `build_config.rb`:
+The gem is part of the `networking` gembox, which the default build
+configs already include:
 
 ```ruby
-conf.gem :core => 'picoruby-socket-class'
-conf.gem :core => 'picoruby-base_encoding'
-conf.gem :core => 'picoruby-websocket'
+conf.gembox "networking"
 ```
+
+To add only this gem, write:
+
+```ruby
+conf.gem core: 'picoruby-net-websocket'
+```
+
+The gem declares its dependencies itself: `picoruby-socket`,
+`picoruby-base64`, `picoruby-rng`, `picoruby-mbedtls` and a `pack`
+implementation (`mruby-pack` on PicoRuby, `picoruby-pack` on FemtoRuby).
 
 ## Usage
 
