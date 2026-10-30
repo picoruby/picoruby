@@ -1,12 +1,13 @@
 # picoruby-websocket
 
-WebSocket client for PicoRuby.
+WebSocket client and server for PicoRuby.
 
-This is a pure Ruby implementation of WebSocket (RFC 6455) client for PicoRuby, designed for real-time communication.
+This is a pure Ruby implementation of WebSocket (RFC 6455) client and server for PicoRuby, designed for real-time communication.
 
 ## Features
 
 - WebSocket client (RFC 6455)
+- WebSocket server (RFC 6455, ws:// only)
 - HTTP handshake with Sec-WebSocket-Key
 - Text and binary frames
 - Ping/Pong frames
@@ -151,6 +152,31 @@ ws.ssl_context = ctx
 ws.connect
 ```
 
+### Server
+
+The server accepts plain `ws://` connections. It does not terminate TLS.
+
+```ruby
+require 'net/websocket'
+
+server = Net::WebSocket::Server.new(host: '0.0.0.0', port: 8080)
+server.start
+
+server.accept_loop do |conn|
+  begin
+    while (message = conn.receive(timeout: 60))
+      conn.send(message)  # Echo the message back
+    end
+  rescue Net::WebSocket::ConnectionClosed
+    # The client closed the connection
+  ensure
+    conn.close unless conn.closed?
+  end
+end
+```
+
+See `example/picoruby_server.rb` for a complete server.
+
 ## API Reference
 
 ### Net::WebSocket::Client
@@ -173,6 +199,29 @@ ws.connect
 - `add_header(name, value)` - Add custom HTTP header
 - `ssl_context=(ctx)` - Set custom SSLContext for wss:// connections
 
+### Net::WebSocket::Server
+
+#### Class Methods
+
+- `Net::WebSocket::Server.new(host: '0.0.0.0', port: 8080)` - Create new WebSocket server
+
+#### Instance Methods
+
+- `start` - Open the listening TCP socket
+- `accept` - Wait for one client and return a `Connection` after the handshake
+- `accept_loop { |conn| ... }` - Call the block for each accepted connection
+- `close` - Close the listening socket
+
+### Net::WebSocket::Server::Connection
+
+- `send_text(text)` - Send text message
+- `send_binary(data)` - Send binary message
+- `send(data, type: :text)` - Send message with type
+- `receive(timeout: nil)` - Receive next message (blocking); `timeout` is in seconds, nil on timeout
+- `ping(payload = "")` - Send ping frame
+- `close(code = 1000, reason = "")` - Close connection
+- `closed?` - Check whether the socket is closed
+
 ## Supported Features
 
 - ✅ Client-side WebSocket
@@ -186,7 +235,7 @@ ws.connect
 - ✅ Fragmented messages
 - ✅ Custom headers
 - ✅ SSL/TLS (wss://) supported via SSLSocket
-- ⚠️ Server-side not implemented
+- ✅ Server-side WebSocket (ws:// only, no TLS)
 - ⚠️ Extensions not supported
 
 ## Example: Real-time Chat
