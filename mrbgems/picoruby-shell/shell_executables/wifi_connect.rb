@@ -12,6 +12,42 @@
 #     retry_if_failed: true
 #     watchdog: true
 #   ```
+#
+# Watchdog (watchdog: true)
+#   The watchdog only catches a hung WiFi driver.
+#   wifi_connect enables the watchdog before the first connection attempt.
+#   It feeds the watchdog before each Network::WiFi.connect_timeout call.
+#   It disables the watchdog when the connection step ends:
+#     - The connection succeeds.
+#     - wifi_connect aborts.
+#     - An exception occurs.
+#
+#   The device reboots only when one attempt does not return in time:
+#     RP2040/RP2350: watchdog 8388 ms, attempt timeout 7 s
+#     ESP32:         watchdog 15000 ms, attempt timeout 10 s
+#
+#   The device does not reboot in these cases:
+#     - The attempt fails or times out normally.
+#       If retry_if_failed is true, wifi_connect retries with no limit.
+#       Otherwise, it prints "Abort." and returns.
+#     - The configuration is invalid, or Network::WiFi.init fails.
+#     - The connection succeeds, but no IP address comes in 2 seconds.
+#     - The link goes down after wifi_connect returns.
+#     - An exception other than Network::ConnectTimeout occurs.
+#       At boot, the exception stops r2p2, and app.rb does not start.
+#
+# Guideline for app.rb
+#   At boot, r2p2 loads app.rb after wifi_connect returns.
+#   This also occurs when the connection failed.
+#   Thus, do not assume that the network is available in app.rb.
+#   Check Network::WiFi.link_connected? before a network operation.
+#   Reboot the device (Watchdog.reboot) only when a reboot can repair the error:
+#     - A network call does not return (a driver hang).
+#       Enable the watchdog before the call, and feed it in the main loop.
+#     - The link went down, and the reconnection fails again and again.
+#       Retry with a delay first. Reboot after a limit of retries.
+#   A reboot does not repair a wrong password, a missing access point,
+#   or an invalid configuration. A reboot loop only hides these errors.
 
 require 'env'
 require 'yaml'
@@ -103,42 +139,53 @@ else
   password = decrypt_proc.call(decoded_password)
 end
 
-if config["wifi"]["watchdog"]
-  Watchdog.enable 8388 # Max value is 8388ms
-  puts "Watchdog enabled (8388ms)"
+watchdog = config["wifi"]["watchdog"]
+# connect_timeout blocks in C without feeding the watchdog,
+# so its timeout must be shorter than the watchdog period.
+# See "Watchdog" at the top of this file.
+timeout = 10 # seconds
+if RUBY_PLATFORM == "ESP32"
+  watchdog_ms = 15000
+else
+  watchdog_ms = Watchdog::RP2040_MAX_ENABLE_MS # 8388 ms
+  timeout = 7 if watchdog
+end
+
+if watchdog
+  Watchdog.enable watchdog_ms
+  puts "Watchdog enabled (#{watchdog_ms}ms)"
 end
 
 retry_if_failed = config["wifi"]["retry_if_failed"]
+# Do not use `retry` here: mruby/c runs the ensure clause on every retry
 begin
-  puts "Connecting to WiFi network: #{ssid}. Timeout in 10 seconds..."
+  puts "Connecting to WiFi network: #{ssid}. Timeout in #{timeout} seconds..."
 
   while true
-    connected = Network::WiFi.connect_timeout(ssid, password, auth, 10) # seconds
+    Watchdog.feed if watchdog
+    begin
+      connected = Network::WiFi.connect_timeout(ssid, password, auth, timeout)
+      reason = "Failed to connect."
+    rescue Network::ConnectTimeout
+      connected = false
+      reason = "Connection timed out."
+    end
     break if connected
 
     if retry_if_failed
-      puts "Failed to connect. Retrying..."
+      puts "#{reason} Retrying..."
       sleep 1
     else
-      puts "Failed to connect. Abort."
+      puts "#{reason} Abort."
       return
     end
   end
   puts "Connected."
-rescue Network::ConnectTimeout
-  if retry_if_failed
-    puts "Connection timed out. Retrying..."
-    sleep 1
-    retry
-  else
-    puts "Connection timed out. Abort."
-    return
+ensure
+  if watchdog
+    Watchdog.disable
+    puts "Watchdog disabled"
   end
-end
-
-if config["wifi"]["watchdog"]
-  Watchdog.disable
-  puts "Watchdog disabled"
 end
 
 puts "Waiting for IP address..."
