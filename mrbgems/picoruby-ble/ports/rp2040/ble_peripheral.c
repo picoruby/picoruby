@@ -19,9 +19,13 @@ BLE_peripheral_stop_advertise(void)
   gap_advertisements_enable(0);
 }
 
+static uint8_t adv_data_buf[31];
+
 void
 BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len, bool connectable)
 {
+  if (adv_data_len > sizeof(adv_data_buf)) adv_data_len = sizeof(adv_data_buf);
+  memcpy(adv_data_buf, adv_data, adv_data_len);
   // setup advertisements
   uint16_t adv_int_min = 800;
   uint16_t adv_int_max = 800;
@@ -31,7 +35,7 @@ BLE_peripheral_advertise(uint8_t *adv_data, uint8_t adv_data_len, bool connectab
   bd_addr_t null_addr;
   memset(null_addr, 0, 6);
   gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, channel_map, filter_policy);
-  gap_advertisements_set_data(adv_data_len, adv_data);
+  gap_advertisements_set_data(adv_data_len, adv_data_buf);
   gap_advertisements_enable(1);
 }
 
