@@ -122,8 +122,10 @@ bool picoruby_load_model_by_name(const char *gem);
 #if defined(PICORB_ALLOC_ESTALLOC)
 #define picorb_vm_init()  do { \
   vm = mrb_open_with_custom_alloc(vm_heap, HEAP_SIZE); \
-  if (vm == NULL) { \
+  if (MRB_OPEN_FAILURE(vm)) { \
     fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv); \
+    mrb_print_error(vm); /* a gem init raised; handles NULL */ \
+    mrb_close(vm); \
     return EXIT_FAILURE; \
   } \
   global_mrb = vm; \
@@ -131,8 +133,10 @@ bool picoruby_load_model_by_name(const char *gem);
 #else
 #define picorb_vm_init()  do { \
   vm = mrb_open(); \
-  if (vm == NULL) { \
+  if (MRB_OPEN_FAILURE(vm)) { \
     fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv); \
+    mrb_print_error(vm); /* a gem init raised; handles NULL */ \
+    mrb_close(vm); \
     return EXIT_FAILURE; \
   } \
   global_mrb = vm; \

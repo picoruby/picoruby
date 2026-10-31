@@ -115,14 +115,27 @@ stdin_reader_task(void *arg)
 
 #endif /* CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG */
 
+/*
+ * The tick timer runs in the esp_timer task, which may be on the other core
+ * than the VM. picorb_tick() edits the same task queues as the scheduler, so
+ * both sides take this spinlock (portDISABLE_INTERRUPTS only masks the
+ * calling core). See picorb_hal_disable_irq().
+ */
+static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
+
 static void
 alarm_handler(void *arg)
 {
+  portENTER_CRITICAL(&mux);
 #if defined(PICORB_VM_MRUBYC)
   picorb_tick();
 #else
-  picorb_tick(mrb_);
+  /* No VM between picorb_hal_final() and the next picorb_hal_init() */
+  if (mrb_) {
+    picorb_tick(mrb_);
+  }
 #endif
+  portEXIT_CRITICAL(&mux);
 }
 
 void
@@ -133,8 +146,22 @@ picorb_hal_init(void)
 #endif
 {
 #if defined(PICORB_VM_MRUBY)
+  portENTER_CRITICAL(&mux);
   mrb_ = (mrb_state *)mrb;
+  portEXIT_CRITICAL(&mux);
 #endif
+  /*
+   * A host may open one VM after another (one per script, say), calling
+   * this each time, but the tick timer and the stdin reader are
+   * process-wide: set them up once, or every VM adds another timer and
+   * another reader task.
+   */
+  static bool initialized = false;
+  if (initialized) {
+    return;
+  }
+  initialized = true;
+
   esp_timer_create_args_t timer_create_args;
   timer_create_args.callback = &alarm_handler;
   timer_create_args.arg = NULL;
@@ -172,20 +199,26 @@ picorb_hal_init(void)
 void
 picorb_hal_final(mrb_state *mrb)
 {
-  (void)mrb;
+  /* The timer keeps running for the next VM; stop it ticking this one. */
+  portENTER_CRITICAL(&mux);
+  if (mrb_ == mrb || mrb == NULL) {
+    mrb_ = NULL;
+  }
+  portEXIT_CRITICAL(&mux);
 }
 #endif
 
 void
 picorb_hal_enable_irq(void)
 {
-  portENABLE_INTERRUPTS();
+  portEXIT_CRITICAL(&mux);
 }
 
 void
 picorb_hal_disable_irq(void)
 {
-  portDISABLE_INTERRUPTS();
+  /* Dual-core safe: a spinlock plus masking interrupts on this core */
+  portENTER_CRITICAL(&mux);
 }
 
 void

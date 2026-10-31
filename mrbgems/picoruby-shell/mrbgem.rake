@@ -5,6 +5,13 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.license = 'MIT'
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'PicoRuby Shell library'
+  # The tokenizer, the parser and the job setup compile with picoruby-aot:
+  # on a pico2_w Shell::Parser takes 5.3 ms for "ls" and 32.9 ms for a
+  # 33-character pipeline in the irep, 2.3 and 8.3 ms compiled. The
+  # defs that wait for the scheduler (the exec path through
+  # Sandbox#wait, the setup sleeps, getch) stay in the irep.
+  spec.aot = true
+  spec.aot_include_widened = true
 
   spec.add_dependency 'picoruby-require'
   spec.add_dependency 'picoruby-editor'
@@ -15,7 +22,12 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   spec.add_dependency 'picoruby-picomodem'
   spec.add_dependency 'picoruby-machine'
   spec.add_dependency 'picoruby-yaml'
-  spec.add_dependency 'picoruby-data'
+  # Data: mruby's own gem on mruby, the small one on mruby/c
+  if build.femtoruby?
+    spec.add_dependency 'picoruby-data'
+  else
+    spec.add_dependency 'mruby-data', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-data"
+  end
   spec.add_dependency 'picoruby-network'
   if build.posix?
     if build.femtoruby?
@@ -44,7 +56,11 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   directory executable_dir
   Dir.glob("#{dir}/shell_executables/*.rb") do |rbfile|
     mrbfile = "#{executable_dir}/#{rbfile.pathmap('%n')}.c"
-    file mrbfile => [rbfile, executable_dir, executables_src] do |t|
+    # build.mrbcfile: the compiler of this build (bin/mrbc of the host
+    # build) must exist before an executable is compiled; without the
+    # prerequisite a build that makes both (the picotest binary) runs
+    # this task first and finds no mrbc.
+    file mrbfile => [rbfile, executable_dir, executables_src, build.mrbcfile] do |t|
       File.open(t.name, 'w') do |f|
         mrbc.compile_options = "--remove-lv -B%{funcname} -o-"
         mrbc.run(f, t.prerequisites[0], "executable_#{t.name.pathmap("%n").gsub('-', '_')}", cdump: false)
@@ -56,7 +72,7 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
     build.libmruby_objs << objfile
   end
 
-  file executables_src do |t|
+  file executables_src => [build.mrbcfile] do |t|
     mkdir_p File.dirname t.name
     pathmap = File.read("#{dir}/shell_executables/_path.txt").lines.map(&:chomp).map do
       pn = Pathname.new(_1)

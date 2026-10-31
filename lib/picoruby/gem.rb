@@ -3,8 +3,83 @@ module MRuby
     class Specification
       attr_accessor :require_name
 
+      # picoruby-aot: a gem declares in its mrbgem.rake that its typed
+      # mrblib methods are to be compiled to cfuncs (`spec.aot = true`); the
+      # author knows the gem's hot path and keeps the tests the twin runs.
+      # The target turns the machinery on with `conf.aot`, and a build config
+      # may opt a gem out: `conf.gem(core: 'x') { |g| g.aot = false }` (the
+      # block runs after the mrbgem.rake). `aot_exclude` names methods
+      # ("Klass#meth", "Klass.meth") that stay in the irep regardless.
+      # `aot_include_widened = true` compiles the methods Spinel widened to
+      # untyped as well: their values stay boxed and go through the guarded
+      # helpers, so only the VM's decode and dispatch is saved.
+      attr_accessor :aot, :aot_exclude, :aot_include_widened
+
+      # A gem without mrblib has nothing to compile; it keeps the plain path.
+      def aot?
+        !!aot && build.respond_to?(:aot?) && build.aot? && build.picoruby? && !rbfiles.empty?
+      end
+
+      def aot_dir
+        "#{build_dir}/aot"
+      end
+
+      def aot_c
+        "#{aot_dir}/aot_#{funcname}.c"
+      end
+
+      # The Ruby left for mrbc once the compiled defs are blanked out; one
+      # file per mrblib file, same relative name.
+      def aot_rbfiles
+        rbfiles.map { |f| "#{aot_dir}/rb/#{f.sub("#{dir}/mrblib/", '')}" }
+      end
+
+      def setup_aot
+        tools_dir = "#{MRUBY_ROOT}/mrbgems/picoruby-aot/tools"
+        tool = "#{tools_dir}/aot-gen"
+        tool_srcs = Dir.glob("#{tools_dir}/**/*.rb") + [tool]
+        sigfiles = Dir.glob("#{dir}/sig/**/*.rbs").sort
+        exclude = (aot_exclude || []).empty? ? "" : " --exclude #{(aot_exclude || []).join(',')}"
+        exclude << " --include-widened" if aot_include_widened
+        workspace = "#{build.build_dir}/aot-workspace"
+        manifest = "#{aot_dir}/manifest.json"
+        # The gems of this build, one per line. The generator's wait search
+        # looks into their defs (a call into a gem that suspends the task
+        # keeps the caller in the irep), so the set is an input of the C:
+        # the file changes only when the set does, and the C depends on it.
+        deps_file = "#{aot_dir}/deps.txt"
+        deps_text = -> { build.gems.map(&:name).sort.join("\n") + "\n" }
+        deps_task = file deps_file do
+          mkdir_p aot_dir
+          File.write(deps_file, deps_text.call)
+        end
+        # A file task runs only when its file is missing; this one runs
+        # when the content would differ, and leaves the mtime alone
+        # otherwise, so the C is not regenerated on every build.
+        deps_task.define_singleton_method(:needed?) do
+          !File.exist?(deps_file) || File.read(deps_file) != deps_text.call
+        end
+        # mrbgem.rake is a prerequisite because aot_exclude and
+        # aot_include_widened live there: a changed flag regenerates.
+        file aot_c => rbfiles + sigfiles + tool_srcs + ["#{dir}/mrbgem.rake", deps_file] + build.aot_spinel_prereqs do |t|
+          _pp "AOT", aot_c.relative_path
+          mkdir_p aot_dir
+          deps = File.read(deps_file).split("\n").join(",")
+          sh %Q[SPINEL="#{build.aot_spinel}" ruby "#{tool}" --gem #{name} --workspace "#{workspace}" --out-c "#{aot_c}" --out-rb "#{aot_dir}/rb" --manifest "#{manifest}"#{exclude} --deps #{deps}]
+        end
+        aot_rbfiles.each { |f| file f => aot_c }
+        cc.include_paths << "#{MRUBY_ROOT}/mrbgems/picoruby-aot/include"
+        obj = objfile("#{aot_dir}/aot_#{funcname}")
+        file obj => aot_c do |f|
+          cc.run f.name, aot_c
+        end
+        # @objs is the array already registered in build.libmruby_objs.
+        @objs << obj
+      end
+
       alias_method :original_setup_compilers, :setup_compilers
       def setup_compilers
+        setup_aot if aot?
         original_setup_compilers
         return unless cc.build.posix?
         # setup for POSIX
@@ -20,6 +95,7 @@ module MRuby
       end
 
       def define_gem_init_builder
+        return define_aot_gem_init_builder if aot?
         fname = "#{build_dir}/gem_init.c"
         generated_file fname, [build.mrbcfile, __FILE__] + [rbfiles].flatten, inputs: [cdump?, *objs] do |f|
           _pp "GEN", fname.relative_path
@@ -27,6 +103,33 @@ module MRuby
             rbfiles.clear
           end
           generate_gem_init(f)
+        end
+      end
+
+      # The AOT variant of gem_init.c: mrbc compiles the stripped Ruby, and
+      # the compiled cfuncs are registered right after the irep is loaded,
+      # so the classes the Ruby opens exist when the methods are added.
+      def define_aot_gem_init_builder
+        fname = "#{build_dir}/gem_init.c"
+        generated_file fname, [build.mrbcfile, __FILE__] + aot_rbfiles, inputs: [cdump?, *objs] do |f|
+          _pp "GEN", fname.relative_path
+          original = rbfiles
+          @rbfiles = aot_rbfiles
+          # generate_gem_init takes any object beyond gem_init.o as proof of
+          # a hand-written mrb_<gem>_gem_init; the AOT object is not one.
+          aot_obj = objfile("#{aot_dir}/aot_#{funcname}")
+          @objs.delete(aot_obj)
+          scratch = "#{aot_dir}/gem_init.scratch.c"
+          mkdir_p aot_dir
+          File.open(scratch, "w") { |s| generate_gem_init(s) }
+          @objs << aot_obj
+          @rbfiles = original
+          src = File.read(scratch)
+          rm_f scratch
+          register = "mrb_aot_#{funcname}_register"
+          src.sub!(/^void mrb_#{funcname}_gem_init\(mrb_state \*mrb\);$/) { |m| "void #{register}(mrb_state *mrb);\n#{m}" }
+          src.sub!(/^(  mrb_load_(?:irep|proc)\(mrb, gem_mrblib_[^\n]*\);)$/) { |m| "#{m}\n  #{register}(mrb);" }
+          f.write src
         end
       end
 

@@ -2,7 +2,13 @@ require 'data'
 
 class Shell
   class Tokenizer
-    SPECIAL_CHARS = ['|', '&', ';', '<', '>', ' ', "\t", "\n", "'", '"']
+    # The character sets are Strings, not Arrays: `String#include?` of a
+    # one-character String is one C scan, while `Array#include?` compares
+    # every element with `String#==` (a method search per element on a
+    # device without the method cache). The tokenizer tests one character
+    # per input character.
+    SPECIAL_CHARS = "|&;<> \t\n'\""
+    WHITESPACE = " \t\n"
 
     def initialize(input)
       @input = input
@@ -36,14 +42,13 @@ class Shell
     private
 
     def tokenize_whitespace(start_pos)
-      while !eof? && [' ', "\t", "\n"].include?(@input[@position] || '')
-        @position += 1
-      end
+      skip_whitespace
       create_token(:special, start_pos, @position - start_pos)
     end
 
+    # `@input[@position]` is nil past the end, which ends the loop.
     def skip_whitespace
-      while !eof? && [' ', "\t", "\n"].include?(@input[@position] || '')
+      while (ch = @input[@position]) && WHITESPACE.include?(ch)
         @position += 1
       end
     end
@@ -68,7 +73,7 @@ class Shell
     end
 
     def tokenize_word(start_pos)
-      while @position < @input.length && !SPECIAL_CHARS.include?(@input[@position] || '')
+      while (ch = @input[@position]) && !SPECIAL_CHARS.include?(ch)
         @position += 1
       end
       create_token(:word, start_pos, @position - start_pos)

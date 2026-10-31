@@ -32,6 +32,10 @@ class Shell
       return false
     end
 
+    def poll_pending_suspend
+      @sandbox.poll_pending_suspend
+    end
+
     def state
       @sandbox.state
     end

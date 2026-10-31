@@ -164,8 +164,8 @@ ssl.close
 
 ```ruby
 ctx = SSLContext.new
-tcp = TCPSocket.new('example.com', 443)
-ssl = SSLSocket.open(tcp, ctx)  # Connects automatically
+ssl = SSLSocket.open('example.com', 443, ctx)  # Connects automatically
+# Do not call ssl.connect after SSLSocket.open. The socket is already connected.
 ```
 
 ## Implementation Notes

@@ -11,7 +11,11 @@ pin_num(mrb_state *mrb, int *opt_value)
   mrb_value pin;
   int pin_number;
   if (opt_value) {
-    mrb_get_args(mrb, "oi", &pin, opt_value);
+    /* "i" stores an mrb_int, which is 64-bit with MRB_INT64: never hand it
+     * an int* directly (that overruns the caller's stack variable). */
+    mrb_int value;
+    mrb_get_args(mrb, "oi", &pin, &value);
+    *opt_value = (int)value;
   } else {
     mrb_get_args(mrb, "o", &pin);
   }

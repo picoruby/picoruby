@@ -107,7 +107,10 @@ class File
       while i < filenames.size
         # @type var name: String
         name = filenames[i]
-        count += VFS.unlink(name)
+        # The driver raises when it cannot remove the file and answers 0
+        # otherwise; the count is of the files removed, as in CRuby.
+        VFS.unlink(name)
+        count += 1
         i += 1
       end
       return count
@@ -168,7 +171,7 @@ class File
   alias pos= seek
 
   def rewind
-    @file.seek(0)
+    @file.seek(0, SEEK_SET)
   end
 
   def each_line(&block) # steep:ignore MethodArityMismatch
@@ -294,7 +297,7 @@ class File
 
   def putc(ch)
     # @type var ch: String | Integer
-    case ch.class
+    case ch
     when Integer
       @file.write ch.chr
     when String

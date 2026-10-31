@@ -66,5 +66,6 @@ class Shell
   private def _fg: (*untyped args) -> void
   private def _bg: (*untyped args) -> void
   private def _export: (*untyped args) -> void
+  private def poll_jobs: () -> void
   private def cleanup_jobs: () -> void
 end

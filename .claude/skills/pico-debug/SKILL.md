@@ -11,9 +11,9 @@ description: >-
 
 # pico-debug: on-device GDB debugging for r2p2 firmware
 
-Bring up a full SWD debug session on real Pico hardware: launch openocd for the
-right chip in a background tmux pane, build the requested r2p2 firmware, and
-attach gdb to it in a user-visible tmux pane.
+Drive an SWD debug session on real Pico hardware: build the requested r2p2
+firmware, then work in the openocd and gdb panes the owner opened. The owner
+starts openocd and gdb; this agent never does (constraint 0 below).
 
 ## Board / runtime / chip mapping
 
@@ -38,6 +38,13 @@ Rules:
 
 ## Environment constraints (MUST read before any step)
 
+0. **The owner starts openocd and gdb. Never start them yourself.** When no
+   pane runs `gdb-multiarch` (or no pane runs `openocd`), stop and ask the
+   owner to bring them up in panes of their choice, then wait. Do not launch
+   `openocd`, `gdb-multiarch` or `gdb-pico` from this agent, in a new tmux
+   window or otherwise, and do not flash the board by any other route
+   (`openocd ... program`, picotool) in their place. This agent only drives
+   a gdb session the owner opened, with `send-keys` and `capture-pane`.
 1. **tmux socket is blocked by the sandbox.** Every `tmux` command
    (`list-panes`, `send-keys`, `capture-pane`, `split-window`) fails with
    "Operation not permitted" unless run with `dangerouslyDisableSandbox: true`.
@@ -68,7 +75,8 @@ Rules:
 - **gdb pane** (required, user-specified): the visible pane where gdb attaches.
   If the user did not say which pane, list candidate panes and ask.
 
-The openocd pane is chosen automatically (see step 2). Do not ask for it.
+The openocd pane is the one the owner started it in (see step 1); find it
+by `cmd=openocd` in the pane list.
 
 ## Procedure
 
@@ -88,23 +96,17 @@ tmux list-panes -a -F '#{session_name}:#{window_index}.#{pane_index} id=#{pane_i
 ### 1. Ensure openocd is running for the correct chip
 
 Scan the pane list for `cmd=openocd`.
-- If one is already running: capture it and verify it targets the requested chip
+- If one is running: capture it and verify it targets the requested chip
   (`rp2350.cm0` / `rp2040`), and that it prints
-  `Listening on port 3333 for gdb connections`. If it matches, reuse it and skip
-  to step 2. If it targets the wrong chip, ask the user to stop it (a second
-  openocd will fail: ports 3333/4444/6666 already in use).
-- If none is running: continue to step 2's launch below.
+  `Listening on port 3333 for gdb connections`. If it targets the wrong chip,
+  ask the owner to stop it (a second openocd will fail: ports 3333/4444/6666
+  already in use).
+- If none is running: ask the owner to start it (`openocd-rp2350` or
+  `openocd-rp2040` in a pane of their choice) and wait. See constraint 0.
 
-### 2. Launch openocd in a free background pane
-
-Pick the openocd pane: prefer a pane in the SAME window as the gdb pane with
-`cmd=bash`, whose id is neither the gdb pane nor `$TMUX_PANE`. If none in that
-window, use any idle `cmd=bash` pane. If there is genuinely no free bash pane,
-create one: `tmux split-window -v -t <gdb-window>` then re-list to get its id.
+### 2. Verify the openocd pane the owner started
 
 ```bash
-tmux send-keys -t <openocd_pane_id> 'openocd-rp2350' Enter   # or openocd-rp2040
-sleep 2
 tmux capture-pane -p -t <openocd_pane_id>
 ```
 
@@ -132,17 +134,38 @@ ls -t build/r2p2/<runtime>/<board>/<variant>/*.elf | head -1
 Prepend `/home/hasumi/work/picoruby/` if the path is relative; the gdb pane's
 cwd may differ, so always pass gdb an absolute path.
 
-### 5. Attach gdb in the user-visible pane
+### 5. Verify the gdb session the owner opened
+
+The owner runs `gdb-pico <ABS_ELF_PATH>` in their pane (give them the path
+from step 4). If no pane runs `gdb-multiarch`, ask and wait (constraint 0).
 
 ```bash
-tmux send-keys -t <gdb_pane_id> "gdb-pico <ABS_ELF_PATH>" Enter
-sleep 6
 tmux capture-pane -p -t <gdb_pane_id> | tail -30
 ```
 
 Verify the capture shows `Remote debugging using localhost:3333` and a `(gdb)`
-prompt. The target is now halted; the user drives it from that pane
-(`bt`, `c`, `b <fn>`, `si`, ...).
+prompt. The target is now halted; the owner drives it from that pane
+(`bt`, `c`, `b <fn>`, `si`, ...), and this agent may send commands into it
+with `send-keys` when asked.
+
+**RP2350: restore CPACR before the first `c` after a connect.** On the
+first gdb connection openocd probes the flash by running bootrom code on
+core 0 (`RP2350 rev 2, QSPI Flash ...` in the openocd pane). The probe
+leaves CPACR (0xE000ED88) at 0xC000: only the RCP is enabled, and the GPIO
+coprocessor, the DCP and the FPU that the SDK runtime init turned on are
+off. If the firmware is simply continued, the first GPIO coprocessor
+instruction (the cyw43 driver's `gpio_put` in `cyw43_arch_poll`) HardFaults
+with CFSR = 0x80000 (NOCP) and the USB serial goes silent. `monitor flash
+probe 0` does the same. A plain halt/`c` does not. Check and restore:
+
+```bash
+tmux send-keys -t <gdb_pane_id> "p/x *(unsigned int*)0xe000ed88" Enter   # 0xc000 = cleared
+tmux send-keys -t <gdb_pane_id> "set *(unsigned int*)0xe000ed88 = 0xf0c303" Enter
+tmux send-keys -t <gdb_pane_id> "c" Enter
+```
+
+`monitor reset init` + `c` also restores it (runtime init runs again), and
+the `load` + `run` path in step 7 is not affected. RP2040 has no CPACR.
 
 ### 6. Report
 
@@ -206,6 +229,15 @@ Then do the `run` and `y` steps. The next boot rewrites `/bin`.
 - **A rebuilt shell executable still runs the old version**: the flash file
   system cache. Delete `/etc/ruby-description` on the board and restart. See
   step 7.
+- **RP2350 HardFaults right after `c` following a gdb connect or `monitor
+  flash probe 0`** (`hardfault_handler_c`, CFSR 0x80000 NOCP, PC in
+  `gpioc_bit_out_put`): the flash probe cleared CPACR. Restore it or reset.
+  See step 5.
+- **mbedTLS debug output is not on the console**: with PICORB_DEBUG the
+  rp2040 port logs mbedTLS at level 3 through `debug_printf`, which goes to
+  stderr = the second CDC interface (`...-if02`, usually ttyACM5), not the
+  shell console (`-if00`). Open that port without `stty` (its tcsetattr
+  blocks) and read it alongside the console.
 
 ## Cleanup (only when the user asks to end the session)
 

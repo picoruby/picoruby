@@ -1,7 +1,8 @@
 # Classes
 class Shell
   class Tokenizer
-    SPECIAL_CHARS: Array[String]
+    SPECIAL_CHARS: String
+    WHITESPACE: String
 
     @input: String
     @position: Integer

@@ -36,24 +36,32 @@ module Net
       end
 
       def connect
-        # Wrap with SSL if using wss://
-        if @use_ssl
-          # Create default SSL context if not provided
-          unless @ssl_context
-            @ssl_context = SSLContext.new
-            @ssl_context.verify_mode = SSLContext::VERIFY_PEER
-          end
+        begin
+          # Wrap with SSL if using wss://
+          if @use_ssl
+            # Create default SSL context if not provided
+            unless @ssl_context
+              @ssl_context = SSLContext.new
+              @ssl_context.verify_mode = SSLContext::VERIFY_PEER
+            end
 
-          # Create SSL socket
-          socket = SSLSocket.open(@host, @port, @ssl_context)
-          socket.connect  # Perform SSL handshake
-          @socket = socket
-        else
-          @socket = TCPSocket.new(@host, @port)
+            # SSLSocket.open connects and performs the TLS handshake
+            @socket = SSLSocket.open(@host, @port, @ssl_context)
+          else
+            @socket = TCPSocket.new(@host, @port)
+          end
+        rescue => e
+          raise WebSocketError.new("Failed to connect to #{@host}:#{@port} - #{e.message}")
         end
 
         # Perform WebSocket handshake
-        perform_handshake
+        begin
+          perform_handshake
+        rescue => e
+          @socket.close
+          @socket = nil
+          raise e
+        end
 
         true
       end

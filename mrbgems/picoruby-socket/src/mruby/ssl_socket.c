@@ -435,6 +435,11 @@ mrb_ssl_socket_connect(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "SSL socket is not initialized");
   }
 
+  /* SSLSocket.open already connected; connect is then a no-op */
+  if (!SSLSocket_closed(mrb, ssl_sock)) {
+    return self;
+  }
+
   if (!SSLSocket_connect(mrb, ssl_sock)) {
 #if !defined(PICORB_PLATFORM_POSIX) && !defined(PICORB_PLATFORM_ESP32)
     const char *net_error = Net_get_last_error();

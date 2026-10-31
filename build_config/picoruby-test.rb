@@ -1,4 +1,8 @@
-MRuby::Build.new do |conf|
+# Test runner for `rake test:gems:picoruby`. Named, so that it builds under
+# build/picoruby-test and leaves build/host (rake picoruby:debug) alone:
+# the twin builds this binary with AOT, and a shared build/host handed
+# that binary to the next host build and measurement.
+MRuby::Build.new('picoruby-test') do |conf|
   conf.toolchain :gcc
 
   conf.cc.defines << "PICORB_PLATFORM_POSIX"

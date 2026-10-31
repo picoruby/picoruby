@@ -211,11 +211,10 @@ mrb_sandbox_result(mrb_state *mrb, mrb_value self)
 {
   SS();
 
-  /* Built on the mrb heap, not through pm_options_scopes_init() and
-     friends: those take from Prism's allocator, which is the arena of the
-     compiler context that is current, and that arena is freed with its
-     context while these options must outlive it (they are used by the
-     next compile, after the previous context is gone). */
+  /* Built on the mrb heap and freed by free_options(), not through
+     pm_options_scopes_init() and pm_options_cleanup(): these options outlive
+     the compiler context (the next compile reads them, after the previous
+     context is gone), so they are the sandbox's own. */
   pm_options_t *options = (pm_options_t *)mrb_calloc(mrb, 1, sizeof(pm_options_t));
   options->scopes_count = 1;
   options->scopes = (pm_options_scope_t *)mrb_calloc(mrb, 1, sizeof(pm_options_scope_t));
@@ -234,7 +233,7 @@ mrb_sandbox_result(mrb_state *mrb, mrb_value self)
          the next call overwrites. */
       char *copy = (char *)mrb_malloc(mrb, len + 1);
       memcpy(copy, name, len + 1);
-      pm_string_constant_init(&scope->locals[j], copy, len);
+      pm_string_init(&scope->locals[j], (const uint8_t *)copy, len);
     }
   }
   free_options(mrb, ss);
@@ -358,13 +357,13 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(initialize), mrb_sandbox_initialize, MRB_ARGS_OPT(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile), mrb_sandbox_compile, MRB_ARGS_REQ(1)|MRB_ARGS_KEY(2,0));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(compile_from_memory), mrb_sandbox_compile_from_memory, MRB_ARGS_REQ(2)|MRB_ARGS_KEY(1,1));
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(resume), mrb_sandbox_resume, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(resume_task), mrb_sandbox_resume, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(execute), mrb_sandbox_execute, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(state), mrb_sandbox_state, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(result), mrb_sandbox_result, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(error), mrb_sandbox_error, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(stop), mrb_sandbox_stop, MRB_ARGS_NONE());
-  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(suspend), mrb_sandbox_suspend, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(suspend_task), mrb_sandbox_suspend, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(free_parser), mrb_sandbox_free_parser, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb), mrb_sandbox_exec_vm_code, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb_from_memory), mrb_sandbox_exec_vm_code_from_memory, MRB_ARGS_REQ(1));

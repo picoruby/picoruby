@@ -62,11 +62,15 @@ module Kernel
   def require_file(name)
     lps = load_paths(name)
     lpi = 0
+    exts = if name.end_with?(".rb") || name.end_with?(".mrb")
+             [""]
+           else
+             [".mrb", ".rb"]
+           end
     while lpi < lps.size
-      exts = ["mrb", "rb"]
       ei = 0
       while ei < exts.size
-        path = File.expand_path("#{name}.#{exts[ei]}", lps[lpi])
+        path = File.expand_path("#{name}#{exts[ei]}", lps[lpi])
         if File.file?(path)
           return (required?(path) ? false : load_file(path))
         end
@@ -80,6 +84,9 @@ module Kernel
 end
 
 $LOADED_FEATURES = ["require"]
+# The Array exists from here on; code that sets the load path changes
+# it in place (`clear`, `<<`), as `$LOAD_PATH` is read-only in CRuby.
+$LOAD_PATH = []
 
 if RUBY_ENGINE == 'mruby/c'
   class Object

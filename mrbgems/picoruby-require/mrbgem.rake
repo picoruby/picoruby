@@ -39,11 +39,14 @@ MRuby::Gem::Specification.new('picoruby-require') do |spec|
         }
         rbfiles = Dir.glob("#{gem.dir}/mrblib/**/*.rb").sort
         unless rbfiles.empty?
-          file mrbfile => rbfiles do |t|
+          # The mrbc binary is a prerequisite, as it is for every gem's
+          # gem_init.c (lib/mruby/gem.rb). Without it, this task runs before
+          # mrbc is built when the gem list puts picoruby-require early.
+          file mrbfile => [build.mrbcfile, *rbfiles] do |t|
             mkdir_p File.dirname(t.name)
             File.open(t.name, 'w') do |f|
               name = "picogem_#{File.basename(t.name, ".c").gsub('-','_')}"
-              mrbc.run(f, t.prerequisites, name, cdump: false)
+              mrbc.run(f, rbfiles, name, cdump: false)
               if initializer != "NULL"
                 f.puts
                 f.puts "void #{initializer}(mrbc_vm *vm);"

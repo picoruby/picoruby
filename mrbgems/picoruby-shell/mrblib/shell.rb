@@ -126,7 +126,8 @@ class Shell
       Dir.mkdir(root)
       puts "Created root directory: #{root}"
     end
-    $LOAD_PATH = ["#{root}/lib"]
+    $LOAD_PATH.clear
+    $LOAD_PATH << "#{root}/lib"
     ENV['HOME'] = "#{root}/home"
     ENV['PATH'] = "#{root}/bin"
     ENV['DFU_DIR'] = "#{root}/etc/dfu"
@@ -450,6 +451,11 @@ class Shell
   end
 
   def run_shell
+    # While the shell waits for input, a job that got Ctrl-Z while its
+    # task was suspended by itself is suspended as soon as its event
+    # resumes it (Sandbox#poll_pending_suspend).
+    idle_handler = Proc.new { poll_jobs } #: ^() -> void
+    @editor.idle_handler = idle_handler
     @editor.start do |editor, buffer, c|
       case c
       when 2 # Ctrl-B (STX) - enter machine communication mode
@@ -937,6 +943,15 @@ class Shell
         end
       end
       ENV[key] = value || ""
+    end
+  end
+
+  # No output here: the editor owns the line. `jobs` shows the state.
+  def poll_jobs
+    i = 0
+    while i < @jobs.size
+      @jobs[i].poll_pending_suspend
+      i += 1
     end
   end
 

@@ -173,12 +173,11 @@ module Editor
         print "\e[?25l\e[1G"
       end
 
-      # Scroll screen if necessary
-      if 0 < scroll = (_line_count - (@height - IO.get_cursor_position[0]) - 1)
-        print "\e[#{scroll}S\e[#{scroll}A"
-      end
-
-      # Write the buffer content
+      # Write the buffer content. A line feed at the bottom row scrolls the
+      # screen, so the lines below find room as they are written; the
+      # cursor moves after this are relative, so no cursor position is
+      # asked of the terminal (IO.get_cursor_position polls the serial
+      # line and waits on it).
       i = 0
       while i < _buffer_lines.size
         line = _buffer_lines[i]
@@ -188,9 +187,10 @@ module Editor
           (i == 0 ? "> " : "* "),
           line,
           "\e[0K",
-          # if the last letter is on the right most of the window,
-          # move cursor to the next line's head
-          ((_prompt_margin + _dw) % _width == 0 ? "\e[1E" : "")
+          # if the last letter is on the right most of the window, move
+          # the cursor to the next line's head: CR ends the pending wrap,
+          # and LF scrolls at the bottom row where "\e[1E" would not
+          ((_prompt_margin + _dw) % _width == 0 ? "\r\n" : "")
         i += 1
       end
 

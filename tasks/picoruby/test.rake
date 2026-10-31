@@ -9,7 +9,14 @@ task :test => "test:all"
 
 namespace :test do
 
-  ENV['TEST_TASK'] = "yes"
+  # TEST_TASK lets a gem add test-only dependencies. Set it for a test run
+  # only. Every rake process loads this file, and a child rake started with
+  # sh inherits ENV. When this line ran unconditionally, the test
+  # dependencies leaked into device builds: picoruby-vfs pulled
+  # picoruby-mruby into the R2P2 FemtoRuby build, which then failed.
+  if Rake.application.top_level_tasks.any? { |t| t == "test" || t == "steep" || t.start_with?("test:") }
+    ENV['TEST_TASK'] = "yes"
+  end
 
   desc "run all tests"
   task :all => ["gems:steep", "gems:picoruby", "gems:femtoruby", "gems:wasm"]
@@ -40,33 +47,131 @@ namespace :test do
 
     desc "run test for a gem on FemtoRuby"
     task :femtoruby, [:specified_gem] do |t, args|
-      unless run_test_for_gems('femtoruby', args[:specified_gem])
+      unless run_test_for_gems('femtoruby', specified_gems(args))
         exit 1
       end
     end
 
     desc "run test for a gem on PicoRuby"
     task :picoruby, [:specified_gem] do |t, args|
-      unless run_test_for_gems('picoruby', args[:specified_gem])
+      unless run_test_for_gems('picoruby', specified_gems(args))
         exit 1
       end
     end
 
     desc "run test for a gem on WASM (Node.js runtime)"
     task :wasm, [:specified_gem] do |t, args|
-      unless run_test_for_gems('wasm', args[:specified_gem])
+      unless run_test_for_gems('wasm', specified_gems(args))
         exit 1
       end
     end
 
     desc "run test for a gem on PicoRuby built as 32-bit (-m32, MRB_INT32 + word boxing)"
     task :picoruby32, [:specified_gem] do |t, args|
-      unless run_test_for_gems('picoruby32', args[:specified_gem])
+      unless run_test_for_gems('picoruby32', specified_gems(args))
+        exit 1
+      end
+    end
+
+    desc "AOT twin: the picotest of the gems on the irep build, the AOT build and the AOT build with widened defs must give the same summary"
+    task :aot_twin, [:specified_gem] do |t, args|
+      # No argument: every gem test:gems:picoruby runs.
+      unless run_aot_twin(specified_gems(args))
+        exit 1
+      end
+    end
+
+    desc "AOT twin on the 32-bit host build (MRB_INT32, word boxing, mruby-bigint): where a Bignum shows"
+    task :aot_twin32, [:specified_gem] do |t, args|
+      unless run_aot_twin(specified_gems(args), 'picoruby32')
+        exit 1
+      end
+    end
+
+    desc "AOT twin on the wasm build (the gems test:gems:wasm runs, under the Node runner)"
+    task :aot_twin_wasm, [:specified_gem] do |t, args|
+      unless run_aot_twin(specified_gems(args), 'wasm')
         exit 1
       end
     end
 
   end
+end
+
+# The gems a test task was given, as one comma-separated string, or nil
+# for all. Rake splits `rake "test:gems:picoruby[a,b]"` on the commas into
+# the named argument and the extras; `[a b]` is accepted as well.
+def specified_gems(args)
+  list = ([args[:specified_gem]] + args.extras).compact.flat_map { |s| s.split(/[\s,]+/) }
+  list.empty? ? nil : list.join(",")
+end
+
+# The AOT twin. The same picotest suite runs three times, each on a fresh
+# build of the host test binary: the irep (the baseline), the AOT build
+# (PICORB_AOT=1) and the AOT build that also compiles the defs Spinel
+# widened (PICORB_AOT_WIDENED=1). The per-class and total summary lines of
+# the three runs must match: a compiled method that behaves differently
+# from its irep shows up as a changed count. The logs land under
+# build/aot-twin/<variant>.log (build/aot-twin32/ for the 32-bit host
+# build, vm_type 'picoruby32'; build/aot-twin-wasm/ for the wasm build,
+# vm_type 'wasm').
+def run_aot_twin(gems, vm_type = 'picoruby')
+  variants = {
+    "irep" => { "PICORB_AOT" => nil, "PICORB_AOT_WIDENED" => nil },
+    "aot" => { "PICORB_AOT" => "1", "PICORB_AOT_WIDENED" => nil },
+    "widened" => { "PICORB_AOT" => "1", "PICORB_AOT_WIDENED" => "1" },
+  }
+  suffix = { 'picoruby' => '', 'picoruby32' => '32', 'wasm' => '-wasm' }.fetch(vm_type)
+  log_dir = "#{MRUBY_ROOT}/build/aot-twin#{suffix}"
+  FileUtils.mkdir_p(log_dir)
+  summaries = {}
+  compiled = {}
+  variants.each do |name, env|
+    log = "#{log_dir}/#{name}.log"
+    puts "==> aot twin: #{name} on #{vm_type} (#{gems || 'all gems'})"
+    target = gems ? "\"test:gems:#{vm_type}[#{gems}]\"" : "test:gems:#{vm_type}"
+    system(env, "bash", "-o", "pipefail", "-c",
+           "rake #{target} 2>&1 | tee #{log}")
+    text = File.read(log).gsub(/\e\[[0-9;]*m/, "")
+    lines = []
+    klass = nil
+    text.each_line do |l|
+      l = l.rstrip
+      if l =~ /\A(\w+Test):\z/
+        klass = $1
+      elsif l =~ /\A\s*success: \d+, failure: \d+/ && klass
+        lines << "#{klass}: #{l.strip}"
+        klass = nil
+      elsif l =~ /\ATotal: /
+        lines << l
+      end
+    end
+    summaries[name] = lines
+    compiled[name] = text.scan(/^aot-gen: .*$/)
+  end
+
+  puts
+  puts "==> aot twin: result"
+  compiled["aot"].each { |l| puts "  typed:   #{l.sub('aot-gen: ', '')}" }
+  compiled["widened"].each { |l| puts "  widened: #{l.sub('aot-gen: ', '')}" }
+  base = summaries["irep"]
+  ok = !base.empty?
+  puts "  irep summary missing (the baseline did not run)" unless ok
+  %w[aot widened].each do |name|
+    if summaries[name] == base
+      puts "  #{name}: SAME as irep (#{base.size} summary lines)"
+    else
+      ok = false
+      puts "  #{name}: DIFF from irep"
+      (base | summaries[name]).each do |l|
+        a = base.include?(l) ? "irep" : "    "
+        b = summaries[name].include?(l) ? name : " " * name.size
+        puts "    [#{a}|#{b}] #{l}" unless base.include?(l) && summaries[name].include?(l)
+      end
+    end
+  end
+  puts "  logs: #{log_dir}/{irep,aot,widened}.log"
+  ok
 end
 
 def run_test_for_gems(vm_type, specified_gem)
@@ -85,16 +190,22 @@ def run_test_for_gems(vm_type, specified_gem)
     # A cross build of the host (picoruby32-test.rb) lands under its own name
     ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/picoruby32-test/bin/picoruby")
   else
-    ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/host/bin/#{vm_type}")
+    # The test configs are named builds (picoruby-test.rb, femtoruby-test.rb)
+    # and land under their own names, apart from build/host.
+    ENV['PICORB_TEST_TARGET_VM'] = File.expand_path("./build/#{vm_type}-test/bin/#{vm_type}")
   end
 
   puts "Strategy: Full build for"
   gems.each { |gem| puts "  - #{gem[:name]}" }
   config_path = create_temp_build_config("#{vm_type}-test.rb", gems, vm_type)
   puts "Building test binary on #{vm_type}..."
+  # PICORB_TEST_BINARY marks the build of the test binary itself, for a
+  # gem whose mrbgem.rake needs that binary's gem set (picoruby-vfs orders
+  # itself after mruby-dir and mruby-io). TEST_TASK cannot serve: it is set
+  # in every process of a test run, the gem collection included.
   unless ENV['SKIP_BUILD']
-    sh "PICORB_DEBUG=1 MRUBY_CONFIG=#{config_path} rake clean"
-    sh "PICORB_DEBUG=1 MRUBY_CONFIG=#{config_path} rake all"
+    sh "PICORB_DEBUG=1 PICORB_TEST_BINARY=1 MRUBY_CONFIG=#{config_path} rake clean"
+    sh "PICORB_DEBUG=1 PICORB_TEST_BINARY=1 MRUBY_CONFIG=#{config_path} rake all"
   end
   gems.each do |gem|
     unless run_picotest_runner(gem, [])
@@ -129,7 +240,8 @@ def collect_gems(vm_type, specified_gem = nil)
     # picotest ones. PicoRuby's own gems that live in submodules (e.g.
     # picoruby-funicular) ship picotest tests and must still be collected.
     next if File.exist?("#{gem_path}/.git") && !File.basename(gem_path).start_with?('picoruby-')
-    next if specified_gem && File.basename(gem_path) != specified_gem
+    # One gem, or several separated by commas (one build carries them all)
+    next if specified_gem && !specified_gem.split(",").include?(File.basename(gem_path))
     if Dir.exist?("#{gem_path}/src/#{vm}")
       # C extension exists for the target VM
       name = File.basename(gem_path)
@@ -272,8 +384,9 @@ def conflict_declared?(spec, other_spec)
 end
 
 def conflict_loser(name, other_name, specified_gem)
-  return other_name if specified_gem == name
-  return name if specified_gem == other_name
+  specified = specified_gem ? specified_gem.split(",") : []
+  return other_name if specified.include?(name)
+  return name if specified.include?(other_name)
 
   other_name
 end
@@ -321,6 +434,9 @@ def gem_supported_for_test_target?(spec, vm_type)
   return false if vm_type != 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-wasm')
   return false if vm_type == 'femtoruby' && depends_on_gem?(spec.build, spec, 'picoruby-mruby')
   return false if vm_type == 'femtoruby' && conflicts_with_gem?(spec.build, spec, 'picoruby-mrubyc')
+  # The mruby builds carry mruby-data (stdlib.gembox); a gem that conflicts
+  # with it (picoruby-data, the Data of mruby/c) is tested on femtoruby.
+  return false if vm_type != 'femtoruby' && conflicts_with_gem?(spec.build, spec, 'mruby-data')
   return false if vm_type == 'wasm' && depends_on_gem?(spec.build, spec, 'picoruby-socket')
   # The socket POSIX port links OpenSSL, which the 32-bit test build has no
   # library for (libssl-dev:i386 is rarely installed).
@@ -408,13 +524,30 @@ def create_temp_build_config(base_config_name, gems, vm_type = nil)
   base_config_path = File.expand_path("#{MRUBY_ROOT}/build_config/#{base_config_name}")
   config_content = File.read(base_config_path)
 
+  # PICORB_AOT=1 builds the gems under test with picoruby-aot (twin run: the
+  # same picotest suite against the cfunc versions of their typed methods).
+  aot = ENV['PICORB_AOT'] && vm_type != 'femtoruby'
+  # PICORB_AOT_WIDENED=1 also compiles the defs Spinel widened to untyped.
+  aot_flags = ENV['PICORB_AOT_WIDENED'] ? "g.aot = true; g.aot_include_widened = true" : "g.aot = true"
+  gem_line = ->(gem) { aot ? "conf.gem(core: '#{gem[:name]}') { |g| #{aot_flags} }" : "conf.gem core: '#{gem[:name]}'" }
   if vm_type == 'wasm'
-    # For WASM, inject gems before the final 'end'
-    injection_text = gems.map { |gem| "  conf.gem core: '#{gem[:name]}'" }.join("\n") + "\n"
+    # The gems under test go in after the wasm config's own gems and
+    # gemboxes: a gem added before conf.picoruby initializes before the
+    # core and fails at init (String#start_with? is not there yet). A gem
+    # added twice keeps its first spec, so a gem the base config already
+    # carries (funicular, the stdlib gembox) gets the AOT flags set on
+    # that spec afterwards.
+    names = gems.map { |gem| gem[:name] }
+    injection_text = gems.map { |gem| "  #{gem_line.call(gem)}" }.join("\n") + "\n"
+    if aot
+      injection_text = "  conf.aot\n" + injection_text
+      injection_text += "  conf.gems.each do |g|\n    next unless #{names.inspect}.include?(g.name)\n    #{aot_flags}\n  end\n"
+    end
     config_content.sub!(/^end$/, injection_text + "end")
   else
     injection_point = /conf\.(femtoruby|picoruby)/
-    injection_text = gems.map { |gem| "conf.gem core: '#{gem[:name]}'" }.join("\n  ") + "\n  "
+    injection_text = gems.map { |gem| gem_line.call(gem) }.join("\n  ") + "\n  "
+    injection_text = "conf.aot\n  " + injection_text if aot
     config_content.sub!(injection_point, injection_text + 'conf.\1')
   end
 

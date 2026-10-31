@@ -5,4 +5,5 @@ MRuby::Gem::Specification.new('picoruby-uri') do |spec|
   spec.description = 'URI.parse / URI.encode_www_form(_component) for PicoRuby. Pure Ruby, usable on microcontrollers and on picoruby.wasm alike.'
 
   spec.require_name = 'uri'
+  spec.aot = true
 end

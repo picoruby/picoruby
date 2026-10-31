@@ -75,6 +75,9 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
       exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_picorb_create_task_with_filename", "_mrb_tick_wasm", "_mrb_run_step", "_mrb_run_step_status", "_mrb_gc_scheduler_pending_wasm", "_malloc", "_free", "_mrb_get_globals_json", "_mrb_eval_string", "_mrb_get_component_debug_info", "_mrb_get_component_state_by_id", "_mrb_debug_get_status", "_mrb_debug_continue", "_mrb_debug_get_locals", "_mrb_debug_eval_in_binding", "_mrb_debug_step", "_mrb_debug_next", "_mrb_debug_get_callstack"]'
     else
       optdebug = '-g0 -O2'
+      # PICORB_WASM_PROFILING=1 keeps the function names (the wasm name
+      # section) so a browser profiler shows them; the code is the same.
+      optdebug += ' --profiling-funcs' if ENV['PICORB_WASM_PROFILING']
       exported_funcs = '["_picorb_init", "_picorb_create_task", "_picorb_create_task_from_mrb", "_mrb_tick_wasm", "_mrb_run_step", "_mrb_run_step_status", "_mrb_gc_scheduler_pending_wasm", "_malloc", "_free"]'
     end
 
@@ -83,6 +86,7 @@ MRuby::Gem::Specification.new('picoruby-wasm') do |spec|
 
     sh <<~CMD
       emcc #{optdebug} \
+      -fwasm-exceptions -s SUPPORT_LONGJMP=wasm \
       -s WASM=1 \
       -s EXPORT_ES6=1 \
       -s MODULARIZE=1 \

@@ -41,7 +41,10 @@ module JS
           break if ev.nil?
           begin
             block.call(ev)
-          rescue => e
+          rescue ::StandardError => e
+            # A bare `rescue` names StandardError, which this scope (under
+            # BasicObject) cannot resolve: the callback's error would turn
+            # into a NameError that ends the task.
             $stderr.puts "Callback #{callback_id}: #{e.class}: #{e.message}"
           end
         end
@@ -83,7 +86,7 @@ module JS
       return unless block
       begin
         block.call(event)
-      rescue => e
+      rescue ::StandardError => e
         $stderr.puts "Callback #{callback_id}: #{e.class}: #{e.message}"
       end
     end
@@ -107,7 +110,7 @@ module JS
         result = ::JS.global._removeEventListener(callback_id)
         _close_event_queue(callback_id) if result
         result
-      rescue
+      rescue ::StandardError
         _close_event_queue(callback_id)
         false
       end
