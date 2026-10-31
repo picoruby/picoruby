@@ -35,6 +35,7 @@ class Keyboard
     @repush_threshold_ms = 200  # Repush threshold for double-tap-hold
     @keys_pressed = {}          # Track physically pressed keys: {[row, col] => true}
     @active_keys = {}           # Track active keys with their resolved keycode/modifier: {[row, col] => {keycode:, modifier:}}
+    @pressed_keys = {}          # Key resolved at press, reused on release: {[row, col] => [keycode, modifier]}
 
     # Combo key management
     @combos = []                # [{keycodes: [...], action: keycode_or_symbol}, ...]
@@ -207,8 +208,19 @@ class Keyboard
       mark_other_key_pressed
     end
 
-    # Resolve keycode AND modifier from layers
-    keycode, modifier = resolve_key(row, col)
+    # Resolve keycode AND modifier from layers on press, and release the
+    # same key on release. Resolving again on release would pick up a key
+    # from another layer if the layer changed while the key was held, and
+    # the key resolved at press would never be released (stuck modifier
+    # or a key repeating on the host).
+    if pressed
+      keycode, modifier = resolve_key(row, col)
+      @pressed_keys[key_pos] = [keycode, modifier]
+    elsif pressed_key = @pressed_keys.delete(key_pos)
+      keycode, modifier = pressed_key
+    else
+      keycode, modifier = resolve_key(row, col)
+    end
 
     # Handle special layer keycodes
     # Note: MT must be checked before LT because MT_BASE is within LT range
@@ -241,7 +253,9 @@ class Keyboard
     end
 
     # Combo handling (before normal key processing)
-    # Resolve keycode for combo detection (may use reference layer)
+    # Resolve keycode for combo detection (may use reference layer).
+    # Unlike keycode above, this is resolved again on release, but the
+    # release is matched by position (combo_buffer_has?), not by keycode.
     combo_keycode = resolve_keycode_for_combo(row, col)
 
     if pressed && is_combo_keycode?(combo_keycode)

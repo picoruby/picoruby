@@ -47,6 +47,7 @@ class Keyboard
   @repush_threshold_ms: Integer
   @keys_pressed: Hash[[Integer, Integer], bool]
   @active_keys: Hash[[Integer, Integer], Hash[Symbol, Integer]]
+  @pressed_keys: Hash[[Integer, Integer], [Integer, Integer]]
   @matrix: KeyboardMatrix
   @callback: (^(key_event_t) -> void) | nil
 
