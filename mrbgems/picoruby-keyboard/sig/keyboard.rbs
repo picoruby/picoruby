@@ -130,6 +130,8 @@ class Keyboard
   private def deactivate_layer: ([Integer, Integer] key_pos, Integer layer_index) -> void
   # Activate a modifier
   private def activate_modifier: ([Integer, Integer] key_pos, Integer modifier_index) -> void
+  # Modifier bits of all active keys
+  private def current_modifier: () -> Integer
   # Deactivate a modifier
   private def deactivate_modifier: ([Integer, Integer] key_pos) -> void
 
