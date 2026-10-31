@@ -1,4 +1,5 @@
 #include <mrubyc.h>
+#include <opcode.h>
 #include "picoruby/debug.h"
 
 #define SS() \
@@ -134,11 +135,15 @@ sandbox_compile_sub(mrbc_vm *vm, mrbc_value *v, uint8_t *script, size_t size, co
   else {
     size_t vm_code_size = 0;
     int result = mrc_dump_irep(ss->cc, (const mrc_irep *)ss->irep, 0, &ss->vm_code, &vm_code_size);
+    /* The dump is a copy. Nothing reads the compiler's irep after this. */
+    mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
     if (result != MRC_DUMP_OK) {
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Dump failed");
       free_ccontext(ss);
       return;
     }
+    ss->code_owned = true;
     SET_TRUE_RETURN();
   }
 }
@@ -199,9 +204,53 @@ sandbox_exec_mrb_sub(mrbc_vm *sandbox_vm, SandboxState *ss)
     return false;
   } else {
     reset_vm(sandbox_vm);
+    ss->loaded_code = NULL; /* the caller owns this code */
+    ss->code_owned = false;
     mrbc_resume_task(ss->tcb);
     return true;
   }
+}
+
+/*
+ * With flag_permanence, OP_RETURN at the top level takes a reference to the
+ * value it returns so that Sandbox#result can read it, and nothing gives it
+ * back. Each line would pin its result: a String, or the exception of a
+ * line that failed. Give the reference back once the next run replaces the
+ * previous one. The task stopped on OP_RETURN, so vm->inst is just past it
+ * and still inside the previous code.
+ */
+static void
+sandbox_drop_return_ref(mrbc_vm *vm)
+{
+  if (vm->flag_stop && vm->callinfo_tail == NULL && vm->inst[-2] == OP_RETURN) {
+    mrbc_decref(&vm->regs[vm->inst[-1]]);
+  }
+}
+
+/*
+ * Every line of irb is a compile and a load into the same VM, and neither
+ * gave anything back, so a session ran out of heap after some dozens of
+ * lines.
+ *
+ * What the previous load left is released once the new one has replaced
+ * it. The irep's instructions point into the dumped code, so the two go
+ * together. An irep with children keeps both: a method, a block or a class
+ * body can outlive the line that defined it. One without children cannot.
+ * Symbol names are safe too, because flag_permanence copies them when they
+ * are loaded. OP_SYMBOL is the exception, as it registers a name straight
+ * from the pool, but the compiler only emits it for a form Prism folds.
+ *
+ * Not released: the symbol copies themselves, which mrbc_raw_alloc_no_free
+ * makes for good, so a line still costs a few bytes for each symbol.
+ */
+static void
+sandbox_release_loaded(SandboxState *ss, mrbc_irep *irep, uint8_t *code)
+{
+  if (!irep || !code || code == ss->vm_code || irep->rlen != 0) {
+    return;
+  }
+  mrbc_irep_free(irep);
+  mrc_free(ss->cc, code);
 }
 
 static void
@@ -253,10 +302,17 @@ c_sandbox_execute(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
   mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
+  mrbc_irep *prev_irep = sandbox_vm->top_irep;
+  uint8_t *prev_code = ss->loaded_code;
+  if (prev_code) {
+    sandbox_drop_return_ref(sandbox_vm);
+  }
   if(mrbc_load_mrb(sandbox_vm, ss->vm_code) != 0) {
     SET_FALSE_RETURN();
   } else {
     reset_vm(sandbox_vm);
+    ss->loaded_code = ss->code_owned ? ss->vm_code : NULL;
+    sandbox_release_loaded(ss, prev_irep, prev_code);
     mrbc_resume_task(ss->tcb);
     SET_TRUE_RETURN();
   }
