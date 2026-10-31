@@ -108,7 +108,15 @@ Watchdog_disable(void)
    * one phase and disables it for a long flash write or a network fetch
    * would otherwise be reset partway through, having been told the
    * watchdog was off.
+   *
+   * A WDT that was never started is already off, so that request is
+   * honoured. picoruby-r2p2's main_task.rb calls Watchdog.disable on
+   * every boot; refusing it there aborts the boot script before the
+   * shell comes up.
    */
+  if (!nrf_wdt_started()) {
+    return WATCHDOG_ERROR_NONE;
+  }
   return WATCHDOG_ERROR_UNSUPPORTED;
 }
 
