@@ -1,18 +1,20 @@
 #include "hardware/watchdog.h"
 
-void
+int
 Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
 {
   watchdog_enable(delay_ms, pause_on_debug);
+  return WATCHDOG_ERROR_NONE;
 }
 
-void
+int
 Watchdog_disable(void)
 {
   // Workaround for watchdog_disable();
   // sdk 1.5.1 does not have watchdog_disable() function
   // TODO: migrate to sdk 2.0.0 that has watchdog_disable()
   hw_clear_bits(&watchdog_hw->ctrl, WATCHDOG_CTRL_ENABLE_BITS);
+  return WATCHDOG_ERROR_NONE;
 }
 
 void
