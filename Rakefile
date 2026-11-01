@@ -72,6 +72,20 @@ load "#{MRUBY_ROOT}/tasks/picoruby/rbenv.rake"
 load "#{MRUBY_ROOT}/tasks/picoruby/wasm.rake"
 load "#{MRUBY_SUBMODULE}/tasks/libmruby.rake"
 load "#{MRUBY_SUBMODULE}/tasks/bin.rake"
+
+# A cross build borrows its `mrbc` from a generated build named for the defines
+# it needs (build/mrbc/int32, ...), which installs nothing. Link it into the
+# cross build's own bin/ so that a consumer outside rake (R2P2's CMake) finds
+# the compiler matching the target by the build name alone.
+MRuby.each_target do |build|
+  next if build.host? || !build.borrows_mrbc? || build.gems["mruby-bin-mrbc"]
+  src = build.mrbcfile
+  dst = build.exefile("#{build.build_dir}/bin/mrbc")
+  build.products << build.define_installer_outline(src, dst) do
+    File.unlink(dst) rescue nil
+    File.symlink(src.relative_path_from(File.dirname(dst)), dst)
+  end
+end
 load "#{MRUBY_SUBMODULE}/tasks/presym.rake"
 #load "#{MRUBY_SUBMODULE}/tasks/test.rake"
 load "#{MRUBY_SUBMODULE}/tasks/benchmark.rake"
