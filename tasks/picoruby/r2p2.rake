@@ -157,3 +157,18 @@ namespace :r2p2 do
     end
   end
 end
+
+# A cross build borrows its `mrbc` from a generated build named for the defines
+# it needs (build/mrbc/int32, ...), which installs nothing. Link it into the
+# cross build's own bin/ so that a consumer outside rake finds the compiler
+# matching the target by the build name alone. R2P2's CMake is the consumer
+# today, but every cross build gets the link.
+MRuby.each_target do |build|
+  next if !build.borrows_mrbc? || build.gems["mruby-bin-mrbc"]
+  src = build.mrbcfile
+  dst = build.exefile("#{build.build_dir}/bin/mrbc")
+  build.products << build.define_installer_outline(src, dst) do
+    File.unlink(dst) rescue nil
+    File.symlink(src.relative_path_from(File.dirname(dst)), dst)
+  end
+end
