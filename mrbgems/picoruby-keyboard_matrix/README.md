@@ -23,7 +23,7 @@ col_pins = [4, 5, 6, 7]
 # Create keyboard matrix instance (no keymap needed)
 matrix = KeyboardMatrix.new(row_pins, col_pins)
 
-# Set debounce time (optional, default is 40ms)
+# Set debounce time (optional, default is 5ms)
 matrix.debounce_ms = 20
 
 # Method 1: Polling mode
