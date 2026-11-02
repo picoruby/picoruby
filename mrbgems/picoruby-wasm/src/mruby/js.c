@@ -1978,6 +1978,51 @@ mrb_object_type(mrb_state *mrb, mrb_value self)
  * Returns the ref_id of the result, or -1 on error.
  */
 /*
+ * Append `str` (len bytes) to `out` as a quoted JSON string literal.
+ * '"', '\\' and U+0000..U+001F are escaped as JSON requires; every other
+ * byte, including multibyte UTF-8, is copied as is. Runs of plain bytes are
+ * appended with one mrb_str_cat each.
+ */
+static void
+json_cat_string(mrb_state *mrb, mrb_value out, const char *str, mrb_int len)
+{
+  static const char hex[] = "0123456789abcdef";
+  mrb_int start = 0;
+
+  mrb_str_cat_lit(mrb, out, "\"");
+  for (mrb_int i = 0; i < len; i++) {
+    unsigned char c = (unsigned char)str[i];
+    char esc[6];
+    int esc_len = 2;
+
+    if (c == '"' || c == '\\') {
+      esc[0] = '\\'; esc[1] = (char)c;
+    } else if (c == '\b') {
+      esc[0] = '\\'; esc[1] = 'b';
+    } else if (c == '\f') {
+      esc[0] = '\\'; esc[1] = 'f';
+    } else if (c == '\n') {
+      esc[0] = '\\'; esc[1] = 'n';
+    } else if (c == '\r') {
+      esc[0] = '\\'; esc[1] = 'r';
+    } else if (c == '\t') {
+      esc[0] = '\\'; esc[1] = 't';
+    } else if (c < 0x20) {
+      esc[0] = '\\'; esc[1] = 'u'; esc[2] = '0'; esc[3] = '0';
+      esc[4] = hex[c >> 4]; esc[5] = hex[c & 0x0f];
+      esc_len = 6;
+    } else {
+      continue;
+    }
+    if (start < i) mrb_str_cat(mrb, out, str + start, i - start);
+    mrb_str_cat(mrb, out, esc, esc_len);
+    start = i + 1;
+  }
+  if (start < len) mrb_str_cat(mrb, out, str + start, len - start);
+  mrb_str_cat_lit(mrb, out, "\"");
+}
+
+/*
  * Build a JSON-encoded tagged-value argument array for the EM_JS call helpers.
  * `context` is a human-readable label used in error messages (e.g. the method
  * name or "constructor"). Passing a non-negative `extra_ref_id` appends one
@@ -2000,17 +2045,8 @@ build_args_json(mrb_state *mrb, mrb_value *argv, mrb_int argc, int extra_ref_id,
       snprintf(ref_buf, sizeof(ref_buf), "%d", extra_ref_id);
       mrb_str_cat_cstr(mrb, json_array, ref_buf);
     } else if (mrb_string_p(argv[i])) {
-      mrb_str_cat_lit(mrb, json_array, "\"string\",\"value\":\"");
-      const char *str = mrb_string_value_cstr(mrb, &argv[i]);
-      for (const char *p = str; *p; p++) {
-        if (*p == '"' || *p == '\\') {
-          char escaped[3] = {'\\', *p, '\0'};
-          mrb_str_cat(mrb, json_array, escaped, 2);
-        } else {
-          mrb_str_cat(mrb, json_array, p, 1);
-        }
-      }
-      mrb_str_cat_lit(mrb, json_array, "\"");
+      mrb_str_cat_lit(mrb, json_array, "\"string\",\"value\":");
+      json_cat_string(mrb, json_array, RSTRING_PTR(argv[i]), RSTRING_LEN(argv[i]));
     } else if (mrb_integer_p(argv[i])) {
       mrb_str_cat_lit(mrb, json_array, "\"integer\",\"value\":");
       char num_buf[32];
