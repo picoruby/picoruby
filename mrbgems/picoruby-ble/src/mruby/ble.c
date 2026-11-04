@@ -5,6 +5,10 @@
 #include "mruby/array.h"
 #include "task.h"
 
+#ifdef PICORB_PLATFORM_ESP32
+#include "../../ports/esp32/nimble_owner.h"
+#endif
+
 /*
  * GC strategy: only the current BLE instance is pinned with
  * mrb_gc_register (BTstack is a hardware singleton, so there is at
@@ -27,29 +31,31 @@ static uint8_t pending_event_count;
 
 #define BLE_MAX_PENDING_EVENTS 16
 
-void
+int
 BLE_push_event(uint8_t *data, uint16_t size)
 {
   if (_mrb == NULL || mrb_nil_p(event_queue) ||
-      BLE_MAX_PENDING_EVENTS <= pending_event_count) return;
+      BLE_MAX_PENDING_EVENTS <= pending_event_count) return -1;
   int ai = mrb_gc_arena_save(_mrb);
   mrb_value event = mrb_str_new(_mrb, (const char *)data, size);
   if (mrb_task_queue_push(_mrb, event_queue, event) == MRB_TASK_QUEUE_PUSH_OK) {
     pending_event_count++;
   }
   mrb_gc_arena_restore(_mrb, ai);
+  return 0;
 }
 
-void
+int
 BLE_heartbeat(void)
 {
   if (_mrb == NULL || mrb_nil_p(event_queue) ||
-      BLE_MAX_PENDING_EVENTS <= pending_event_count) return;
+      BLE_MAX_PENDING_EVENTS <= pending_event_count) return -1;
   mrb_state *mrb = _mrb;
   if (mrb_task_queue_push(mrb, event_queue, mrb_symbol_value(MRB_SYM(heartbeat))) ==
       MRB_TASK_QUEUE_PUSH_OK) {
     pending_event_count++;
   }
+  return 0;
 }
 
 static mrb_value
@@ -75,16 +81,23 @@ BLE_write_data(uint16_t att_handle, const uint8_t *data, uint16_t size)
   mrb_value key = mrb_int_value(_mrb, att_handle);
   int ai = mrb_gc_arena_save(_mrb);
   mrb_value write_value = mrb_str_new(_mrb, (const char *)data, size);
-  write_values_mutex = true;
   mrb_value queue = mrb_hash_get(_mrb, write_values, key);
   if (!mrb_array_p(queue)) {
     queue = mrb_ary_new_capa(_mrb, 4);
     mrb_hash_set(_mrb, write_values, key, queue);
   }
   mrb_ary_push(_mrb, queue, write_value);
-  write_values_mutex = false;
   mrb_gc_arena_restore(_mrb, ai);
   return 0;
+}
+
+int
+BLE_write_pending(uint16_t att_handle)
+{
+  if (_mrb == NULL || mrb_hash_p(write_values) == false) return 0;
+  mrb_value queue = mrb_hash_get(_mrb, write_values, mrb_fixnum_value(att_handle));
+  if (!mrb_array_p(queue)) return 0;
+  return (int)RARRAY_LEN(queue);
 }
 
 int
@@ -102,7 +115,6 @@ BLE_read_data(BLE_read_value_t *read_value)
 static mrb_value
 mrb_pop_write_value(mrb_state *mrb, mrb_value self)
 {
-  if (write_values_mutex) return mrb_nil_value();
   mrb_int handle;
   mrb_get_args(mrb, "i", &handle);
   mrb_value key = mrb_int_value(mrb, handle);
@@ -196,6 +208,9 @@ mrb__init(mrb_state *mrb, mrb_value self)
   write_values = new_write_values;
   read_values = new_read_values;
   pending_event_count = 0;
+#ifdef PICORB_PLATFORM_ESP32
+  picoruby_nimble_attach_vm(mrb);
+#endif
 
   if (release_prev) {
     mrb_gc_unregister(mrb, prev_ble);
