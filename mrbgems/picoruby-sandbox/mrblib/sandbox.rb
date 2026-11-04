@@ -72,7 +72,11 @@ class Sandbox
     loop(timeout, signal_self_manage)
   end
 
-  def load_file(path, join: true)
+  # inline: true runs the file on the calling task (Sandbox#run_inline,
+  # mruby VM only) and returns its value; an exception in the file reaches
+  # the caller. Otherwise the file runs on the sandbox task and, with
+  # join: true, load_file waits for it.
+  def load_file(path, join: true, inline: false)
     f = File.open(path, "r")
     begin
       # An empty file has nothing to run, like `require` of an empty file
@@ -86,6 +90,19 @@ class Sandbox
       # prevent GC from freeing the bytecode while the task is still running.
       @code = rb
       is_rite = rb.start_with?(RITE_VERSION)
+      if inline
+        if is_rite
+          load_mrb(rb) or raise RuntimeError, "#{path}: failed to load bytecode"
+        else
+          if rb.start_with?("RITE") # not valid RITE version
+            raise RuntimeError, "#{path}: invalid RITE version: #{rb.byteslice(0, 8)}"
+          end
+          unless compile(rb, filename: path)
+            raise RuntimeError, "#{path}: compile failed"
+          end
+        end
+        return run_inline
+      end
       started = if is_rite
         exec_mrb(rb)
       else

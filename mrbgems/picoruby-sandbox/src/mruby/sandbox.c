@@ -7,6 +7,7 @@
 #include <mruby/string.h>
 #include <mruby/variable.h>
 #include <mruby/proc.h>
+#include <mruby/internal.h> /* mrb_exec_irep */
 // #include <mruby/debug.h>
 
 void mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep);
@@ -291,17 +292,23 @@ sandbox_exec_vm_code_sub(mrb_state *mrb, SandboxState *ss)
 // created in mruby/src/load.c
 mrb_irep *mrb_read_irep(mrb_state *mrb, const uint8_t *bin);
 
+static void
+sandbox_read_mrb(mrb_state *mrb, SandboxState *ss, mrb_value vm_code)
+{
+  const uint8_t *code = (const uint8_t *)RSTRING_PTR(vm_code);
+  /* mrc_irep_free() would destroy the irep even while live procs still
+     reference it (use-after-free in the GC sweep); drop our ref instead. */
+  if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
+  ss->irep = (mrc_irep *)mrb_read_irep(mrb, code);
+}
+
 static mrb_value
 mrb_sandbox_exec_vm_code(mrb_state *mrb, mrb_value self)
 {
   SS();
   mrb_value vm_code;
   mrb_get_args(mrb, "S", &vm_code);
-  const uint8_t *code = (const uint8_t *)RSTRING_PTR(vm_code);
-  /* mrc_irep_free() would destroy the irep even while live procs still
-     reference it (use-after-free in the GC sweep); drop our ref instead. */
-  if (ss->irep) mrb_irep_decref(mrb, (struct mrb_irep *)ss->irep);
-  ss->irep = (mrc_irep *)mrb_read_irep(mrb, code);
+  sandbox_read_mrb(mrb, ss, vm_code);
   if (sandbox_exec_vm_code_sub(mrb, ss)) {
     return mrb_true_value();
   } else {
@@ -322,6 +329,51 @@ mrb_sandbox_exec_vm_code_from_memory(mrb_state *mrb, mrb_value self)
   } else {
     return mrb_false_value();
   }
+}
+
+/* Only reads the bytecode into the sandbox, for run_inline. */
+static mrb_value
+mrb_sandbox_load_mrb(mrb_state *mrb, mrb_value self)
+{
+  SS();
+  mrb_value vm_code;
+  mrb_get_args(mrb, "S", &vm_code);
+  sandbox_read_mrb(mrb, ss, vm_code);
+  return mrb_bool_value(ss->irep != NULL);
+}
+
+/* Runs the compiled code on the caller's task instead of the sandbox task,
+   the way Kernel#eval runs a string: the caller's C frame is replaced by
+   the code's frame (mrb_exec_irep), so nothing waits on a task switch.
+
+   The sandbox task cannot serve a caller that the VM reached through a C
+   function, e.g. a `require` written in `const_missing`, `inherited`,
+   `included`, `method_added` or a sort block. The scheduler defers every
+   task switch while such a C frame is on the stack (see
+   task_across_c_boundary in vm.c), so the sandbox task never runs and
+   Sandbox#wait polls forever. Kernel#require and Kernel#load use this
+   entry point for that reason; it also hands an exception raised by the
+   file straight to the caller, as CRuby does.
+
+   Like a file run by `ruby`, the code sees the top self as `self`, defines
+   methods on Object and answers nil to __method__. */
+static mrb_value
+mrb_sandbox_run_inline(mrb_state *mrb, mrb_value self)
+{
+  SS();
+  if (!ss->irep) {
+    mrb_raise(mrb, E_RUNTIME_ERROR, "no code to run");
+  }
+  struct RProc *proc = mrb_proc_new(mrb, (const mrb_irep *)ss->irep);
+  proc->e.target_class = mrb->object_class;
+  mrb_callinfo *ci = mrb->c->ci;
+  /* no argument and no block for the code (see eval_irep in mruby-eval) */
+  ci->n = 0;
+  ci->kw = FALSE;
+  ci->stack[1] = mrb_nil_value();
+  ci->mid = 0;
+  mrb_vm_ci_target_class_set(ci, mrb->object_class);
+  return mrb_exec_irep(mrb, mrb_top_self(mrb), proc);
 }
 
 static mrb_value
@@ -368,6 +420,8 @@ mrb_picoruby_sandbox_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(free_parser), mrb_sandbox_free_parser, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb), mrb_sandbox_exec_vm_code, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(exec_mrb_from_memory), mrb_sandbox_exec_vm_code_from_memory, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(load_mrb), mrb_sandbox_load_mrb, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(run_inline), mrb_sandbox_run_inline, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(terminate), mrb_sandbox_terminate, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Sandbox, MRB_SYM(close), mrb_sandbox_close, MRB_ARGS_NONE());
 }
