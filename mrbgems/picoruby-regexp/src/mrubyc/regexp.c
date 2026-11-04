@@ -276,18 +276,38 @@ pos_arg(mrbc_vm *vm, mrbc_value v[], int argc, mrbc_int_t *pos)
   return 1;
 }
 
+/* The subject of a match: the String itself, or a Symbol as the
+ * String of its name, which the caller releases with subject_release.
+ * Raises and returns false on anything else. */
+static bool
+subject_of(mrbc_vm *vm, const mrbc_value *arg, mrbc_value *subj)
+{
+  if (arg->tt == MRBC_TT_STRING) { *subj = *arg; return true; }
+  if (arg->tt == MRBC_TT_SYMBOL) {
+    *subj = mrbc_string_new_cstr(vm, mrbc_symbol_cstr(arg));
+    return true;
+  }
+  mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into String");
+  return false;
+}
+
+static void
+subject_release(const mrbc_value *arg, mrbc_value *subj)
+{
+  if (arg->tt == MRBC_TT_SYMBOL) mrbc_decref(subj);
+}
+
 /* Regexp#match(str, pos = 0) -> MatchData or nil */
 static void
 c_regexp_match(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_int_t pos;
+  mrbc_value subj;
   if (argc < 1 || v[1].tt == MRBC_TT_NIL) { SET_NIL_RETURN(); return; }
-  if (v[1].tt != MRBC_TT_STRING) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into String");
-    return;
-  }
-  if (!pos_arg(vm, v, argc, &pos)) return;
-  mrbc_value md = regexp_match_at(vm, &v[0], &v[1], pos);
+  if (!subject_of(vm, &v[1], &subj)) return;
+  if (!pos_arg(vm, v, argc, &pos)) { subject_release(&v[1], &subj); return; }
+  mrbc_value md = regexp_match_at(vm, &v[0], &subj, pos);
+  subject_release(&v[1], &subj);
   SET_RETURN(md);
 }
 
@@ -296,13 +316,13 @@ static void
 c_regexp_match_p(mrbc_vm *vm, mrbc_value v[], int argc)
 {
   mrbc_int_t pos;
+  mrbc_value subj;
   if (argc < 1 || v[1].tt == MRBC_TT_NIL) { SET_FALSE_RETURN(); return; }
-  if (v[1].tt != MRBC_TT_STRING) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into String");
-    return;
-  }
-  if (!pos_arg(vm, v, argc, &pos)) return;
-  if (regexp_test_at(&v[0], &v[1], pos)) SET_TRUE_RETURN(); else SET_FALSE_RETURN();
+  if (!subject_of(vm, &v[1], &subj)) return;
+  if (!pos_arg(vm, v, argc, &pos)) { subject_release(&v[1], &subj); return; }
+  bool hit = regexp_test_at(&v[0], &subj, pos);
+  subject_release(&v[1], &subj);
+  if (hit) SET_TRUE_RETURN(); else SET_FALSE_RETURN();
 }
 
 /* Regexp#===(obj) -> true or false; a non-String is false */
@@ -325,12 +345,11 @@ c_regexp_eqq(mrbc_vm *vm, mrbc_value v[], int argc)
 static void
 c_regexp_match_op(mrbc_vm *vm, mrbc_value v[], int argc)
 {
+  mrbc_value subj;
   if (argc < 1 || v[1].tt == MRBC_TT_NIL) { SET_NIL_RETURN(); return; }
-  if (v[1].tt != MRBC_TT_STRING) {
-    mrbc_raise(vm, MRBC_CLASS(TypeError), "no implicit conversion into String");
-    return;
-  }
-  long c = regexp_index_of(vm, &v[0], &v[1]);
+  if (!subject_of(vm, &v[1], &subj)) return;
+  long c = regexp_index_of(vm, &v[0], &subj);
+  subject_release(&v[1], &subj);
   if (c < 0) SET_NIL_RETURN(); else SET_INT_RETURN((mrbc_int_t)c);
 }
 

@@ -731,6 +731,17 @@ class RegexpStringTest < Picotest::Test
     assert_nil $1
   end
 
+  def test_symbol_matches_as_its_name
+    assert_equal 1, (/b/ =~ :ab)
+    assert_equal "b", /b/.match(:ab)[0]
+    assert_true /b/.match?(:ab)
+    assert_false /z/.match?(:ab)
+    assert_equal 1, (:ab =~ /b/)
+    assert_equal "b", :ab.match(/b/)[0]
+    assert_true :ab.match?(/b/)
+    assert_true :name=.match?(/[^\]]=\z/)
+  end
+
   def test_last_match_after_string_methods
     "a1b2".gsub(/\d/, "-")
     assert_equal "2", $&

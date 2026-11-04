@@ -164,3 +164,18 @@ class String
     __split(pattern, limit)
   end
 end
+
+# A Symbol matches as the String of its name, as in CRuby.
+class Symbol
+  def =~(pattern)
+    to_s =~ pattern
+  end
+
+  def match(pattern, pos = 0)
+    to_s.match(pattern, pos)
+  end
+
+  def match?(pattern, pos = 0)
+    to_s.match?(pattern, pos)
+  end
+end
