@@ -116,7 +116,7 @@ raise_js_last_error(mrb_state *mrb)
 
   char *buffer = (char *)mrb_malloc(mrb, len + 1);
   js_copy_last_error(buffer, len + 1);
-  mrb_value message = mrb_str_new_cstr(mrb, buffer);
+  mrb_value message = mrb_str_new(mrb, buffer, len);
   mrb_free(mrb, buffer);
   mrb_exc_raise(mrb, mrb_exc_new_str(mrb, E_RUNTIME_ERROR, message));
 }
@@ -741,8 +741,8 @@ EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintp
       ccall(
         'resume_promise_error_task',
         'void',
-        ['number', 'number', 'number', 'number'],
-        [mrb_ptr, task_ptr, callback_id, errorPtr]
+        ['number', 'number', 'number', 'number', 'number'],
+        [mrb_ptr, task_ptr, callback_id, errorPtr, size - 1]
       );
     }
   );
@@ -1082,8 +1082,8 @@ EM_JS(void, setup_binary_handler, (int ref_id, uintptr_t mrb_ptr, uintptr_t task
     ccall(
       'resume_promise_error_task',
       'void',
-      ['number', 'number', 'number', 'number'],
-      [mrb_ptr, task_ptr, callback_id, errorPtr]
+      ['number', 'number', 'number', 'number', 'number'],
+      [mrb_ptr, task_ptr, callback_id, errorPtr, size - 1]
     );
   };
   Promise.resolve().then(() => {
@@ -1593,7 +1593,7 @@ resume_promise_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id
 
 EMSCRIPTEN_KEEPALIVE
 void
-resume_promise_error_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id, char *errmsg)
+resume_promise_error_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callback_id, char *errmsg, int errmsg_len)
 {
   mrb_state *mrb = (mrb_state *)mrb_ptr;
   if (!mrb) {
@@ -1607,7 +1607,7 @@ resume_promise_error_task(uintptr_t mrb_ptr, uintptr_t task_ptr, uintptr_t callb
     mrb_gv_set(mrb, MRB_GVSYM(promise_errors), errors);
   }
 
-  mrb_hash_set(mrb, errors, mrb_int_value(mrb, callback_id), mrb_str_new_cstr(mrb, errmsg));
+  mrb_hash_set(mrb, errors, mrb_int_value(mrb, callback_id), mrb_str_new(mrb, errmsg, errmsg_len));
   free(errmsg);
 
   mrb_value task = mrb_obj_value((struct RBasic *)task_ptr);

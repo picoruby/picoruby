@@ -4,6 +4,21 @@ class JSExceptionTest < Picotest::Test
     JS.eval('globalThis.picorubyThrowSyncError = function() { throw new Error("sync error"); }')
     JS.eval('globalThis.picorubyRejectAsyncString = function() { return Promise.reject("async"); }')
     JS.eval('globalThis.picorubyRejectAsyncError = function() { return Promise.reject(new Error("async error")); }')
+    JS.eval('globalThis.picorubyThrowSyncNul = function() { throw new Error("a\u0000b"); }')
+    JS.eval('globalThis.picorubyRejectAsyncNul = function() { return Promise.reject(new Error("c\u0000d")); }')
+  end
+
+  # The message comes back from JS with its byte length, past an embedded NUL.
+  def test_sync_error_message_keeps_embedded_nul
+    error = rescued_error { JS.global.picorubyThrowSyncNul }
+
+    assert_equal("a\x00b", error.message)
+  end
+
+  def test_rejected_promise_message_keeps_embedded_nul
+    error = rescued_error { JS.global.picorubyRejectAsyncNul.await }
+
+    assert_equal("c\x00d", error.message)
   end
 
   def test_rescues_sync_string_throw

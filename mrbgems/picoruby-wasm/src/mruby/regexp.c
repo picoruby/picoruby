@@ -195,12 +195,14 @@ EM_JS(void, regexp_release_ref, (int ref_id), {
   }
 });
 
-EM_JS(char *, regexp_source, (int ref_id), {
+// The source may hold an embedded NUL, so the byte length goes to *out_len.
+EM_JS(char *, regexp_source, (int ref_id, int *out_len), {
   var re = globalThis.picorubyRefs[ref_id];
   var str = re.source;
   var len = lengthBytesUTF8(str) + 1;
   var ptr = _malloc(len);
   stringToUTF8(str, ptr, len);
+  HEAP32[out_len >> 2] = len - 1;
   return ptr;
 });
 
@@ -440,9 +442,10 @@ mrb_regexp_source(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  char *src = regexp_source(re->ref_id);
+  int src_len = 0;
+  char *src = regexp_source(re->ref_id, &src_len);
   if (!src) return mrb_str_new_lit(mrb, "");
-  mrb_value str = mrb_str_new_cstr(mrb, src);
+  mrb_value str = mrb_str_new(mrb, src, src_len);
   free(src);
   return str;
 }
@@ -456,7 +459,8 @@ mrb_regexp_to_s(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  char *src = regexp_source(re->ref_id);
+  int src_len = 0;
+  char *src = regexp_source(re->ref_id, &src_len);
   char *flags = regexp_flags(re->ref_id);
   if (!src) src = strdup("");
   if (!flags) flags = strdup("");
@@ -480,7 +484,7 @@ mrb_regexp_to_s(mrb_state *mrb, mrb_value self)
   mrb_value result = mrb_str_new_lit(mrb, "(?");
   mrb_str_cat_cstr(mrb, result, ruby_flags);
   mrb_str_cat_lit(mrb, result, ":");
-  mrb_str_cat_cstr(mrb, result, src);
+  mrb_str_cat(mrb, result, src, src_len);
   mrb_str_cat_lit(mrb, result, ")");
 
   free(src);
@@ -497,7 +501,8 @@ mrb_regexp_inspect(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "Regexp not initialized");
   }
 
-  char *src = regexp_source(re->ref_id);
+  int src_len = 0;
+  char *src = regexp_source(re->ref_id, &src_len);
   char *flags = regexp_flags(re->ref_id);
   if (!src) src = strdup("");
   if (!flags) flags = strdup("");
@@ -516,7 +521,7 @@ mrb_regexp_inspect(mrb_state *mrb, mrb_value self)
   ruby_flags[j] = '\0';
 
   mrb_value result = mrb_str_new_lit(mrb, "/");
-  mrb_str_cat_cstr(mrb, result, src);
+  mrb_str_cat(mrb, result, src, src_len);
   mrb_str_cat_lit(mrb, result, "/");
   mrb_str_cat_cstr(mrb, result, ruby_flags);
 

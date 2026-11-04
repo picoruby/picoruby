@@ -68,4 +68,12 @@ class RegexpExtTest < Picotest::Test
     assert_nil(Regexp.new("a\x00b") =~ "xa")
     assert_equal("x", "xa\x00b".match("a\x00b").pre_match)
   end
+
+  # The source comes back from JS with its byte length, past an embedded NUL.
+  def test_source_keeps_embedded_nul
+    re = Regexp.new("a\x00b")
+    assert_equal("a\x00b", re.source)
+    assert_equal("(?:a\x00b)", re.to_s)
+    assert_equal("/a\x00b/", re.inspect)
+  end
 end
