@@ -53,7 +53,7 @@ static const struct mrb_data_type picorb_match_data_type = {
 
 /* EM_JS functions */
 
-EM_JS(int, regexp_new, (const char *pattern, const char *flags), {
+EM_JS(int, regexp_new, (const char *pattern, int pattern_len, const char *flags), {
   try {
     var flagStr = UTF8ToString(flags);
     // Auto-add 'd' flag (ES2022) so result.indices is available for per-capture offsets.
@@ -61,7 +61,7 @@ EM_JS(int, regexp_new, (const char *pattern, const char *flags), {
     // Auto-add 'u' flag so '.', char classes and \p{...} operate on Unicode
     // code points -- mruby strings here are UTF-8 (MRB_UTF8_STRING).
     if (flagStr.indexOf('u') < 0) flagStr += 'u';
-    var re = new RegExp(UTF8ToString(pattern), flagStr);
+    var re = new RegExp(UTF8ToString(pattern, pattern_len, true), flagStr);
     return globalThis.picorubyRefs.push(re) - 1;
   } catch(e) {
     console.error('RegExp creation failed:', e);
@@ -166,7 +166,9 @@ EM_JS(int, regexp_match_char_end, (int ref_id, int idx), {
   return (e == null) ? -1 : e.charEnd;
 });
 
-EM_JS(char *, regexp_match_item, (int ref_id, int idx), {
+// The returned buffer may hold an embedded NUL, so the byte length goes to
+// *out_len and the caller must not read the text with strlen.
+EM_JS(char *, regexp_match_item, (int ref_id, int idx, int *out_len), {
   var info = globalThis.picorubyRefs[ref_id];
   var e = info.entries[idx];
   if (e == null) return 0;
@@ -175,6 +177,7 @@ EM_JS(char *, regexp_match_item, (int ref_id, int idx), {
   var len = lengthBytesUTF8(item) + 1;
   var ptr = _malloc(len);
   stringToUTF8(item, ptr, len);
+  HEAP32[out_len >> 2] = len - 1;
   return ptr;
 });
 
@@ -318,13 +321,7 @@ mrb_regexp_compile(mrb_state *mrb, mrb_value self)
     build_js_flags("", 0, js_flags, sizeof(js_flags));
   }
 
-  /* Create a null-terminated pattern string */
-  char *pat_cstr = (char *)mrb_malloc(mrb, pattern_len + 1);
-  memcpy(pat_cstr, pattern, pattern_len);
-  pat_cstr[pattern_len] = '\0';
-
-  int ref_id = regexp_new(pat_cstr, js_flags);
-  mrb_free(mrb, pat_cstr);
+  int ref_id = regexp_new(pattern, (int)pattern_len, js_flags);
 
   if (ref_id < 0) {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "invalid regular expression");
@@ -598,9 +595,10 @@ mrb_match_data_aref(mrb_state *mrb, mrb_value self)
     return mrb_nil_value();
   }
 
-  char *item = regexp_match_item(md->ref_id, (int)idx);
+  int item_len = 0;
+  char *item = regexp_match_item(md->ref_id, (int)idx, &item_len);
   if (!item) return mrb_nil_value();
-  mrb_value str = mrb_str_new_cstr(mrb, item);
+  mrb_value str = mrb_str_new(mrb, item, item_len);
   free(item);
   return str;
 }
@@ -622,9 +620,10 @@ mrb_match_data_to_a(mrb_state *mrb, mrb_value self)
     if (regexp_match_item_is_undefined(md->ref_id, i)) {
       mrb_ary_push(mrb, ary, mrb_nil_value());
     } else {
-      char *item = regexp_match_item(md->ref_id, i);
+      int item_len = 0;
+      char *item = regexp_match_item(md->ref_id, i, &item_len);
       if (item) {
-        mrb_ary_push(mrb, ary, mrb_str_new_cstr(mrb, item));
+        mrb_ary_push(mrb, ary, mrb_str_new(mrb, item, item_len));
         free(item);
       } else {
         mrb_ary_push(mrb, ary, mrb_nil_value());
@@ -751,9 +750,10 @@ mrb_match_data_captures(mrb_state *mrb, mrb_value self)
     if (regexp_match_item_is_undefined(md->ref_id, i)) {
       mrb_ary_push(mrb, ary, mrb_nil_value());
     } else {
-      char *item = regexp_match_item(md->ref_id, i);
+      int item_len = 0;
+      char *item = regexp_match_item(md->ref_id, i, &item_len);
       if (item) {
-        mrb_ary_push(mrb, ary, mrb_str_new_cstr(mrb, item));
+        mrb_ary_push(mrb, ary, mrb_str_new(mrb, item, item_len));
         free(item);
       } else {
         mrb_ary_push(mrb, ary, mrb_nil_value());
@@ -773,9 +773,10 @@ mrb_match_data_to_s(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "MatchData not initialized");
   }
 
-  char *item = regexp_match_item(md->ref_id, 0);
+  int item_len = 0;
+  char *item = regexp_match_item(md->ref_id, 0, &item_len);
   if (!item) return mrb_str_new_lit(mrb, "");
-  mrb_value str = mrb_str_new_cstr(mrb, item);
+  mrb_value str = mrb_str_new(mrb, item, item_len);
   free(item);
   return str;
 }
@@ -805,10 +806,11 @@ mrb_match_data_inspect(mrb_state *mrb, mrb_value self)
     if (regexp_match_item_is_undefined(md->ref_id, i)) {
       mrb_str_cat_lit(mrb, result, "nil");
     } else {
-      char *item = regexp_match_item(md->ref_id, i);
+      int item_len = 0;
+      char *item = regexp_match_item(md->ref_id, i, &item_len);
       if (item) {
         mrb_str_cat_lit(mrb, result, "\"");
-        mrb_str_cat_cstr(mrb, result, item);
+        mrb_str_cat(mrb, result, item, item_len);
         mrb_str_cat_lit(mrb, result, "\"");
         free(item);
       } else {
@@ -834,7 +836,7 @@ ensure_regexp(mrb_state *mrb, mrb_value pattern)
     /* Create Regexp from string */
     char js_flags[16];
     build_js_flags("", 0, js_flags, sizeof(js_flags));
-    int ref_id = regexp_new(RSTRING_PTR(pattern), js_flags);
+    int ref_id = regexp_new(RSTRING_PTR(pattern), RSTRING_LEN(pattern), js_flags);
     if (ref_id < 0) {
       mrb_raise(mrb, E_ARGUMENT_ERROR, "invalid regular expression");
     }
@@ -942,9 +944,10 @@ static void
 append_match_item(mrb_state *mrb, mrb_value result, int match_ref, int capture_idx)
 {
   if (regexp_match_item_is_undefined(match_ref, capture_idx)) return;
-  char *item = regexp_match_item(match_ref, capture_idx);
+  int item_len = 0;
+  char *item = regexp_match_item(match_ref, capture_idx, &item_len);
   if (!item) return;
-  mrb_str_cat_cstr(mrb, result, item);
+  mrb_str_cat(mrb, result, item, item_len);
   free(item);
 }
 
@@ -1171,8 +1174,9 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
 
     /* Compute and append the replacement text. */
     if (has_block) {
-      char *full = regexp_match_item(match_ref, 0);
-      mrb_value full_str = mrb_str_new_cstr(mrb, full ? full : "");
+      int full_len = 0;
+      char *full = regexp_match_item(match_ref, 0, &full_len);
+      mrb_value full_str = full ? mrb_str_new(mrb, full, full_len) : mrb_str_new_lit(mrb, "");
       if (full) free(full);
       regexp_release_ref(match_ref);
       match_ref = -1;
@@ -1183,8 +1187,9 @@ do_string_sub_gsub(mrb_state *mrb, mrb_value self, mrb_bool global)
       }
       mrb_str_cat_str(mrb, result, yield_str);
     } else if (has_hash_replacement) {
-      char *full = regexp_match_item(match_ref, 0);
-      mrb_value full_str = mrb_str_new_cstr(mrb, full ? full : "");
+      int full_len = 0;
+      char *full = regexp_match_item(match_ref, 0, &full_len);
+      mrb_value full_str = full ? mrb_str_new(mrb, full, full_len) : mrb_str_new_lit(mrb, "");
       if (full) free(full);
       mrb_value hash_value = mrb_hash_get(mrb, replacement, full_str);
       if (!mrb_str_equal(mrb, self, source)) {

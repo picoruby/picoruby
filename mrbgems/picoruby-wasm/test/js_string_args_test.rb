@@ -94,4 +94,11 @@ class JSStringArgsTest < Picotest::Test
     result = JS.eval("JSON.stringify(globalThis.picorubyGenericCallbacks['picotestReturnsNul'](1))")
     assert_equal('"a\\u0000b"', result)
   end
+
+  # A JS string comes back to Ruby with its byte length, past an embedded NUL.
+  def test_js_string_result_keeps_embedded_nul
+    result = JS.eval('"a\u0000b"')
+    assert_equal("a\x00b", result)
+    assert_equal(3, result.bytesize)
+  end
 end

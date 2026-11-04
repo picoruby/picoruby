@@ -50,4 +50,22 @@ class RegexpExtTest < Picotest::Test
     assert_equal(2, /b/ =~ "a\x00b")
     assert_equal(true, "a\x00b".match?(/b/))
   end
+
+  # Matched text comes back from JS with its byte length, past an embedded NUL.
+  def test_matched_text_keeps_embedded_nul
+    md = "xa\x00by".match(/(a.b)/)
+    assert_equal("a\x00b", md[0])
+    assert_equal(["a\x00b", "a\x00b"], md.to_a)
+    assert_equal(["a\x00b"], md.captures)
+    assert_equal("a\x00b", md.to_s)
+    assert_equal("x3y", "xa\x00by".gsub(/a.b/) { |m| m.size.to_s })
+    assert_equal("x<a\x00b>y", "xa\x00by".sub(/a.b/, '<\0>'))
+  end
+
+  # The pattern reaches JS RegExp in full, past an embedded NUL.
+  def test_pattern_keeps_embedded_nul
+    assert_equal(1, Regexp.new("a\x00b") =~ "xa\x00b")
+    assert_nil(Regexp.new("a\x00b") =~ "xa")
+    assert_equal("x", "xa\x00b".match("a\x00b").pre_match)
+  end
 end
