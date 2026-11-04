@@ -70,9 +70,9 @@ EM_JS(int, idb_request_to_promise, (int req_ref_id), {
   }
 });
 
-EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int version, uintptr_t callback_id, int blocked_timeout_ms), {
+EM_JS(int, idb_open_with_upgrade, (const char *name_ptr, int name_len, int version, uintptr_t callback_id, int blocked_timeout_ms), {
   try {
-    const name = UTF8ToString(name_ptr);
+    const name = UTF8ToString(name_ptr, name_len, true);
     const idb = globalThis.indexedDB;
     if (!idb) {
       console.error('idb_open_with_upgrade: indexedDB unavailable');
@@ -276,12 +276,13 @@ static mrb_value
 mrb_idb_helper_open_with_upgrade(mrb_state *mrb, mrb_value self)
 {
   const char *name;
+  mrb_int name_len;
   mrb_int version;
   mrb_int callback_id;
   mrb_int blocked_timeout_ms;
-  mrb_get_args(mrb, "ziii", &name, &version, &callback_id, &blocked_timeout_ms);
+  mrb_get_args(mrb, "siii", &name, &name_len, &version, &callback_id, &blocked_timeout_ms);
 
-  int promise_id = idb_open_with_upgrade(name, (int)version, (uintptr_t)callback_id,
+  int promise_id = idb_open_with_upgrade(name, (int)name_len, (int)version, (uintptr_t)callback_id,
                                          (int)blocked_timeout_ms);
   if (promise_id < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "idb_open_with_upgrade failed");

@@ -700,12 +700,12 @@ EM_JS(int, js_function_apply_args, (int func_ref_id, const char* args_json, int 
   }
 });
 
-EM_JS(int, call_fetch_with_json_options, (int ref_id, const char* url, const char* options_json), {
+EM_JS(int, call_fetch_with_json_options, (int ref_id, const char* url, int url_len, const char* options_json, int options_json_len), {
   globalThis.picorubyLastError = null;
   try {
     const obj = globalThis.picorubyRefs[ref_id];
-    const urlStr = UTF8ToString(url);
-    const optionsStr = UTF8ToString(options_json);
+    const urlStr = UTF8ToString(url, url_len, true);
+    const optionsStr = UTF8ToString(options_json, options_json_len, true);
     const options = JSON.parse(optionsStr);
     const result = obj.fetch(urlStr, options);
     const newRefId = globalThis.picorubyRefs.length;
@@ -759,10 +759,10 @@ EM_JS(void, setup_promise_handler, (int promise_id, uintptr_t callback_id, uintp
  * passive : -1 leaves it to the browser default, 0 / 1 set it explicitly.
  */
 EM_JS(void, js_add_event_listener,
-      (int ref_id, uintptr_t callback_id, const char* event_type,
+      (int ref_id, uintptr_t callback_id, const char* event_type, int event_type_len,
        int sync, int capture, int once, int passive), {
   const target = globalThis.picorubyRefs[ref_id];
-  const type = UTF8ToString(event_type);
+  const type = UTF8ToString(event_type, event_type_len, true);
   const isSync = !!sync;
   const isOnce = !!once;
   const isCapture = !!capture;
@@ -828,8 +828,8 @@ EM_JS(void, js_add_event_listener,
   globalThis.picorubyEventHandlers[callback_id] = { target, type, handler, capture: isCapture };
 });
 
-EM_JS(void, js_register_generic_callback, (uintptr_t callback_id, const char* callback_name), {
-  const name = UTF8ToString(callback_name);
+EM_JS(void, js_register_generic_callback, (uintptr_t callback_id, const char* callback_name, int callback_name_len), {
+  const name = UTF8ToString(callback_name, callback_name_len, true);
   if (!globalThis.picorubyGenericCallbacks) {
     globalThis.picorubyGenericCallbacks = {};
   }
@@ -948,9 +948,9 @@ EM_JS(bool, js_remove_event_listener, (uintptr_t callback_id), {
   }
 });
 
-EM_JS(int, js_create_element, (const char* tag_name), {
+EM_JS(int, js_create_element, (const char* tag_name, int tag_name_len), {
   try {
-    const element = document.createElement(UTF8ToString(tag_name));
+    const element = document.createElement(UTF8ToString(tag_name, tag_name_len, true));
     const refId = globalThis.picorubyRefs.push(element) - 1;
     return refId;
   } catch(e) {
@@ -959,9 +959,9 @@ EM_JS(int, js_create_element, (const char* tag_name), {
   }
 });
 
-EM_JS(int, js_create_text_node, (const char* text), {
+EM_JS(int, js_create_text_node, (const char* text, int text_len), {
   try {
-    const node = document.createTextNode(UTF8ToString(text));
+    const node = document.createTextNode(UTF8ToString(text, text_len, true));
     const refId = globalThis.picorubyRefs.push(node) - 1;
     return refId;
   } catch(e) {
@@ -1046,11 +1046,11 @@ EM_JS(bool, js_insert_before, (int parent_ref_id, int new_child_ref_id, int ref_
   }
 });
 
-EM_JS(bool, js_set_attribute, (int ref_id, const char* name, const char* value), {
+EM_JS(bool, js_set_attribute, (int ref_id, const char* name, int name_len, const char* value, int value_len), {
   try {
     const element = globalThis.picorubyRefs[ref_id];
     if (!element || !element.setAttribute) return false;
-    element.setAttribute(UTF8ToString(name), UTF8ToString(value));
+    element.setAttribute(UTF8ToString(name, name_len, true), UTF8ToString(value, value_len, true));
     return true;
   } catch(e) {
     console.error('Error in js_set_attribute:', e);
@@ -1058,11 +1058,11 @@ EM_JS(bool, js_set_attribute, (int ref_id, const char* name, const char* value),
   }
 });
 
-EM_JS(bool, js_remove_attribute, (int ref_id, const char* name), {
+EM_JS(bool, js_remove_attribute, (int ref_id, const char* name, int name_len), {
   try {
     const element = globalThis.picorubyRefs[ref_id];
     if (!element || !element.removeAttribute) return false;
-    element.removeAttribute(UTF8ToString(name));
+    element.removeAttribute(UTF8ToString(name, name_len, true));
     return true;
   } catch(e) {
     console.error('Error in js_remove_attribute:', e);
@@ -2345,12 +2345,13 @@ mrb_object__add_event_listener(mrb_state *mrb, mrb_value self)
 {
   picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
   mrb_int callback_id;
-  char* event_type;
+  const char* event_type;
+  mrb_int event_type_len;
   mrb_bool sync, capture, once;
   mrb_int passive;  /* -1: browser default, 0 / 1: explicit */
-  mrb_get_args(mrb, "izbbbi", &callback_id, &event_type,
+  mrb_get_args(mrb, "isbbbi", &callback_id, &event_type, &event_type_len,
                &sync, &capture, &once, &passive);
-  js_add_event_listener(obj->ref_id, (uintptr_t)callback_id, event_type,
+  js_add_event_listener(obj->ref_id, (uintptr_t)callback_id, event_type, (int)event_type_len,
                         sync ? 1 : 0, capture ? 1 : 0, once ? 1 : 0, (int)passive);
   return mrb_nil_value();
 }
@@ -2364,9 +2365,10 @@ static mrb_value
 mrb_object_s__register_callback(mrb_state *mrb, mrb_value self)
 {
   mrb_int callback_id;
-  char *callback_name;
-  mrb_get_args(mrb, "iz", &callback_id, &callback_name);
-  js_register_generic_callback((uintptr_t)callback_id, callback_name);
+  const char *callback_name;
+  mrb_int callback_name_len;
+  mrb_get_args(mrb, "is", &callback_id, &callback_name, &callback_name_len);
+  js_register_generic_callback((uintptr_t)callback_id, callback_name, (int)callback_name_len);
   return mrb_nil_value();
 }
 
@@ -2377,10 +2379,11 @@ static mrb_value
 mrb_object__fetch_and_suspend(mrb_state *mrb, mrb_value self)
 {
   picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
-  char *url;
+  const char *url;
+  mrb_int url_len;
   mrb_int callback_id;
-  mrb_get_args(mrb, "zi", &url, &callback_id);
-  int promise_id = call_method(obj->ref_id, "fetch", mrb_strlen_lit("fetch"), url, strlen(url));
+  mrb_get_args(mrb, "si", &url, &url_len, &callback_id);
+  int promise_id = call_method(obj->ref_id, "fetch", mrb_strlen_lit("fetch"), url, (int)url_len);
   if (promise_id < 0) {
     raise_js_last_error(mrb);
     return mrb_nil_value();
@@ -2403,11 +2406,14 @@ static mrb_value
 mrb_object__fetch_with_options_and_suspend(mrb_state *mrb, mrb_value self)
 {
   picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
-  char *url;
-  char *options_json;
+  const char *url;
+  mrb_int url_len;
+  const char *options_json;
+  mrb_int options_json_len;
   mrb_int callback_id;
-  mrb_get_args(mrb, "zzi", &url, &options_json, &callback_id);
-  int promise_id = call_fetch_with_json_options(obj->ref_id, url, options_json);
+  mrb_get_args(mrb, "ssi", &url, &url_len, &options_json, &options_json_len, &callback_id);
+  int promise_id = call_fetch_with_json_options(obj->ref_id, url, (int)url_len,
+                                                options_json, (int)options_json_len);
   if (promise_id < 0) {
     raise_js_last_error(mrb);
     return mrb_nil_value();
@@ -2468,9 +2474,10 @@ mrb_object__remove_event_listener(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_object_create_element(mrb_state *mrb, mrb_value self)
 {
-  char *tag_name;
-  mrb_get_args(mrb, "z", &tag_name);
-  int ref_id = js_create_element(tag_name);
+  const char *tag_name;
+  mrb_int tag_name_len;
+  mrb_get_args(mrb, "s", &tag_name, &tag_name_len);
+  int ref_id = js_create_element(tag_name, (int)tag_name_len);
   return js_ref_to_ruby_value(mrb, ref_id);
 }
 
@@ -2480,9 +2487,10 @@ mrb_object_create_element(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_object_create_text_node(mrb_state *mrb, mrb_value self)
 {
-  char *text;
-  mrb_get_args(mrb, "z", &text);
-  int ref_id = js_create_text_node(text);
+  const char *text;
+  mrb_int text_len;
+  mrb_get_args(mrb, "s", &text, &text_len);
+  int ref_id = js_create_text_node(text, (int)text_len);
   return js_ref_to_ruby_value(mrb, ref_id);
 }
 
@@ -2592,10 +2600,11 @@ mrb_object_insert_before(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_object_set_attribute(mrb_state *mrb, mrb_value self)
 {
-  char *name, *value;
-  mrb_get_args(mrb, "zz", &name, &value);
+  const char *name, *value;
+  mrb_int name_len, value_len;
+  mrb_get_args(mrb, "ss", &name, &name_len, &value, &value_len);
   picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
-  bool success = js_set_attribute(obj->ref_id, name, value);
+  bool success = js_set_attribute(obj->ref_id, name, (int)name_len, value, (int)value_len);
   return mrb_bool_value(success);
 }
 
@@ -2605,10 +2614,11 @@ mrb_object_set_attribute(mrb_state *mrb, mrb_value self)
 static mrb_value
 mrb_object_remove_attribute(mrb_state *mrb, mrb_value self)
 {
-  char *name;
-  mrb_get_args(mrb, "z", &name);
+  const char *name;
+  mrb_int name_len;
+  mrb_get_args(mrb, "s", &name, &name_len);
   picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
-  bool success = js_remove_attribute(obj->ref_id, name);
+  bool success = js_remove_attribute(obj->ref_id, name, (int)name_len);
   return mrb_bool_value(success);
 }
 
@@ -2651,9 +2661,9 @@ mrb_js_refcount(mrb_state *mrb, mrb_value self)
   return mrb_int_value(mrb, 0);
 }
 
-EM_JS(int, js_eval, (const char* script), {
+EM_JS(int, js_eval, (const char* script, int script_len), {
   try {
-    var result = (0, eval)(UTF8ToString(script));
+    var result = (0, eval)(UTF8ToString(script, script_len, true));
     if (result === undefined || result === null) return -1;
     var refId = globalThis.picorubyRefs.length;
     globalThis.picorubyRefs.push(result);
@@ -2671,8 +2681,9 @@ static mrb_value
 mrb_js_eval(mrb_state *mrb, mrb_value klass)
 {
   const char *script;
-  mrb_get_args(mrb, "z", &script);
-  int ref_id = js_eval(script);
+  mrb_int script_len;
+  mrb_get_args(mrb, "s", &script, &script_len);
+  int ref_id = js_eval(script, (int)script_len);
   if (ref_id < 0) {
     return mrb_nil_value();
   }

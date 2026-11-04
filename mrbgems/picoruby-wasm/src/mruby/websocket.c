@@ -35,9 +35,9 @@ static const struct mrb_data_type picorb_websocket_type = {
   "picorb_websocket", picorb_websocket_free
 };
 
-EM_JS(int, ws_new, (const char* url), {
+EM_JS(int, ws_new, (const char* url, int url_len), {
   try {
-    const ws = new WebSocket(UTF8ToString(url));
+    const ws = new WebSocket(UTF8ToString(url, url_len, true));
     const refId = globalThis.picorubyRefs.push(ws) - 1;
     return refId;
   } catch(e) {
@@ -46,11 +46,11 @@ EM_JS(int, ws_new, (const char* url), {
   }
 });
 
-EM_JS(void, ws_send, (int ref_id, const char* data), {
+EM_JS(void, ws_send, (int ref_id, const char* data, int data_len), {
   try {
     const ws = globalThis.picorubyRefs[ref_id];
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(UTF8ToString(data));
+      ws.send(UTF8ToString(data, data_len, true));
     }
   } catch(e) {
     console.error('WebSocket send failed:', e);
@@ -93,11 +93,11 @@ EM_JS(int, ws_ready_state, (int ref_id), {
   }
 });
 
-EM_JS(void, ws_set_binary_type, (int ref_id, const char* type), {
+EM_JS(void, ws_set_binary_type, (int ref_id, const char* type, int type_len), {
   try {
     const ws = globalThis.picorubyRefs[ref_id];
     if (ws) {
-      ws.binaryType = UTF8ToString(type);
+      ws.binaryType = UTF8ToString(type, type_len, true);
     }
   } catch(e) {
     console.error('WebSocket set_binary_type failed:', e);
@@ -205,9 +205,10 @@ static mrb_value
 mrb_websocket_initialize(mrb_state *mrb, mrb_value self)
 {
   const char *url;
-  mrb_get_args(mrb, "z", &url);
+  mrb_int url_len;
+  mrb_get_args(mrb, "s", &url, &url_len);
 
-  int ref_id = ws_new(url);
+  int ref_id = ws_new(url, (int)url_len);
   if (ref_id < 0) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "Failed to create WebSocket");
   }
@@ -224,14 +225,15 @@ static mrb_value
 mrb_websocket_send(mrb_state *mrb, mrb_value self)
 {
   const char *data;
-  mrb_get_args(mrb, "z", &data);
+  mrb_int data_len;
+  mrb_get_args(mrb, "s", &data, &data_len);
 
   picorb_websocket *ws = (picorb_websocket *)DATA_PTR(self);
   if (!ws) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "WebSocket not initialized");
   }
 
-  ws_send(ws->ref_id, data);
+  ws_send(ws->ref_id, data, (int)data_len);
   return mrb_nil_value();
 }
 
@@ -348,7 +350,7 @@ mrb_websocket_set_binary_type(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_RUNTIME_ERROR, "WebSocket not initialized");
   }
 
-  ws_set_binary_type(ws->ref_id, RSTRING_PTR(type));
+  ws_set_binary_type(ws->ref_id, RSTRING_PTR(type), (int)RSTRING_LEN(type));
   return type;
 }
 
