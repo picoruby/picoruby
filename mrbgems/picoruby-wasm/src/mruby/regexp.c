@@ -73,7 +73,7 @@ EM_JS(int, regexp_test, (int ref_id, const char *str, int str_len), {
   try {
     var re = globalThis.picorubyRefs[ref_id];
     re.lastIndex = 0;
-    return re.test(UTF8ToString(str, str_len)) ? 1 : 0;
+    return re.test(UTF8ToString(str, str_len, true)) ? 1 : 0;
   } catch(e) {
     return 0;
   }
@@ -90,7 +90,7 @@ EM_JS(int, regexp_exec, (int ref_id, const char *str, int str_len, int base_byte
   try {
     var re = globalThis.picorubyRefs[ref_id];
     re.lastIndex = 0;
-    var jsStr = UTF8ToString(str, str_len);
+    var jsStr = UTF8ToString(str, str_len, true);
     var result = re.exec(jsStr);
     if (result === null) return -1;
 

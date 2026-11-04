@@ -163,7 +163,7 @@ EM_JS(bool, set_property, (int ref_id, const char* key, const char* value, int v
     }
 
     const property = UTF8ToString(key);
-    const val = UTF8ToString(value, value_len);
+    const val = UTF8ToString(value, value_len, true);
     obj[property] = val;
     return true;
   } catch(e) {
@@ -352,7 +352,7 @@ EM_JS(int, call_method, (int ref_id, const char* method, const char* arg, int ar
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
-    const argString = UTF8ToString(arg, arg_len);
+    const argString = UTF8ToString(arg, arg_len, true);
 
     let result;
     if (methodName === 'new') {
@@ -445,8 +445,8 @@ EM_JS(int, call_method_str, (int ref_id, const char* method, const char* arg1, i
     const obj = globalThis.picorubyRefs[ref_id];
     const methodName = UTF8ToString(method);
     const func = obj[methodName];
-    const argString1 = UTF8ToString(arg1, arg1_len);
-    const argString2 = UTF8ToString(arg2, arg2_len);
+    const argString1 = UTF8ToString(arg1, arg1_len, true);
+    const argString2 = UTF8ToString(arg2, arg2_len, true);
 
     let result;
     if (methodName === 'new') {
@@ -541,8 +541,8 @@ EM_JS(int, call_method_with_ref_str_str, (int ref_id, const char* method, int ar
     const func = obj[methodName];
 
     const argObj1 = globalThis.picorubyRefs[arg1_ref_id];
-    const argString2 = UTF8ToString(arg2_str, arg2_len);
-    const argString3 = UTF8ToString(arg3_str, arg3_len);
+    const argString2 = UTF8ToString(arg2_str, arg2_len, true);
+    const argString3 = UTF8ToString(arg3_str, arg3_len, true);
 
     if (typeof func !== 'function') {
       console.error('Method not found or not a function:', methodName);
@@ -1340,7 +1340,7 @@ ruby_value_to_js_ref(mrb_state *mrb, mrb_value value)
     int ref_id = js_create_object();
     if (ref_id < 0) return -1;
     EM_ASM_({
-      const str = UTF8ToString($1, $2);
+      const str = UTF8ToString($1, $2, true);
       globalThis.picorubyRefs[$0] = str;
     }, ref_id, str, len);
     return ref_id;

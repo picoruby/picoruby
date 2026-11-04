@@ -1,6 +1,7 @@
 class JSStringArgsTest < Picotest::Test
-  # These argument shapes go through build_args_json, the JSON-encoded
-  # dispatch that the one/two-string fast paths do not use. Each JS helper
+  # The first group of argument shapes goes through build_args_json, the
+  # JSON-encoded dispatch that the one/two-string fast paths do not use.
+  # The second group covers the fast paths. Each JS helper
   # returns JSON.stringify of what it received, so the assertions compare
   # the exact JS string values without relying on the conversion back.
   def setup
@@ -16,6 +17,12 @@ class JSStringArgsTest < Picotest::Test
       };
       globalThis.PicorubyStringArgsHolder = class {
         constructor(a, b) { this.value = JSON.stringify([a, b]); }
+      };
+      globalThis.picorubyStringArgs1 = function(a) {
+        return JSON.stringify([a]);
+      };
+      globalThis.picorubyStringArgsRef = function(obj, a, b) {
+        return JSON.stringify([typeof obj, a, b]);
       };
     JS
   end
@@ -58,5 +65,33 @@ class JSStringArgsTest < Picotest::Test
   def test_function_call_with_control_characters
     result = JS.global[:picorubyStringArgsFn].call("x\ny", "\"q\"\\")
     assert_equal('["x\\ny","\\"q\\"\\\\"]', result)
+  end
+
+  # The fast paths below pass (pointer, length) to UTF8ToString. An embedded
+  # NUL must not cut the JS string short there.
+  def test_one_string_fast_path_keeps_embedded_nul
+    result = JS.global.picorubyStringArgs1("a\x00b")
+    assert_equal('["a\\u0000b"]', result)
+  end
+
+  def test_two_string_fast_path_keeps_embedded_nul
+    result = JS.global.picorubyStringArgsFn("a\x00b", "\x00c")
+    assert_equal('["a\\u0000b","\\u0000c"]', result)
+  end
+
+  def test_ref_and_two_string_fast_path_keeps_embedded_nul
+    result = JS.global.picorubyStringArgsRef(JS.global, "a\x00b", "c\x00")
+    assert_equal('["object","a\\u0000b","c\\u0000"]', result)
+  end
+
+  def test_property_assignment_keeps_embedded_nul
+    JS.global[:picorubyStringArgsProp] = "a\x00b"
+    assert_equal('"a\\u0000b"', JS.eval('JSON.stringify(globalThis.picorubyStringArgsProp)'))
+  end
+
+  def test_callback_return_value_keeps_embedded_nul
+    JS::Object.register_callback('picotestReturnsNul') { |_value| "a\x00b" }
+    result = JS.eval("JSON.stringify(globalThis.picorubyGenericCallbacks['picotestReturnsNul'](1))")
+    assert_equal('"a\\u0000b"', result)
   end
 end

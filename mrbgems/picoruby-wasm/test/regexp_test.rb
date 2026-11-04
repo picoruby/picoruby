@@ -44,4 +44,10 @@ class RegexpExtTest < Picotest::Test
       end
     end
   end
+
+  # The subject string must reach JS RegExp in full, past an embedded NUL.
+  def test_match_after_embedded_nul
+    assert_equal(2, /b/ =~ "a\x00b")
+    assert_equal(true, "a\x00b".match?(/b/))
+  end
 end
