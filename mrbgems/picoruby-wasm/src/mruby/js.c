@@ -1973,11 +1973,6 @@ mrb_object_type(mrb_state *mrb, mrb_value self)
 
 
 /*
- * Build a JSON-encoded argument array and call a JS method.
- * Handles any combination of String, Integer, Float, nil, bool, JS::Object.
- * Returns the ref_id of the result, or -1 on error.
- */
-/*
  * Append `str` (len bytes) to `out` as a quoted JSON string literal.
  * '"', '\\' and U+0000..U+001F are escaped as JSON requires; every other
  * byte, including multibyte UTF-8, is copied as is. Runs of plain bytes are
@@ -2079,6 +2074,11 @@ build_args_json(mrb_state *mrb, mrb_value *argv, mrb_int argc, int extra_ref_id,
   return json_array;
 }
 
+/*
+ * Build a JSON-encoded argument array and call a JS method.
+ * Handles any combination of String, Integer, Float, nil, bool, JS::Object.
+ * Returns the ref_id of the result, or -1 on error.
+ */
 static int
 call_method_with_ruby_args(mrb_state *mrb, int ref_id, const char *method_name, mrb_value *argv, mrb_int argc, int extra_ref_id)
 {
