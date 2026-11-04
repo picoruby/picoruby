@@ -89,6 +89,8 @@ class String
       b = pair[0]
       e = pair[1]
       result << src.byteslice(last, b - last).to_s
+      # the block reads this match through $~, $1, $& as in CRuby
+      $~ = md
       result << yield(md.to_s)
       raise RuntimeError, "string modified" unless self == src
       if e == b

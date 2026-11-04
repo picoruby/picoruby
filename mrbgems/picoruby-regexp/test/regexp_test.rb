@@ -587,6 +587,10 @@ class RegexpStringTest < Picotest::Test
     assert_equal "1 4 9", "1 2 3".gsub(/\d/) { |d| (d.to_i * d.to_i).to_s }
     assert_equal "hello", "hello".gsub(/z/) { |m| "x" }
     assert_equal "-a-b-", "ab".gsub(/x*/) { "-" }
+    # $~ and the group globals describe the current match inside the block
+    assert_equal "A_B", "a_b".gsub(/(.)/) { $1.upcase }
+    assert_equal "FooBar", "foo_bar".gsub(/(?:^|_)(.)/) { $1.upcase }
+    assert_equal "a[b]", "ab".sub(/(b)/) { "[#{$~[1]}]" }
   end
 
   def test_sub_with_block
