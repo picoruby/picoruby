@@ -58,4 +58,17 @@ class JSBasicObjectTest < Picotest::Test
     obj = JS.global.create_object
     assert_equal(true, "#{obj}".start_with?('#<JS::Object'))
   end
+
+  # typeof frees the value copy that js_get_type_info makes for these types.
+  def test_typeof_symbol_and_bigint
+    sym = JS.eval("Symbol('desc')")
+    big = JS.eval("10n ** 30n")
+    i = 0
+    while i < 3
+      assert_equal(:symbol, sym.typeof)
+      assert_equal(:bigint, big.typeof)
+      i += 1
+    end
+    assert_equal(:object, JS.global.create_object.typeof)
+  end
 end

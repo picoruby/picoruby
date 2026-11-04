@@ -1937,6 +1937,9 @@ mrb_object_type(mrb_state *mrb, mrb_value self)
   picorb_js_obj *obj = (picorb_js_obj *)DATA_PTR(self);
   js_type_info info = {};
   js_get_type_info(obj->ref_id, &info);
+  // js_get_type_info mallocs a copy of a string, symbol or bigint value.
+  // Only the type is used here, so free the copy (NULL for other types).
+  free(info.string_value);
   mrb_value type_sym;
   switch (info.type) {
     case TYPE_UNDEFINED:
