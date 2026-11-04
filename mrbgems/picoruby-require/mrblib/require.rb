@@ -49,8 +49,16 @@ module Kernel
     else
       sandbox = Sandbox.new('require')
       begin
-        sandbox.load_file(path)
-        err = sandbox.error and raise err
+        if sandbox.respond_to?(:run_inline)
+          # mruby VM: run the file on this task. The sandbox task cannot be
+          # waited on from a frame the VM entered through C (const_missing,
+          # inherited, a sort block, ...): the scheduler never switches to
+          # it there, and wait would spin forever. See Sandbox#run_inline.
+          sandbox.load_file(path, inline: true)
+        else
+          sandbox.load_file(path)
+          err = sandbox.error and raise err
+        end
         $LOADED_FEATURES << name_with_ext unless required?(name_with_ext)
       ensure
         # close, not terminate: terminate leaves the task in the scheduler
