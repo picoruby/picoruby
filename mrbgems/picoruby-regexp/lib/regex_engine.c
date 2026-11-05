@@ -111,6 +111,8 @@ enum {
   OP_SAVE,      /* x = slot */
   OP_BOL,
   OP_EOL,
+  OP_WORDB,     /* \b */
+  OP_NWORDB,    /* \B */
   OP_LOOK,      /* x = body pc, y = RX_LOOK_* bits | max length << 3 */
   OP_LMATCH,    /* the end of a lookaround body */
   OP_MATCH
@@ -173,6 +175,8 @@ enum {
   N_GROUP,  /* a; x = group index */
   N_BOL,
   N_EOL,
+  N_WORDB,
+  N_NWORDB,
   N_LOOK    /* a; x = RX_LOOK_* bits | max length << RX_LOOK_SHIFT */
 };
 
@@ -448,7 +452,7 @@ max_len(const rx_parser *p, int n, bool *unbounded)
         v = one > RX_LEN_CAP / (nd->y ? nd->y : 1) ? RX_LEN_CAP : one * nd->y;
       }
       break;
-    default: v = 0; break;   /* EMPTY, BOL, EOL, LOOK */
+    default: v = 0; break;   /* EMPTY, BOL, EOL, WORDB, NWORDB, LOOK */
     }
     if (alt && best > v) v = best;
     return sat_add(acc, v);
@@ -550,6 +554,8 @@ parse_atom(rx_parser *p, int depth)
     switch (e) {
     case 'A': return node_new(p, N_BOL, 0, 0, 0, 0);
     case 'z': case 'Z': return node_new(p, N_EOL, 0, 0, 0, 0);
+    case 'b': return node_new(p, N_WORDB, 0, 0, 0, 0);
+    case 'B': return node_new(p, N_NWORDB, 0, 0, 0, 0);
     case 'd': case 'w': case 's': {
       int off = class_begin(p, false);
       class_add_escape(p, off, e);
@@ -559,8 +565,7 @@ parse_atom(rx_parser *p, int depth)
       return node_new(p, N_CLASS, 0, 0, negated_escape_class(p, e + 32), 0);
     default:
       if (literal_escape(e, &lit)) return node_new(p, N_CHAR, 0, 0, (int32_t)lit, 0);
-      if (e == 'b' || e == 'B') perr(p, "word boundaries are not supported");
-      else if (e >= '1' && e <= '9') perr(p, "backreferences are not supported");
+      if (e >= '1' && e <= '9') perr(p, "backreferences are not supported");
       else perr(p, "unsupported escape");
       return 0;
     }
@@ -799,6 +804,8 @@ gen(rx_gen *g, const rx_parser *p, int n)
     case N_CLASS: emit(g, OP_CLASS, (uint32_t)nd->x, 0); break;
     case N_BOL:   emit(g, OP_BOL, 0, 0); break;
     case N_EOL:   emit(g, OP_EOL, 0, 0); break;
+    case N_WORDB: emit(g, OP_WORDB, 0, 0); break;
+    case N_NWORDB: emit(g, OP_NWORDB, 0, 0); break;
     case N_GROUP:
       emit(g, OP_SAVE, (uint32_t)(2 * nd->x), 0);
       gen(g, p, nd->a);
@@ -958,6 +965,24 @@ class_match(const rx_shared *sh, uint32_t off, uint32_t ch)
   return c[0] ? !in : in;
 }
 
+/* \w as a byte: ASCII only, like the class, so a multibyte character
+ * is never a word character and its continuation bytes never are */
+static inline bool
+word_byte(uint8_t b)
+{
+  return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') ||
+         (b >= '0' && b <= '9') || b == '_';
+}
+
+/* \b: a word character on exactly one side of pos */
+static bool
+at_word_boundary(const rx_shared *sh, size_t pos)
+{
+  bool before = pos > 0 && word_byte(sh->s[pos - 1]);
+  bool after = pos < sh->len && word_byte(sh->s[pos]);
+  return before != after;
+}
+
 /* the byte offset n characters before pos, or 0 */
 static size_t
 back_chars(const uint8_t *s, size_t pos, uint32_t n)
@@ -1042,6 +1067,12 @@ addthread(rx_vm *vm, rx_list *l, uint32_t pc0, size_t pos)
       break;
     case OP_EOL:
       if (pos == sh->len) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
+      break;
+    case OP_WORDB:
+      if (at_word_boundary(sh, pos)) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
+      break;
+    case OP_NWORDB:
+      if (!at_word_boundary(sh, pos)) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
       break;
     case OP_LOOK:
       if (!look_test(vm, i, pos)) break;

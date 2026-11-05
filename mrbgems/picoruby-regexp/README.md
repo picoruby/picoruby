@@ -85,6 +85,7 @@ the reason and the byte offset in the pattern.
 | `[...]`, `[^...]` | Class and negated class. Ranges span code points, so `[あ-ん]` works |
 | `\d` `\w` `\s` `\D` `\W` `\S` | ASCII digit, word and space classes and their negations |
 | `\n` `\t` `\r` `\f` `\v` `\e` `\0` | Control characters |
+| `\b` `\B` | Word boundary and its negation, on the ASCII word class |
 | `\.` and other escaped punctuation | The literal character |
 | `*` `+` `?` `{n}` `{n,}` `{n,m}` | Greedy repetition. `n` and `m` go up to 256 |
 | `*?` `+?` `??` `{n,m}?` | Lazy repetition |
@@ -107,9 +108,10 @@ the reason and the byte offset in the pattern.
 
 - `^` and `$` anchor the whole string, not a line. `\Z` is the same as `\z`.
 - `i` folds ASCII letters only. `/é/i` does not match `É`.
-- These raise `RegexpError` at compile time: backreferences (`\1`), word
-  boundaries (`\b`), named groups, possessive quantifiers, `\x`, `\u`,
-  `\p{...}` and POSIX classes.
+- These raise `RegexpError` at compile time: backreferences (`\1`), named
+  groups, possessive quantifiers, `\x`, `\u`, `\p{...}` and POSIX classes.
+- `\w`, `\d`, `\s` and so `\b` are ASCII: `é` is not a word character, so
+  `/\bé/` matches in `"aé"`.
 - A lookbehind body may have any bounded length, as in `(?<=a|bc)` or
   `(?<=a{1,3})`; CRuby rejects the second. `(?<=a+)` is an error in both.
   Lookaround nests at most 4 deep.

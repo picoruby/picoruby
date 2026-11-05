@@ -45,8 +45,26 @@ class RegexpTest < Picotest::Test
 
   def test_unsupported_syntax_raises_regexp_error
     assert_raise(RegexpError) { Regexp.new("(a)\\1") }
-    assert_raise(RegexpError) { Regexp.new("\\bx") }
     assert_raise(RegexpError) { Regexp.new("(?<n>a)") }
+  end
+
+  # ---- Word boundaries ----
+
+  def test_word_boundary
+    assert_equal 2, (/\bfoo\b/ =~ "a foo b")
+    assert_equal nil, (/\bfoo\b/ =~ "afoo b")
+    assert_equal 0, (/\bfoo\b/ =~ "foo")
+    assert_equal 1, (/\Bfoo/ =~ "afoo")
+    assert_equal nil, (/\Bfoo/ =~ "foo")
+    assert_equal nil, (/\b/ =~ "  ")
+    assert_equal 0, (/\B/ =~ "")
+    assert_equal ["foo", "bar"], "foo-bar".scan(/\b\w+\b/)
+    assert_equal "Foo Bar", "foo bar".gsub(/\b[a-z]/) { $&.upcase }
+  end
+
+  def test_word_boundary_is_ascii
+    # \w is ASCII here, so a multibyte letter is not a word character
+    assert_equal 1, (/\bé/ =~ "aé")
   end
 
   # ---- Lookahead and lookbehind ----
