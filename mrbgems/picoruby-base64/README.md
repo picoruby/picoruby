@@ -24,10 +24,12 @@ url_decoded = Base64.urlsafe_decode64(url_encoded)
 
 ### Methods
 
-- `Base64.encode64(string)` - Encode string to standard Base64
-- `Base64.decode64(string)` - Decode standard Base64 string
-- `Base64.urlsafe_encode64(string)` - Encode to URL-safe Base64
-- `Base64.urlsafe_decode64(string)` - Decode URL-safe Base64 string
+- `Base64.encode64(string)` - Encode string to standard Base64, with a newline every 60 characters as CRuby does
+- `Base64.strict_encode64(string)` - Encode without line breaks
+- `Base64.decode64(string)` - Decode standard Base64 string, ignoring characters outside the alphabet
+- `Base64.strict_decode64(string)` - Decode, raising ArgumentError on anything that is not Base64
+- `Base64.urlsafe_encode64(string, padding: true)` - Encode to URL-safe Base64
+- `Base64.urlsafe_decode64(string)` - Decode URL-safe Base64 string, with or without padding
 
 ## Notes
 

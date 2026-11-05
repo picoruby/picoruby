@@ -66,14 +66,26 @@ mrb_base64_s_decode(mrb_state *mrb, mrb_value klass)
   out_size = (in_size + 3) / 4 * 3 + 1;
   mrb_value output = mrb_str_new_capa(mrb, out_size);
 
-  for (; index < in_size; index++) {
-    if (data[index] == '=')
-      break;
-    unsigned char c = base64_convert(data[index]);
-    if (c == 255) { // Invalid character handling
-      mrb_raise(mrb, E_ARGUMENT_ERROR, "Invalid base64 character");
+  /* Characters outside the alphabet (line breaks among them) are
+   * skipped and '=' ends a group, so the output of encode64 and a
+   * concatenation of encoded pieces both decode, as with CRuby. */
+  for (; index <= in_size; index++) {
+    unsigned char c = index < in_size ? data[index] : '=';
+    if (c == '=') {
+      if (iter == 3) {
+        char decoded[2] = { (char)((buf >> 10) & 0xFF), (char)((buf >> 2) & 0xFF) };
+        mrb_str_cat(mrb, output, decoded, 2);
+      } else if (iter == 2) {
+        char decoded[1] = { (char)((buf >> 4) & 0xFF) };
+        mrb_str_cat(mrb, output, decoded, 1);
+      }
+      buf = 0;
+      iter = 0;
+      continue;
     }
-    buf = buf << 6 | c;
+    unsigned char v = base64_convert(c);
+    if (v == 255) continue;
+    buf = buf << 6 | v;
     iter++;
     if (iter == 4) {
       char decoded[3] = {
@@ -87,19 +99,6 @@ mrb_base64_s_decode(mrb_state *mrb, mrb_value klass)
     }
   }
 
-  if (iter == 3) {
-    char decoded[2] = {
-      (char)((buf >> 10) & 0xFF),
-      (char)((buf >> 2) & 0xFF)
-    };
-    mrb_str_cat(mrb, output, decoded, 2);
-  } else if (iter == 2) {
-    char decoded[1] = {
-      (char)((buf >> 4) & 0xFF)
-    };
-    mrb_str_cat(mrb, output, decoded, 1);
-  }
-
   return output;
 }
 
@@ -110,6 +109,8 @@ mrb_picoruby_base64_gem_init(mrb_state* mrb)
   struct RClass *class_Base64 = mrb_define_class_id(mrb, MRB_SYM(Base64), mrb->object_class);
 
   mrb_define_class_method_id(mrb, class_Base64, MRB_SYM(encode64), mrb_base64_s_encode, MRB_ARGS_REQ(1));
+  /* the plain encoding with no line breaks; mrblib's encode64 adds them */
+  mrb_define_class_method_id(mrb, class_Base64, MRB_SYM(strict_encode64), mrb_base64_s_encode, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, class_Base64, MRB_SYM(decode64), mrb_base64_s_decode, MRB_ARGS_REQ(1));
 }
 

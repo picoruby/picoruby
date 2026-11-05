@@ -79,11 +79,27 @@ c_base64_decode(mrbc_vm *vm, mrbc_value *v, int argc)
   uint8_t* data   = input.string->data;
   uint8_t* output = mrbc_alloc(vm, out_size);
 
-  for (; index < in_size; index++) {
-    if (data[index] == '=')
-      break;
-    unsigned char c = base64_convert(data[index]);
-    buf = buf << 6 | c;
+  /* Characters outside the alphabet (line breaks among them) are
+   * skipped and '=' ends a group, so the output of encode64 and a
+   * concatenation of encoded pieces both decode, as with CRuby. */
+  for (; index <= in_size; index++) {
+    unsigned char c = index < in_size ? data[index] : '=';
+    if (c == '=') {
+      if (iter == 3) {
+        output[out_index++] = (buf >> 10) & 255;
+        output[out_index++] = (buf >>  2) & 255;
+        actual_out_size += 2;
+      } else if (iter == 2) {
+        output[out_index++] = (buf >> 4) & 255;
+        actual_out_size += 1;
+      }
+      buf = 0;
+      iter = 0;
+      continue;
+    }
+    unsigned char v = base64_convert(c);
+    if (v == 255) continue;
+    buf = buf << 6 | v;
     iter++;
     if (iter == 4) {
       output[out_index++] = (buf >> 16) & 255;
@@ -93,15 +109,6 @@ c_base64_decode(mrbc_vm *vm, mrbc_value *v, int argc)
       buf = 0;
       iter = 0;
     }
-  }
-
-  if (iter == 3) {
-    output[out_index++] = (buf >> 10) & 255;
-    output[out_index++] = (buf >>  2) & 255;
-    actual_out_size += 2;
-  } else if (iter == 2) {
-    output[out_index++] = (buf >> 4) & 255;
-    actual_out_size += 1;
   }
 
   mrbc_value ret = mrbc_string_new_alloc(vm, output, actual_out_size);
@@ -114,6 +121,8 @@ mrbc_base64_init(mrbc_vm *vm)
   mrbc_class *class_Base64 = mrbc_define_class(vm, "Base64", mrbc_class_object);
 
   mrbc_define_method(vm, class_Base64, "encode64", c_base64_encode);
+  /* the plain encoding with no line breaks; mrblib's encode64 adds them */
+  mrbc_define_method(vm, class_Base64, "strict_encode64", c_base64_encode);
   mrbc_define_method(vm, class_Base64, "decode64", c_base64_decode);
 }
 
