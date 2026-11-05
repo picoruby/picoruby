@@ -265,14 +265,7 @@ class Keyboard
       @active_keys.delete(key_pos)
     end
 
-    # Calculate accumulated modifier from all active keys
-    accumulated_modifier = 0
-    ak_keys = @active_keys.keys
-    aki = 0
-    while aki < ak_keys.size
-      accumulated_modifier |= @active_keys[ak_keys[aki]][:modifier]
-      aki += 1
-    end
+    accumulated_modifier = current_modifier
 
     # Prepare keycode for USB HID: 0 on release, actual keycode on press
     keycode_for_hid = pressed ? keycode : 0
@@ -403,7 +396,7 @@ class Keyboard
               row: row,
               col: col,
               keycode: tap_keycode,
-              modifier: 0,
+              modifier: current_modifier,
               pressed: true
             )
             return
@@ -435,7 +428,7 @@ class Keyboard
               row: row,
               col: col,
               keycode: tap_keycode,
-              modifier: 0,
+              modifier: current_modifier,
               pressed: true
             )
             state[:state] = :tap_releasing
@@ -451,7 +444,7 @@ class Keyboard
             row: row,
             col: col,
             keycode: 0,
-            modifier: 0,
+            modifier: current_modifier,
             pressed: false
           )
         end
@@ -486,7 +479,7 @@ class Keyboard
               row: row,
               col: col,
               keycode: tap_keycode,
-              modifier: 0,
+              modifier: current_modifier,
               pressed: true
             )
             return
@@ -518,7 +511,7 @@ class Keyboard
               row: row,
               col: col,
               keycode: tap_keycode,
-              modifier: 0,
+              modifier: current_modifier,
               pressed: true
             )
             state[:state] = :tap_releasing
@@ -534,7 +527,7 @@ class Keyboard
             row: row,
             col: col,
             keycode: 0,
-            modifier: 0,
+            modifier: current_modifier,
             pressed: false
           )
         end
@@ -577,7 +570,7 @@ class Keyboard
             row: key_pos[0],
             col: key_pos[1],
             keycode: 0,
-            modifier: 0,
+            modifier: current_modifier,
             pressed: false
           )
           state[:state] = :tapped
@@ -617,7 +610,7 @@ class Keyboard
             # Send release before cleanup
             @callback&.call(
               row: key_pos[0], col: key_pos[1],
-              keycode: 0, modifier: 0, pressed: false
+              keycode: 0, modifier: current_modifier, pressed: false
             )
             keys_to_delete << key_pos
           else
@@ -680,13 +673,7 @@ class Keyboard
     @active_keys[key_pos] = {keycode: 0, modifier: modifier_bit}
 
     # Send modifier state to USB HID
-    accumulated_modifier = 0
-    ak_keys = @active_keys.keys
-    aki = 0
-    while aki < ak_keys.size
-      accumulated_modifier |= @active_keys[ak_keys[aki]][:modifier]
-      aki += 1
-    end
+    accumulated_modifier = current_modifier
 
     @callback&.call(
       row: key_pos[0],
@@ -697,17 +684,27 @@ class Keyboard
     )
   end
 
+  # Modifier bits of all active keys (held modifiers and MT keys in hold).
+  # Sent with every event, including LT/MT taps and combos, so that they
+  # do not clear a modifier the host still sees as held.
+  def current_modifier
+    modifier = 0
+    active_keys = @active_keys
+    ak_keys = active_keys.keys
+    ak_size = ak_keys.size
+    aki = 0
+    while aki < ak_size
+      modifier |= active_keys[ak_keys[aki]][:modifier]
+      aki += 1
+    end
+    modifier
+  end
+
   def deactivate_modifier(key_pos)
     @active_keys.delete(key_pos)
 
     # Send modifier state to USB HID
-    accumulated_modifier = 0
-    ak_keys = @active_keys.keys
-    aki = 0
-    while aki < ak_keys.size
-      accumulated_modifier |= @active_keys[ak_keys[aki]][:modifier]
-      aki += 1
-    end
+    accumulated_modifier = current_modifier
 
     @callback&.call(
       row: key_pos[0],
@@ -808,7 +805,7 @@ class Keyboard
       row: 0,
       col: 0,
       keycode: action,
-      modifier: 0,
+      modifier: current_modifier,
       pressed: true
     )
     sleep_ms 5
@@ -816,7 +813,7 @@ class Keyboard
       row: 0,
       col: 0,
       keycode: 0,
-      modifier: 0,
+      modifier: current_modifier,
       pressed: false
     )
   end
@@ -859,14 +856,7 @@ class Keyboard
     # Update active keys
     @active_keys[key_pos] = {keycode: keycode, modifier: 0}
 
-    # Calculate accumulated modifier
-    accumulated_modifier = 0
-    ak_keys = @active_keys.keys
-    aki = 0
-    while aki < ak_keys.size
-      accumulated_modifier |= @active_keys[ak_keys[aki]][:modifier]
-      aki += 1
-    end
+    accumulated_modifier = current_modifier
 
     # Send press event
     @callback&.call(
@@ -952,7 +942,7 @@ class Keyboard
       row: key_pos[0],
       col: key_pos[1],
       keycode: entry[:keycode], # steep:ignore
-      modifier: 0,
+      modifier: current_modifier,
       pressed: true
     )
     sleep_ms 5
@@ -960,7 +950,7 @@ class Keyboard
       row: key_pos[0],
       col: key_pos[1],
       keycode: 0,
-      modifier: 0,
+      modifier: current_modifier,
       pressed: false
     )
   end
