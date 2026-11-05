@@ -94,7 +94,7 @@ regex_flag_bits(const char *flags, size_t len)
 enum {
   H_NINST = 0,
   H_NSAVE,      /* 2 * groups */
-  H_FLAGS,
+  H_FLAGS,      /* the options the pattern was compiled with */
   H_CLASS_OFF,  /* word offset of the class table */
   H_NLOOK,      /* OP_LOOK instructions */
   H_LOOK_DEPTH, /* deepest lookaround nesting */
@@ -103,9 +103,9 @@ enum {
 };
 
 enum {
-  OP_CHAR = 1,  /* x = codepoint */
-  OP_ANY,       /* any codepoint (newline per DOTALL) */
-  OP_CLASS,     /* x = class table offset */
+  OP_CHAR = 1,  /* x = codepoint, y = flags */
+  OP_ANY,       /* any codepoint (newline per DOTALL in y) */
+  OP_CLASS,     /* x = class table offset, y = flags */
   OP_SPLIT,     /* x preferred, y second */
   OP_JMP,       /* x */
   OP_SAVE,      /* x = slot */
@@ -166,9 +166,9 @@ unfold(uint32_t c)
 
 enum {
   N_EMPTY = 0,
-  N_CHAR,   /* x = codepoint */
-  N_ANY,
-  N_CLASS,  /* x = class offset */
+  N_CHAR,   /* x = codepoint, y = flags */
+  N_ANY,    /* y = flags */
+  N_CLASS,  /* x = class offset, y = flags */
   N_CAT,    /* a, b */
   N_ALT,    /* a, b */
   N_REP,    /* a; x = min, y = max (-1 = unbounded), b = greedy */
@@ -198,7 +198,7 @@ typedef struct {
   int nlook;          /* lookarounds in the pattern */
   int look_depth;     /* lookarounds open around the current position */
   int look_depth_max;
-  int flags;
+  int flags;          /* the options in force at the current position */
   const char *err;    /* NULL while fine */
   size_t err_at;
 } rx_parser;
@@ -483,6 +483,42 @@ starts_with_bol(const rx_parser *p, int n)
   }
 }
 
+/* (?imx-imx:...) scopes options to its body and (?imx-imx) sets them
+ * for the rest of the enclosing group, both after the `(?` was seen.
+ * i and m are the public flags; x is accepted and ignored, since the
+ * pattern is taken as written. */
+static int
+parse_options(rx_parser *p, int depth)
+{
+  int flags = p->flags;
+  bool on = true;
+  for (;;) {
+    if (at_end(p)) { perr(p, "missing )"); return 0; }
+    uint8_t c = p->src[p->pos];
+    if (c == 'i') flags = on ? flags | RX_ICASE : flags & ~RX_ICASE;
+    else if (c == 'm') flags = on ? flags | RX_DOTALL : flags & ~RX_DOTALL;
+    else if (c == 'x') { /* taken as written either way */ }
+    else if (c == '-') on = false;
+    else if (c == ':') {
+      p->pos++;
+      int saved = p->flags;
+      p->flags = flags;
+      int inner = parse_alt(p, depth + 1);
+      p->flags = saved;
+      if (p->err) return 0;
+      if (at_end(p) || next(p) != ')') { perr(p, "missing )"); return 0; }
+      return inner;
+    }
+    else if (c == ')') {
+      p->pos++;
+      p->flags = flags;
+      return node_new(p, N_EMPTY, 0, 0, 0, 0);
+    }
+    else { perr(p, "unsupported group syntax"); return 0; }
+    p->pos++;
+  }
+}
+
 /* (?=...), (?!...), (?<=...) and (?<!...) after the `(?` was seen;
  * look holds the RX_LOOK_NEG and RX_LOOK_BEHIND bits */
 static int
@@ -494,7 +530,9 @@ parse_look(rx_parser *p, int depth, uint32_t look)
   }
   if (p->look_depth > p->look_depth_max) p->look_depth_max = p->look_depth;
   int groups_before = p->ngroups;
+  int saved = p->flags;
   int inner = parse_alt(p, depth + 1);
+  p->flags = saved;
   if (p->err) return 0;
   if (at_end(p) || next(p) != ')') { perr(p, "missing )"); return 0; }
   p->look_depth--;
@@ -519,6 +557,10 @@ parse_atom(rx_parser *p, int depth)
     if (p->pos + 1 < p->len && p->src[p->pos] == '?') {
       uint8_t k = p->src[p->pos + 1];
       if (k == ':') { p->pos += 2; capture = false; }
+      else if (k == 'i' || k == 'm' || k == 'x' || k == '-') {
+        p->pos += 1;
+        return parse_options(p, depth);
+      }
       else if (k == '=') { p->pos += 2; return parse_look(p, depth, 0); }
       else if (k == '!') { p->pos += 2; return parse_look(p, depth, RX_LOOK_NEG); }
       else if (k == '<' && p->pos + 2 < p->len &&
@@ -535,18 +577,20 @@ parse_atom(rx_parser *p, int depth)
       if (p->ngroups >= RX_MAX_GROUPS) { perr(p, "too many groups"); return 0; }
       idx = p->ngroups++;
     }
+    int saved = p->flags;
     int inner = parse_alt(p, depth + 1);
+    p->flags = saved;
     if (p->err) return 0;
     if (at_end(p) || next(p) != ')') { perr(p, "missing )"); return 0; }
     return capture ? node_new(p, N_GROUP, inner, 0, idx, 0) : inner;
   }
   case ')': perr(p, "unmatched )"); return 0;
-  case '[': return node_new(p, N_CLASS, 0, 0, parse_class(p), 0);
-  case '.': return node_new(p, N_ANY, 0, 0, 0, 0);
+  case '[': return node_new(p, N_CLASS, 0, 0, parse_class(p), p->flags);
+  case '.': return node_new(p, N_ANY, 0, 0, 0, p->flags);
   case '^': return node_new(p, N_BOL, 0, 0, 0, 0);
   case '$': return node_new(p, N_EOL, 0, 0, 0, 0);
   case '*': case '+': case '?': perr(p, "nothing to repeat"); return 0;
-  case '{': return node_new(p, N_CHAR, 0, 0, '{', 0);
+  case '{': return node_new(p, N_CHAR, 0, 0, '{', p->flags);
   case '\\': {
     if (at_end(p)) { perr(p, "trailing backslash"); return 0; }
     uint32_t e = next(p);
@@ -559,19 +603,19 @@ parse_atom(rx_parser *p, int depth)
     case 'd': case 'w': case 's': {
       int off = class_begin(p, false);
       class_add_escape(p, off, e);
-      return node_new(p, N_CLASS, 0, 0, off, 0);
+      return node_new(p, N_CLASS, 0, 0, off, p->flags);
     }
     case 'D': case 'W': case 'S':
-      return node_new(p, N_CLASS, 0, 0, negated_escape_class(p, e + 32), 0);
+      return node_new(p, N_CLASS, 0, 0, negated_escape_class(p, e + 32), p->flags);
     default:
-      if (literal_escape(e, &lit)) return node_new(p, N_CHAR, 0, 0, (int32_t)lit, 0);
+      if (literal_escape(e, &lit)) return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
       if (e >= '1' && e <= '9') perr(p, "backreferences are not supported");
       else perr(p, "unsupported escape");
       return 0;
     }
   }
   default:
-    return node_new(p, N_CHAR, 0, 0, (int32_t)c, 0);
+    return node_new(p, N_CHAR, 0, 0, (int32_t)c, p->flags);
   }
 }
 
@@ -799,9 +843,9 @@ gen(rx_gen *g, const rx_parser *p, int n)
     }
     switch (nd->t) {
     case N_EMPTY: break;
-    case N_CHAR:  emit(g, OP_CHAR, (uint32_t)nd->x, 0); break;
-    case N_ANY:   emit(g, OP_ANY, 0, 0); break;
-    case N_CLASS: emit(g, OP_CLASS, (uint32_t)nd->x, 0); break;
+    case N_CHAR:  emit(g, OP_CHAR, (uint32_t)nd->x, (uint32_t)nd->y); break;
+    case N_ANY:   emit(g, OP_ANY, 0, (uint32_t)nd->y); break;
+    case N_CLASS: emit(g, OP_CLASS, (uint32_t)nd->x, (uint32_t)nd->y); break;
     case N_BOL:   emit(g, OP_BOL, 0, 0); break;
     case N_EOL:   emit(g, OP_EOL, 0, 0); break;
     case N_WORDB: emit(g, OP_WORDB, 0, 0); break;
@@ -921,7 +965,6 @@ typedef struct {
   int ninst;
   int nsave;
   int nlook;
-  uint32_t flags;
   const uint8_t *s;
   size_t len;
   uint32_t *scratch;
@@ -954,11 +997,11 @@ class_has(const uint32_t *c, uint32_t ch)
 }
 
 static bool
-class_match(const rx_shared *sh, uint32_t off, uint32_t ch)
+class_match(const rx_shared *sh, uint32_t off, uint32_t flags, uint32_t ch)
 {
   const uint32_t *c = sh->cls + off;
   bool in = class_has(c, ch);
-  if (!in && (sh->flags & RX_ICASE)) {
+  if (!in && (flags & RX_ICASE)) {
     uint32_t f = fold(ch), u = unfold(ch);
     in = (f != ch && class_has(c, f)) || (u != ch && class_has(c, u));
   }
@@ -1187,13 +1230,13 @@ run(const rx_shared *sh, int depth, uint32_t pc0, size_t start, size_t end_at,
       switch (i[0]) {
       case OP_CHAR:
         step = pos < len && (c == i[1] ||
-                             ((sh->flags & RX_ICASE) && fold(c) == fold(i[1])));
+                             ((i[2] & RX_ICASE) && fold(c) == fold(i[1])));
         break;
       case OP_ANY:
-        step = pos < len && ((sh->flags & RX_DOTALL) || c != '\n');
+        step = pos < len && ((i[2] & RX_DOTALL) || c != '\n');
         break;
       case OP_CLASS:
-        step = pos < len && class_match(sh, i[1], c);
+        step = pos < len && class_match(sh, i[1], i[2], c);
         break;
       case OP_LMATCH:
         if (end_at != RX_ANY_END && pos != end_at) break;
@@ -1240,7 +1283,6 @@ regex_exec(const uint32_t *prog, const uint8_t *s, size_t len, size_t start,
   sh.ninst = (int)prog[H_NINST];
   sh.nsave = (int)prog[H_NSAVE];
   sh.nlook = (int)prog[H_NLOOK];
-  sh.flags = prog[H_FLAGS];
   sh.s = s;
   sh.len = len;
   sh.scratch = scratch;

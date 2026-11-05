@@ -48,6 +48,33 @@ class RegexpTest < Picotest::Test
     assert_raise(RegexpError) { Regexp.new("(?<n>a)") }
   end
 
+  # ---- Inline options ----
+
+  def test_inline_option_group
+    assert_true /(?i:a)b/.match?("Ab")
+    assert_false /(?i:a)b/.match?("AB")
+    assert_true /(?-i:a)b/i.match?("aB")
+    assert_false /(?-i:a)b/i.match?("AB")
+    assert_true /(?m:.)/.match?("\n")
+    assert_false /(?-m:.)/m.match?("\n")
+  end
+
+  def test_inline_option_to_end_of_group
+    assert_true /a(?i)b/.match?("aB")
+    assert_false /a(?i)b/.match?("AB")
+    assert_true /(?:a(?i)b)c/.match?("aBc")
+    assert_false /(?:a(?i)b)c/.match?("aBC")
+  end
+
+  def test_interpolated_regexp_keeps_its_options
+    inner = /ab/i
+    re = /#{inner}c/
+    assert_true re.match?("ABc")
+    assert_false re.match?("ABC")
+    acronyms = /(?=a)b/
+    assert_true /^(?:#{acronyms}(?=\b|[A-Z_])|\w)/.match?("x")
+  end
+
   # ---- Word boundaries ----
 
   def test_word_boundary
@@ -847,15 +874,21 @@ class RegexpStringTest < Picotest::Test
     assert_false re.match?("axb")
     assert_true re.match?("c*")
     assert_equal "dog", Regexp.union(/cat/, /dog/).match("hotdog")[0]
-    assert_equal "cat|(?:d+)", Regexp.union("cat", /d+/).source
+    mixed = Regexp.union(/cat/i, /dog/)
+    assert_true mixed.match?("CAT")
+    assert_false mixed.match?("DOG")
+    assert_equal 0, mixed.options
+    assert_equal "cat|(?-mix:d+)", Regexp.union("cat", /d+/).source
     assert_true Regexp.union(["x", "y"]).match?("y")
   end
 
   def test_union_options
+    # each part keeps its options; the union itself has none, as in CRuby
     re = Regexp.union(/a/i, /b/i)
-    assert_true re.casefold?
+    assert_false re.casefold?
+    assert_equal "(?i-mx:a)|(?i-mx:b)", re.source
+    assert_true re.match?("A")
     assert_true re.match?("B")
-    assert_raise(ArgumentError) { Regexp.union(/a/i, /b/) }
   end
 
   def test_union_empty_never_matches

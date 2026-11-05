@@ -63,10 +63,9 @@ With any other argument they behave as the VM's own methods do. On mruby/c
 `rindex`, `partition` and `rpartition` are new, for a String pattern too.
 `str[re, n]` takes a group number; group names are not supported.
 
-`Regexp.union` joins Strings as literal text and Regexps as `(?:...)` groups.
-All Regexps must carry the same options, and the result carries them for the
-Strings too, since the engine has no inline option groups. With no pattern the
-result never matches.
+`Regexp.union` joins Strings as literal text and Regexps as the inline option
+groups `Regexp#to_s` writes, so each keeps its own options. With no pattern
+the result never matches.
 
 `$~` holds the MatchData of the last match, or nil after a failed match. It is
 set by `Regexp#match`, `=~` and `===`, and by the `String` methods above.
@@ -91,6 +90,7 @@ the reason and the byte offset in the pattern.
 | `*?` `+?` `??` `{n,m}?` | Lazy repetition |
 | `(...)` | Capture group. Up to 15 groups |
 | `(?:...)` | Group without capture |
+| `(?i:...)` `(?-i:...)` `(?i)` | Options for the body, or for the rest of the enclosing group. `i` and `m` take effect; `x` is accepted and ignored |
 | `(?=...)` `(?!...)` | Lookahead and negative lookahead |
 | `(?<=...)` `(?<!...)` | Lookbehind and negative lookbehind. The body must have a bounded length; it may be an alternation of different lengths |
 | `\|` | Alternation. The earlier alternative wins at the same position |

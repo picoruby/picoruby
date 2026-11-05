@@ -10,23 +10,19 @@ class Regexp
   MULTILINE  = 4
 
   # One Regexp that matches any of the patterns. A String matches
-  # itself. Regexps must all carry the same options, since the engine
-  # has no inline option groups. With no pattern the result never
-  # matches.
+  # itself; a Regexp keeps its own options in an inline option group,
+  # as Regexp#to_s writes it. With no pattern the result never matches.
   def self.union(*patterns)
     list = patterns #: Array[untyped]
     list = list[0] if list.size == 1 && list[0].is_a?(Array)
     return Regexp.new("(?!)") if list.empty?
-    options = nil
     source = ""
     i = 0
     while i < list.size
       pat = list[i]
       source << "|" if 0 < i
       if pat.is_a?(Regexp)
-        options ||= pat.options
-        raise ArgumentError, "Regexp.union: the options differ" if options != pat.options
-        source << "(?:" << pat.source << ")"
+        source << pat.to_s
       elsif pat.is_a?(String)
         source << Regexp.escape(pat)
       else
@@ -34,7 +30,7 @@ class Regexp
       end
       i += 1
     end
-    Regexp.new(source, options || 0)
+    Regexp.new(source)
   end
 end
 
