@@ -416,6 +416,27 @@ class RegexpTest < Picotest::Test
     assert_equal "c", md[1]
   end
 
+  # ---- Code escapes and \h ----
+
+  def test_hex_and_unicode_escapes
+    assert_true /\x41/.match?("A")
+    assert_true /\u0041/.match?("A")
+    assert_true /\u{3042}/.match?("あ")
+    assert_true /[\x00-\x7f]+/.match?("abc")
+    assert_false /[^\x00-\x7f]/.match?("abc")
+    assert_true /[^\x00-\x7f]/.match?("é")
+    assert_equal "é", /[\u{e9}]/.match("café")[0]
+    assert_raise(RegexpError) { Regexp.new("\\xZZ") }
+    assert_raise(RegexpError) { Regexp.new("\\u12") }
+    assert_raise(RegexpError) { Regexp.new("\\u{110000}") }
+  end
+
+  def test_hex_digit_class
+    assert_equal "ff", /\h+/.match("xff")[0]
+    assert_equal "x", /\H/.match("xff")[0]
+    assert_true /[\h]/.match?("A")
+  end
+
   # ---- Named groups ----
 
   def test_named_groups_by_name

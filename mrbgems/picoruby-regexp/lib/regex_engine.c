@@ -342,6 +342,9 @@ class_add_escape(rx_parser *p, int off, uint32_t e)
   case 's':
     class_add(p, off, ' ', ' '); class_add(p, off, '\t', '\r');
     return true;
+  case 'h':
+    class_add(p, off, '0', '9'); class_add(p, off, 'a', 'f'); class_add(p, off, 'A', 'F');
+    return true;
   default: return false;
   }
 }
@@ -376,6 +379,47 @@ literal_escape(uint32_t e, uint32_t *out)
   }
 }
 
+static int
+hex_value(uint8_t c)
+{
+  if (c >= '0' && c <= '9') return c - '0';
+  if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+  if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+  return -1;
+}
+
+/* The codepoint of \xHH, \uHHHH or \u{H...} after the x or u has been
+ * read: false when the digits are missing or the value is no codepoint. */
+static bool
+code_escape(rx_parser *p, uint32_t e, uint32_t *out)
+{
+  uint32_t v = 0;
+  int n = 0;
+  if (e == 'x') {
+    while (n < 2 && !at_end(p) && hex_value(p->src[p->pos]) >= 0) {
+      v = v * 16 + (uint32_t)hex_value(p->src[p->pos++]);
+      n++;
+    }
+    if (n == 0) { perr(p, "invalid hex escape"); return false; }
+  } else if (!at_end(p) && p->src[p->pos] == '{') {
+    p->pos++;
+    while (!at_end(p) && hex_value(p->src[p->pos]) >= 0) {
+      v = v * 16 + (uint32_t)hex_value(p->src[p->pos++]);
+      if (++n > 8) { perr(p, "invalid Unicode escape"); return false; }
+    }
+    if (n == 0 || at_end(p) || next(p) != '}') { perr(p, "invalid Unicode escape"); return false; }
+  } else {
+    while (n < 4 && !at_end(p) && hex_value(p->src[p->pos]) >= 0) {
+      v = v * 16 + (uint32_t)hex_value(p->src[p->pos++]);
+      n++;
+    }
+    if (n < 4) { perr(p, "invalid Unicode escape"); return false; }
+  }
+  if (v > 0x10FFFF) { perr(p, "invalid Unicode escape"); return false; }
+  *out = v;
+  return true;
+}
+
 /* one item inside [...]: a codepoint, or an escape naming a set */
 static uint32_t
 class_item(rx_parser *p, int off, bool *was_set)
@@ -387,6 +431,7 @@ class_item(rx_parser *p, int off, bool *was_set)
   uint32_t e = next(p);
   uint32_t lit;
   if (class_add_escape(p, off, e)) { *was_set = true; return 0; }
+  if (e == 'x' || e == 'u') return code_escape(p, e, &lit) ? lit : 0;
   if (literal_escape(e, &lit)) return lit;
   perr(p, "unsupported escape in class");
   return 0;
@@ -682,13 +727,16 @@ parse_atom(rx_parser *p, int depth)
     case 'z': case 'Z': return node_new(p, N_EOL, 0, 0, 0, 0);
     case 'b': return node_new(p, N_WORDB, 0, 0, 0, 0);
     case 'B': return node_new(p, N_NWORDB, 0, 0, 0, 0);
-    case 'd': case 'w': case 's': {
+    case 'd': case 'w': case 's': case 'h': {
       int off = class_begin(p, false);
       class_add_escape(p, off, e);
       return node_new(p, N_CLASS, 0, 0, off, p->flags);
     }
-    case 'D': case 'W': case 'S':
+    case 'D': case 'W': case 'S': case 'H':
       return node_new(p, N_CLASS, 0, 0, negated_escape_class(p, e + 32), p->flags);
+    case 'x': case 'u':
+      if (!code_escape(p, e, &lit)) return 0;
+      return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
     default:
       if (literal_escape(e, &lit)) return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
       if (e >= '1' && e <= '9') perr(p, "backreferences are not supported");
