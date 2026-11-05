@@ -63,7 +63,7 @@ void regex_free(void *p);
 #define RX_MAX_GROUPS 16     /* capture groups including group 0 */
 #define RX_MAX_REPEAT 256    /* the n in {n,m} */
 #define RX_MAX_NODES  4096   /* AST nodes */
-#define RX_MAX_CLASS  2048   /* words of class-range storage */
+#define RX_MAX_CLASS  65536  /* words of class-range storage */
 #define RX_MAX_NAMES  512    /* bytes of group-name storage */
 #define RX_MAX_NAME_LEN 64   /* bytes in one group name */
 #define RX_MAX_LOOK_DEPTH 4  /* lookaround inside lookaround */
