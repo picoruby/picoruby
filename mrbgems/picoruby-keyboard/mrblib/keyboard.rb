@@ -685,8 +685,8 @@ class Keyboard
   end
 
   # Modifier bits of all active keys (held modifiers and MT keys in hold).
-  # Sent with every event, including LT/MT taps, so that a tap does not
-  # clear a modifier the host still sees as held.
+  # Sent with every event, including LT/MT taps and combos, so that they
+  # do not clear a modifier the host still sees as held.
   def current_modifier
     modifier = 0
     active_keys = @active_keys
@@ -805,7 +805,7 @@ class Keyboard
       row: 0,
       col: 0,
       keycode: action,
-      modifier: 0,
+      modifier: current_modifier,
       pressed: true
     )
     sleep_ms 5
@@ -813,7 +813,7 @@ class Keyboard
       row: 0,
       col: 0,
       keycode: 0,
-      modifier: 0,
+      modifier: current_modifier,
       pressed: false
     )
   end
@@ -942,7 +942,7 @@ class Keyboard
       row: key_pos[0],
       col: key_pos[1],
       keycode: entry[:keycode], # steep:ignore
-      modifier: 0,
+      modifier: current_modifier,
       pressed: true
     )
     sleep_ms 5
@@ -950,7 +950,7 @@ class Keyboard
       row: key_pos[0],
       col: key_pos[1],
       keycode: 0,
-      modifier: 0,
+      modifier: current_modifier,
       pressed: false
     )
   end
