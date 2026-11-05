@@ -191,6 +191,14 @@ zone_arg(mrb_state *mrb, mrb_value zone, bool *utc, bool *fixed, long *offset_ea
 static mrb_value
 time_from_fields(mrb_state *mrb, mrb_value klass, mrb_value *argv, mrb_int argc, bool utc, bool with_zone)
 {
+  /* the 10-argument form of Time.local and Time.utc is the order of
+   * Time#to_a: sec, min, hour, mday, mon, year, wday, yday, isdst, zone */
+  mrb_value reordered[6];
+  if (!with_zone && argc == 10) {
+    for (int i = 0; i < 6; i++) reordered[i] = argv[5 - i];
+    argv = reordered;
+    argc = 6;
+  }
   mrb_int nfields = with_zone && argc == 7 ? 6 : argc;
   if (argc < 1 || (with_zone ? 7 : 6) < argc) {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 1..%d)", argc, with_zone ? 7 : 6);
@@ -242,6 +250,10 @@ time_from_fields(mrb_state *mrb, mrb_value klass, mrb_value *argv, mrb_int argc,
     if (mrb_float_p(argv[5])) {
       sec = mrb_float(argv[5]);
       if (sec != sec) mrb_raise(mrb, E_FLOATDOMAIN_ERROR, "NaN");
+    } else if (!mrb_integer_p(argv[5]) && !mrb_string_p(argv[5]) &&
+               mrb_respond_to(mrb, argv[5], MRB_SYM(to_f))) {
+      /* a Rational or another numeric with a fraction */
+      sec = mrb_as_float(mrb, mrb_funcall_id(mrb, argv[5], MRB_SYM(to_f), 0));
     } else {
       sec = (double)Integer(argv[5]);
     }
@@ -799,10 +811,11 @@ mrb_picoruby_time_gem_init(mrb_state *mrb)
   MRB_SET_INSTANCE_TT(class_TimeMethods, MRB_TT_CDATA);
 
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(unixtime_offset), mrb_s_unixtime_offset, MRB_ARGS_NONE());
-  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(mktime), mrb_s_local, MRB_ARGS_ARG(1, 5));
-  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(local), mrb_s_local, MRB_ARGS_ARG(1, 5));
-  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(utc), mrb_s_utc, MRB_ARGS_ARG(1, 5));
-  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(gm), mrb_s_utc, MRB_ARGS_ARG(1, 5));
+  /* 1..6 fields, or the 10-argument form in the order of Time#to_a */
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(mktime), mrb_s_local, MRB_ARGS_ARG(1, 9));
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(local), mrb_s_local, MRB_ARGS_ARG(1, 9));
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(utc), mrb_s_utc, MRB_ARGS_ARG(1, 9));
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(gm), mrb_s_utc, MRB_ARGS_ARG(1, 9));
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(at), mrb_s_at, MRB_ARGS_ARG(1, 2));
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(now), mrb_s_now, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(new), mrb_s_new, MRB_ARGS_ANY());

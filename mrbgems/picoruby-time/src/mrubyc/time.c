@@ -163,6 +163,16 @@ zone_arg(struct VM *vm, const mrbc_value *zone, bool *utc, bool *fixed, long *of
 static void
 time_from_fields(struct VM *vm, mrbc_value v[], int argc, bool utc, bool with_zone)
 {
+  /* the 10-argument form of Time.local and Time.utc is the order of
+   * Time#to_a: sec, min, hour, mday, mon, year, wday, yday, isdst, zone */
+  if (!with_zone && argc == 10) {
+    /* the six fields go back into v[1..6], reversed; v stays the frame
+     * so SET_RETURN still writes the caller's register */
+    mrbc_value fields[6];
+    for (int i = 0; i < 6; i++) fields[i] = v[6 - i];
+    for (int i = 0; i < 6; i++) v[1 + i] = fields[i];
+    argc = 6;
+  }
   int max = with_zone ? 7 : 6;
   if (argc < 1 || max < argc) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), with_zone ? "wrong number of arguments (expected 1..7)" : "wrong number of arguments (expected 1..6)");

@@ -258,6 +258,23 @@ class TimeTest < Picotest::Test
     assert_equal(15, t.getlocal("-05:00").hour)
   end
 
+  def test_ten_argument_form
+    # Time.local(sec, min, hour, mday, mon, year, wday, yday, isdst, zone), the order of to_a
+    t = Time.local(7, 6, 5, 4, 3, 2025, nil, nil, false, nil)
+    assert_equal([2025, 3, 4, 5, 6, 7], [t.year, t.mon, t.mday, t.hour, t.min, t.sec])
+    u = Time.utc(7, 6, 5, 4, 3, 2025, nil, nil, false, nil)
+    assert_true(u.utc?)
+    assert_equal(1741064767, u.to_i)
+    assert_raise(ArgumentError) { Time.local(1, 2, 3, 4, 5, 6, 7, 8, 9) }
+  end
+
+  def test_rational_seconds
+    skip "no Rational in this build" unless Object.const_defined?(:Rational) && respond_to?(:Rational, true)
+    t = Time.utc(2025, 3, 4, 5, 6, Rational(15, 2))
+    assert_equal(7, t.sec)
+    assert_equal(500000, t.usec)
+  end
+
   def test_arithmetic_keeps_the_zone
     t = Time.utc(2025, 3, 4, 5, 6, 7)
     assert_true((t + 60).utc?)
