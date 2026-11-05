@@ -16,7 +16,7 @@ class Regexp
   def self.union(*patterns)
     list = patterns #: Array[untyped]
     list = list[0] if list.size == 1 && list[0].is_a?(Array)
-    return Regexp.new(".\\A") if list.empty?
+    return Regexp.new("(?!)") if list.empty?
     options = nil
     source = ""
     i = 0

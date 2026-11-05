@@ -17,6 +17,12 @@ simulation that carries capture positions) runs the program.
   of temporary heap.
 - Text is UTF-8. `.` and a class consume one character. `MatchData#begin`,
   `MatchData#end`, `Regexp#=~` and the `pos` argument count characters.
+- Lookahead and lookbehind (`(?=...)`, `(?!...)`, `(?<=...)`, `(?<!...)`)
+  run their body as a sub-match at the current position, on a scratch level
+  of their own. A lookbehind scans back at most the bounded length of its
+  body. A lookahead body may scan to the end of the subject, so a pattern
+  with lookahead can cost O(input) per position in the worst case; nothing
+  else leaves linear time.
 
 ## API
 
@@ -84,6 +90,8 @@ the reason and the byte offset in the pattern.
 | `*?` `+?` `??` `{n,m}?` | Lazy repetition |
 | `(...)` | Capture group. Up to 15 groups |
 | `(?:...)` | Group without capture |
+| `(?=...)` `(?!...)` | Lookahead and negative lookahead |
+| `(?<=...)` `(?<!...)` | Lookbehind and negative lookbehind. The body must have a bounded length; it may be an alternation of different lengths |
 | `\|` | Alternation. The earlier alternative wins at the same position |
 | `^` `$` `\A` `\z` `\Z` | Start and end of the string |
 
@@ -100,12 +108,14 @@ the reason and the byte offset in the pattern.
 - `^` and `$` anchor the whole string, not a line. `\Z` is the same as `\z`.
 - `i` folds ASCII letters only. `/é/i` does not match `É`.
 - These raise `RegexpError` at compile time: backreferences (`\1`), word
-  boundaries (`\b`), lookahead and lookbehind, named groups, possessive
-  quantifiers, `\x`, `\u`, `\p{...}` and POSIX classes.
+  boundaries (`\b`), named groups, possessive quantifiers, `\x`, `\u`,
+  `\p{...}` and POSIX classes.
+- A lookbehind body may have any bounded length, as in `(?<=a|bc)` or
+  `(?<=a{1,3})`; CRuby rejects the second. `(?<=a+)` is an error in both.
+  Lookaround nests at most 4 deep.
 - `$~` is one global for the whole program, not one per method call.
 - `sub` and `gsub` do not expand `` \` ``, `\'` or `\k<name>`.
 - `String#[]=` and `Symbol#match` do not take a Regexp.
-  `Regexp.union` with no pattern gives `/.\A/`, not `/(?!)/`.
 
 ## Example
 

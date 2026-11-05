@@ -6,8 +6,19 @@
  * time and O(program) in memory, with no recursion anywhere, so a
  * regex can never blow the task stack or hold the cooperative
  * scheduler hostage the way a backtracking engine does on (a*)*b.
- * The price is the absence of backreferences and lookaround, which
- * this engine does not pretend to have.
+ * The price is the absence of backreferences, which this engine does
+ * not pretend to have.
+ *
+ * Lookahead and lookbehind are the one place the VM calls itself: a
+ * (?=...) or (?<=...) is an epsilon edge whose test runs the body as a
+ * sub-match at the current position, on the same code and on a
+ * scratch level of its own. The body of a lookbehind must have a
+ * bounded length, so the sub-match scans back at most that many
+ * characters; the body of a lookahead may run to the end of the
+ * subject, which is where the linear-time guarantee bends: a pattern
+ * with lookahead costs O(input x program) per position in the worst
+ * case. Lookaround nests at most RX_MAX_LOOK_DEPTH deep, which bounds
+ * the C recursion and the scratch.
  *
  * Memory follows the pattern, not the limits. The compiler grows its
  * three work buffers (AST nodes, class ranges, code) from a few
@@ -53,6 +64,7 @@ void regex_free(void *p);
 #define RX_MAX_REPEAT 256    /* the n in {n,m} */
 #define RX_MAX_NODES  4096   /* AST nodes */
 #define RX_MAX_CLASS  2048   /* words of class-range storage */
+#define RX_MAX_LOOK_DEPTH 4  /* lookaround inside lookaround */
 #define RX_INIT       32     /* first size of a work buffer, in items */
 
 /* an unpatched slot in a backpatch chain */
@@ -84,6 +96,9 @@ enum {
   H_NSAVE,      /* 2 * groups */
   H_FLAGS,
   H_CLASS_OFF,  /* word offset of the class table */
+  H_NLOOK,      /* OP_LOOK instructions */
+  H_LOOK_DEPTH, /* deepest lookaround nesting */
+  H_ANCHORED,   /* 1 when every match starts with ^ */
   H_WORDS       /* header size */
 };
 
@@ -96,8 +111,17 @@ enum {
   OP_SAVE,      /* x = slot */
   OP_BOL,
   OP_EOL,
+  OP_LOOK,      /* x = body pc, y = RX_LOOK_* bits | max length << 3 */
+  OP_LMATCH,    /* the end of a lookaround body */
   OP_MATCH
 };
+
+/* the y word of OP_LOOK (and the x of N_LOOK) */
+#define RX_LOOK_NEG    1u   /* (?!...) or (?<!...) */
+#define RX_LOOK_BEHIND 2u   /* (?<=...) or (?<!...) */
+#define RX_LOOK_CAPS   4u   /* the body has a capture group */
+#define RX_LOOK_SHIFT  3    /* the max character length of a lookbehind */
+#define RX_LEN_CAP     (1 << 20)
 
 /* ---- UTF-8 ----
  * Subjects are validated, so decoding needs no checks. Patterns are
@@ -148,7 +172,8 @@ enum {
   N_REP,    /* a; x = min, y = max (-1 = unbounded), b = greedy */
   N_GROUP,  /* a; x = group index */
   N_BOL,
-  N_EOL
+  N_EOL,
+  N_LOOK    /* a; x = RX_LOOK_* bits | max length << RX_LOOK_SHIFT */
 };
 
 typedef struct {
@@ -166,6 +191,9 @@ typedef struct {
   uint32_t *cls;      /* class storage */
   int ncls, cap_cls;
   int ngroups;        /* including group 0 */
+  int nlook;          /* lookarounds in the pattern */
+  int look_depth;     /* lookarounds open around the current position */
+  int look_depth_max;
   int flags;
   const char *err;    /* NULL while fine */
   size_t err_at;
@@ -378,6 +406,105 @@ parse_class(rx_parser *p)
 
 static int parse_alt(rx_parser *p, int depth);
 
+static inline int32_t
+sat_add(int32_t a, int32_t b)
+{
+  return a + b > RX_LEN_CAP ? RX_LEN_CAP : a + b;
+}
+
+/* The most characters node n can match, capped at RX_LEN_CAP; *unbounded
+ * is set when a star or plus leaves no bound. Walks a CAT or ALT chain
+ * in a loop like gen() and recurses only into the left children and
+ * the bodies of groups and repeats. A lookbehind needs this bound: its
+ * sub-match scans back that many characters. */
+static int32_t
+max_len(const rx_parser *p, int n, bool *unbounded)
+{
+  int32_t acc = 0, best = 0;
+  bool alt = false;
+  for (;;) {
+    const rx_node *nd = &p->nodes[n];
+    if (nd->t == N_CAT && !alt) {
+      acc = sat_add(acc, max_len(p, nd->a, unbounded));
+      n = nd->b;
+      continue;
+    }
+    if (nd->t == N_ALT) {
+      alt = true;
+      int32_t l = max_len(p, nd->a, unbounded);
+      if (l > best) best = l;
+      n = nd->b;
+      continue;
+    }
+    int32_t v;
+    switch (nd->t) {
+    case N_CHAR: case N_ANY: case N_CLASS: v = 1; break;
+    case N_GROUP: v = max_len(p, nd->a, unbounded); break;
+    case N_CAT: v = max_len(p, n, unbounded); break;   /* the last alternative */
+    case N_REP:
+      if (nd->y < 0) { *unbounded = true; v = 0; }
+      else {
+        int32_t one = max_len(p, nd->a, unbounded);
+        v = one > RX_LEN_CAP / (nd->y ? nd->y : 1) ? RX_LEN_CAP : one * nd->y;
+      }
+      break;
+    default: v = 0; break;   /* EMPTY, BOL, EOL, LOOK */
+    }
+    if (alt && best > v) v = best;
+    return sat_add(acc, v);
+  }
+}
+
+/* Does every path through node n begin with ^? Then a search can
+ * stop after its first position instead of trying each one. Walks
+ * the chains like max_len. */
+static bool
+starts_with_bol(const rx_parser *p, int n)
+{
+  for (;;) {
+    const rx_node *nd = &p->nodes[n];
+    switch (nd->t) {
+    case N_BOL: return true;
+    case N_CAT: case N_GROUP: n = nd->a; continue;
+    case N_ALT:
+      if (!starts_with_bol(p, nd->a)) return false;
+      n = nd->b;
+      continue;
+    case N_REP:
+      if (nd->x < 1) return false;
+      n = nd->a;
+      continue;
+    default: return false;
+    }
+  }
+}
+
+/* (?=...), (?!...), (?<=...) and (?<!...) after the `(?` was seen;
+ * look holds the RX_LOOK_NEG and RX_LOOK_BEHIND bits */
+static int
+parse_look(rx_parser *p, int depth, uint32_t look)
+{
+  if (++p->look_depth > RX_MAX_LOOK_DEPTH) {
+    perr(p, "lookaround nested too deep");
+    return 0;
+  }
+  if (p->look_depth > p->look_depth_max) p->look_depth_max = p->look_depth;
+  int groups_before = p->ngroups;
+  int inner = parse_alt(p, depth + 1);
+  if (p->err) return 0;
+  if (at_end(p) || next(p) != ')') { perr(p, "missing )"); return 0; }
+  p->look_depth--;
+  p->nlook++;
+  if (p->ngroups != groups_before) look |= RX_LOOK_CAPS;
+  if (look & RX_LOOK_BEHIND) {
+    bool unbounded = false;
+    int32_t len = max_len(p, inner, &unbounded);
+    if (unbounded) { perr(p, "lookbehind must have a bounded length"); return 0; }
+    look |= (uint32_t)len << RX_LOOK_SHIFT;
+  }
+  return node_new(p, N_LOOK, inner, 0, (int32_t)look, 0);
+}
+
 static int
 parse_atom(rx_parser *p, int depth)
 {
@@ -386,7 +513,17 @@ parse_atom(rx_parser *p, int depth)
   case '(': {
     bool capture = true;
     if (p->pos + 1 < p->len && p->src[p->pos] == '?') {
-      if (p->src[p->pos + 1] == ':') { p->pos += 2; capture = false; }
+      uint8_t k = p->src[p->pos + 1];
+      if (k == ':') { p->pos += 2; capture = false; }
+      else if (k == '=') { p->pos += 2; return parse_look(p, depth, 0); }
+      else if (k == '!') { p->pos += 2; return parse_look(p, depth, RX_LOOK_NEG); }
+      else if (k == '<' && p->pos + 2 < p->len &&
+               (p->src[p->pos + 2] == '=' || p->src[p->pos + 2] == '!')) {
+        uint32_t look = RX_LOOK_BEHIND;
+        if (p->src[p->pos + 2] == '!') look |= RX_LOOK_NEG;
+        p->pos += 3;
+        return parse_look(p, depth, look);
+      }
       else { perr(p, "unsupported group syntax"); return 0; }
     }
     int idx = 0;
@@ -674,6 +811,17 @@ gen(rx_gen *g, const rx_parser *p, int n)
       else gen_optional(g, p, nd->a, nd->y - nd->x, greedy);
       break;
     }
+    case N_LOOK: {
+      /* LOOK runs the body as a sub-match and falls through to the
+       * JMP, which steps over the body; the body ends in LMATCH */
+      int look = emit(g, OP_LOOK, 0, (uint32_t)nd->x);
+      int over = emit(g, OP_JMP, 0, 0);
+      patch(g, look, 1, g->ninst);
+      gen(g, p, nd->a);
+      emit(g, OP_LMATCH, 0, 0);
+      patch(g, over, 1, g->ninst);
+      break;
+    }
     }
     break;
   }
@@ -727,6 +875,9 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
     prog[H_NSAVE] = (uint32_t)(2 * p.ngroups);
     prog[H_FLAGS] = (uint32_t)flags;
     prog[H_CLASS_OFF] = (uint32_t)(H_WORDS + 3 * g.ninst);
+    prog[H_NLOOK] = (uint32_t)p.nlook;
+    prog[H_LOOK_DEPTH] = (uint32_t)p.look_depth_max;
+    prog[H_ANCHORED] = starts_with_bol(&p, root) ? 1u : 0u;
     memcpy(prog + H_WORDS, g.code, 3 * (size_t)g.ninst * sizeof(uint32_t));
     /* a pattern without a class never allocated p.cls */
     if (p.ncls) {
@@ -743,7 +894,9 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
 /* ================================================================
  * The Pike VM. It allocates nothing: the caller supplies a scratch
  * block of regex_scratch_words(prog) words, which one loop over
- * many matches allocates once.
+ * many matches allocates once. The block holds one level per
+ * lookaround nesting depth: the main run uses level 0, the sub-match
+ * for a lookaround met at level d uses level d + 1.
  * ================================================================ */
 
 typedef struct {
@@ -754,20 +907,33 @@ typedef struct {
   uint32_t gen;
 } rx_list;
 
+/* what every level of a run shares */
 typedef struct {
-  const uint32_t *prog;
   const uint32_t *code;
   const uint32_t *cls;
   int ninst;
   int nsave;
+  int nlook;
   uint32_t flags;
   const uint8_t *s;
   size_t len;
+  uint32_t *scratch;
+  size_t level_words;   /* scratch words per level */
+} rx_shared;
+
+/* one level: the main run or one lookaround sub-match */
+typedef struct {
+  const rx_shared *sh;
+  int depth;
   rx_list a, b;
   int32_t *work;    /* the caps array addthread mutates */
+  int32_t *lout;    /* the caps a lookaround sub-match reports */
   uint32_t *stack;  /* explicit follow stack: 2 words per entry */
   uint32_t gen;
+  size_t end_at;    /* RX_ANY_END, or the only position LMATCH accepts */
 } rx_vm;
+
+#define RX_ANY_END ((size_t)-1)
 
 static bool
 class_has(const uint32_t *c, uint32_t ch)
@@ -781,15 +947,55 @@ class_has(const uint32_t *c, uint32_t ch)
 }
 
 static bool
-class_match(const rx_vm *vm, uint32_t off, uint32_t ch)
+class_match(const rx_shared *sh, uint32_t off, uint32_t ch)
 {
-  const uint32_t *c = vm->cls + off;
+  const uint32_t *c = sh->cls + off;
   bool in = class_has(c, ch);
-  if (!in && (vm->flags & RX_ICASE)) {
+  if (!in && (sh->flags & RX_ICASE)) {
     uint32_t f = fold(ch), u = unfold(ch);
     in = (f != ch && class_has(c, f)) || (u != ch && class_has(c, u));
   }
   return c[0] ? !in : in;
+}
+
+/* the byte offset n characters before pos, or 0 */
+static size_t
+back_chars(const uint8_t *s, size_t pos, uint32_t n)
+{
+  while (n-- && pos > 0) {
+    pos--;
+    while (pos > 0 && (s[pos] & 0xc0) == 0x80) pos--;
+  }
+  return pos;
+}
+
+static bool run(const rx_shared *sh, int depth, uint32_t pc0, size_t start,
+                size_t end_at, bool anchored, const int32_t *init,
+                int32_t *out, bool first_only);
+
+/* The test of a LOOK instruction at pos: run the body as a sub-match
+ * on the next scratch level. A lookahead is anchored at pos and may
+ * end anywhere; a lookbehind starts up to its bounded length before
+ * pos and must end exactly at pos. The sub-match starts from this
+ * thread's captures, and a positive body with groups reports the
+ * ones it set in vm->lout. */
+static bool
+look_test(rx_vm *vm, const uint32_t *i, size_t pos)
+{
+  const rx_shared *sh = vm->sh;
+  uint32_t body = i[1], y = i[2];
+  bool neg = (y & RX_LOOK_NEG) != 0;
+  bool first_only = neg || !(y & RX_LOOK_CAPS);
+  bool hit;
+  if (y & RX_LOOK_BEHIND) {
+    size_t from = back_chars(sh->s, pos, y >> RX_LOOK_SHIFT);
+    hit = run(sh, vm->depth + 1, body, from, pos, false, vm->work, vm->lout,
+              first_only);
+  } else {
+    hit = run(sh, vm->depth + 1, body, pos, RX_ANY_END, true, vm->work,
+              vm->lout, first_only);
+  }
+  return hit != neg;
 }
 
 /* Follow the epsilon edges from pc, adding every consuming
@@ -799,12 +1005,14 @@ class_match(const rx_vm *vm, uint32_t off, uint32_t ch)
  * slot on the way back out. RX_EXPLORE is neither a position nor
  * the -1 an unset slot restores to. Each instruction is entered at
  * most once per list generation, so the stack is bounded by
- * 2 * ninst. */
+ * 2 * ninst entries plus nsave for every LOOK, whose body may set
+ * any group. */
 #define RX_EXPLORE 0xfffffffeu
 
 static void
 addthread(rx_vm *vm, rx_list *l, uint32_t pc0, size_t pos)
 {
+  const rx_shared *sh = vm->sh;
   uint32_t *sp = vm->stack;
   *sp++ = pc0; *sp++ = RX_EXPLORE;
   while (sp > vm->stack) {
@@ -814,7 +1022,7 @@ addthread(rx_vm *vm, rx_list *l, uint32_t pc0, size_t pos)
     uint32_t pc = x;
     if (l->mark[pc] == l->gen) continue;
     l->mark[pc] = l->gen;
-    const uint32_t *i = vm->code + 3 * pc;
+    const uint32_t *i = sh->code + 3 * pc;
     switch (i[0]) {
     case OP_JMP:
       *sp++ = i[1]; *sp++ = RX_EXPLORE;
@@ -833,12 +1041,24 @@ addthread(rx_vm *vm, rx_list *l, uint32_t pc0, size_t pos)
       if (pos == 0) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
       break;
     case OP_EOL:
-      if (pos == vm->len) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
+      if (pos == sh->len) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
+      break;
+    case OP_LOOK:
+      if (!look_test(vm, i, pos)) break;
+      if (!(i[2] & RX_LOOK_NEG) && (i[2] & RX_LOOK_CAPS)) {
+        /* take the body's captures, restorable like a SAVE */
+        for (int k = 0; k < sh->nsave; k++) {
+          if (vm->lout[k] == vm->work[k]) continue;
+          *sp++ = (uint32_t)k; *sp++ = (uint32_t)vm->work[k];
+          vm->work[k] = vm->lout[k];
+        }
+      }
+      *sp++ = pc + 1; *sp++ = RX_EXPLORE;
       break;
     default:
       l->pc[l->n] = pc;
-      memcpy(l->caps + (size_t)l->n * (size_t)vm->nsave, vm->work,
-             (size_t)vm->nsave * sizeof(int32_t));
+      memcpy(l->caps + (size_t)l->n * (size_t)sh->nsave, vm->work,
+             (size_t)sh->nsave * sizeof(int32_t));
       l->n++;
       break;
     }
@@ -860,13 +1080,117 @@ list_init(rx_list *l, uint32_t *scratch, int ninst, int nsave)
   return l->mark + ninst;
 }
 
-/* the scratch a run over prog needs: two thread lists, the work caps
- * and the follow stack (2 words per entry, 2 * ninst + 2 entries) */
+/* the scratch one level needs: two thread lists, the work caps, the
+ * caps a lookaround reports and the follow stack (2 words per entry,
+ * 2 * ninst + 2 + nlook * nsave entries) */
+static size_t
+level_words(size_t ninst, size_t nsave, size_t nlook)
+{
+  return 2 * (ninst + ninst * nsave + ninst) + 2 * nsave +
+         2 * (2 * ninst + 2 + nlook * nsave);
+}
+
+/* one level per lookaround nesting depth, plus the main run */
 size_t
 regex_scratch_words(const uint32_t *prog)
 {
-  size_t ninst = prog[H_NINST], nsave = prog[H_NSAVE];
-  return 2 * (ninst + ninst * nsave + ninst) + nsave + 2 * (2 * ninst + 2);
+  return level_words(prog[H_NINST], prog[H_NSAVE], prog[H_NLOOK]) *
+         (1 + (size_t)prog[H_LOOK_DEPTH]);
+}
+
+/* One run of the program from pc0 on scratch level depth. Anchored,
+ * threads start only at start; otherwise a fresh thread starts at
+ * every position until a match is found, which makes the match
+ * leftmost. MATCH and LMATCH end a thread; with end_at set, LMATCH
+ * counts only at that position, and the run stops there. init is the
+ * nsave capture slots a fresh thread starts from; out receives the
+ * winning thread's. first_only stops at the first thread to finish. */
+static bool
+run(const rx_shared *sh, int depth, uint32_t pc0, size_t start, size_t end_at,
+    bool anchored, const int32_t *init, int32_t *out, bool first_only)
+{
+  rx_vm vm;
+  vm.sh = sh;
+  vm.depth = depth;
+  vm.end_at = end_at;
+  uint32_t *sp = sh->scratch + (size_t)depth * sh->level_words;
+  sp = list_init(&vm.a, sp, sh->ninst, sh->nsave);
+  sp = list_init(&vm.b, sp, sh->ninst, sh->nsave);
+  vm.work = (int32_t *)sp;
+  sp += sh->nsave;
+  vm.lout = (int32_t *)sp;
+  sp += sh->nsave;
+  vm.stack = sp;
+  vm.gen = 0;
+
+  const uint8_t *s = sh->s;
+  size_t len = sh->len;
+  rx_list *clist = &vm.a, *nlist = &vm.b;
+  bool matched = false;
+  size_t pos = start;
+  clist->gen = ++vm.gen;
+  clist->n = 0;
+
+  for (;;) {
+    if (!matched && (!anchored || pos == start)) {
+      /* a fresh attempt at this position, below every thread that
+       * started earlier: that is what makes the match leftmost */
+      memcpy(vm.work, init, (size_t)sh->nsave * sizeof(int32_t));
+      addthread(&vm, clist, pc0, pos);
+    }
+    /* no thread is alive: done, unless a later start may still pass
+     * an assertion that failed here, such as $ or a lookbehind */
+    if (clist->n == 0 && (matched || anchored || pos >= len)) break;
+
+    uint32_t c = 0;
+    int w = 0;
+    if (pos < len) c = utf8_decode(s + pos, len - pos, &w);
+
+    nlist->gen = ++vm.gen;
+    nlist->n = 0;
+    for (int t = 0; t < clist->n; t++) {
+      uint32_t pc = clist->pc[t];
+      const uint32_t *i = sh->code + 3 * pc;
+      const int32_t *caps = clist->caps + (size_t)t * (size_t)sh->nsave;
+      bool step = false;
+      switch (i[0]) {
+      case OP_CHAR:
+        step = pos < len && (c == i[1] ||
+                             ((sh->flags & RX_ICASE) && fold(c) == fold(i[1])));
+        break;
+      case OP_ANY:
+        step = pos < len && ((sh->flags & RX_DOTALL) || c != '\n');
+        break;
+      case OP_CLASS:
+        step = pos < len && class_match(sh, i[1], c);
+        break;
+      case OP_LMATCH:
+        if (end_at != RX_ANY_END && pos != end_at) break;
+        /* fall through */
+      case OP_MATCH:
+        memcpy(out, caps, (size_t)sh->nsave * sizeof(int32_t));
+        matched = true;
+        /* lower-priority threads can only produce worse matches */
+        t = clist->n;
+        break;
+      default:
+        break;
+      }
+      if (matched && first_only) break;
+      if (step) {
+        memcpy(vm.work, caps, (size_t)sh->nsave * sizeof(int32_t));
+        addthread(&vm, nlist, pc + 1, pos + (size_t)w);
+      }
+    }
+    if (matched && first_only) break;
+    rx_list *tmp = clist; clist = nlist; nlist = tmp;
+    /* at the end of the subject, or of a lookbehind's window, the
+     * step above ran with no character: only a finish could fire */
+    if (pos >= len || pos >= end_at) break;
+    pos += (size_t)w;
+  }
+
+  return matched;
 }
 
 /* Leftmost-first search from byte offset start. On a match, out[]
@@ -879,86 +1203,20 @@ bool
 regex_exec(const uint32_t *prog, const uint8_t *s, size_t len, size_t start,
               int32_t *out, bool first_only, uint32_t *scratch)
 {
-  rx_vm vm;
-  memset(&vm, 0, sizeof vm);
-  vm.prog = prog;
-  vm.ninst = (int)prog[H_NINST];
-  vm.nsave = (int)prog[H_NSAVE];
-  vm.flags = prog[H_FLAGS];
-  vm.code = prog + H_WORDS;
-  vm.cls = prog + prog[H_CLASS_OFF];
-  vm.s = s;
-  vm.len = len;
-  uint32_t *sp = scratch;
-  sp = list_init(&vm.a, sp, vm.ninst, vm.nsave);
-  sp = list_init(&vm.b, sp, vm.ninst, vm.nsave);
-  vm.work = (int32_t *)sp;
-  sp += vm.nsave;
-  vm.stack = sp;
-  vm.gen = 0;
-
-  rx_list *clist = &vm.a, *nlist = &vm.b;
-  bool matched = false;
-  size_t pos = start;
-  clist->gen = ++vm.gen;
-  clist->n = 0;
-
-  for (;;) {
-    if (!matched) {
-      /* a fresh attempt at this position, below every thread that
-       * started earlier: that is what makes the match leftmost */
-      for (int k = 0; k < vm.nsave; k++) vm.work[k] = -1;
-      addthread(&vm, clist, 0, pos);
-    }
-    if (clist->n == 0) break;
-
-    uint32_t c = 0;
-    int w = 0;
-    if (pos < len) c = utf8_decode(s + pos, len - pos, &w);
-
-    nlist->gen = ++vm.gen;
-    nlist->n = 0;
-    for (int t = 0; t < clist->n; t++) {
-      uint32_t pc = clist->pc[t];
-      const uint32_t *i = vm.code + 3 * pc;
-      const int32_t *caps = clist->caps + (size_t)t * (size_t)vm.nsave;
-      bool step = false;
-      switch (i[0]) {
-      case OP_CHAR:
-        step = pos < len && (c == i[1] ||
-                             ((vm.flags & RX_ICASE) && fold(c) == fold(i[1])));
-        break;
-      case OP_ANY:
-        step = pos < len && ((vm.flags & RX_DOTALL) || c != '\n');
-        break;
-      case OP_CLASS:
-        step = pos < len && class_match(&vm, i[1], c);
-        break;
-      case OP_MATCH:
-        memcpy(out, caps, (size_t)vm.nsave * sizeof(int32_t));
-        matched = true;
-        /* lower-priority threads can only produce worse matches */
-        t = clist->n;
-        break;
-      default:
-        break;
-      }
-      if (matched && first_only) break;
-      if (step) {
-        memcpy(vm.work, caps, (size_t)vm.nsave * sizeof(int32_t));
-        addthread(&vm, nlist, pc + 1, pos + (size_t)w);
-      }
-    }
-    if (matched && first_only) break;
-    rx_list *tmp = clist; clist = nlist; nlist = tmp;
-    if (pos >= len) {
-      /* the final step ran with no character: only MATCH could fire */
-      if (clist->n == 0 || matched) break;
-      /* threads still alive want a character that is not there */
-      break;
-    }
-    pos += (size_t)w;
-  }
-
-  return matched;
+  rx_shared sh;
+  sh.code = prog + H_WORDS;
+  sh.cls = prog + prog[H_CLASS_OFF];
+  sh.ninst = (int)prog[H_NINST];
+  sh.nsave = (int)prog[H_NSAVE];
+  sh.nlook = (int)prog[H_NLOOK];
+  sh.flags = prog[H_FLAGS];
+  sh.s = s;
+  sh.len = len;
+  sh.scratch = scratch;
+  sh.level_words = level_words(prog[H_NINST], prog[H_NSAVE], prog[H_NLOOK]);
+  /* every thread of the main run starts with no group set */
+  int32_t init[2 * RX_MAX_GROUPS];
+  for (int k = 0; k < sh.nsave; k++) init[k] = -1;
+  return run(&sh, 0, 0, start, RX_ANY_END, prog[H_ANCHORED] != 0, init, out,
+             first_only);
 }

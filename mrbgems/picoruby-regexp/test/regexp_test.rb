@@ -46,8 +46,64 @@ class RegexpTest < Picotest::Test
   def test_unsupported_syntax_raises_regexp_error
     assert_raise(RegexpError) { Regexp.new("(a)\\1") }
     assert_raise(RegexpError) { Regexp.new("\\bx") }
-    assert_raise(RegexpError) { Regexp.new("(?=a)") }
     assert_raise(RegexpError) { Regexp.new("(?<n>a)") }
+  end
+
+  # ---- Lookahead and lookbehind ----
+
+  def test_lookahead
+    assert_equal "a", /a(?=b)/.match("ab")[0]
+    assert_equal nil, /a(?=b)/.match("ac")
+    assert_equal "a", /a(?!b)/.match("ac")[0]
+    assert_equal nil, /a(?!b)/.match("ab")
+    assert_equal nil, /(?=a)b/.match("ab")
+  end
+
+  def test_lookbehind
+    assert_equal 1, (/(?<=a)b/ =~ "ab")
+    assert_equal nil, (/(?<=a)b/ =~ "cb")
+    assert_equal 1, (/(?<!a)b/ =~ "cb")
+    assert_equal nil, (/(?<!a)b/ =~ "ab")
+    assert_equal 0, (/(?<!a)b/ =~ "b")
+    assert_equal 2, (/(?<=ab|c)d/ =~ "abd")
+    assert_equal 1, (/(?<=ab|c)d/ =~ "cd")
+    assert_equal 1, (/(?<=é)b/ =~ "éb")   # a character offset
+  end
+
+  def test_lookbehind_must_be_bounded
+    assert_raise(RegexpError) { Regexp.new("(?<=a+)b") }
+    assert_raise(RegexpError) { Regexp.new("(?<=a*)b") }
+    assert_true Regexp.new("(?<=a{1,3})b").match?("aab")
+  end
+
+  def test_lookaround_captures
+    md = /(?=(a))ab/.match("ab")
+    assert_equal "a", md[1]
+    assert_equal "ab", md[0]
+    md = /(?<=([a-z]))X/.match("aX")
+    assert_equal "a", md[1]
+    md = /(?!(a))b/.match("b")
+    assert_equal nil, md[1]
+  end
+
+  def test_lookaround_nesting
+    assert_true /a(?=b(?!c))/.match?("abd")
+    assert_false /a(?=b(?!c))/.match?("abc")
+    assert_raise(RegexpError) { Regexp.new("a(?=b(?=c(?=d(?=e(?=f)))))") }
+  end
+
+  def test_lookaround_in_gsub
+    assert_equal "foo_bar_baz", "fooBarBaz".gsub(/(?<=[a-z])(?=[A-Z])/, "_").downcase
+    assert_equal "HTML_Parser", "HTMLParser".gsub(/(?<=[A-Z])(?=[A-Z][a-z])|(?<=[a-z\d])(?=[A-Z])/, "_")
+    assert_equal "1,234,567", "1234567".gsub(/(\d)(?=(\d{3})+$)/) { "#{$1}," }
+    assert_equal "a &amp; b &amp; c", "a & b &amp; c".gsub(/&(?!([a-zA-Z]+|(#\d+)|(#[xX][\dA-Fa-f]+));)/, "&amp;")
+  end
+
+  def test_end_anchor_alone_matches
+    assert_equal 2, ("ab" =~ /$/)
+    assert_equal 2, ("ab" =~ /\z/)
+    assert_equal "ab!", "ab".sub(/\z/, "!")
+    assert_equal "!ab", "ab".sub(/\A/, "!")
   end
 
   def test_unknown_option_raises
