@@ -21,7 +21,9 @@ typedef struct
   /* int64_t, not mrb_int: with MRB_INT32 a microsecond count overflows
      mrb_int in about 35 minutes */
   int64_t     unixtime_us;
-  long int    timezone;
+  long int    timezone;     /* seconds west of UTC, as the POSIX global */
+  uint8_t     utc;          /* a UTC time: to_s says UTC, zone is "UTC" */
+  uint8_t     fixed;        /* a fixed offset given to Time.new */
 } PICORB_TIME;
 
 typedef struct
@@ -80,6 +82,8 @@ error:
 
 static time_t unixtime_offset = 0;
 
+static int mrb_time_compare(mrb_state *mrb, mrb_value self, mrb_value other);
+
 /*
  * Singleton methods
  */
@@ -90,8 +94,20 @@ mrb_s_unixtime_offset(mrb_state *mrb, mrb_value klass)
   return mrb_int64_value(mrb, (int64_t)unixtime_offset);
 }
 
+/* the fields of data from its unixtime, in UTC, its fixed offset or
+ * the local zone */
+static void
+time_refresh(PICORB_TIME *data)
+{
+  time_t unixtime = (time_t)(data->unixtime_us / USEC);
+  if (data->unixtime_us < 0 && data->unixtime_us % USEC != 0) unixtime--;
+  picorb_time_fields(unixtime, data->utc, data->fixed, -data->timezone,
+                     &data->tm, &data->timezone);
+}
+
+/* a Time like proto (NULL: a local time) at unixtime_us */
 static mrb_value
-new_from_unixtime_us(mrb_state *mrb, mrb_value klass, int64_t unixtime_us)
+new_from_unixtime_us_like(mrb_state *mrb, mrb_value klass, int64_t unixtime_us, const PICORB_TIME *proto)
 {
   struct RClass *cls;
   if (mrb_class_p(klass)) {
@@ -104,51 +120,86 @@ new_from_unixtime_us(mrb_state *mrb, mrb_value klass, int64_t unixtime_us)
   mrb_value self = mrb_obj_value(Data_Wrap_Struct(mrb, cls, &mrb_time_type, data));
 
   data->unixtime_us = unixtime_us + (int64_t)unixtime_offset * USEC;
-  time_t unixtime = data->unixtime_us / USEC;
-#if defined(PICORB_PLATFORM_POSIX)
-  localtime_r(&unixtime, &data->tm);
-  data->timezone = timezone;
-#else
-  data->timezone = ENV_get_timezone_offset();
-  time_t local_unixtime = unixtime - data->timezone;
-  gmtime_r(&local_unixtime, &data->tm);
-#endif
+  data->utc = proto ? proto->utc : 0;
+  data->fixed = proto ? proto->fixed : 0;
+  data->timezone = proto ? proto->timezone : 0;
+  time_refresh(data);
   return self;
 }
 
 static mrb_value
-new_from_tm(mrb_state *mrb, mrb_value klass, struct tm *tm)
+new_from_unixtime_us(mrb_state *mrb, mrb_value klass, int64_t unixtime_us)
+{
+  return new_from_unixtime_us_like(mrb, klass, unixtime_us, NULL);
+}
+
+/* A Time from fields: local (zone NULL), UTC, or at a fixed offset
+ * given as a zone argument. The tm is recomputed from the unixtime so
+ * wday and yday are right. */
+static mrb_value
+new_from_tm(mrb_state *mrb, mrb_value klass, struct tm *tm, bool utc, bool fixed, long offset_east)
 {
   struct RClass *cls = mrb_class_ptr(klass);
 
   PICORB_TIME *data = (PICORB_TIME *)mrb_malloc(mrb, sizeof(PICORB_TIME));
   mrb_value self = mrb_obj_value(Data_Wrap_Struct(mrb, cls, &mrb_time_type, data));
 
-  time_t unixtime = mktime(tm);
+  time_t unixtime;
+  if (utc || fixed) {
+    unixtime = (time_t)(picorb_timegm(tm) - (utc ? 0 : offset_east));
+  } else {
+    tm->tm_isdst = -1;
+    unixtime = mktime(tm);
 #if !defined(PICORB_PLATFORM_POSIX)
-  unixtime += ENV_get_timezone_offset();
+    unixtime += ENV_get_timezone_offset();
 #endif
+  }
   data->unixtime_us = (int64_t)unixtime * USEC;
-  memcpy(&data->tm, tm, sizeof(struct tm));
-#if defined(PICORB_PLATFORM_POSIX)
-  data->timezone = timezone;
-#else
-  data->timezone = ENV_get_timezone_offset();
-#endif
+  data->utc = utc;
+  data->fixed = fixed;
+  data->timezone = fixed ? -offset_east : 0;
+  time_refresh(data);
   return self;
 }
 
-static mrb_value
-mrb_s_local(mrb_state *mrb, mrb_value klass)
+/* the zone argument of Time.new: nil, a String or an Integer offset */
+static void
+zone_arg(mrb_state *mrb, mrb_value zone, bool *utc, bool *fixed, long *offset_east)
 {
-  mrb_value *argv;
-  mrb_int argc;
-  mrb_get_args(mrb, "*", &argv, &argc);
+  *utc = false;
+  *fixed = false;
+  *offset_east = 0;
+  if (mrb_nil_p(zone)) return;
+  if (mrb_integer_p(zone)) {
+    *fixed = true;
+    *offset_east = (long)mrb_integer(zone);
+    return;
+  }
+  if (mrb_symbol_p(zone)) zone = mrb_sym_str(mrb, mrb_symbol(zone));
+  if (mrb_string_p(zone)) {
+    bool is_utc;
+    if (picorb_parse_offset(RSTRING_PTR(zone), (size_t)RSTRING_LEN(zone), offset_east, &is_utc)) {
+      if (is_utc) *utc = true; else *fixed = true;
+      return;
+    }
+  }
+  mrb_raisef(mrb, E_ARGUMENT_ERROR, "\"+HH:MM\", \"-HH:MM\", \"UTC\" or \"A\"..\"I\",\"K\"..\"Z\" expected for utc_offset: %v", zone);
+}
 
-  if (argc < 1 || 6 < argc) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 1..6)", argc);
+/* Time.local, Time.utc and Time.new share the fields; Time.new takes
+ * a 7th zone argument */
+static mrb_value
+time_from_fields(mrb_state *mrb, mrb_value klass, mrb_value *argv, mrb_int argc, bool utc, bool with_zone)
+{
+  mrb_int nfields = with_zone && argc == 7 ? 6 : argc;
+  if (argc < 1 || (with_zone ? 7 : 6) < argc) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 1..%d)", argc, with_zone ? 7 : 6);
     return mrb_nil_value();
   }
+  bool fixed = false;
+  long offset_east = 0;
+  if (with_zone && argc == 7) zone_arg(mrb, argv[6], &utc, &fixed, &offset_east);
+  argc = nfields;
 
   struct tm tm = {0};
   tm.tm_year = Integer(argv[0]) - 1900;
@@ -200,7 +251,7 @@ mrb_s_local(mrb_state *mrb, mrb_value klass)
   } else {
     tm.tm_sec = 0;
   }
-  mrb_value time = new_from_tm(mrb, klass, &tm);
+  mrb_value time = new_from_tm(mrb, klass, &tm, utc, fixed, offset_east);
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(time);
   data->unixtime_us += usec;
 
@@ -208,14 +259,52 @@ mrb_s_local(mrb_state *mrb, mrb_value klass)
 }
 
 static mrb_value
+mrb_s_local(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value *argv;
+  mrb_int argc;
+  mrb_get_args(mrb, "*", &argv, &argc);
+  return time_from_fields(mrb, klass, argv, argc, false, false);
+}
+
+/* Time.utc(year, mon = 1, mday = 1, hour = 0, min = 0, sec = 0), Time.gm */
+static mrb_value
+mrb_s_utc(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value *argv;
+  mrb_int argc;
+  mrb_get_args(mrb, "*", &argv, &argc);
+  return time_from_fields(mrb, klass, argv, argc, true, false);
+}
+
+/* Time.at(seconds), Time.at(seconds, usec), Time.at(seconds, sub, unit)
+ * with unit :millisecond, :usec/:microsecond or :nsec/:nanosecond */
+static mrb_value
 mrb_s_at(mrb_state *mrb, mrb_value klass)
 {
-  mrb_value arg;
-  mrb_get_args(mrb, "o", &arg);
-  /* mrb_as_int64() accepts a Bignum, which a timestamp past the fixnum
-     range becomes under MRB_INT32 */
-  int64_t unixtime = mrb_as_int64(mrb, arg);
-  return new_from_unixtime_us(mrb, klass, (unixtime - (int64_t)unixtime_offset) * USEC);
+  mrb_value arg, sub = mrb_nil_value(), unit = mrb_nil_value();
+  mrb_get_args(mrb, "o|oo", &arg, &sub, &unit);
+  int64_t us;
+  if (mrb_float_p(arg)) {
+    us = (int64_t)(mrb_float(arg) * USEC + (mrb_float(arg) < 0 ? -0.5 : 0.5));
+  } else {
+    /* mrb_as_int64() accepts a Bignum, which a timestamp past the fixnum
+       range becomes under MRB_INT32 */
+    us = mrb_as_int64(mrb, arg) * USEC;
+  }
+  if (!mrb_nil_p(sub)) {
+    double s = mrb_float_p(sub) ? mrb_float(sub) : (double)mrb_as_int64(mrb, sub);
+    double scale = 1.0; /* microseconds */
+    if (!mrb_nil_p(unit)) {
+      mrb_sym u = mrb_symbol_p(unit) ? mrb_symbol(unit) : mrb_intern_str(mrb, mrb_ensure_string_type(mrb, unit));
+      if (u == MRB_SYM(millisecond)) scale = 1000.0;
+      else if (u == MRB_SYM(usec) || u == MRB_SYM(microsecond)) scale = 1.0;
+      else if (u == MRB_SYM(nsec) || u == MRB_SYM(nanosecond)) scale = 0.001;
+      else mrb_raisef(mrb, E_ARGUMENT_ERROR, "unexpected unit: %v", unit);
+    }
+    us += (int64_t)(s * scale);
+  }
+  return new_from_unixtime_us(mrb, klass, us - (int64_t)unixtime_offset * USEC);
 }
 
 static mrb_value
@@ -245,11 +334,11 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
 
   if (argc == 0) {
     return mrb_s_now(mrb, klass);
-  } else if (6 < argc) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 0..6)", argc);
+  } else if (7 < argc) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 0..7)", argc);
     return mrb_nil_value();
   } else {
-    return mrb_s_local(mrb, klass);
+    return time_from_fields(mrb, klass, argv, argc, false, true);
   }
 }
 
@@ -290,16 +379,22 @@ mrb_to_s(mrb_state *mrb, mrb_value self)
     sprintf(str, "%d", year);
   }
 
-  sprintf(str + strlen(str), "-%02d-%02d %02d:%02d:%02d %c%02d%02d",
+  sprintf(str + strlen(str), "-%02d-%02d %02d:%02d:%02d",
     tm->tm_mon + 1,
     tm->tm_mday,
     tm->tm_hour,
     tm->tm_min,
-    tm->tm_sec,
-    (0 < data->timezone ? '-' : (data->timezone == 0 ? ' ' : '+')),
-    (int)(a / 60),
-    (int)(a % 60)
+    tm->tm_sec
   );
+  if (data->utc) {
+    strcat(str, " UTC");
+  } else {
+    sprintf(str + strlen(str), " %c%02d%02d",
+      (0 < data->timezone ? '-' : '+'),
+      (int)(a / 60),
+      (int)(a % 60)
+    );
+  }
 
   return mrb_str_new_cstr(mrb, str);
 }
@@ -325,17 +420,33 @@ mrb_time_inspect(mrb_state *mrb, mrb_value self)
     sprintf(str, "%d", year);
   }
 
-  sprintf(str + strlen(str), "-%02d-%02d %02d:%02d:%02d.%06ld %c%02d%02d",
+  long int frac = (long int)(data->unixtime_us % USEC);
+  if (frac < 0) frac += USEC;
+  sprintf(str + strlen(str), "-%02d-%02d %02d:%02d:%02d",
     tm->tm_mon + 1,
     tm->tm_mday,
     tm->tm_hour,
     tm->tm_min,
-    tm->tm_sec,
-    (long int)(data->unixtime_us % USEC),
-    (0 < data->timezone ? '-' : (data->timezone == 0 ? ' ' : '+')),
-    (int)(a / 60),
-    (int)(a % 60)
+    tm->tm_sec
   );
+  if (frac) {
+    /* CRuby prints the fraction without trailing zeros */
+    char fs[8];
+    sprintf(fs, "%06ld", frac);
+    int n = 6;
+    while (n > 0 && fs[n - 1] == '0') n--;
+    fs[n] = '\0';
+    sprintf(str + strlen(str), ".%s", fs);
+  }
+  if (data->utc) {
+    strcat(str, " UTC");
+  } else {
+    sprintf(str + strlen(str), " %c%02d%02d",
+      (0 < data->timezone ? '-' : '+'),
+      (int)(a / 60),
+      (int)(a % 60)
+    );
+  }
 
   return mrb_str_new_cstr(mrb, str);
 }
@@ -394,6 +505,121 @@ mrb_wday(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
   return mrb_int_value(mrb, data->tm.tm_wday);
+}
+
+static mrb_value
+mrb_yday(mrb_state *mrb, mrb_value self)
+{
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  return mrb_int_value(mrb, data->tm.tm_yday + 1);
+}
+
+static mrb_value
+mrb_isdst(mrb_state *mrb, mrb_value self)
+{
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  return mrb_bool_value(data->tm.tm_isdst > 0);
+}
+
+/* Time#utc, #gmtime: the same instant as a UTC time, in place */
+static mrb_value
+mrb_time_utc(mrb_state *mrb, mrb_value self)
+{
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  data->utc = 1;
+  data->fixed = 0;
+  data->timezone = 0;
+  time_refresh(data);
+  return self;
+}
+
+/* Time#getutc, #getgm: a UTC copy */
+static mrb_value
+mrb_time_getutc(mrb_state *mrb, mrb_value self)
+{
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  PICORB_TIME proto = *data;
+  proto.utc = 1;
+  proto.fixed = 0;
+  proto.timezone = 0;
+  return new_from_unixtime_us_like(mrb, self, data->unixtime_us - (int64_t)unixtime_offset * USEC, &proto);
+}
+
+/* Time#localtime(zone = nil): the local zone, or the given offset, in place */
+static mrb_value
+mrb_time_localtime(mrb_state *mrb, mrb_value self)
+{
+  mrb_value zone = mrb_nil_value();
+  mrb_get_args(mrb, "|o", &zone);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  bool utc, fixed;
+  long offset_east;
+  zone_arg(mrb, zone, &utc, &fixed, &offset_east);
+  data->utc = utc;
+  data->fixed = fixed;
+  data->timezone = fixed ? -offset_east : 0;
+  time_refresh(data);
+  return self;
+}
+
+/* Time#getlocal(zone = nil): a copy in the local zone or the given offset */
+static mrb_value
+mrb_time_getlocal(mrb_state *mrb, mrb_value self)
+{
+  mrb_value zone = mrb_nil_value();
+  mrb_get_args(mrb, "|o", &zone);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  PICORB_TIME proto = *data;
+  bool utc, fixed;
+  long offset_east;
+  zone_arg(mrb, zone, &utc, &fixed, &offset_east);
+  proto.utc = utc;
+  proto.fixed = fixed;
+  proto.timezone = fixed ? -offset_east : 0;
+  return new_from_unixtime_us_like(mrb, self, data->unixtime_us - (int64_t)unixtime_offset * USEC, &proto);
+}
+
+static mrb_value
+mrb_time_utc_p(mrb_state *mrb, mrb_value self)
+{
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  return mrb_bool_value(data->utc);
+}
+
+/* Time#utc_offset, #gmt_offset, #gmtoff: seconds east of UTC */
+static mrb_value
+mrb_time_utc_offset(mrb_state *mrb, mrb_value self)
+{
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  return mrb_int_value(mrb, data->utc ? 0 : (mrb_int)-data->timezone);
+}
+
+/* Time#zone: "UTC", the local zone's abbreviation, or nil for a fixed
+ * offset and on a platform that does not know the abbreviation */
+static mrb_value
+mrb_time_zone(mrb_state *mrb, mrb_value self)
+{
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  if (data->utc) return mrb_str_new_lit(mrb, "UTC");
+  if (data->fixed) return mrb_nil_value();
+  const char *zone = picorb_local_zone(&data->tm);
+  return zone ? mrb_str_new_cstr(mrb, zone) : mrb_nil_value();
+}
+
+static mrb_value
+mrb_time_eql(mrb_state *mrb, mrb_value self)
+{
+  mrb_value other;
+  mrb_get_args(mrb, "o", &other);
+  return mrb_bool_value(mrb_time_compare(mrb, self, other) == 0);
+}
+
+static mrb_value
+mrb_time_hash(mrb_state *mrb, mrb_value self)
+{
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
+  int64_t us = data->unixtime_us;
+  return mrb_int_value(mrb, (mrb_int)(us ^ (us >> 32)));
 }
 
 static int
@@ -516,10 +742,12 @@ mrb_sub(mrb_state *mrb, mrb_value self)
 
   int64_t self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
 
+  PICORB_TIME *self_data = (PICORB_TIME *)DATA_PTR(self);
+  int64_t base = self_unixtime_us - (int64_t)unixtime_offset * USEC;
   if (mrb_integer_p(other)) {
-    return new_from_unixtime_us(mrb, self, self_unixtime_us - mrb_as_int64(mrb, other) * USEC);
+    return new_from_unixtime_us_like(mrb, self, base - mrb_as_int64(mrb, other) * USEC, self_data);
   } else if (mrb_float_p(other)) {
-    return new_from_unixtime_us(mrb, self, self_unixtime_us - (int64_t)(mrb_float(other) * USEC));
+    return new_from_unixtime_us_like(mrb, self, base - (int64_t)(mrb_float(other) * USEC), self_data);
   } else if (mrb_obj_is_instance_of(mrb, other, mrb_obj_class(mrb, self))) {
     int64_t other_unixtime_us = ((PICORB_TIME *)DATA_PTR(other))->unixtime_us;
     mrb_float result = (mrb_float)(self_unixtime_us - other_unixtime_us) / (mrb_float)USEC;
@@ -536,12 +764,13 @@ mrb_add(mrb_state *mrb, mrb_value self)
   mrb_value other;
   mrb_get_args(mrb, "o", &other);
 
-  int64_t self_unixtime_us = ((PICORB_TIME *)DATA_PTR(self))->unixtime_us;
+  PICORB_TIME *self_data = (PICORB_TIME *)DATA_PTR(self);
+  int64_t base = self_data->unixtime_us - (int64_t)unixtime_offset * USEC;
 
   if (mrb_integer_p(other)) {
-    return new_from_unixtime_us(mrb, self, self_unixtime_us + mrb_as_int64(mrb, other) * USEC);
+    return new_from_unixtime_us_like(mrb, self, base + mrb_as_int64(mrb, other) * USEC, self_data);
   } else if (mrb_float_p(other)) {
-    return new_from_unixtime_us(mrb, self, self_unixtime_us + (int64_t)(mrb_float(other) * USEC));
+    return new_from_unixtime_us_like(mrb, self, base + (int64_t)(mrb_float(other) * USEC), self_data);
   } else {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong argument type");
     return mrb_nil_value();
@@ -572,7 +801,9 @@ mrb_picoruby_time_gem_init(mrb_state *mrb)
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(unixtime_offset), mrb_s_unixtime_offset, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(mktime), mrb_s_local, MRB_ARGS_ARG(1, 5));
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(local), mrb_s_local, MRB_ARGS_ARG(1, 5));
-  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(at), mrb_s_at, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(utc), mrb_s_utc, MRB_ARGS_ARG(1, 5));
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(gm), mrb_s_utc, MRB_ARGS_ARG(1, 5));
+  mrb_define_class_method_id(mrb, class_Time, MRB_SYM(at), mrb_s_at, MRB_ARGS_ARG(1, 2));
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(now), mrb_s_now, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_Time, MRB_SYM(new), mrb_s_new, MRB_ARGS_ANY());
   mrb_define_method_id(mrb, class_Time, MRB_SYM(to_i), mrb_to_i, MRB_ARGS_NONE());
@@ -587,6 +818,23 @@ mrb_picoruby_time_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Time, MRB_SYM(sec), mrb_sec, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Time, MRB_SYM(usec), mrb_usec, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Time, MRB_SYM(wday), mrb_wday, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(yday), mrb_yday, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(isdst), mrb_isdst, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM_Q(dst), mrb_isdst, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(utc), mrb_time_utc, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(gmtime), mrb_time_utc, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(getutc), mrb_time_getutc, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(getgm), mrb_time_getutc, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(localtime), mrb_time_localtime, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(getlocal), mrb_time_getlocal, MRB_ARGS_OPT(1));
+  mrb_define_method_id(mrb, class_Time, MRB_SYM_Q(utc), mrb_time_utc_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM_Q(gmt), mrb_time_utc_p, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(utc_offset), mrb_time_utc_offset, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(gmt_offset), mrb_time_utc_offset, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(gmtoff), mrb_time_utc_offset, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(zone), mrb_time_zone, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Time, MRB_SYM_Q(eql), mrb_time_eql, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_Time, MRB_SYM(hash), mrb_time_hash, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Time, MRB_OPSYM(cmp), mrb_compare, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Time, MRB_OPSYM(eq), mrb_eq, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Time, MRB_OPSYM(lt), mrb_lt, MRB_ARGS_REQ(1));
