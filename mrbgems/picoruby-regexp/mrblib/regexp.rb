@@ -32,6 +32,13 @@ class Regexp
     end
     Regexp.new(source)
   end
+
+  # the MatchData of the last match ($~), or one of its groups
+  def self.last_match(group = nil)
+    md = $~
+    return md unless group
+    md.nil? ? nil : md[group]
+  end
 end
 
 class MatchData
@@ -51,6 +58,44 @@ class MatchData
       return part
     end
     __aref_group(idx)
+  end
+
+  def names
+    regexp.names
+  end
+
+  # {name => text} for every group name, with the text of the last
+  # group of that name that took part, or nil
+  def named_captures(symbolize_names: false)
+    hash = {} #: Hash[String | Symbol, String?]
+    list = names
+    list_size = list.size
+    i = 0
+    while i < list_size
+      name = list[i]
+      hash[symbolize_names ? name.to_sym : name] = self[name]
+      i += 1
+    end
+    hash
+  end
+
+  # pattern matching: `in {year:, month:}` reads the named groups
+  def deconstruct_keys(keys)
+    hash = {} #: Hash[Symbol, String?]
+    list = names
+    list_size = list.size
+    i = 0
+    while i < list_size
+      name = list[i]
+      sym = name.to_sym
+      hash[sym] = self[name] if keys.nil? || keys.include?(sym)
+      i += 1
+    end
+    hash
+  end
+
+  def deconstruct
+    captures
   end
 end
 

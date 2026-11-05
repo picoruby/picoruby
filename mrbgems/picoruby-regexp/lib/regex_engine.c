@@ -64,6 +64,8 @@ void regex_free(void *p);
 #define RX_MAX_REPEAT 256    /* the n in {n,m} */
 #define RX_MAX_NODES  4096   /* AST nodes */
 #define RX_MAX_CLASS  2048   /* words of class-range storage */
+#define RX_MAX_NAMES  512    /* bytes of group-name storage */
+#define RX_MAX_NAME_LEN 64   /* bytes in one group name */
 #define RX_MAX_LOOK_DEPTH 4  /* lookaround inside lookaround */
 #define RX_INIT       32     /* first size of a work buffer, in items */
 
@@ -99,6 +101,7 @@ enum {
   H_NLOOK,      /* OP_LOOK instructions */
   H_LOOK_DEPTH, /* deepest lookaround nesting */
   H_ANCHORED,   /* 1 when every match starts with ^ */
+  H_NAMES_OFF,  /* word offset of the group name table, 0 without names */
   H_WORDS       /* header size */
 };
 
@@ -172,7 +175,8 @@ enum {
   N_CAT,    /* a, b */
   N_ALT,    /* a, b */
   N_REP,    /* a; x = min, y = max (-1 = unbounded), b = greedy */
-  N_GROUP,  /* a; x = group index */
+  N_GROUP,  /* a; x = group index, 0 when the group does not capture;
+               y = 1 when the group is named */
   N_BOL,
   N_EOL,
   N_WORDB,
@@ -194,6 +198,9 @@ typedef struct {
   int nnodes, cap_nodes;
   uint32_t *cls;      /* class storage */
   int ncls, cap_cls;
+  uint8_t *names;     /* group names: [group, length, bytes...] entries */
+  int nnames, cap_names;  /* bytes used and held */
+  int nnamed;         /* named groups */
   int ngroups;        /* including group 0 */
   int nlook;          /* lookarounds in the pattern */
   int look_depth;     /* lookarounds open around the current position */
@@ -249,6 +256,18 @@ cls_room(rx_parser *p, int n)
   const char *e = NULL;
   if (rx_grow((void **)&p->cls, &p->cap_cls, p->ncls + n,
               sizeof(uint32_t), RX_MAX_CLASS, &e, "pattern too large")) {
+    return true;
+  }
+  perr(p, e);
+  return false;
+}
+
+static bool
+names_room(rx_parser *p, int n)
+{
+  const char *e = NULL;
+  if (rx_grow((void **)&p->names, &p->cap_names, p->nnames + n,
+              sizeof(uint8_t), RX_MAX_NAMES, &e, "pattern too large")) {
     return true;
   }
   perr(p, e);
@@ -547,6 +566,59 @@ parse_look(rx_parser *p, int depth, uint32_t look)
   return node_new(p, N_LOOK, inner, 0, (int32_t)look, 0);
 }
 
+/* The name of a (?<name>...) group, up to the closing byte close:
+ * a word that does not start with a digit, as in CRuby. Appends an
+ * entry [group, length, bytes...] to p->names and returns its offset,
+ * with the group slot still to be filled in by the caller; -1 on an
+ * error. */
+static int
+parse_group_name(rx_parser *p, uint8_t close)
+{
+  size_t start = p->pos;
+  while (p->pos < p->len && p->src[p->pos] != close) {
+    uint8_t c = p->src[p->pos];
+    bool word = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+                c == '_' || c >= 0x80 || (c >= '0' && c <= '9' && p->pos > start);
+    if (!word) { perr(p, "invalid group name"); return -1; }
+    p->pos++;
+  }
+  size_t n = p->pos - start;
+  if (n == 0 || n > RX_MAX_NAME_LEN) {
+    p->pos = start;
+    perr(p, n == 0 ? "invalid group name" : "group name too long");
+    return -1;
+  }
+  if (at_end(p)) { perr(p, "unterminated group name"); return -1; }
+  p->pos++;
+  if (!names_room(p, 2 + (int)n)) return -1;
+  int entry = p->nnames;
+  p->names[p->nnames++] = 0;
+  p->names[p->nnames++] = (uint8_t)n;
+  memcpy(p->names + p->nnames, p->src + start, n);
+  p->nnames += (int)n;
+  return entry;
+}
+
+/* With a named group in the pattern, plain (...) groups do not
+ * capture, as in CRuby: the named groups are renumbered 1..n in
+ * order and every other group is left as a plain group. */
+static void
+renumber_groups(rx_parser *p)
+{
+  int map[RX_MAX_GROUPS];
+  int next_idx = 1;
+  memset(map, 0, sizeof map);
+  for (int i = 0; i < p->nnames; i += 2 + p->names[i + 1]) {
+    map[p->names[i]] = next_idx;
+    p->names[i] = (uint8_t)next_idx++;
+  }
+  for (int i = 0; i < p->nnodes; i++) {
+    rx_node *nd = &p->nodes[i];
+    if (nd->t == N_GROUP) nd->x = map[nd->x];
+  }
+  p->ngroups = next_idx;
+}
+
 static int
 parse_atom(rx_parser *p, int depth)
 {
@@ -554,6 +626,7 @@ parse_atom(rx_parser *p, int depth)
   switch (c) {
   case '(': {
     bool capture = true;
+    int name_entry = -1;
     if (p->pos + 1 < p->len && p->src[p->pos] == '?') {
       uint8_t k = p->src[p->pos + 1];
       if (k == ':') { p->pos += 2; capture = false; }
@@ -570,19 +643,28 @@ parse_atom(rx_parser *p, int depth)
         p->pos += 3;
         return parse_look(p, depth, look);
       }
+      else if (k == '<' || k == '\'') {
+        p->pos += 2;
+        name_entry = parse_group_name(p, k == '<' ? '>' : '\'');
+        if (name_entry < 0) return 0;
+      }
       else { perr(p, "unsupported group syntax"); return 0; }
     }
     int idx = 0;
     if (capture) {
       if (p->ngroups >= RX_MAX_GROUPS) { perr(p, "too many groups"); return 0; }
       idx = p->ngroups++;
+      if (name_entry >= 0) {
+        p->names[name_entry] = (uint8_t)idx;
+        p->nnamed++;
+      }
     }
     int saved = p->flags;
     int inner = parse_alt(p, depth + 1);
     p->flags = saved;
     if (p->err) return 0;
     if (at_end(p) || next(p) != ')') { perr(p, "missing )"); return 0; }
-    return capture ? node_new(p, N_GROUP, inner, 0, idx, 0) : inner;
+    return capture ? node_new(p, N_GROUP, inner, 0, idx, name_entry >= 0) : inner;
   }
   case ')': perr(p, "unmatched )"); return 0;
   case '[': return node_new(p, N_CLASS, 0, 0, parse_class(p), p->flags);
@@ -851,6 +933,7 @@ gen(rx_gen *g, const rx_parser *p, int n)
     case N_WORDB: emit(g, OP_WORDB, 0, 0); break;
     case N_NWORDB: emit(g, OP_NWORDB, 0, 0); break;
     case N_GROUP:
+      if (nd->x == 0) { gen(g, p, nd->a); break; }
       emit(g, OP_SAVE, (uint32_t)(2 * nd->x), 0);
       gen(g, p, nd->a);
       emit(g, OP_SAVE, (uint32_t)(2 * nd->x + 1), 0);
@@ -902,6 +985,7 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
 
   int root = parse_alt(&p, 0);
   if (!p.err && !at_end(&p)) perr(&p, "unmatched )");
+  if (!p.err && p.nnamed) renumber_groups(&p);
 
   rx_gen g;
   memset(&g, 0, sizeof g);
@@ -916,7 +1000,16 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
     *err = p.err; *err_at = p.err_at;
   }
 
-  size_t words = H_WORDS + 3 * (size_t)g.ninst + (size_t)p.ncls;
+  /* the name table: a count, then [group, length, name bytes] per
+   * named group with the bytes padded to whole words */
+  size_t name_words = 0;
+  if (p.nnamed) {
+    name_words = 1;
+    for (int i = 0; i < p.nnames; i += 2 + p.names[i + 1]) {
+      name_words += 2 + ((size_t)p.names[i + 1] + 3) / 4;
+    }
+  }
+  size_t words = H_WORDS + 3 * (size_t)g.ninst + (size_t)p.ncls + name_words;
   if (!*err) {
     prog = regex_malloc(words * sizeof(uint32_t));
     if (!prog) { *err = "out of memory"; *err_at = 0; }
@@ -929,17 +1022,50 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
     prog[H_NLOOK] = (uint32_t)p.nlook;
     prog[H_LOOK_DEPTH] = (uint32_t)p.look_depth_max;
     prog[H_ANCHORED] = starts_with_bol(&p, root) ? 1u : 0u;
+    prog[H_NAMES_OFF] = 0;
     memcpy(prog + H_WORDS, g.code, 3 * (size_t)g.ninst * sizeof(uint32_t));
     /* a pattern without a class never allocated p.cls */
     if (p.ncls) {
       memcpy(prog + prog[H_CLASS_OFF], p.cls, (size_t)p.ncls * sizeof(uint32_t));
+    }
+    if (name_words) {
+      uint32_t *t = prog + words - name_words;
+      prog[H_NAMES_OFF] = (uint32_t)(words - name_words);
+      *t++ = (uint32_t)p.nnamed;
+      for (int i = 0; i < p.nnames; i += 2 + p.names[i + 1]) {
+        size_t n = p.names[i + 1];
+        *t++ = p.names[i];
+        *t++ = (uint32_t)n;
+        memset(t, 0, ((n + 3) / 4) * sizeof(uint32_t));
+        memcpy(t, p.names + i + 2, n);
+        t += (n + 3) / 4;
+      }
     }
     *nwords = words;
   }
   regex_free(g.code);
   regex_free(p.nodes);
   regex_free(p.cls);
+  regex_free(p.names);
   return prog;
+}
+
+const uint8_t *
+regex_group_name(const uint32_t *prog, int group, size_t *len)
+{
+  uint32_t off = prog[H_NAMES_OFF];
+  if (off == 0) return NULL;
+  const uint32_t *t = prog + off;
+  uint32_t n = *t++;
+  for (uint32_t i = 0; i < n; i++) {
+    uint32_t g = t[0], l = t[1];
+    if ((int)g == group) {
+      *len = l;
+      return (const uint8_t *)(t + 2);
+    }
+    t += 2 + (l + 3) / 4;
+  }
+  return NULL;
 }
 
 /* ================================================================

@@ -45,7 +45,7 @@ class RegexpTest < Picotest::Test
 
   def test_unsupported_syntax_raises_regexp_error
     assert_raise(RegexpError) { Regexp.new("(a)\\1") }
-    assert_raise(RegexpError) { Regexp.new("(?<n>a)") }
+    assert_raise(RegexpError) { Regexp.new("(?<n>a)\\k<n>") }
   end
 
   # ---- Inline options ----
@@ -414,6 +414,101 @@ class RegexpTest < Picotest::Test
     md = /(?:ab)+(c)/.match("ababc")
     assert_equal 2, md.size
     assert_equal "c", md[1]
+  end
+
+  # ---- Named groups ----
+
+  def test_named_groups_by_name
+    md = /(?<year>\d{4})-(?<month>\d\d)/.match("on 2024-01-15")
+    assert_equal "2024", md[:year]
+    assert_equal "01",   md["month"]
+    assert_equal "2024", md[1]
+    assert_equal 3, md.size
+    assert_equal ["year", "month"], md.names
+    assert_equal ["year", "month"], md.regexp.names
+    assert_equal({ "year" => [1], "month" => [2] }, md.regexp.named_captures)
+    assert_equal({ "year" => "2024", "month" => "01" }, md.named_captures)
+    assert_equal({ year: "2024", month: "01" }, md.named_captures(symbolize_names: true))
+  end
+
+  def test_named_group_offsets
+    md = /(?<a>é)(?<b>b)/.match("xéb")
+    assert_equal 1, md.begin(:a)
+    assert_equal 2, md.end("a")
+    assert_equal [1, 3], md.byteoffset(:a)
+    assert_equal 2, md.begin(:b)
+  end
+
+  def test_plain_groups_do_not_capture_beside_named_ones
+    md = /(a)(?<x>b)(c)/.match("abc")
+    assert_equal 2, md.size
+    assert_equal "b", md[1]
+    assert_equal "b", md[:x]
+    assert_equal ["b"], md.captures
+    assert_equal ["b"], "abc".scan(/(a)(?<x>b)(c)/)[0]
+  end
+
+  def test_single_quoted_group_name
+    assert_equal "b", /(?'x'b)/.match("ab")[:x]
+  end
+
+  def test_undefined_group_name
+    md = /(?<x>a)/.match("a")
+    assert_raise(IndexError) { md[:y] }
+    assert_raise(IndexError) { md.begin("y") }
+    assert_raise(IndexError) { "a"[/(?<x>a)/, :y] }
+    assert_equal [], /(a)/.names
+    assert_equal({}, /(a)/.named_captures)
+  end
+
+  def test_same_name_twice
+    re = /(?<x>a)|(?<x>b)/
+    assert_equal ["x"], re.names
+    assert_equal({ "x" => [1, 2] }, re.named_captures)
+    assert_equal "b", re.match("b")[:x]
+    assert_equal "a", re.match("a")[:x]
+    assert_nil(/(?<x>a)?(?<x>c)?/.match("z")[:x])
+  end
+
+  def test_named_group_that_did_not_take_part
+    md = /(?<a>x)|(?<b>y)/.match("y")
+    assert_nil md[:a]
+    assert_equal "y", md[:b]
+    assert_equal({ "a" => nil, "b" => "y" }, md.named_captures)
+  end
+
+  def test_bad_group_names
+    assert_raise(RegexpError) { Regexp.new("(?<1a>x)") }
+    assert_raise(RegexpError) { Regexp.new("(?<>x)") }
+    assert_raise(RegexpError) { Regexp.new("(?<a") }
+  end
+
+  def test_string_aref_with_group_name
+    assert_equal "15", "2024-01-15"[/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/, :d]
+    assert_equal "15", "2024-01-15"[/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/, "d"]
+    assert_nil "abc"[/(?<y>\d+)/, :y]
+  end
+
+  def test_sub_with_named_backreference_in_replacement
+    assert_equal "<b>a", "ab".sub(/(?<x>a)(?<y>b)/, '<\k<y>>\k<x>')
+    assert_equal "<a", "a".sub(/(?<x>a)/, '<\k<x>')
+    assert_equal "ba", "ab".gsub(/(?<x>a)|(?<x>b)/, '\k<x>').reverse
+    assert_raise(IndexError) { "a".sub(/(?<x>a)/, '\k<zz>') }
+    assert_equal "\\k<x", "a".sub(/(?<x>a)/, '\k<x')
+  end
+
+  def test_last_match_by_name
+    /(?<word>\w+)/ =~ "hello"
+    assert_equal "hello", $~[:word]
+    assert_equal "hello", Regexp.last_match[:word]
+  end
+
+  def test_deconstruct_keys
+    case /(?<y>\d+)-(?<m>\d+)/.match("2024-01")
+    in { y:, m: }
+      assert_equal "2024", y
+      assert_equal "01", m
+    end
   end
 
   # ---- MatchData methods ----

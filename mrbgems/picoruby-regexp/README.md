@@ -28,9 +28,9 @@ simulation that carries capture positions) runs the program.
 
 | Class | Methods |
 |-------|---------|
-| `Regexp` (class) | `compile(pattern, options = nil, encoding = nil)`, `new` (the same), `escape(str)`, `quote` (the same), `union(*patterns)` |
-| `Regexp` | `match(str, pos = 0)`, `match?(str, pos = 0)`, `===`, `=~`, `source`, `to_s`, `inspect`, `casefold?`, `options` |
-| `MatchData` | `[]`, `to_a`, `captures`, `length`, `size`, `string`, `regexp`, `pre_match`, `post_match`, `begin(n)`, `end(n)`, `byteoffset(n)`, `to_s`, `inspect` |
+| `Regexp` (class) | `compile(pattern, options = nil, encoding = nil)`, `new` (the same), `escape(str)`, `quote` (the same), `union(*patterns)`, `last_match(n = nil)` |
+| `Regexp` | `match(str, pos = 0)`, `match?(str, pos = 0)`, `===`, `=~`, `source`, `to_s`, `inspect`, `casefold?`, `options`, `names`, `named_captures` |
+| `MatchData` | `[]`, `to_a`, `captures`, `length`, `size`, `string`, `regexp`, `pre_match`, `post_match`, `begin(n)`, `end(n)`, `byteoffset(n)`, `names`, `named_captures`, `deconstruct`, `deconstruct_keys`, `to_s`, `inspect` |
 | `String` | `match(pattern, pos = 0)`, `match?(pattern, pos = 0)`, `=~`, `sub`, `sub!`, `gsub`, `gsub!`, `scan`, `split`, `index`, `rindex`, `[]`, `slice`, `slice!`, `partition`, `rpartition`, `start_with?` |
 | globals | `$~`, `$&`, `$1` to `$9`, `` $` ``, `$'`, `$+` |
 
@@ -44,7 +44,7 @@ The `String` methods take a Regexp or a String as the pattern. `match`,
 does. `split` with a String or nil pattern keeps the VM's own behavior.
 
 `sub` and `gsub` take a replacement String, a Hash or a block. A replacement
-String expands `\0`, `\&`, `\1` to `\9` and `\\`. The block receives the
+String expands `\0`, `\&`, `\1` to `\9`, `\k<name>` and `\\`. The block receives the
 matched text. The receiver must not change while the block runs, or the
 method raises `RuntimeError`. `gsub` without a replacement and without a
 block raises `ArgumentError`; it does not return an Enumerator.
@@ -61,7 +61,11 @@ Everything else runs in C on both VMs.
 `start_with?` take a Regexp.
 With any other argument they behave as the VM's own methods do. On mruby/c
 `rindex`, `partition` and `rpartition` are new, for a String pattern too.
-`str[re, n]` takes a group number; group names are not supported.
+`str[re, n]` takes a group number or name.
+
+`MatchData#[]`, `begin`, `end` and `byteoffset` take a group number or a
+group name as a String or Symbol. A name shared by several groups stands for
+the last of them that took part in the match.
 
 `Regexp.union` joins Strings as literal text and Regexps as the inline option
 groups `Regexp#to_s` writes, so each keeps its own options. With no pattern
@@ -89,6 +93,7 @@ the reason and the byte offset in the pattern.
 | `*` `+` `?` `{n}` `{n,}` `{n,m}` | Greedy repetition. `n` and `m` go up to 256 |
 | `*?` `+?` `??` `{n,m}?` | Lazy repetition |
 | `(...)` | Capture group. Up to 15 groups |
+| `(?<name>...)` `(?'name'...)` | Named capture group. With a named group in the pattern, plain `(...)` do not capture, as in CRuby |
 | `(?:...)` | Group without capture |
 | `(?i:...)` `(?-i:...)` `(?i)` | Options for the body, or for the rest of the enclosing group. `i` and `m` take effect; `x` is accepted and ignored |
 | `(?=...)` `(?!...)` | Lookahead and negative lookahead |
@@ -108,15 +113,17 @@ the reason and the byte offset in the pattern.
 
 - `^` and `$` anchor the whole string, not a line. `\Z` is the same as `\z`.
 - `i` folds ASCII letters only. `/é/i` does not match `É`.
-- These raise `RegexpError` at compile time: backreferences (`\1`), named
-  groups, possessive quantifiers, `\x`, `\u`, `\p{...}` and POSIX classes.
+- These raise `RegexpError` at compile time: backreferences (`\1`,
+  `\k<name>`), possessive quantifiers, `\x`, `\u`, `\p{...}` and POSIX
+  classes.
 - `\w`, `\d`, `\s` and so `\b` are ASCII: `é` is not a word character, so
   `/\bé/` matches in `"aé"`.
 - A lookbehind body may have any bounded length, as in `(?<=a|bc)` or
   `(?<=a{1,3})`; CRuby rejects the second. `(?<=a+)` is an error in both.
   Lookaround nests at most 4 deep.
 - `$~` is one global for the whole program, not one per method call.
-- `sub` and `gsub` do not expand `` \` ``, `\'` or `\k<name>`.
+- `sub` and `gsub` do not expand `` \` `` or `\'`. An unterminated `\k<name`
+  in a replacement stays as written; CRuby raises.
 - `String#[]=` and `Symbol#match` do not take a Regexp.
 
 ## Example

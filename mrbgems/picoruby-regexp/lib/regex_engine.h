@@ -26,6 +26,12 @@ uint32_t *regex_compile_words(const uint8_t *src, size_t len, int flags,
                                  size_t *nwords, const char **err,
                                  size_t *err_at);
 
+/* The name of capture group group in prog, as the bytes and their
+ * count in *len, or NULL when the group has no name. Groups are
+ * numbered as regex_exec reports them: with a named group in the
+ * pattern, the named groups are 1..n and plain (...) do not capture. */
+const uint8_t *regex_group_name(const uint32_t *prog, int group, size_t *len);
+
 /* The words of scratch one regex_exec over prog needs. A loop
  * over many matches of the same program allocates it once. */
 size_t regex_scratch_words(const uint32_t *prog);

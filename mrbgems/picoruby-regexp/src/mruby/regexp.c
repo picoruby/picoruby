@@ -5,6 +5,7 @@
 #include "mruby/string.h"
 #include "mruby/variable.h"
 #include "mruby/array.h"
+#include "mruby/hash.h"
 #include "mruby/proc.h"
 
 #include <string.h>
@@ -405,14 +406,40 @@ md_index(picorb_match_data *md, mrb_int *idx)
   return 0 <= *idx && *idx < n;
 }
 
-/* MatchData#[](idx) -> String or nil */
+/* the group an argument stands for: an Integer index (negative
+ * counts from the end) or a String or Symbol group name. false when
+ * an index is out of range; IndexError on a name the pattern does not
+ * have. */
+static mrb_bool
+md_resolve(mrb_state *mrb, mrb_value self, picorb_match_data *md, mrb_value arg, mrb_int *idx)
+{
+  const char *name;
+  mrb_int nlen;
+  if (mrb_symbol_p(arg)) {
+    name = mrb_sym_name_len(mrb, mrb_symbol(arg), &nlen);
+  } else if (mrb_string_p(arg)) {
+    name = RSTRING_PTR(arg);
+    nlen = RSTRING_LEN(arg);
+  } else {
+    *idx = mrb_as_int(mrb, arg);
+    return md_index(md, idx);
+  }
+  picorb_regexp *re = get_regexp(mrb, mrb_iv_get(mrb, self, MRB_IVSYM(regexp)));
+  int g = picorb_rx_group_named(re->prog, md->caps, (const uint8_t *)name, (size_t)nlen);
+  if (g < 0) mrb_raisef(mrb, E_INDEX_ERROR, "undefined group name reference: %l", name, (size_t)nlen);
+  *idx = g;
+  return TRUE;
+}
+
+/* MatchData#[](idx_or_name) -> String or nil */
 static mrb_value
 mrb_match_data_aref(mrb_state *mrb, mrb_value self)
 {
+  mrb_value arg;
   mrb_int idx;
-  mrb_get_args(mrb, "i", &idx);
+  mrb_get_args(mrb, "o", &arg);
   picorb_match_data *md = get_match_data(mrb, self);
-  if (!md_index(md, &idx)) return mrb_nil_value();
+  if (!md_resolve(mrb, self, md, arg, &idx)) return mrb_nil_value();
   return md_group(mrb, self, md, idx);
 }
 
@@ -486,27 +513,36 @@ mrb_match_data_post_match(mrb_state *mrb, mrb_value self)
   return mrb_str_new(mrb, RSTRING_PTR(str) + e, RSTRING_LEN(str) - e);
 }
 
-/* MatchData#begin(idx) -> character offset or nil */
+/* the group of begin, end and byteoffset: IndexError when out of range */
+static mrb_int
+md_offset_index(mrb_state *mrb, mrb_value self, picorb_match_data *md)
+{
+  mrb_value arg;
+  mrb_int idx;
+  mrb_get_args(mrb, "o", &arg);
+  if (!md_resolve(mrb, self, md, arg, &idx)) {
+    mrb_raisef(mrb, E_INDEX_ERROR, "index %v out of matches", arg);
+  }
+  return idx;
+}
+
+/* MatchData#begin(idx_or_name) -> character offset or nil */
 static mrb_value
 mrb_match_data_begin(mrb_state *mrb, mrb_value self)
 {
-  mrb_int idx;
-  mrb_get_args(mrb, "i", &idx);
   picorb_match_data *md = get_match_data(mrb, self);
-  if (!md_index(md, &idx)) mrb_raisef(mrb, E_INDEX_ERROR, "index %i out of matches", idx);
+  mrb_int idx = md_offset_index(mrb, self, md);
   int32_t b = md->caps[2 * idx];
   if (b < 0) return mrb_nil_value();
   return md_char_offset(mrb, self, b);
 }
 
-/* MatchData#end(idx) -> character offset or nil */
+/* MatchData#end(idx_or_name) -> character offset or nil */
 static mrb_value
 mrb_match_data_end(mrb_state *mrb, mrb_value self)
 {
-  mrb_int idx;
-  mrb_get_args(mrb, "i", &idx);
   picorb_match_data *md = get_match_data(mrb, self);
-  if (!md_index(md, &idx)) mrb_raisef(mrb, E_INDEX_ERROR, "index %i out of matches", idx);
+  mrb_int idx = md_offset_index(mrb, self, md);
   int32_t e = md->caps[2 * idx + 1];
   if (e < 0) return mrb_nil_value();
   return md_char_offset(mrb, self, e);
@@ -604,14 +640,12 @@ mrb_regexp_bmatch(mrb_state *mrb, mrb_value self)
   return match_data_new(mrb, self, str, caps, (int)re->prog[1]);
 }
 
-/* MatchData#byteoffset(idx) -> [begin, end] in bytes, or nil */
+/* MatchData#byteoffset(idx_or_name) -> [begin, end] in bytes, or nil */
 static mrb_value
 mrb_match_data_byteoffset(mrb_state *mrb, mrb_value self)
 {
-  mrb_int idx;
-  mrb_get_args(mrb, "i", &idx);
   picorb_match_data *md = get_match_data(mrb, self);
-  if (!md_index(md, &idx)) mrb_raisef(mrb, E_INDEX_ERROR, "index %i out of matches", idx);
+  mrb_int idx = md_offset_index(mrb, self, md);
   int32_t b = md->caps[2 * idx];
   if (b < 0) return mrb_nil_value();
   mrb_value pair[2] = { mrb_int_value(mrb, b), mrb_int_value(mrb, md->caps[2 * idx + 1]) };
@@ -652,9 +686,14 @@ mrb_string_sub_c(mrb_state *mrb, mrb_value self)
   picorb_regexp *re = get_regexp(mrb, re_obj);
   build_ctx c = { mrb, mrb_str_new_capa(mrb, RSTRING_LEN(self)), self };
   int32_t last[PICORB_RX_MAX_NSAVE];
+  const uint8_t *bad_name = NULL;
+  size_t bad_len = 0;
   int n = picorb_rx_sub(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self),
                         (const uint8_t *)RSTRING_PTR(repl), (size_t)RSTRING_LEN(repl), global, last,
-                        emit_to_str, &c);
+                        emit_to_str, &c, &bad_name, &bad_len);
+  if (n < 0) {
+    mrb_raisef(mrb, E_INDEX_ERROR, "undefined group name reference: %l", (const char *)bad_name, bad_len);
+  }
   set_last_match(mrb, n ? match_data_new(mrb, re_obj, self, last, (int)re->prog[1]) : mrb_nil_value());
   return n ? c.out : mrb_nil_value();
 }
@@ -718,6 +757,45 @@ mrb_string_split_c(mrb_state *mrb, mrb_value self)
 }
 
 /* ---- the readings of $~ the compiler emits: $& $1 $` $' $+ ---- */
+
+/* Regexp#names -> the group names in order, each once */
+static mrb_value
+mrb_regexp_names(mrb_state *mrb, mrb_value self)
+{
+  picorb_regexp *re = get_regexp(mrb, self);
+  int n = (int)re->prog[1] / 2;
+  mrb_value ary = mrb_ary_new(mrb);
+  for (int g = 1; g < n; g++) {
+    size_t len;
+    const uint8_t *name = regex_group_name(re->prog, g, &len);
+    if (name && picorb_rx_name_is_first(re->prog, g)) {
+      mrb_ary_push(mrb, ary, mrb_str_new(mrb, (const char *)name, (mrb_int)len));
+    }
+  }
+  return ary;
+}
+
+/* Regexp#named_captures -> {name => [group, ...]} */
+static mrb_value
+mrb_regexp_named_captures(mrb_state *mrb, mrb_value self)
+{
+  picorb_regexp *re = get_regexp(mrb, self);
+  int n = (int)re->prog[1] / 2;
+  mrb_value hash = mrb_hash_new(mrb);
+  for (int g = 1; g < n; g++) {
+    size_t len;
+    const uint8_t *name = regex_group_name(re->prog, g, &len);
+    if (!name) continue;
+    mrb_value key = mrb_str_new(mrb, (const char *)name, (mrb_int)len);
+    mrb_value list = mrb_hash_get(mrb, hash, key);
+    if (mrb_nil_p(list)) {
+      list = mrb_ary_new(mrb);
+      mrb_hash_set(mrb, hash, key, list);
+    }
+    mrb_ary_push(mrb, list, mrb_int_value(mrb, g));
+  }
+  return hash;
+}
 
 /* MatchData#__group(n) -> String or nil */
 static mrb_value
@@ -834,15 +912,11 @@ aref_common(mrb_state *mrb, mrb_value self, mrb_sym fallback_name)
   mrb_value pat;
   mrb_value cap = mrb_nil_value();
   mrb_get_args(mrb, "o|o", &pat, &cap);
-  mrb_int idx = 0;
-  if (!mrb_nil_p(cap)) {
-    if (!mrb_integer_p(cap)) mrb_raise(mrb, E_INDEX_ERROR, "named groups are not supported");
-    idx = mrb_integer(cap);
-  }
   mrb_value md = regexp_match_at(mrb, re, self, 0);
   if (mrb_nil_p(md)) return md;
   picorb_match_data *m = get_match_data(mrb, md);
-  if (!md_index(m, &idx)) return mrb_nil_value();
+  mrb_int idx = 0;
+  if (!mrb_nil_p(cap) && !md_resolve(mrb, md, m, cap, &idx)) return mrb_nil_value();
   return md_group(mrb, md, m, idx);
 }
 
@@ -956,6 +1030,8 @@ mrb_picoruby_regexp_gem_init(mrb_state *mrb)
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(inspect), mrb_regexp_inspect, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM_Q(casefold), mrb_regexp_casefold_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(options), mrb_regexp_options, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(names), mrb_regexp_names, MRB_ARGS_NONE());
+  mrb_define_method_id(mrb, class_Regexp, MRB_SYM(named_captures), mrb_regexp_named_captures, MRB_ARGS_NONE());
 
   class_MatchData = mrb_define_class_id(mrb, MRB_SYM(MatchData), mrb->object_class);
   MRB_SET_INSTANCE_TT(class_MatchData, MRB_TT_DATA);
