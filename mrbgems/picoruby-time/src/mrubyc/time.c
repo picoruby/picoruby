@@ -161,7 +161,7 @@ zone_arg(struct VM *vm, const mrbc_value *zone, bool *utc, bool *fixed, long *of
 /* Time.local, Time.utc and Time.new share the fields; Time.new takes
  * a 7th zone argument */
 static void
-time_from_fields(struct VM *vm, mrbc_value v[], int argc, bool utc, bool with_zone)
+time_from_fields(struct VM *vm, mrbc_value v[], int argc, bool utc, bool with_zone, const mrbc_value *zone)
 {
   /* the 10-argument form of Time.local and Time.utc is the order of
    * Time#to_a: sec, min, hour, mday, mon, year, wday, yday, isdst, zone */
@@ -173,16 +173,30 @@ time_from_fields(struct VM *vm, mrbc_value v[], int argc, bool utc, bool with_zo
     for (int i = 0; i < 6; i++) v[1 + i] = fields[i];
     argc = 6;
   }
-  int max = with_zone ? 7 : 6;
-  if (argc < 1 || max < argc) {
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), with_zone ? "wrong number of arguments (expected 1..7)" : "wrong number of arguments (expected 1..6)");
+  if (argc < 1 || 7 < argc) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 1..7)");
     return;
   }
   bool fixed = false;
   long offset_east = 0;
-  if (with_zone && argc == 7) {
-    if (!zone_arg(vm, &v[7], &utc, &fixed, &offset_east)) return;
+  mrbc_int_t usec_extra = 0;
+  if (argc == 7) {
+    /* Time.new's 7th argument is the zone, Time.local's and Time.utc's
+     * the microseconds */
+    if (with_zone) {
+      if (!zone_arg(vm, &v[7], &utc, &fixed, &offset_east)) return;
+    } else {
+      mrbc_value u = GET_ARG(7);
+      if (u.tt == MRBC_TT_FLOAT) usec_extra = (mrbc_int_t)(u.d + 0.5);
+      else {
+        usec_extra = (mrbc_int_t)Integer(u);
+        if (vm->exception.tt == MRBC_TT_EXCEPTION) return;
+      }
+    }
     argc = 6;
+  } else if (zone) {
+    /* the in: keyword of Time.new */
+    if (!zone_arg(vm, zone, &utc, &fixed, &offset_east)) return;
   }
   struct tm tm;
   tm = (struct tm){0};
@@ -230,21 +244,59 @@ time_from_fields(struct VM *vm, mrbc_value v[], int argc, bool utc, bool with_zo
   } else tm.tm_sec = 0;
   mrbc_value time = new_from_tm(vm, v, &tm, utc, fixed, offset_east);
   PICORB_TIME *data = (PICORB_TIME *)time.instance->data;
-  data->unixtime_us += usec;
+  data->unixtime_us += usec + usec_extra;
   SET_RETURN(time);
 }
 
 static void
 c_local(struct VM *vm, mrbc_value v[], int argc)
 {
-  time_from_fields(vm, v, argc, false, false);
+  time_from_fields(vm, v, argc, false, false, NULL);
 }
 
-/* Time.utc(year, mon = 1, mday = 1, hour = 0, min = 0, sec = 0), Time.gm */
+/* Time.utc(year, mon = 1, mday = 1, hour = 0, min = 0, sec = 0, usec = 0), Time.gm */
 static void
 c_utc_new(struct VM *vm, mrbc_value v[], int argc)
 {
-  time_from_fields(vm, v, argc, true, false);
+  time_from_fields(vm, v, argc, true, false, NULL);
+}
+
+/* the zone of a Time, after the fact: Time.new(in: zone); 0 after raising */
+static int
+time_set_zone(struct VM *vm, mrbc_value *time, const mrbc_value *zone)
+{
+  bool utc, fixed;
+  long offset_east;
+  if (!zone_arg(vm, zone, &utc, &fixed, &offset_east)) return 0;
+  PICORB_TIME *data = (PICORB_TIME *)time->instance->data;
+  data->utc = utc;
+  data->fixed = fixed;
+  data->timezone = fixed ? -offset_east : 0;
+  time_refresh(data);
+  return 1;
+}
+
+/* Time.new("2026-11-05 12:00:00[.frac][ zone]"), Time.new("2026"): the
+ * string's own zone wins over in: */
+static void
+time_from_string(struct VM *vm, mrbc_value v[], const mrbc_value *str, const mrbc_value *in_zone)
+{
+  struct tm tm;
+  int usec;
+  bool has_zone, utc;
+  long offset_east;
+  const char *err = picorb_parse_time_string((const char *)str->string->data, str->string->size,
+                                             &tm, &usec, &has_zone, &utc, &offset_east);
+  if (err) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), err);
+    return;
+  }
+  bool fixed = has_zone && !utc;
+  if (!has_zone && in_zone && !zone_arg(vm, in_zone, &utc, &fixed, &offset_east)) return;
+  mrbc_value time = new_from_tm(vm, v, &tm, utc, fixed, offset_east);
+  PICORB_TIME *data = (PICORB_TIME *)time.instance->data;
+  data->unixtime_us += usec;
+  SET_RETURN(time);
 }
 
 /* Time.at(seconds), Time.at(seconds, usec), Time.at(seconds, sub, unit)
@@ -299,15 +351,37 @@ c_now(struct VM *vm, mrbc_value v[], int argc)
 }
 
 
+/* Time.new, Time.new(year, ..., sec, zone = nil, in: nil),
+ * Time.new(string, in: nil). mruby/c hands a keyword Hash in at
+ * v[argc + 1], after the positional arguments. */
 static void
 c_new(struct VM *vm, mrbc_value v[], int argc)
 {
+  const mrbc_value *in_zone = NULL;
+  if (v[argc + 1].tt == MRBC_TT_HASH) {
+    mrbc_value *key = mrbc_hash_search_by_id(&v[argc + 1], mrbc_str_to_symid("in"));
+    if (key) {
+      in_zone = key + 1;
+    } else if (v[argc + 1].hash->n_stored > 0) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "unknown keyword");
+      return;
+    }
+  }
   if (argc == 0) {
     c_now(vm, v, 0);
+    if (in_zone) time_set_zone(vm, &v[0], in_zone);
+  } else if (v[1].tt == MRBC_TT_STRING) {
+    if (argc != 1) {
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 1)");
+      return;
+    }
+    time_from_string(vm, v, &v[1], in_zone);
   } else if (7 < argc) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 0..7)");
+  } else if (in_zone && argc == 7) {
+    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "timezone argument given as positional and keyword arguments");
   } else {
-    time_from_fields(vm, v, argc, false, true);
+    time_from_fields(vm, v, argc, false, true, in_zone);
   }
 }
 

@@ -84,6 +84,101 @@ picorb_parse_offset(const char *s, size_t len, long *offset_east, bool *utc)
   return true;
 }
 
+/* Time.new's String form: "YYYY-MM-DD HH:MM:SS", a 'T' in place of the
+ * space, a fraction after the seconds, a zone after a space or right
+ * after the seconds ("Z", "+09:00", "-0500", "UTC"), or a year alone.
+ * The fields land in tm (which gets no wday or yday) and *usec; *has_zone
+ * says whether the string named a zone, and then *utc and *offset_east
+ * are what picorb_parse_offset gives. Returns NULL, or the message of
+ * the ArgumentError to raise, "can't parse" for a string of another
+ * shape. The checks and messages are CRuby's. */
+static bool
+picorb_two_digits(const char *s, size_t len, size_t *i, int *out)
+{
+  if (*i + 2 > len || s[*i] < '0' || '9' < s[*i] || s[*i + 1] < '0' || '9' < s[*i + 1]) return false;
+  *out = (s[*i] - '0') * 10 + (s[*i + 1] - '0');
+  *i += 2;
+  return true;
+}
+
+static const char *
+picorb_parse_time_string(const char *s, size_t len, struct tm *tm, int *usec,
+                         bool *has_zone, bool *utc, long *offset_east)
+{
+  size_t i = 0;
+  int n;
+
+  memset(tm, 0, sizeof(*tm));
+  tm->tm_mday = 1;
+  *usec = 0;
+  *has_zone = false;
+  *utc = false;
+  *offset_east = 0;
+
+  long year = 0;
+  size_t start = i;
+  while (i < len && '0' <= s[i] && s[i] <= '9') {
+    year = year * 10 + (s[i] - '0');
+    i++;
+  }
+  if (i == start) return "can't parse";
+  tm->tm_year = (int)(year - 1900);
+  if (i == len) return NULL;                    /* a year alone */
+  if (s[i] != '-') return "can't parse";
+  i++;
+  if (!picorb_two_digits(s, len, &i, &n)) return "two digits mon is expected after '-'";
+  if (n < 1 || 12 < n) return "mon out of range";
+  tm->tm_mon = n - 1;
+  if (i == len || s[i] != '-') return "can't parse";
+  i++;
+  if (!picorb_two_digits(s, len, &i, &n)) return "two digits mday is expected after '-'";
+  if (n < 1 || 31 < n) return "mday out of range";
+  tm->tm_mday = n;
+  if (i == len) return "no time information";
+  if (s[i] != ' ' && s[i] != 'T') return "can't parse";
+  i++;
+  if (!picorb_two_digits(s, len, &i, &n)) return "two digits hour is expected";
+  if (23 < n) return "hour out of range";
+  tm->tm_hour = n;
+  if (i == len || s[i] != ':') return "missing min part";
+  i++;
+  if (!picorb_two_digits(s, len, &i, &n)) return "two digits min is expected after ':'";
+  if (59 < n) return "min out of range";
+  tm->tm_min = n;
+  if (i == len || s[i] != ':') return "missing sec part";
+  i++;
+  if (!picorb_two_digits(s, len, &i, &n)) return "two digits sec is expected after ':'";
+  if (60 < n) return "sec out of range";
+  tm->tm_sec = n;
+  if (i < len && s[i] == '.') {
+    i++;
+    start = i;
+    long frac = 0;
+    int digits = 0;
+    while (i < len && '0' <= s[i] && s[i] <= '9') {
+      if (digits < 6) {
+        frac = frac * 10 + (s[i] - '0');
+        digits++;
+      }
+      i++;
+    }
+    if (i == start) return "can't parse";
+    while (digits < 6) {
+      frac *= 10;
+      digits++;
+    }
+    *usec = (int)frac;
+  }
+  if (i == len) return NULL;
+  if (s[i] == ' ') i++;
+  if (i == len) return "can't parse";
+  if (!picorb_parse_offset(s + i, len - i, offset_east, utc)) {
+    return "\"+HH:MM\", \"-HH:MM\", \"UTC\" or \"A\"..\"I\",\"K\"..\"Z\" expected for utc_offset";
+  }
+  *has_zone = true;
+  return NULL;
+}
+
 /* The zone abbreviation of a local time, or NULL when the platform does
  * not know it */
 static const char *

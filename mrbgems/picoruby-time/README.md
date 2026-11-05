@@ -31,8 +31,11 @@ ENV["TZ"] = "JST-9"
 
 ## UTC, offsets and zones
 
-`Time.utc`/`Time.gm` build a UTC time, `Time.new` takes a seventh argument
-for the UTC offset (`"+09:00"`, `"UTC"`, `"Z"` or seconds), and a Time
+`Time.utc`/`Time.gm` build a UTC time and take microseconds as a seventh
+argument, `Time.new` takes a seventh argument for the UTC offset
+(`"+09:00"`, `"UTC"`, `"Z"` or seconds) or the same as `in:`, and parses
+a String (`Time.new("2026-11-05 12:00:00.5 +09:00")`, `Time.new("2026")`)
+with CRuby's grammar and errors. A Time
 converts with `utc`/`gmtime` (in place), `getutc`/`getgm`, `localtime` and
 `getlocal`. `utc?`, `utc_offset`, `zone`, `yday`, `dst?` and `to_a` report
 the fields; `zone` is `"UTC"`, the platform's abbreviation for a local

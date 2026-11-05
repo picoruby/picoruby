@@ -10,6 +10,54 @@ class TimeTest < Picotest::Test
     assert_in_delta(1234567890.0, Time.at(1234567890).to_f)
   end
 
+  def test_new_from_string
+    t = Time.new("2026-11-05 12:00:00")
+    assert_equal([2026, 11, 5, 12, 0, 0], [t.year, t.mon, t.mday, t.hour, t.min, t.sec])
+    assert_false(t.utc?)
+    t = Time.new("2026-11-05 12:00:00.5 +09:00")
+    assert_equal(500000, t.usec)
+    assert_equal(32400, t.utc_offset)
+    assert_equal(1793847600, t.to_i)
+    assert_true(Time.new("2026-11-05 12:00:00 UTC").utc?)
+    assert_equal(1793880000, Time.new("2026-11-05 12:00:00 UTC").to_i)
+    assert_true(Time.new("2026-11-05T12:00:00Z").utc?)
+    assert_equal(1793880000, Time.new("2026-11-05T12:00:00+09:00").to_i + 9 * 3600)
+    assert_equal(1793880000, Time.new("2026-11-05 12:00:00 +0900").to_i + 9 * 3600)
+    assert_equal(2026, Time.new("2026").year)
+    assert_equal([1, 1, 0], [Time.new("2026").mon, Time.new("2026").mday, Time.new("2026").hour])
+    assert_equal(123456, Time.new("2026-11-05 12:00:00.123456789").usec)
+    assert_raise(ArgumentError) { Time.new("2026-11-05") }
+    assert_raise(ArgumentError) { Time.new("2026-11-05 12:00") }
+    assert_raise(ArgumentError) { Time.new("2026-11-05 12:00:00 JST") }
+    assert_raise(ArgumentError) { Time.new("2026-11-05 25:00:00") }
+    assert_raise(ArgumentError) { Time.new(" 2026-11-05 12:00:00") }
+    assert_raise(ArgumentError) { Time.new("2026-11-05 12:00:00 ") }
+    assert_raise(ArgumentError) { Time.new("2026-1-5 1:2:3") }
+    assert_raise(ArgumentError) { Time.new("2026-11-05 12:00:00", 1) }
+  end
+
+  def test_new_in_keyword
+    assert_true(Time.new("2026-11-05 12:00:00", in: "UTC").utc?)
+    assert_equal(1793880000, Time.new("2026-11-05 12:00:00", in: "UTC").to_i)
+    assert_equal(32400, Time.new("2026-11-05 12:00:00", in: "+09:00").utc_offset)
+    # the string's own zone wins
+    assert_equal(3600, Time.new("2026-11-05 12:00:00 +01:00", in: "UTC").utc_offset)
+    assert_true(Time.new(2026, 11, 5, 12, 0, 0, in: "UTC").utc?)
+    assert_equal(1793880000, Time.new(2026, 11, 5, 12, 0, 0, in: "UTC").to_i)
+    assert_equal(32400, Time.new(2026, 11, 5, 12, 0, 0, in: "+09:00").utc_offset)
+    assert_equal(2026, Time.new(2026, in: "UTC").year)
+    assert_raise(ArgumentError) { Time.new(2026, 11, 5, 12, 0, 0, "+09:00", in: "UTC") }
+    assert_true(Time.new(in: "UTC").utc?)
+    assert_equal(32400, Time.new(in: "+09:00").utc_offset)
+  end
+
+  def test_utc_and_local_take_usec
+    assert_equal(123456, Time.utc(2026, 11, 5, 12, 0, 0, 123456).usec)
+    assert_equal(1793880000, Time.utc(2026, 11, 5, 12, 0, 0, 123456).to_i)
+    assert_equal(123456, Time.local(2026, 11, 5, 12, 0, 0, 123456).usec)
+    assert_equal(500000, Time.utc(2026, 11, 5, 12, 0, 0, 500000.0).usec)
+  end
+
   def test_local_fields
     t = Time.local(2025, 3, 4, 5, 6, 7)
     assert_equal(2025, t.year)
@@ -112,7 +160,9 @@ class TimeTest < Picotest::Test
 
   def test_wrong_number_of_arguments
     assert_raise(ArgumentError) { Time.local }
-    assert_raise(ArgumentError) { Time.local(2025, 1, 1, 0, 0, 0, 0) }
+    # the 7th argument of Time.local is the microseconds
+    assert_equal(0, Time.local(2025, 1, 1, 0, 0, 0, 0).usec)
+    assert_raise(ArgumentError) { Time.local(2025, 1, 1, 0, 0, 0, 0, 0) }
     assert_raise(ArgumentError) { Time.new(2025, 1, 1, 0, 0, 0, 0, 0) }
     # the 7th argument of Time.new is the UTC offset
     assert_equal(0, Time.new(2025, 1, 1, 0, 0, 0, 0).utc_offset)

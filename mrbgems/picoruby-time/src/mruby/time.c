@@ -186,8 +186,35 @@ zone_arg(mrb_state *mrb, mrb_value zone, bool *utc, bool *fixed, long *offset_ea
   mrb_raisef(mrb, E_ARGUMENT_ERROR, "\"+HH:MM\", \"-HH:MM\", \"UTC\" or \"A\"..\"I\",\"K\"..\"Z\" expected for utc_offset: %v", zone);
 }
 
+/* the zone of a Time, after the fact: Time.new(in: zone) */
+static void
+time_set_zone(mrb_state *mrb, mrb_value time, mrb_value zone)
+{
+  bool utc, fixed;
+  long offset_east;
+  zone_arg(mrb, zone, &utc, &fixed, &offset_east);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(time);
+  data->utc = utc;
+  data->fixed = fixed;
+  data->timezone = fixed ? -offset_east : 0;
+  time_refresh(data);
+}
+
+/* the microseconds argument of Time.local and Time.utc: an Integer or
+ * a number with a fraction */
+static int64_t
+usec_arg(mrb_state *mrb, mrb_value v)
+{
+  if (mrb_integer_p(v)) return (int64_t)mrb_integer(v);
+  if (mrb_float_p(v)) return (int64_t)(mrb_float(v) + 0.5);
+  if (mrb_respond_to(mrb, v, MRB_SYM(to_f))) {
+    return (int64_t)(mrb_as_float(mrb, mrb_funcall_id(mrb, v, MRB_SYM(to_f), 0)) + 0.5);
+  }
+  return (int64_t)Integer(v);
+}
+
 /* Time.local, Time.utc and Time.new share the fields; Time.new takes
- * a 7th zone argument */
+ * a 7th zone argument, Time.local and Time.utc a 7th microseconds one */
 static mrb_value
 time_from_fields(mrb_state *mrb, mrb_value klass, mrb_value *argv, mrb_int argc, bool utc, bool with_zone)
 {
@@ -199,14 +226,18 @@ time_from_fields(mrb_state *mrb, mrb_value klass, mrb_value *argv, mrb_int argc,
     argv = reordered;
     argc = 6;
   }
-  mrb_int nfields = with_zone && argc == 7 ? 6 : argc;
-  if (argc < 1 || (with_zone ? 7 : 6) < argc) {
-    mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 1..%d)", argc, with_zone ? 7 : 6);
+  mrb_int nfields = argc == 7 ? 6 : argc;
+  if (argc < 1 || 7 < argc) {
+    mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 1..7)", argc);
     return mrb_nil_value();
   }
   bool fixed = false;
   long offset_east = 0;
-  if (with_zone && argc == 7) zone_arg(mrb, argv[6], &utc, &fixed, &offset_east);
+  int64_t usec_extra = 0;
+  if (argc == 7) {
+    if (with_zone) zone_arg(mrb, argv[6], &utc, &fixed, &offset_east);
+    else usec_extra = usec_arg(mrb, argv[6]);
+  }
   argc = nfields;
 
   struct tm tm = {0};
@@ -265,8 +296,31 @@ time_from_fields(mrb_state *mrb, mrb_value klass, mrb_value *argv, mrb_int argc,
   }
   mrb_value time = new_from_tm(mrb, klass, &tm, utc, fixed, offset_east);
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(time);
-  data->unixtime_us += usec;
+  data->unixtime_us += usec + usec_extra;
 
+  return time;
+}
+
+/* Time.new("2026-11-05 12:00:00[.frac][ zone]"), Time.new("2026"): the
+ * string's own zone wins over in: */
+static mrb_value
+time_from_string(mrb_state *mrb, mrb_value klass, mrb_value str, mrb_value in_zone)
+{
+  struct tm tm;
+  int usec;
+  bool has_zone, utc;
+  long offset_east;
+  const char *err = picorb_parse_time_string(RSTRING_PTR(str), (size_t)RSTRING_LEN(str),
+                                             &tm, &usec, &has_zone, &utc, &offset_east);
+  if (err) {
+    if (strcmp(err, "can't parse") == 0) mrb_raisef(mrb, E_ARGUMENT_ERROR, "can't parse: %v", str);
+    mrb_raise(mrb, E_ARGUMENT_ERROR, err);
+  }
+  bool fixed = has_zone && !utc;
+  if (!has_zone && !mrb_nil_p(in_zone)) zone_arg(mrb, in_zone, &utc, &fixed, &offset_east);
+  mrb_value time = new_from_tm(mrb, klass, &tm, utc, fixed, offset_east);
+  PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(time);
+  data->unixtime_us += usec;
   return time;
 }
 
@@ -337,21 +391,45 @@ mrb_s_now(mrb_state *mrb, mrb_value klass)
 #endif
 }
 
+/* Time.new, Time.new(year, ..., sec, zone = nil, in: nil),
+ * Time.new(string, in: nil) */
 static mrb_value
 mrb_s_new(mrb_state *mrb, mrb_value klass)
 {
   mrb_value *argv;
   mrb_int argc;
-  mrb_get_args(mrb, "*", &argv, &argc);
+  const mrb_sym kw_names[1] = { MRB_SYM(in) };
+  mrb_value kw_values[1];
+  const mrb_kwargs kwargs = { 1, 0, kw_names, kw_values, NULL };
+  mrb_get_args(mrb, "*:", &argv, &argc, &kwargs);
+  mrb_value in_zone = mrb_undef_p(kw_values[0]) ? mrb_nil_value() : kw_values[0];
 
   if (argc == 0) {
-    return mrb_s_now(mrb, klass);
-  } else if (7 < argc) {
+    mrb_value now = mrb_s_now(mrb, klass);
+    if (!mrb_nil_p(in_zone)) time_set_zone(mrb, now, in_zone);
+    return now;
+  }
+  if (mrb_string_p(argv[0])) {
+    if (argc != 1) {
+      mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 1)", argc);
+    }
+    return time_from_string(mrb, klass, argv[0], in_zone);
+  }
+  if (7 < argc) {
     mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 0..7)", argc);
     return mrb_nil_value();
-  } else {
+  }
+  if (mrb_nil_p(in_zone)) {
     return time_from_fields(mrb, klass, argv, argc, false, true);
   }
+  if (argc == 7) {
+    mrb_raise(mrb, E_ARGUMENT_ERROR, "timezone argument given as positional and keyword arguments");
+  }
+  mrb_value with_in[7];
+  for (mrb_int i = 0; i < argc; i++) with_in[i] = argv[i];
+  for (mrb_int i = argc; i < 6; i++) with_in[i] = i == 1 || i == 2 ? mrb_fixnum_value(1) : mrb_fixnum_value(0);
+  with_in[6] = in_zone;
+  return time_from_fields(mrb, klass, with_in, 7, false, true);
 }
 
 /*
