@@ -13,6 +13,8 @@ module JSON
   class JSONError < StandardError; end
   class ParserError < JSONError; end
   class GeneratorError < JSONError; end
+  class NestingError < ParserError; end
+  UnparserError = GeneratorError
   class DiggerError < JSONError; end
 
   # Parser and Digger scan the source by byte offset with getbyte/byteslice.
@@ -63,12 +65,187 @@ module JSON
     end
   end
 
-  def self.parse(json)
-    JSON::Parser.new(json).parse
+  # The options of generate as an object, as CRuby's JSON::State: indent,
+  # space, space_before, object_nl, array_nl, allow_nan, max_nesting,
+  # ascii_only, depth. A library that formats JSON itself may pass one
+  # to to_json.
+  class State
+    attr_accessor :indent, :space, :space_before, :object_nl, :array_nl,
+                  :allow_nan, :max_nesting, :ascii_only, :depth, :script_safe,
+                  :strict
+
+    def self.from_state(opts)
+      case opts
+      when State then opts
+      when Hash then new(opts)
+      else new
+      end
+    end
+
+    def initialize(opts = nil)
+      @indent = ''
+      @space = ''
+      @space_before = ''
+      @object_nl = ''
+      @array_nl = ''
+      @allow_nan = false
+      @max_nesting = 100
+      @ascii_only = false
+      @depth = 0
+      @script_safe = false
+      @strict = false
+      configure(opts) if opts
+    end
+
+    def configure(opts)
+      opts.each do |key, value|
+        case key.to_sym
+        when :indent then @indent = value
+        when :space then @space = value
+        when :space_before then @space_before = value
+        when :object_nl then @object_nl = value
+        when :array_nl then @array_nl = value
+        when :allow_nan then @allow_nan = value
+        when :max_nesting then @max_nesting = value || 0
+        when :ascii_only then @ascii_only = value
+        when :depth then @depth = value
+        when :script_safe, :escape_slash then @script_safe = value
+        when :strict then @strict = value
+        end
+      end
+      self
+    end
+    alias merge configure
+
+    def allow_nan?
+      @allow_nan
+    end
+
+    def ascii_only?
+      @ascii_only
+    end
+
+    def script_safe?
+      @script_safe
+    end
+
+    def strict?
+      @strict
+    end
+
+    def check_circular?
+      @max_nesting != 0
+    end
+
+    def [](name)
+      respond_to?(name) ? __send__(name) : nil
+    end
+
+    def []=(name, value)
+      configure(name => value)
+    end
+
+    def to_h
+      { indent: @indent, space: @space, space_before: @space_before, object_nl: @object_nl,
+        array_nl: @array_nl, allow_nan: @allow_nan, max_nesting: @max_nesting,
+        ascii_only: @ascii_only, depth: @depth, script_safe: @script_safe, strict: @strict }
+    end
+    alias to_hash to_h
+
+    def generate(obj)
+      JSON::Generator.new(obj, self).generate
+    end
   end
 
-  def self.generate(obj)
-    JSON::Generator.new(obj).generate
+  PRETTY_STATE_PROTOTYPE = { indent: '  ', space: ' ', object_nl: "\n", array_nl: "\n" }
+
+  # A piece of JSON text that goes into the output as it is
+  class Fragment
+    attr_reader :json
+
+    def initialize(json)
+      @json = json
+    end
+
+    def to_json(*)
+      @json
+    end
+
+    def ==(other)
+      other.is_a?(Fragment) && other.json == @json
+    end
+  end
+
+  # parse(source, symbolize_names: false) -> the value. The other options
+  # of CRuby's parse (max_nesting, allow_nan, create_additions, freeze)
+  # are accepted and ignored.
+  def self.parse(json, opts = nil)
+    raise TypeError, "no implicit conversion of nil into String" if json.nil?
+    symbolize = opts.is_a?(Hash) && (opts[:symbolize_names] || opts["symbolize_names"]) ? true : false
+    JSON::Parser.new(json, symbolize).parse
+  end
+
+  def self.parse!(json, opts = nil)
+    parse(json, opts)
+  end
+
+  # load(source) -> the value, nil for nil or an empty source
+  def self.load(source, proc = nil, opts = nil)
+    source = source.read if source.respond_to?(:read)
+    return nil if source.nil? || source.to_s.strip.empty?
+    result = parse(source, opts)
+    proc.call(result) if proc
+    result
+  end
+
+  def self.[](object, opts = nil)
+    object.is_a?(String) ? parse(object, opts) : generate(object, opts)
+  end
+
+  # generate(obj, opts = nil) -> String; opts is a Hash or a State
+  def self.generate(obj, opts = nil)
+    JSON::Generator.new(obj, opts ? State.from_state(opts) : nil).generate
+  end
+
+  def self.unparse(obj, opts = nil)
+    generate(obj, opts)
+  end
+
+  def self.fast_generate(obj, opts = nil)
+    generate(obj, opts)
+  end
+
+  def self.pretty_generate(obj, opts = nil)
+    state = State.new(PRETTY_STATE_PROTOTYPE)
+    state.configure(opts.is_a?(State) ? opts.to_h : opts) if opts
+    JSON::Generator.new(obj, state).generate
+  end
+
+  def self.pretty_unparse(obj, opts = nil)
+    pretty_generate(obj, opts)
+  end
+
+  # dump(obj, io = nil) -> the JSON text, written to io when given
+  def self.dump(obj, io = nil, limit = nil)
+    text = generate(obj)
+    if io
+      io.write(text)
+      io
+    else
+      text
+    end
+  end
+
+  def self.state
+    State
+  end
+
+  def self.parser
+    Parser
+  end
+
+  def self.generator
+    Generator
   end
 
   # Digger class is to dig into the JSON object especially dedicated
@@ -303,8 +480,12 @@ module JSON
   class Generator
     include JSON::Common
 
-    def initialize(obj)
+    # state: nil for the compact output, or a State with the indent, the
+    # separators and allow_nan
+    def initialize(obj, state = nil)
       @obj = obj
+      @state = state
+      @depth = state ? state.depth : 0
     end
 
     def generate(obj = @obj)
@@ -313,91 +494,146 @@ module JSON
         generate_object(obj)
       when Array
         generate_array(obj)
-      when String, Symbol
+      when String
         generate_string(obj)
-      when Integer, Float
-        generate_number(obj)
+      when Symbol
+        generate_string(obj.to_s)
+      when Integer
+        obj.to_s
+      when Float
+        generate_float(obj)
       when TrueClass
         "true"
       when FalseClass
         "false"
       when NilClass
         'null'
+      when Fragment
+        obj.json
       else
-        generate_string(obj.to_s)
+        # an object with its own to_json writes itself, as in CRuby
+        if obj.respond_to?(:to_json) && !obj.method(:to_json).owner.equal?(Kernel)
+          obj.to_json(@state)
+        else
+          generate_string(obj.to_s)
+        end
       end
     end
 
     # private
 
     def generate_object(obj)
-      result = '{'
+      state = @state
       keys = obj.keys
+      keys_size = keys.size
+      return '{}' if keys_size == 0
+      @depth += 1
+      check_nesting
+      result = '{'
+      if state
+        result << state.object_nl
+        indent = state.indent * @depth
+      end
       i = 0
-      while i < keys.size
-        result += ',' if 0 < i
+      while i < keys_size
+        if 0 < i
+          result << ','
+          result << state.object_nl if state
+        end
         key = keys[i]
-        result += "#{generate_string(key)}:#{generate(obj[key])}"
+        result << indent.to_s if state
+        result << generate_string(key.is_a?(String) ? key : key.to_s)
+        result << state.space_before if state
+        result << ':'
+        result << state.space if state
+        result << generate(obj[key])
         i += 1
       end
-      result += '}'
+      @depth -= 1
+      if state
+        result << state.object_nl
+        result << state.indent * @depth
+      end
+      result << '}'
     end
 
     def generate_array(obj)
+      state = @state
+      obj_size = obj.size
+      return '[]' if obj_size == 0
+      @depth += 1
+      check_nesting
       result = '['
+      if state
+        result << state.array_nl
+        indent = state.indent * @depth
+      end
       i = 0
-      while i < obj.size
-        result += ',' if 0 < i
-        result += generate(obj[i])
+      while i < obj_size
+        if 0 < i
+          result << ','
+          result << state.array_nl if state
+        end
+        result << indent.to_s if state
+        result << generate(obj[i])
         i += 1
       end
-      result += ']'
+      @depth -= 1
+      if state
+        result << state.array_nl
+        result << state.indent * @depth
+      end
+      result << ']'
+    end
+
+    def check_nesting
+      state = @state
+      max = state ? state.max_nesting : 100
+      if max && max > 0 && @depth > max
+        raise JSON::NestingError.new("nesting of #{@depth} is too deep")
+      end
     end
 
     HEX_CHARS = "0123456789abcdef"
 
-    def generate_string(obj)
-      # Manually escape special characters since PicoRuby does not support gsub nor Regexp
-      str = obj.to_s
+    # Scans the bytes and copies each run of plain ones with one byteslice;
+    # bytes of a multibyte character pass through, so a UTF-8 string
+    # costs no per-character work.
+    def generate_string(str)
       result = '"'
-      i = 0
-      while i < str.length
-        char = str[i]
-        case char
-        when '"'
-          result += '\\"'
-        when '\\'
-          result += '\\\\'
-        when "\b"
-          result += '\\b'
-        when "\f"
-          result += '\\f'
-        when "\n"
-          result += '\\n'
-        when "\r"
-          result += '\\r'
-        when "\t"
-          result += '\\t'
-        else
-          if char
-            code = char.ord
-            if code < 0x20
-              # Escape control characters as \u00XX
-              result += '\\u00'
-              result += (HEX_CHARS[code >> 4] || '0')
-              result += (HEX_CHARS[code & 0x0f] || '0')
-            else
-              result += char
-            end
-          end
+      run_start = 0
+      index = 0
+      while byte = str.getbyte(index)
+        escaped = if byte == 34 then '\\"'
+                  elsif byte == 92 then '\\\\'
+                  elsif byte == 47 && @state && @state.script_safe? then '\\/'
+                  elsif byte >= 32 then nil
+                  elsif byte == 8 then '\\b'
+                  elsif byte == 12 then '\\f'
+                  elsif byte == 10 then '\\n'
+                  elsif byte == 13 then '\\r'
+                  elsif byte == 9 then '\\t'
+                  else '\\u00' + HEX_CHARS[byte >> 4].to_s + HEX_CHARS[byte & 0x0f].to_s
+                  end
+        if escaped
+          result << str.byteslice(run_start, index - run_start).to_s if run_start < index
+          result << escaped
+          run_start = index + 1
         end
-        i += 1
+        index += 1
       end
-      result += '"'
+      result << str.byteslice(run_start, index - run_start).to_s if run_start < index
+      result << '"'
       result
     end
 
-    def generate_number(obj)
+    def generate_float(obj)
+      if obj.nan? || obj.infinite?
+        unless @state && @state.allow_nan?
+          raise JSON::GeneratorError.new("#{obj} not allowed in JSON")
+        end
+        return obj.nan? ? 'NaN' : (obj > 0 ? 'Infinity' : '-Infinity')
+      end
       obj.to_s
     end
   end
@@ -405,9 +641,10 @@ module JSON
   class Parser
     include JSON::Common
 
-    def initialize(json)
+    def initialize(json, symbolize_names = false)
       @json = json
       @index = 0
+      @symbolize_names = symbolize_names
     end
 
     def parse
@@ -446,6 +683,7 @@ module JSON
             raise JSON::ParserError.new("Expected string key at index #{@index}")
           end
           key = parse_string
+          key = key.to_sym if @symbolize_names
           skip_whitespace
           expect(58) # ':'
           skip_whitespace
@@ -691,5 +929,13 @@ module JSON
       is_negative ? -result : result
     end
 
+  end
+end
+
+# to_json on the core classes, as the json library defines it: the
+# argument is a State or an option Hash, or nothing
+class Object
+  def to_json(state = nil)
+    JSON.generate(self, state)
   end
 end
