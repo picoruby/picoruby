@@ -40,7 +40,27 @@ mrb_value mrb_load_irep_file(mrb_state *vm, FILE* fp);
 #ifndef HEAP_SIZE
 #define HEAP_SIZE (1024 * 6400)
 #endif
-static uint8_t vm_heap[HEAP_SIZE] __attribute__((aligned(8)));
+static uint8_t vm_heap_static[HEAP_SIZE] __attribute__((aligned(8)));
+
+/* The VM heap: HEAP_SIZE bytes built in, or the number of kilobytes in
+ * PICORUBY_HEAP_SIZE when that is set, for a script that needs more
+ * than a microcontroller would have. */
+static uint8_t *
+vm_heap_alloc(size_t *size)
+{
+  const char *env = getenv("PICORUBY_HEAP_SIZE");
+  if (env && *env) {
+    long kb = strtol(env, NULL, 10);
+    uint8_t *heap = kb > 0 ? (uint8_t *)malloc((size_t)kb * 1024) : NULL;
+    if (heap) {
+      *size = (size_t)kb * 1024;
+      return heap;
+    }
+    fprintf(stderr, "PICORUBY_HEAP_SIZE=%s ignored: expected kilobytes\n", env);
+  }
+  *size = HEAP_SIZE;
+  return vm_heap_static;
+}
 
 #if defined(_WIN32) || defined(_WIN64)
 # include <io.h> /* for setmode */
@@ -470,7 +490,9 @@ main(int argc, char **argv)
     atexit(restore_termios);
   }
 #endif
-  picorb_vm_init();
+  size_t vm_heap_size;
+  uint8_t *vm_heap = vm_heap_alloc(&vm_heap_size);
+  picorb_vm_init(vm_heap, vm_heap_size);
 
   int n = -1;
   struct _args args;
