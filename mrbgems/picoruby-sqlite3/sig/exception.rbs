@@ -22,4 +22,7 @@ class SQLite3
 
   class IOException < Exception
   end
+
+  class CantOpenException < Exception
+  end
 end
