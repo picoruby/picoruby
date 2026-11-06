@@ -29,7 +29,8 @@
  * A possessive repeat (X*+, X++, X?+) gives back nothing it matched.
  * Of one character X it is written as the greedy repeat and a (?!X)
  * after it, which is exact: X*+ is X*(?!X), and X?+ is X or (?!X).
- * As in Ruby, X{n,m}+ is not possessive but (?:X{n,m})+. Of anything longer it is the greedy repeat,
+ * As in Ruby, X{n,m}+ is not possessive but (?:X{n,m})+. An atomic
+ * group (?>X) is (?:X) in the same way. Of anything longer it is the greedy repeat,
  * so a match that a possessive repeat would refuse by keeping what it
  * took is still found; with no backtracking, the possessive form has
  * no time to save here.
@@ -815,7 +816,8 @@ parse_atom(rx_parser *p, int depth)
     int name_entry = -1;
     if (p->pos + 1 < p->len && p->src[p->pos] == '?') {
       uint8_t k = p->src[p->pos + 1];
-      if (k == ':') { p->pos += 2; capture = false; }
+      /* an atomic group (?>...) is a plain one (see the header) */
+      if (k == ':' || k == '>') { p->pos += 2; capture = false; }
       else if (k == 'i' || k == 'm' || k == 'x' || k == '-') {
         p->pos += 1;
         return parse_options(p, depth);

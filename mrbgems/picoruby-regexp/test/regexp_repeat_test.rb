@@ -14,6 +14,11 @@ class RegexpRepeatTest < Picotest::Test
     assert_equal "a%41b@", "a%41b@"[/(?:%\h\h|[a-z])*+@/]
   end
 
+  def test_atomic_group_is_a_plain_group
+    assert_equal "abc", "abc"[/(?>ab|a)c/]
+    assert_equal "a", /(?>(a))b/.match("ab")[1]
+  end
+
   def test_interval_plus_is_a_repeat_of_the_repeat
     assert_equal 0, /\Aa{1,2}+a\z/ =~ "aa"
     assert_equal "aaaa", "aaaaa"[/a{2}+/]
