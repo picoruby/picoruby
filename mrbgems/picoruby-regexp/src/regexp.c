@@ -152,8 +152,8 @@ typedef void (*picorb_rx_emit)(void *ctx, const uint8_t *p, size_t n);
 typedef void (*picorb_rx_on_match)(void *ctx, const int32_t *caps, int nsave);
 typedef void (*picorb_rx_on_piece)(void *ctx, size_t b, size_t e);
 
-/* RX_MAX_GROUPS in the engine is 16, so nsave is at most 32 */
-#define PICORB_RX_MAX_NSAVE 32
+/* a pattern has at most REGEX_MAX_GROUPS groups, two positions each */
+#define PICORB_RX_MAX_NSAVE (2 * REGEX_MAX_GROUPS)
 
 /* Regexp.escape: a backslash before every byte the engine reads as
  * syntax, and \n \t \r \f \v spelled out. A space stays a space. */

@@ -16,6 +16,13 @@
 #define REGEX_EXTENDED 4u /* whitespace and # comments in the pattern
                              are not part of it ("x"); compile only */
 
+/* The capture groups a pattern may have, group 0 included. A build with
+ * the memory for more may raise it, to 64 at most; a host sizes the
+ * capture arrays it hands regex_exec by it. */
+#ifndef REGEX_MAX_GROUPS
+#define REGEX_MAX_GROUPS 16
+#endif
+
 /* "imx" -> bits; -1 on a letter that is not a flag */
 int regex_flag_bits(const char *flags, size_t len);
 

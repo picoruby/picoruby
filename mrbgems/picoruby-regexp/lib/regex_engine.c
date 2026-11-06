@@ -74,7 +74,10 @@ void regex_free(void *p);
  * allocated up front at the ceiling. */
 
 #define RX_MAX_INST   2048   /* instructions after {n,m} expansion */
-#define RX_MAX_GROUPS 16     /* capture groups including group 0 */
+#define RX_MAX_GROUPS REGEX_MAX_GROUPS  /* capture groups including group 0 */
+#if RX_MAX_GROUPS > 64
+#error "REGEX_MAX_GROUPS is at most 64 (rx_gen.open is a 64-bit set)"
+#endif
 #define RX_MAX_REPEAT 256    /* the n in {n,m} */
 #define RX_MAX_NODES  4096   /* AST nodes */
 #define RX_MAX_CLASS  65536  /* words of class-range storage */
@@ -1072,7 +1075,7 @@ typedef struct {
   const char *err;
   int call_depth;   /* \g<n> calls being written out around this point */
   int call_max;     /* how deep they may go */
-  uint32_t open;    /* bit n: group n is being written out around this point */
+  uint64_t open;    /* bit n: group n is being written out around this point */
 } rx_gen;
 
 static int
@@ -1177,12 +1180,12 @@ gen(rx_gen *g, const rx_parser *p, int n)
       /* A copy of the group inside itself (a recursive \g<n>) ends
        * before the enclosing one, whose span CRuby reports: the copy
        * leaves the group's slots alone. */
-      if (nd->x == 0 || (g->open & (1u << nd->x))) { gen(g, p, nd->a); break; }
-      g->open |= 1u << nd->x;
+      if (nd->x == 0 || (g->open & (1ull << nd->x))) { gen(g, p, nd->a); break; }
+      g->open |= 1ull << nd->x;
       emit(g, OP_SAVE, (uint32_t)(2 * nd->x), 0);
       gen(g, p, nd->a);
       emit(g, OP_SAVE, (uint32_t)(2 * nd->x + 1), 0);
-      g->open &= ~(1u << nd->x);
+      g->open &= ~(1ull << nd->x);
       break;
     case N_REP: {
       bool greedy = nd->b != 0;
