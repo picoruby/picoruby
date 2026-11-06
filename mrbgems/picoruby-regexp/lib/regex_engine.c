@@ -26,6 +26,14 @@
  * when the copies outgrow the program), and input nested deeper than
  * that does not match.
  *
+ * A possessive repeat (X*+, X++, X?+) gives back nothing it matched.
+ * Of one character X it is written as the greedy repeat and a (?!X)
+ * after it, which is exact: X*+ is X*(?!X), and X?+ is X or (?!X).
+ * As in Ruby, X{n,m}+ is not possessive but (?:X{n,m})+. Of anything longer it is the greedy repeat,
+ * so a match that a possessive repeat would refuse by keeping what it
+ * took is still found; with no backtracking, the possessive form has
+ * no time to save here.
+ *
  * Memory follows the pattern, not the limits. The compiler grows its
  * three work buffers (AST nodes, class ranges, code) from a few
  * hundred bytes as the pattern demands; the RX_MAX_* values below are
@@ -898,6 +906,41 @@ parse_braces(rx_parser *p, int *min, int *max)
   return true;
 }
 
+/* A copy of the one-character atom at index i (N_CHAR, N_ANY or N_CLASS,
+ * which have no children), or -1 when it is anything else. */
+static int
+copy_char_atom(rx_parser *p, int i)
+{
+  rx_node n = p->nodes[i];
+  if (n.t != N_CHAR && n.t != N_ANY && n.t != N_CLASS) return -1;
+  return node_new(p, n.t, n.a, n.b, n.x, n.y);
+}
+
+/* X{min,max}+ of the one-character atom at index atom (see the header):
+ * the greedy repeat, and where it can stop short of max, a (?!X) */
+static int
+possessive_char_rep(rx_parser *p, int atom, int min, int max)
+{
+  if (max == min) return node_new(p, N_REP, atom, 1, min, max);
+  if (p->look_depth + 1 > RX_MAX_LOOK_DEPTH) {
+    perr(p, "lookaround nested too deep");
+    return 0;
+  }
+  int not_x = copy_char_atom(p, atom);
+  int look = node_new(p, N_LOOK, not_x, 0, (int32_t)RX_LOOK_NEG, 0);
+  if (p->err) return 0;
+  p->nlook++;
+  if (p->look_depth + 1 > p->look_depth_max) p->look_depth_max = p->look_depth + 1;
+  if (max < 0) {
+    int rep = node_new(p, N_REP, atom, 1, min, max);
+    return node_new(p, N_CAT, rep, look, 0, 0);
+  }
+  int all = node_new(p, N_REP, atom, 1, max, max);
+  int fewer = node_new(p, N_REP, copy_char_atom(p, atom), 1, min, max - 1);
+  int stop = node_new(p, N_CAT, fewer, look, 0, 0);
+  return node_new(p, N_ALT, all, stop, 0, 0);
+}
+
 static int
 parse_repeat(rx_parser *p, int depth)
 {
@@ -908,11 +951,13 @@ parse_repeat(rx_parser *p, int depth)
     if (at_end(p)) return atom;
     uint32_t c = peek(p);
     int min, max;
+    bool braces = false;
     if (c == '*') { next(p); min = 0; max = -1; }
     else if (c == '+') { next(p); min = 1; max = -1; }
     else if (c == '?') { next(p); min = 0; max = 1; }
     else if (c == '{') {
       next(p);
+      braces = true;
       if (!parse_braces(p, &min, &max)) {
         if (p->err) return 0;
         /* a literal brace follows the atom: leave it for the caller */
@@ -926,9 +971,18 @@ parse_repeat(rx_parser *p, int depth)
       perr(p, "nothing to repeat");
       return 0;
     }
-    if (n->t == N_REP) { perr(p, "nested repetition"); return 0; }
     bool greedy = true;
     if (!at_end(p) && peek(p) == '?') { next(p); greedy = false; }
+    /* X{n,m}+ is (?:X{n,m})+ in Ruby, a repeat of the repeat */
+    else if (!braces && !at_end(p) && peek(p) == '+') {
+      next(p);
+      uint8_t t = n->t;
+      if (t == N_CHAR || t == N_ANY || t == N_CLASS) {
+        atom = possessive_char_rep(p, atom, min, max);
+        if (p->err) return 0;
+        continue;
+      }
+    }
     atom = node_new(p, N_REP, atom, greedy ? 1 : 0, min, max);
     if (p->err) return 0;
   }

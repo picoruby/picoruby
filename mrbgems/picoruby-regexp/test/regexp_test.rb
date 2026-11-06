@@ -39,7 +39,6 @@ class RegexpTest < Picotest::Test
   def test_compile_error_raises_regexp_error
     assert_raise(RegexpError) { Regexp.new("(") }
     assert_raise(RegexpError) { Regexp.new("[a") }
-    assert_raise(RegexpError) { Regexp.new("a**") }
     assert_raise(RegexpError) { Regexp.new("a{3,2}") }
   end
 
