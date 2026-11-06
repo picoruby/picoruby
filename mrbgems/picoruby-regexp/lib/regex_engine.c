@@ -20,6 +20,12 @@
  * case. Lookaround nests at most RX_MAX_LOOK_DEPTH deep, which bounds
  * the C recursion and the scratch.
  *
+ * A subexpression call \g<n> has no stack to return through either:
+ * the compiler writes group n out again where it is called. A group
+ * that calls itself is unrolled RX_MAX_CALL_DEPTH levels deep (fewer
+ * when the copies outgrow the program), and input nested deeper than
+ * that does not match.
+ *
  * Memory follows the pattern, not the limits. The compiler grows its
  * three work buffers (AST nodes, class ranges, code) from a few
  * hundred bytes as the pattern demands; the RX_MAX_* values below are
@@ -67,10 +73,14 @@ void regex_free(void *p);
 #define RX_MAX_NAMES  512    /* bytes of group-name storage */
 #define RX_MAX_NAME_LEN 64   /* bytes in one group name */
 #define RX_MAX_LOOK_DEPTH 4  /* lookaround inside lookaround */
+#define RX_MAX_CALL_DEPTH 8  /* \g<n> calls written out inside each other */
 #define RX_INIT       32     /* first size of a work buffer, in items */
 
 /* an unpatched slot in a backpatch chain */
 #define RX_NONE 0xffffffffu
+
+/* past the last codepoint: an OP_CHAR of it never matches */
+#define RX_NO_CHAR 0x110000u
 
 /* ---- flags (the public bits, regex_engine.h) ---- */
 
@@ -183,7 +193,11 @@ enum {
   N_EOL,
   N_WORDB,
   N_NWORDB,
-  N_LOOK    /* a; x = RX_LOOK_* bits | max length << RX_LOOK_SHIFT */
+  N_LOOK,   /* a; x = RX_LOOK_* bits | max length << RX_LOOK_SHIFT */
+  N_CALL    /* \g<n>: x = group number, a = its N_GROUP node (the root
+               for group 0) once resolve_calls() ran, -1 before; for
+               \g<name> until then, y = the name's byte offset in the
+               pattern and b its length, 0 for a number */
 };
 
 typedef struct {
@@ -205,6 +219,8 @@ typedef struct {
   int nnamed;         /* named groups */
   int ngroups;        /* including group 0 */
   int nlook;          /* lookarounds in the pattern */
+  int ncalls;         /* \g<...> calls */
+  int ncall_numbered; /* of them by number */
   int look_depth;     /* lookarounds open around the current position */
   int look_depth_max;
   int flags;          /* the options in force at the current position */
@@ -530,6 +546,7 @@ max_len(const rx_parser *p, int n, bool *unbounded)
     case N_CHAR: case N_ANY: case N_CLASS: v = 1; break;
     case N_GROUP: v = max_len(p, nd->a, unbounded); break;
     case N_CAT: v = max_len(p, n, unbounded); break;   /* the last alternative */
+    case N_CALL: *unbounded = true; v = 0; break;   /* may recurse */
     case N_REP:
       if (nd->y < 0) { *unbounded = true; v = 0; }
       else {
@@ -683,6 +700,83 @@ renumber_groups(rx_parser *p)
   p->ngroups = next_idx;
 }
 
+/* \g<n>, \g<-n>, \g<+n> (relative to the groups opened so far) and
+ * \g<name>, or the same in quotes, after the `\g` was seen: a call of
+ * group n, which gen() writes out in place. The group is looked up
+ * once the whole pattern is parsed (resolve_calls), as it may come
+ * later or enclose the call. A \g with neither is a g, as in CRuby. */
+static int
+parse_call(rx_parser *p)
+{
+  if (at_end(p) || (p->src[p->pos] != '<' && p->src[p->pos] != '\'')) {
+    /* CRuby warns and takes a bare \g as a g */
+    return node_new(p, N_CHAR, 0, 0, 'g', p->flags);
+  }
+  uint8_t close = p->src[p->pos] == '<' ? '>' : '\'';
+  size_t start = ++p->pos;
+  p->ncalls++;
+  while (p->pos < p->len && p->src[p->pos] != close) p->pos++;
+  if (at_end(p)) { perr(p, "unterminated group name"); return 0; }
+  size_t n = p->pos - start;
+  p->pos++;
+  const uint8_t *s = p->src + start;
+  size_t i = 0;
+  int sign = 0;
+  if (n > 0 && (s[0] == '-' || s[0] == '+')) { sign = s[0] == '-' ? -1 : 1; i = 1; }
+  if (i < n && s[i] >= '0' && s[i] <= '9') {
+    int num = 0;
+    for (; i < n; i++) {
+      if (s[i] < '0' || s[i] > '9') { perr(p, "invalid group name"); return 0; }
+      num = num * 10 + (s[i] - '0');
+      if (num > RX_MAX_GROUPS) { perr(p, "undefined group"); return 0; }
+    }
+    if (sign < 0) num = p->ngroups - num;
+    else if (sign > 0) num = p->ngroups - 1 + num;
+    if (num < 0 || (sign && num == 0)) { perr(p, "undefined group"); return 0; }
+    p->ncall_numbered++;
+    return node_new(p, N_CALL, -1, 0, num, 0);
+  }
+  if (sign || n == 0 || n > RX_MAX_NAME_LEN) { perr(p, "invalid group name"); return 0; }
+  return node_new(p, N_CALL, -1, (int32_t)n, 0, (int32_t)start);
+}
+
+/* Point every call at the group it names, once all groups are known.
+ * As in CRuby, a pattern with named groups calls them by name only. */
+static void
+resolve_calls(rx_parser *p, int root)
+{
+  for (int i = 0; i < p->nnodes && !p->err; i++) {
+    rx_node *nd = &p->nodes[i];
+    if (nd->t != N_CALL) continue;
+    int idx = nd->x;
+    if (nd->b > 0) {
+      idx = -1;
+      for (int e = 0; e < p->nnames; e += 2 + p->names[e + 1]) {
+        if (p->names[e + 1] == nd->b &&
+            memcmp(p->names + e + 2, p->src + nd->y, (size_t)nd->b) == 0) {
+          idx = p->names[e];
+          break;
+        }
+      }
+      if (idx < 0) { perr(p, "undefined name reference"); return; }
+    } else if (p->nnamed) {
+      perr(p, "numbered backref/call is not allowed (use name)");
+      return;
+    }
+    int target = -1;
+    if (idx == 0) {
+      target = root;
+    } else {
+      for (int j = 0; j < p->nnodes; j++) {
+        if (p->nodes[j].t == N_GROUP && p->nodes[j].x == idx) { target = j; break; }
+      }
+    }
+    if (target < 0) { perr(p, "undefined group"); return; }
+    nd->x = idx;
+    nd->a = target;
+  }
+}
+
 static int
 parse_atom(rx_parser *p, int depth)
 {
@@ -756,6 +850,8 @@ parse_atom(rx_parser *p, int depth)
     case 'x': case 'u':
       if (!code_escape(p, e, &lit)) return 0;
       return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
+    case 'g':
+      return parse_call(p);
     default:
       if (literal_escape(e, &lit)) return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
       if (e >= '1' && e <= '9') perr(p, "backreferences are not supported");
@@ -902,6 +998,9 @@ typedef struct {
   uint32_t *code;   /* 3 words per instruction */
   int ninst, cap;   /* cap in instructions */
   const char *err;
+  int call_depth;   /* \g<n> calls being written out around this point */
+  int call_max;     /* how deep they may go */
+  uint32_t open;    /* bit n: group n is being written out around this point */
 } rx_gen;
 
 static int
@@ -1003,10 +1102,15 @@ gen(rx_gen *g, const rx_parser *p, int n)
     case N_WORDB: emit(g, OP_WORDB, 0, 0); break;
     case N_NWORDB: emit(g, OP_NWORDB, 0, 0); break;
     case N_GROUP:
-      if (nd->x == 0) { gen(g, p, nd->a); break; }
+      /* A copy of the group inside itself (a recursive \g<n>) ends
+       * before the enclosing one, whose span CRuby reports: the copy
+       * leaves the group's slots alone. */
+      if (nd->x == 0 || (g->open & (1u << nd->x))) { gen(g, p, nd->a); break; }
+      g->open |= 1u << nd->x;
       emit(g, OP_SAVE, (uint32_t)(2 * nd->x), 0);
       gen(g, p, nd->a);
       emit(g, OP_SAVE, (uint32_t)(2 * nd->x + 1), 0);
+      g->open &= ~(1u << nd->x);
       break;
     case N_REP: {
       bool greedy = nd->b != 0;
@@ -1015,6 +1119,18 @@ gen(rx_gen *g, const rx_parser *p, int n)
       else gen_optional(g, p, nd->a, nd->y - nd->x, greedy);
       break;
     }
+    case N_CALL:
+      /* A Pike VM has no stack to return through, so a call is the
+       * group written out again here. A recursive one is unrolled
+       * call_max deep; the innermost copy matches nothing. */
+      if (g->call_depth >= g->call_max) {
+        emit(g, OP_CHAR, RX_NO_CHAR, 0);
+        break;
+      }
+      g->call_depth++;
+      gen(g, p, nd->a);
+      g->call_depth--;
+      break;
     case N_LOOK: {
       /* LOOK runs the body as a sub-match and falls through to the
        * JMP, which steps over the body; the body ends in LMATCH */
@@ -1056,15 +1172,28 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
   int root = parse_alt(&p, 0);
   if (!p.err && !at_end(&p)) perr(&p, "unmatched )");
   if (!p.err && p.nnamed) renumber_groups(&p);
+  if (!p.err) resolve_calls(&p, root);
 
   rx_gen g;
   memset(&g, 0, sizeof g);
   uint32_t *prog = NULL;
   if (!p.err) {
-    emit(&g, OP_SAVE, 0, 0);
-    gen(&g, &p, root);
-    emit(&g, OP_SAVE, 1, 0);
-    emit(&g, OP_MATCH, 0, 0);
+    /* Each level of recursion a call is unrolled to copies the group
+     * again; when that outgrows the program, settle for fewer. */
+    for (g.call_max = RX_MAX_CALL_DEPTH; ; g.call_max--) {
+      emit(&g, OP_SAVE, 0, 0);
+      gen(&g, &p, root);
+      emit(&g, OP_SAVE, 1, 0);
+      emit(&g, OP_MATCH, 0, 0);
+      if (!g.err || !p.ncalls || g.call_max <= 1 ||
+          strcmp(g.err, "program too large") != 0) {
+        break;
+      }
+      g.err = NULL;
+      g.ninst = 0;
+      g.call_depth = 0;
+      g.open = 0;
+    }
     if (g.err) { *err = g.err; *err_at = 0; }
   } else {
     *err = p.err; *err_at = p.err_at;

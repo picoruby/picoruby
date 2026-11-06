@@ -95,6 +95,60 @@ class RegexpTest < Picotest::Test
     assert_true /(?-x: a)b/x.match?(" ab")
   end
 
+  # ---- Subexpression calls ----
+
+  def test_call_by_number
+    md = /(a|b)\g<1>/.match("ab")
+    assert_equal "ab", md[0]
+    assert_equal "b", md[1]
+    assert_equal "xx", /(x)\g<-1>/.match("xx")[0]
+    assert_equal "yy", /\g<+1>(y)/.match("yy")[0]
+  end
+
+  def test_recursive_call
+    re = /\A(\((?:\g<1>)*\))\z/
+    assert_true re.match?("(()(()))")
+    assert_false re.match?("(()")
+    md = /\A(\w+\((?:|\g<1>)\))\z/.match("count(max())")
+    assert_equal "count(max())", md[1]
+    assert_equal "((a))", /(?:a|\(\g<0>\))/.match("((a))")[0]
+  end
+
+  def test_call_by_name
+    re = /\A(?<p>\((?:\g<p>)*\))\z/
+    assert_true re.match?("((()))")
+    assert_equal "((()))", re.match("((()))")[:p]
+    assert_equal "ab", /(?<x>a|b)\g'x'/.match("ab")[0]
+  end
+
+  def test_call_errors
+    assert_raise(RegexpError) { Regexp.new("(a)\\g<2>") }
+    assert_raise(RegexpError) { Regexp.new("(?<n>a)\\g<1>") }
+    assert_raise(RegexpError) { Regexp.new("(?<n>a)\\g<m>") }
+    assert_raise(RegexpError) { Regexp.new("\\g<-1>") }
+    assert_raise(RegexpError) { Regexp.new("\\g<") }
+    # CRuby warns and takes it as a g
+    assert_true Regexp.new("a\\gb").match?("agb")
+  end
+
+  def test_extended_with_recursive_calls
+    re = /
+      \A
+      (
+        (?:
+          # "table_name"."column_name" | function(one or no argument)
+          ((?:\w+\.|"\w+"\.)?(?:\w+|"\w+") | \w+\((?:|\g<2>)\))
+        )
+        (?:(?:\s+AS)?\s+(?:\w+|"\w+"))?
+      )
+      (?:\s*,\s*\g<1>)*
+      \z
+    /ix
+    assert_true re.match?("title")
+    assert_true re.match?(%q{"posts"."title", count(id) AS n, max(lower(name))})
+    assert_false re.match?("title; DROP TABLE posts")
+  end
+
   def test_interpolated_regexp_keeps_its_options
     inner = /ab/i
     re = /#{inner}c/
