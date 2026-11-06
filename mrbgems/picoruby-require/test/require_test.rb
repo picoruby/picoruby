@@ -66,4 +66,16 @@ class RequireTest < Picotest::Test
     end
     assert_equal [], @loaded
   end
+
+  def test_load_error_path_is_the_name_as_given
+    return unless RUBY_ENGINE == "mruby" # mruby/c has no LoadError#path
+    stub(File).file? { false }
+    error = nil
+    begin
+      require_file "nope"
+    rescue LoadError => e
+      error = e
+    end
+    assert_equal "nope", error&.path
+  end
 end

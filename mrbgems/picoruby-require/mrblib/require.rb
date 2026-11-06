@@ -1,4 +1,10 @@
-class LoadError < StandardError; end
+class LoadError < StandardError
+  if RUBY_ENGINE == "mruby"
+    # The feature that could not be loaded, as given to require or load.
+    # mruby/c exceptions carry no instance variables.
+    attr_accessor :path
+  end
+end
 
 module Kernel
 
@@ -23,6 +29,12 @@ module Kernel
 
   # private
 
+  def load_error(name)
+    e = LoadError.new("cannot load such file -- #{name}")
+    e.path = name if e.respond_to?(:path=)
+    e
+  end
+
   def required?(name)
     $LOADED_FEATURES.include?(name)
   end
@@ -45,7 +57,7 @@ module Kernel
       lpi += 1
     end
     if path.empty?
-      raise LoadError, "cannot load such file -- #{name_with_ext}"
+      raise load_error(name_with_ext)
     else
       sandbox = Sandbox.new('require')
       begin
@@ -88,7 +100,7 @@ module Kernel
       end
       lpi += 1
     end
-    raise LoadError, "cannot load such file -- #{name}"
+    raise load_error(name)
   end
 
 end

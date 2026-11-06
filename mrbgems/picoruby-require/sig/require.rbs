@@ -1,7 +1,12 @@
 RITE_VERSION: String
 
+class LoadError
+  attr_writer path: String?
+end
+
 module Kernel
   private def load_paths: (String name) -> Array[String]
+  private def load_error: (String name) -> LoadError
   private def required?: (String name) -> bool
   private def load_file: (String path) -> bool
   private def require_file: (String name) -> bool
