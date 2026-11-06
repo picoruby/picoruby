@@ -316,16 +316,30 @@ at_end(rx_parser *p)
   return p->pos >= p->len;
 }
 
-/* In extended mode (x) whitespace, and a # with the rest of its line,
- * are not part of the pattern outside a character class; `\ ` and
- * `\#` stay literal. Called where an atom or a quantifier may start. */
+/* A (?#...) comment is not part of the pattern, and in extended mode (x)
+ * neither is whitespace, nor a # with the rest of its line, outside a
+ * character class; `\ ` and `\#` stay literal. Called where an atom or
+ * a quantifier may start, so a quantifier after a comment applies to
+ * the atom before it, as in Ruby. */
 static void
 skip_extended(rx_parser *p)
 {
-  if (!(p->flags & RX_EXTENDED)) return;
+  bool x = (p->flags & RX_EXTENDED) != 0;
   while (p->pos < p->len) {
     uint8_t c = p->src[p->pos];
-    if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v') {
+    /* a (?#...) comment, in any mode; a backslash escapes the next byte */
+    if (c == '(' && p->pos + 2 < p->len && p->src[p->pos + 1] == '?' &&
+        p->src[p->pos + 2] == '#') {
+      p->pos += 3;
+      while (p->pos < p->len && p->src[p->pos] != ')') {
+        if (p->src[p->pos] == '\\') p->pos++;
+        p->pos++;
+      }
+      if (p->pos >= p->len) { perr(p, "end pattern in group"); return; }
+      p->pos++;
+    } else if (!x) {
+      break;
+    } else if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v') {
       p->pos++;
     } else if (c == '#') {
       while (p->pos < p->len && p->src[p->pos] != '\n') p->pos++;
@@ -948,6 +962,7 @@ parse_repeat(rx_parser *p, int depth)
   if (p->err) return 0;
   for (;;) {
     skip_extended(p);
+    if (p->err) return 0;
     if (at_end(p)) return atom;
     uint32_t c = peek(p);
     int min, max;
