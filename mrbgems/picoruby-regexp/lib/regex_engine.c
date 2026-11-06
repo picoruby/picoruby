@@ -670,7 +670,7 @@ parse_look(rx_parser *p, int depth, uint32_t look)
 }
 
 /* The name of a (?<name>...) group, up to the closing byte close:
- * a word that does not start with a digit, as in CRuby. Appends an
+ * any bytes that do not start with a digit or a minus, as in CRuby. Appends an
  * entry [group, length, bytes...] to p->names and returns its offset,
  * with the group slot still to be filled in by the caller; -1 on an
  * error. */
@@ -678,13 +678,16 @@ static int
 parse_group_name(rx_parser *p, uint8_t close)
 {
   size_t start = p->pos;
-  while (p->pos < p->len && p->src[p->pos] != close) {
+  /* As in Onigmo, any byte but the closing one; only the first may not
+     be a digit or a minus, as in Onigmo */
+  if (p->pos < p->len) {
     uint8_t c = p->src[p->pos];
-    bool word = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-                c == '_' || c >= 0x80 || (c >= '0' && c <= '9' && p->pos > start);
-    if (!word) { perr(p, "invalid group name"); return -1; }
-    p->pos++;
+    if ((c >= '0' && c <= '9') || c == '-') {
+      perr(p, "invalid group name");
+      return -1;
+    }
   }
+  while (p->pos < p->len && p->src[p->pos] != close) p->pos++;
   size_t n = p->pos - start;
   if (n == 0 || n > RX_MAX_NAME_LEN) {
     p->pos = start;
