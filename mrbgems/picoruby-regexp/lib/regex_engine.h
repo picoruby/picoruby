@@ -13,8 +13,10 @@
 
 #define REGEX_ICASE  1u   /* ASCII-only case folding ("i") */
 #define REGEX_DOTALL 2u   /* `.` also matches a newline ("m") */
+#define REGEX_EXTENDED 4u /* whitespace and # comments in the pattern
+                             are not part of it ("x"); compile only */
 
-/* "im" -> bits; -1 on a letter that is not a flag */
+/* "imx" -> bits; -1 on a letter that is not a flag */
 int regex_flag_bits(const char *flags, size_t len);
 
 /* Compile a pattern to program words (regex_malloc'd; the caller frees

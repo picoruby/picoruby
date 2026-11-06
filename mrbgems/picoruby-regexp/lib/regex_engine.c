@@ -76,6 +76,7 @@ void regex_free(void *p);
 
 #define RX_ICASE  REGEX_ICASE
 #define RX_DOTALL REGEX_DOTALL
+#define RX_EXTENDED REGEX_EXTENDED
 
 int
 regex_flag_bits(const char *flags, size_t len)
@@ -84,6 +85,7 @@ regex_flag_bits(const char *flags, size_t len)
   for (size_t i = 0; i < len; i++) {
     if (flags[i] == 'i') bits |= (int)RX_ICASE;
     else if (flags[i] == 'm') bits |= (int)RX_DOTALL;
+    else if (flags[i] == 'x') bits |= (int)RX_EXTENDED;
     else return -1;
   }
   return bits;
@@ -288,6 +290,25 @@ static bool
 at_end(rx_parser *p)
 {
   return p->pos >= p->len;
+}
+
+/* In extended mode (x) whitespace, and a # with the rest of its line,
+ * are not part of the pattern outside a character class; `\ ` and
+ * `\#` stay literal. Called where an atom or a quantifier may start. */
+static void
+skip_extended(rx_parser *p)
+{
+  if (!(p->flags & RX_EXTENDED)) return;
+  while (p->pos < p->len) {
+    uint8_t c = p->src[p->pos];
+    if (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v') {
+      p->pos++;
+    } else if (c == '#') {
+      while (p->pos < p->len && p->src[p->pos] != '\n') p->pos++;
+    } else {
+      break;
+    }
+  }
 }
 
 static uint32_t
@@ -548,9 +569,7 @@ starts_with_bol(const rx_parser *p, int n)
 }
 
 /* (?imx-imx:...) scopes options to its body and (?imx-imx) sets them
- * for the rest of the enclosing group, both after the `(?` was seen.
- * i and m are the public flags; x is accepted and ignored, since the
- * pattern is taken as written. */
+ * for the rest of the enclosing group, both after the `(?` was seen. */
 static int
 parse_options(rx_parser *p, int depth)
 {
@@ -561,7 +580,7 @@ parse_options(rx_parser *p, int depth)
     uint8_t c = p->src[p->pos];
     if (c == 'i') flags = on ? flags | RX_ICASE : flags & ~RX_ICASE;
     else if (c == 'm') flags = on ? flags | RX_DOTALL : flags & ~RX_DOTALL;
-    else if (c == 'x') { /* taken as written either way */ }
+    else if (c == 'x') flags = on ? flags | RX_EXTENDED : flags & ~RX_EXTENDED;
     else if (c == '-') on = false;
     else if (c == ':') {
       p->pos++;
@@ -789,6 +808,7 @@ parse_repeat(rx_parser *p, int depth)
   int atom = parse_atom(p, depth);
   if (p->err) return 0;
   for (;;) {
+    skip_extended(p);
     if (at_end(p)) return atom;
     uint32_t c = peek(p);
     int min, max;
@@ -845,7 +865,9 @@ static int
 parse_cat(rx_parser *p, int depth)
 {
   int root = -1, tail = -1;
-  while (!at_end(p) && !p->err) {
+  for (;;) {
+    skip_extended(p);
+    if (at_end(p) || p->err) break;
     uint32_t c = peek(p);
     if (c == '|' || c == ')') break;
     int r = parse_repeat(p, depth);

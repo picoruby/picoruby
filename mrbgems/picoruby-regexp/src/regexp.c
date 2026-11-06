@@ -26,8 +26,7 @@
 #define PICORB_RX_MULTILINE  4
 
 /* Option letters -> Ruby option bits. Returns -1 on a letter that is
- * not an option. 'x' is accepted and kept in the options, but the
- * engine has no extended mode: the pattern is taken as written. */
+ * not an option. */
 static int
 picorb_rx_options_from_letters(const char *s, size_t len)
 {
@@ -50,6 +49,7 @@ picorb_rx_engine_flags(int options)
   int flags = 0;
   if (options & PICORB_RX_IGNORECASE) flags |= (int)REGEX_ICASE;
   if (options & PICORB_RX_MULTILINE) flags |= (int)REGEX_DOTALL;
+  if (options & PICORB_RX_EXTENDED) flags |= (int)REGEX_EXTENDED;
   return flags;
 }
 

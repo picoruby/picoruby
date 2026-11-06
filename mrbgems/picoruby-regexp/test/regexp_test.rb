@@ -66,6 +66,35 @@ class RegexpTest < Picotest::Test
     assert_false /(?:a(?i)b)c/.match?("aBC")
   end
 
+  # ---- Extended mode ----
+
+  def test_extended_ignores_whitespace_and_comments
+    re = /
+      \A (\d+)   # digits
+      \s* - \s*  # a dash
+      ([a-z]+) \z
+    /x
+    md = re.match("12 - ab")
+    assert_equal ["12", "ab"], [md[1], md[2]]
+    assert_false re.match?("12-ab ")
+    assert_true Regexp.new("a b # c", "x").match?("ab")
+    assert_true Regexp.new("a b", Regexp::EXTENDED).match?("ab")
+  end
+
+  def test_extended_keeps_escaped_whitespace_classes_and_quantifiers
+    assert_true /a\ b/x.match?("a b")
+    assert_false /a\ b/x.match?("ab")
+    assert_true /a\#b/x.match?("a#b")
+    assert_true /[ ]/x.match?(" ")
+    assert_equal "aaa", /a +/x.match("aaa")[0]
+  end
+
+  def test_extended_inline_option
+    assert_true /(?x: a b )c/.match?("abc")
+    assert_true /a(?x) b c/.match?("abc")
+    assert_true /(?-x: a)b/x.match?(" ab")
+  end
+
   def test_interpolated_regexp_keeps_its_options
     inner = /ab/i
     re = /#{inner}c/
