@@ -480,19 +480,57 @@ hex_value(uint8_t c)
   return -1;
 }
 
+/* The byte of \xHH after the x has been read: -1 when the digits are
+ * missing. */
+static int
+hex_byte_escape(rx_parser *p)
+{
+  int v = 0;
+  int n = 0;
+  while (n < 2 && !at_end(p) && hex_value(p->src[p->pos]) >= 0) {
+    v = v * 16 + hex_value(p->src[p->pos++]);
+    n++;
+  }
+  return n == 0 ? -1 : v;
+}
+
 /* The codepoint of \xHH, \uHHHH or \u{H...} after the x or u has been
- * read: false when the digits are missing or the value is no codepoint. */
+ * read: false when the digits are missing or the value is no codepoint.
+ * A \xHH from 0x80 up is the lead byte of a UTF-8 sequence that the
+ * \xHH escapes right after it complete, as Ruby reads them in a UTF-8
+ * pattern: /\xE3\x81\x82/ is /あ/, and a byte that leaves the sequence
+ * incomplete or invalid is an error. */
 static bool
 code_escape(rx_parser *p, uint32_t e, uint32_t *out)
 {
   uint32_t v = 0;
   int n = 0;
   if (e == 'x') {
-    while (n < 2 && !at_end(p) && hex_value(p->src[p->pos]) >= 0) {
-      v = v * 16 + (uint32_t)hex_value(p->src[p->pos++]);
-      n++;
+    int b = hex_byte_escape(p);
+    if (b < 0) { perr(p, "invalid hex escape"); return false; }
+    v = (uint32_t)b;
+    if (v >= 0x80) {
+      int more;
+      uint32_t min;
+      if (v >= 0xC2 && v <= 0xDF) { more = 1; v &= 0x1F; min = 0x80; }
+      else if (v >= 0xE0 && v <= 0xEF) { more = 2; v &= 0x0F; min = 0x800; }
+      else if (v >= 0xF0 && v <= 0xF4) { more = 3; v &= 0x07; min = 0x10000; }
+      else { perr(p, "invalid multibyte escape"); return false; }
+      while (more-- > 0) {
+        if (p->len - p->pos < 2 || p->src[p->pos] != '\\' || p->src[p->pos + 1] != 'x') {
+          perr(p, "invalid multibyte escape");
+          return false;
+        }
+        p->pos += 2;
+        b = hex_byte_escape(p);
+        if (b < 0x80 || b > 0xBF) { perr(p, "invalid multibyte escape"); return false; }
+        v = (v << 6) | ((uint32_t)b & 0x3F);
+      }
+      if (v < min || v > 0x10FFFF || (v >= 0xD800 && v <= 0xDFFF)) {
+        perr(p, "invalid multibyte escape");
+        return false;
+      }
     }
-    if (n == 0) { perr(p, "invalid hex escape"); return false; }
   } else if (!at_end(p) && p->src[p->pos] == '{') {
     p->pos++;
     while (!at_end(p) && hex_value(p->src[p->pos]) >= 0) {
