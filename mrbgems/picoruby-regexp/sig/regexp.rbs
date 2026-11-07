@@ -16,6 +16,7 @@ class String
   def __scan: (Regexp re) -> Array[untyped]
   def __split: (Regexp re, Integer limit) -> Array[String]
   def __split_str: (*untyped args) -> Array[String]
+  def __slice_bang_str: (*untyped args) -> String?
 end
 
 # @added_by picoruby-regexp

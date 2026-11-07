@@ -25,7 +25,7 @@ simulation that carries capture positions) runs the program.
 | `Regexp` (class) | `compile(pattern, options = nil, encoding = nil)`, `new` (the same), `escape(str)`, `union(*patterns)` |
 | `Regexp` | `match(str, pos = 0)`, `match?(str, pos = 0)`, `===`, `=~`, `source`, `to_s`, `inspect`, `casefold?`, `options` |
 | `MatchData` | `[]`, `to_a`, `captures`, `length`, `size`, `string`, `regexp`, `pre_match`, `post_match`, `begin(n)`, `end(n)`, `byteoffset(n)`, `to_s`, `inspect` |
-| `String` | `match(pattern, pos = 0)`, `match?(pattern, pos = 0)`, `=~`, `sub`, `sub!`, `gsub`, `gsub!`, `scan`, `split`, `index`, `rindex`, `[]`, `slice`, `partition`, `rpartition` |
+| `String` | `match(pattern, pos = 0)`, `match?(pattern, pos = 0)`, `=~`, `sub`, `sub!`, `gsub`, `gsub!`, `scan`, `split`, `index`, `rindex`, `[]`, `slice`, `slice!`, `partition`, `rpartition`, `start_with?` |
 | globals | `$~`, `$&`, `$1` to `$9`, `` $` ``, `$'`, `$+` |
 
 `options` is a String of letters (`"im"`) or an Integer built from
@@ -51,7 +51,8 @@ On mruby/c the block forms run in Ruby (`mrblib/regexp.rb`) over byte
 offsets that the C side reports, because C code cannot call a block there.
 Everything else runs in C on both VMs.
 
-`index`, `rindex`, `[]`, `slice`, `partition` and `rpartition` take a Regexp.
+`index`, `rindex`, `[]`, `slice`, `slice!`, `partition`, `rpartition` and
+`start_with?` take a Regexp.
 With any other argument they behave as the VM's own methods do. On mruby/c
 `rindex`, `partition` and `rpartition` are new, for a String pattern too.
 `str[re, n]` takes a group number; group names are not supported.
@@ -103,7 +104,7 @@ the reason and the byte offset in the pattern.
   quantifiers, `\x`, `\u`, `\p{...}` and POSIX classes.
 - `$~` is one global for the whole program, not one per method call.
 - `sub` and `gsub` do not expand `` \` ``, `\'` or `\k<name>`.
-- `String#slice!`, `[]=` and `Symbol#match` do not take a Regexp.
+- `String#[]=` and `Symbol#match` do not take a Regexp.
   `Regexp.union` with no pattern gives `/.\A/`, not `/(?!)/`.
 
 ## Example
