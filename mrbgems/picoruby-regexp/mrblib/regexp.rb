@@ -38,6 +38,26 @@ class Regexp
   end
 end
 
+class MatchData
+  # [] takes a Range or a start and a length too, over to_a, as Array#[]
+  # does; a group number or name stays with the C method.
+  alias __aref_group []
+
+  def [](*args)
+    list = args #: Array[untyped]
+    if list.size == 2
+      part = to_a[list[0], list[1]] #: untyped
+      return part
+    end
+    idx = list[0]
+    if idx.is_a?(Range)
+      part = to_a[idx] #: untyped
+      return part
+    end
+    __aref_group(idx)
+  end
+end
+
 class String
   # the String and nil forms of split stay with the VM's own split
   alias __split_str split
