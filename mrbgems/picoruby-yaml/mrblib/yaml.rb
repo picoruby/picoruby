@@ -76,7 +76,7 @@ module YAML
           current_object << new_item
           stack.push(new_item)
           indent_stack.push(indent)
-        elsif value.include?(': ') || value.end_with?(':')
+        elsif !quoted?(value) && (value.include?(': ') || value.end_with?(':'))
           # `- key: value` opens a Hash item. Its other keys follow at
           # the column of this key, so the item stays on the stack at the
           # dash's indent and a key of a nested value at its own column.
@@ -114,7 +114,30 @@ module YAML
     stack[0]
   end
 
+  # A scalar, a quoted string ("..." with escapes, '...' with ''), a flow
+  # sequence or mapping, ~ (nil) or a :symbol, as Psych reads them; a
+  # # comment after a plain value is not part of it.
   def self.parse_value(value)
+    value = value.strip
+    first = value.getbyte(0)
+    if first == 34 # "
+      r = parse_double_quoted(value)
+      return r if r
+    elsif first == 39 # '
+      r = parse_single_quoted(value)
+      return r if r
+    elsif first == 91 # [
+      r = parse_flow(value, 93)
+      return r if r
+    elsif first == 123 # {
+      r = parse_flow(value, 125)
+      return r if r
+    end
+    value = strip_comment(value)
+    return nil if value == "~"
+    if first == 58 && 1 < value.bytesize && !value.include?(" ") # :symbol
+      return value.byteslice(1, value.bytesize - 1).to_s.to_sym
+    end
     if is_integer?(value)
       value.to_i
     elsif is_float?(value)
@@ -177,7 +200,153 @@ module YAML
 
   def self.split_key_value(string)
     parts = string.split(':', 2)
-    [parts[0].strip, parts[1]&.strip]
+    key = parts[0].strip
+    key = parse_value(key).to_s if quoted?(key)
+    [key, parts[1]&.strip]
+  end
+
+  def self.quoted?(string)
+    first = string.getbyte(0)
+    first == 34 || first == 39
+  end
+
+  # plain text up to a " #" that starts a comment
+  def self.strip_comment(value)
+    i = 1
+    n = value.bytesize
+    while i < n
+      if value.getbyte(i) == 35 && value.getbyte(i - 1) == 32 # " #"
+        return value.byteslice(0, i - 1).to_s.strip
+      end
+      i += 1
+    end
+    value
+  end
+
+  # "..." with its escapes; nil when no quote closes it
+  def self.parse_double_quoted(value)
+    out = ""
+    i = 1
+    n = value.bytesize
+    while i < n
+      c = value.getbyte(i)
+      return out if c == 34
+      if c == 92 # backslash
+        i += 1
+        e = value.getbyte(i)
+        if e == 110 then out << "\n"
+        elsif e == 116 then out << "\t"
+        elsif e == 114 then out << "\r"
+        elsif e == 48 then out << "\0"
+        elsif e == 101 then out << "\e"
+        elsif e == 97 then out << "\a"
+        elsif e == 98 then out << "\b"
+        elsif e == 102 then out << "\f"
+        elsif e == 118 then out << "\v"
+        elsif e == 120 || e == 117 || e == 85 # \xXX \uXXXX \UXXXXXXXX
+          len = e == 120 ? 2 : (e == 117 ? 4 : 8)
+          hex = value.byteslice(i + 1, len).to_s
+          out << utf8_char(hex.to_i(16))
+          i += len
+        else
+          out << value.byteslice(i, 1).to_s
+        end
+      else
+        out << value.byteslice(i, 1).to_s
+      end
+      i += 1
+    end
+    nil
+  end
+
+  # '...' where '' stands for '; nil when no quote closes it
+  def self.parse_single_quoted(value)
+    out = ""
+    i = 1
+    n = value.bytesize
+    while i < n
+      c = value.getbyte(i)
+      if c == 39
+        return out unless value.getbyte(i + 1) == 39
+        out << "'"
+        i += 2
+        next
+      end
+      out << value.byteslice(i, 1).to_s
+      i += 1
+    end
+    nil
+  end
+
+  # [a, b] or {k: v}, items split at commas outside quotes and brackets;
+  # nil when nothing closes it
+  def self.parse_flow(value, close)
+    items = [] #: Array[String]
+    depth = 0
+    quote = 0
+    start = 1
+    i = 1
+    n = value.bytesize
+    while i < n
+      c = value.getbyte(i)
+      if quote != 0
+        if c == 92 && quote == 34
+          i += 1
+        elsif c == quote
+          quote = 0
+        end
+      elsif c == 34 || c == 39
+        quote = c
+      elsif c == 91 || c == 123
+        depth += 1
+      elsif (c == 93 || c == 125) && 0 < depth
+        depth -= 1
+      elsif c == close && depth == 0
+        items << value.byteslice(start, i - start).to_s
+        break
+      elsif c == 44 && depth == 0 # ,
+        items << value.byteslice(start, i - start).to_s
+        start = i + 1
+      end
+      i += 1
+    end
+    return nil if n <= i
+    if close == 93
+      list = [] #: Array[untyped]
+      j = 0
+      while j < items.size
+        item = items[j].strip
+        list << parse_value(item) unless item.empty? && items.size == 1
+        j += 1
+      end
+      list
+    else
+      hash = {} #: Hash[untyped, untyped]
+      j = 0
+      while j < items.size
+        item = items[j].strip
+        unless item.empty?
+          k, v = split_key_value(item)
+          hash[k] = v.nil? || v.empty? ? nil : parse_value(v)
+        end
+        j += 1
+      end
+      hash
+    end
+  end
+
+  # the UTF-8 bytes of codepoint cp
+  def self.utf8_char(cp)
+    if cp < 0x80
+      cp.chr
+    elsif cp < 0x800
+      (0xc0 | (cp >> 6)).chr + (0x80 | (cp & 0x3f)).chr
+    elsif cp < 0x10000
+      (0xe0 | (cp >> 12)).chr + (0x80 | ((cp >> 6) & 0x3f)).chr + (0x80 | (cp & 0x3f)).chr
+    else
+      (0xf0 | (cp >> 18)).chr + (0x80 | ((cp >> 12) & 0x3f)).chr +
+        (0x80 | ((cp >> 6) & 0x3f)).chr + (0x80 | (cp & 0x3f)).chr
+    end
   end
 
   def self.parse_list_item(string)

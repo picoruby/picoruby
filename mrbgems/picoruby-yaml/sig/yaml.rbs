@@ -6,7 +6,13 @@ module YAML
   def self.dump: (Object) -> String
 
   private def self.parse: (String) -> untyped
-  private def self.parse_value: (String) -> (Integer | Float | bool | nil | String)
+  private def self.parse_value: (String) -> untyped
+  private def self.quoted?: (String) -> bool
+  private def self.strip_comment: (String) -> String
+  private def self.parse_double_quoted: (String) -> String?
+  private def self.parse_single_quoted: (String) -> String?
+  private def self.parse_flow: (String, Integer) -> (Array[untyped] | Hash[untyped, untyped] | nil)
+  private def self.utf8_char: (Integer) -> String
   private def self.serialize: (Object, ?Integer) -> String
   private def self.count_leading_spaces: (String) -> Integer
   private def self.split_key_value: (String) -> [String, (String|nil)]

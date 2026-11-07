@@ -1,6 +1,6 @@
 # picoruby-yaml is a small parser and generator: a document is a Hash of
 # scalars, nested Hashes and lists of scalars. The tests cover what the
-# README promises; quoting, anchors and tags are out of scope.
+# README promises; anchors and tags are out of scope.
 class YAMLTest < Picotest::Test
   def test_load_scalars
     doc = YAML.load("a: 1\nb: 2.5\nc: true\nd: false\ne: null\nf: hello world\ng: -3\n")
