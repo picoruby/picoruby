@@ -170,12 +170,28 @@ class String
   # Every match: the matched text, or the Array of groups when the
   # pattern has any. With a block each match is yielded instead.
   def scan(pattern, &block)
-    matches = __scan(__regexp_for(pattern))
-    return matches unless block
-    i = 0
-    while i < matches.size
-      block.call(matches[i])
-      i += 1
+    re = __regexp_for(pattern)
+    return __scan(re) unless block
+    # With a block, $~ is each match as it is yielded, as in CRuby. The
+    # matches are read from a copy, which the block cannot change.
+    src = self.dup
+    len = src.bytesize
+    pos = 0
+    while pos <= len
+      md = re.__bmatch(src, pos)
+      break unless md
+      pair = md.byteoffset(0) #: [Integer, Integer]
+      b = pair[0]
+      e = pair[1]
+      $~ = md
+      caps = md.captures
+      block.call(caps.empty? ? md[0] : caps)
+      if e == b
+        break if len <= b
+        pos = b + __charlen_at(src, b)
+      else
+        pos = e
+      end
     end
     self
   end
