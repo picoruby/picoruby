@@ -103,8 +103,8 @@ the reason and the byte offset in the pattern.
   quantifiers, `\x`, `\u`, `\p{...}` and POSIX classes.
 - `$~` is one global for the whole program, not one per method call.
 - `sub` and `gsub` do not expand `` \` ``, `\'` or `\k<name>`.
-- `String#start_with?`, `slice!`, `[]=` and `Symbol#match` do not take a
-  Regexp. `Regexp.union` with no pattern gives `/.\A/`, not `/(?!)/`.
+- `String#slice!`, `[]=` and `Symbol#match` do not take a Regexp.
+  `Regexp.union` with no pattern gives `/.\A/`, not `/(?!)/`.
 
 ## Example
 

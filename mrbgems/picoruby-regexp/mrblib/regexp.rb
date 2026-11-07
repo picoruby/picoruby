@@ -42,6 +42,29 @@ class String
   # the String and nil forms of split stay with the VM's own split
   alias __split_str split
 
+  # start_with? takes a Regexp too, which must match at the start; $~
+  # follows the last Regexp tried, as in CRuby. A String prefix is
+  # compared here, since a build may have no start_with? of its own.
+  def start_with?(*prefixes)
+    i = 0
+    n = prefixes.size
+    while i < n
+      pre = prefixes[i] #: untyped
+      if pre.is_a?(Regexp)
+        md = pre.__bmatch(self, 0)
+        md = nil if md && md.byteoffset(0)[0] != 0
+        $~ = md
+        return true if md
+      elsif pre.is_a?(String)
+        return true if byteslice(0, pre.bytesize) == pre
+      else
+        raise TypeError, "no implicit conversion of #{pre.class} into String"
+      end
+      i += 1
+    end
+    false
+  end
+
   # The Regexp a pattern argument stands for. A String matches itself.
   def __regexp_for(pattern)
     return pattern if pattern.is_a?(Regexp)
