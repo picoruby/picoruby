@@ -461,7 +461,6 @@ literal_escape(uint32_t e, uint32_t *out)
   case 'f': *out = '\f'; return true;
   case 'v': *out = '\v'; return true;
   case 'e': *out = 27; return true;
-  case '0': *out = 0; return true;
   default:
     if (e < 0x80 && !((e >= 'a' && e <= 'z') || (e >= 'A' && e <= 'Z') ||
                       (e >= '0' && e <= '9'))) {
@@ -515,6 +514,102 @@ code_escape(rx_parser *p, uint32_t e, uint32_t *out)
   return true;
 }
 
+/* \0 and the octal digits after it, or (in a class) \1 to \7 and up to
+ * two more: a codepoint below 0x80, as Ruby reads them in a UTF-8 pattern.
+ * first is the digit after the backslash, already read. */
+static uint32_t
+octal_escape(rx_parser *p, uint32_t first)
+{
+  uint32_t v = first - '0';
+  for (int n = 1; n < 3 && !at_end(p); n++) {
+    uint8_t d = p->src[p->pos];
+    if (d < '0' || d > '7') break;
+    v = v * 8 + (uint32_t)(d - '0');
+    p->pos++;
+  }
+  if (v >= 0x80) { perr(p, "invalid multibyte escape"); return 0; }
+  return v;
+}
+
+/* Add the complement of the ranges in [from, ncls) of class off to it,
+ * dropping those ranges: \W \D \S \H and [:^name:] inside a class. The
+ * ranges are sorted and disjoint as the callers add them. */
+static void
+class_complement_tail(rx_parser *p, int off, int from)
+{
+  if (p->err) return;
+  int n = (p->ncls - from) / 2;
+  uint32_t ranges[32];
+  if (n > 16) { perr(p, "class too complex"); return; }
+  for (int i = 0; i < 2 * n; i++) ranges[i] = p->cls[from + i];
+  p->ncls = from;
+  p->cls[off + 1] -= (uint32_t)n;
+  uint32_t lo = 0;
+  for (int i = 0; i < n; i++) {
+    if (ranges[2 * i] > lo) class_add(p, off, lo, ranges[2 * i] - 1);
+    lo = ranges[2 * i + 1] + 1;
+  }
+  if (lo <= 0x10FFFF) class_add(p, off, lo, 0x10FFFF);
+}
+
+/* [:name:] or [:^name:] after the `[` inside a class, ASCII as \w is.
+ * False (and nothing read) when no `:]` closes it: then `[` is itself. */
+static bool
+class_posix(rx_parser *p, int off)
+{
+  size_t save = p->pos;
+  if (at_end(p) || p->src[p->pos] != ':') return false;
+  size_t i = p->pos + 1;
+  bool neg = i < p->len && p->src[i] == '^';
+  if (neg) i++;
+  size_t name = i;
+  while (i < p->len && p->src[i] >= 'a' && p->src[i] <= 'z') i++;
+  if (i + 1 >= p->len || p->src[i] != ':' || p->src[i + 1] != ']') return false;
+  size_t n = i - name;
+  const char *s = (const char *)p->src + name;
+  int from = p->ncls;
+#define POSIX_IS(lit) (n == sizeof(lit) - 1 && memcmp(s, lit, n) == 0)
+  if (POSIX_IS("alnum")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z'); class_add(p, off, 'a', 'z');
+  } else if (POSIX_IS("alpha")) {
+    class_add(p, off, 'A', 'Z'); class_add(p, off, 'a', 'z');
+  } else if (POSIX_IS("ascii")) {
+    class_add(p, off, 0, 0x7f);
+  } else if (POSIX_IS("blank")) {
+    class_add(p, off, '\t', '\t'); class_add(p, off, ' ', ' ');
+  } else if (POSIX_IS("cntrl")) {
+    class_add(p, off, 0, 0x1f); class_add(p, off, 0x7f, 0x7f);
+  } else if (POSIX_IS("digit")) {
+    class_add(p, off, '0', '9');
+  } else if (POSIX_IS("graph")) {
+    class_add(p, off, 0x21, 0x7e);
+  } else if (POSIX_IS("lower")) {
+    class_add(p, off, 'a', 'z');
+  } else if (POSIX_IS("print")) {
+    class_add(p, off, 0x20, 0x7e);
+  } else if (POSIX_IS("punct")) {
+    class_add(p, off, 0x21, 0x2f); class_add(p, off, 0x3a, 0x40);
+    class_add(p, off, 0x5b, 0x60); class_add(p, off, 0x7b, 0x7e);
+  } else if (POSIX_IS("space")) {
+    class_add(p, off, '\t', '\r'); class_add(p, off, ' ', ' ');
+  } else if (POSIX_IS("upper")) {
+    class_add(p, off, 'A', 'Z');
+  } else if (POSIX_IS("word")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z');
+    class_add(p, off, '_', '_'); class_add(p, off, 'a', 'z');
+  } else if (POSIX_IS("xdigit")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'F'); class_add(p, off, 'a', 'f');
+  } else {
+    p->pos = save;
+    perr(p, "invalid POSIX bracket type");
+    return true;
+  }
+#undef POSIX_IS
+  if (neg) class_complement_tail(p, off, from);
+  p->pos = i + 2;
+  return true;
+}
+
 /* one item inside [...]: a codepoint, or an escape naming a set */
 static uint32_t
 class_item(rx_parser *p, int off, bool *was_set)
@@ -526,6 +621,23 @@ class_item(rx_parser *p, int off, bool *was_set)
   uint32_t e = next(p);
   uint32_t lit;
   if (class_add_escape(p, off, e)) { *was_set = true; return 0; }
+  if (e == 'W' || e == 'D' || e == 'S' || e == 'H') {
+    /* sorted ranges, so that their complement can be taken */
+    int from = p->ncls;
+    switch (e) {
+    case 'W':
+      class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z');
+      class_add(p, off, '_', '_'); class_add(p, off, 'a', 'z');
+      break;
+    case 'D': class_add(p, off, '0', '9'); break;
+    case 'S': class_add(p, off, '\t', '\r'); class_add(p, off, ' ', ' '); break;
+    default:  class_add(p, off, '0', '9'); class_add(p, off, 'A', 'F'); class_add(p, off, 'a', 'f'); break;
+    }
+    class_complement_tail(p, off, from);
+    *was_set = true;
+    return 0;
+  }
+  if (e >= '0' && e <= '7') return octal_escape(p, e);
   if (e == 'x' || e == 'u') return code_escape(p, e, &lit) ? lit : 0;
   if (literal_escape(e, &lit)) return lit;
   perr(p, "unsupported escape in class");
@@ -544,6 +656,14 @@ parse_class(rx_parser *p)
     uint32_t c = peek(p);
     if (c == ']' && !first) { next(p); break; }
     first = false;
+    if (c == '[') {
+      next(p);
+      if (class_posix(p, off)) {
+        if (p->err) return off;
+        continue;
+      }
+      p->pos--;
+    }
     bool set;
     uint32_t lo = class_item(p, off, &set);
     if (p->err) return off;
@@ -862,14 +982,23 @@ static int
 parse_backref(rx_parser *p, int num)
 {
   if (num > 0) {
+    /* \nnn of more than one digit is an octal escape, as in Ruby, when no
+       group nnn turns up: keep its value (or -1) for resolve_brefs() */
+    int digits = 1;
+    int32_t octal = num <= 7 ? num : -1;
     while (!at_end(p) && p->src[p->pos] >= '0' && p->src[p->pos] <= '9') {
-      num = num * 10 + (p->src[p->pos] - '0');
-      if (num > RX_MAX_GROUPS) { perr(p, "invalid backref number/name"); return 0; }
+      uint8_t d = p->src[p->pos];
+      if (digits < 3 && octal >= 0 && d <= '7') octal = octal * 8 + (d - '0');
+      else if (digits < 3) octal = -1;
+      num = num * 10 + (d - '0');
+      digits++;
       p->pos++;
+      if (num > RX_MAX_GROUPS && octal < 0) { perr(p, "invalid backref number/name"); return 0; }
     }
+    if (digits > 3 || digits == 1) octal = -1;
+    if (octal < 0 && num > RX_MAX_GROUPS) { perr(p, "invalid backref number/name"); return 0; }
     p->nbrefs++;
-    p->ncall_numbered++;
-    return node_new(p, N_BREF, p->flags, 0, num, 0);
+    return node_new(p, N_BREF, p->flags, 0, num, octal);
   }
   if (at_end(p) || (p->src[p->pos] != '<' && p->src[p->pos] != '\'')) {
     return node_new(p, N_CHAR, 0, 0, 'k', p->flags);
@@ -912,6 +1041,16 @@ resolve_brefs(rx_parser *p)
     rx_node *nd = &p->nodes[i];
     if (nd->t != N_BREF) continue;
     int idx = nd->x;
+    if (nd->b == 0 && nd->y >= 0 && idx >= p->ngroups) {
+      /* no such group: the digits were an octal escape */
+      if (nd->y >= 0x80) { perr(p, "invalid multibyte escape"); return; }
+      int32_t flags = nd->a;
+      nd->t = N_CHAR;
+      nd->x = nd->y;
+      nd->y = flags;
+      nd->a = 0;
+      continue;
+    }
     if (nd->b > 0) {
       idx = -1;
       for (int e = 0; e < p->nnames; e += 2 + p->names[e + 1]) {
@@ -1011,6 +1150,10 @@ parse_atom(rx_parser *p, int depth)
       return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
     case 'g':
       return parse_call(p);
+    case '0':
+      lit = octal_escape(p, e);
+      if (p->err) return 0;
+      return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
     case 'k':
       return parse_backref(p, 0);
     default:
@@ -1512,7 +1655,11 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
     prog[H_LOOK_DEPTH] = (uint32_t)g.look_depth_max;
     prog[H_ANCHORED] = starts_with_bol(&p, root) ? 1u : 0u;
     prog[H_NAMES_OFF] = 0;
-    prog[H_BACKTRACK] = p.nbrefs ? 1u : 0u;
+    prog[H_BACKTRACK] = 0;
+    /* the backreferences left once octal escapes were told apart */
+    for (int i = 0; i < p.nnodes; i++) {
+      if (p.nodes[i].t == N_BREF) { prog[H_BACKTRACK] = 1; break; }
+    }
     memcpy(prog + H_WORDS, g.code, 3 * (size_t)g.ninst * sizeof(uint32_t));
     /* a pattern without a class never allocated p.cls */
     if (p.ncls) {

@@ -86,8 +86,9 @@ the reason and the byte offset in the pattern.
 |--------|---------|
 | `.` | Any character. A newline only with `m` |
 | `[...]`, `[^...]` | Class and negated class. Ranges span code points, so `[あ-ん]` works |
-| `\d` `\w` `\s` `\h` `\D` `\W` `\S` `\H` | ASCII digit, word, space and hex-digit classes and their negations |
-| `\xHH` `\uHHHH` `\u{H...}` | A character by its code |
+| `\d` `\w` `\s` `\h` `\D` `\W` `\S` `\H` | ASCII digit, word, space and hex-digit classes and their negations, in a class too |
+| `[[:alpha:]]`, `[[:^alpha:]]` and the other POSIX classes | ASCII, as `\w` is |
+| `\xHH` `\uHHHH` `\u{H...}` `\0` `\177` | A character by its code (octal up to `\177`) |
 | `\n` `\t` `\r` `\f` `\v` `\e` `\0` | Control characters |
 | `\b` `\B` | Word boundary and its negation, on the ASCII word class |
 | `\.` and other escaped punctuation | The literal character |
@@ -119,8 +120,8 @@ the reason and the byte offset in the pattern.
 
 - `^` and `$` anchor the whole string, not a line. `\Z` is the same as `\z`.
 - `i` folds ASCII letters only. `/é/i` does not match `É`.
-- `\p{...}` raises `RegexpError` at compile time. A POSIX class such as
-  `[[:alpha:]]` is not one: it is read as a class of its characters.
+- `\p{...}` raises `RegexpError` at compile time. POSIX classes are ASCII:
+  `[[:alpha:]]` does not match `é`.
 - Matching takes time linear in the subject, but for a pattern with a
   backreference: that one runs on a backtracker, which can take far longer,
   and raises `RegexpError` after `REGEX_BT_MAX_STEPS` (10,000,000) steps.
