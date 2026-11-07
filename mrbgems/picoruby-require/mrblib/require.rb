@@ -9,13 +9,13 @@ end
 module Kernel
 
   def require(name)
-    return false if required?(name)
+    return false if __required?(name)
     result = extern(name)
     if result != nil
       $LOADED_FEATURES << name
       return !!result
     end
-    require_file(name)
+    __require_file(name)
   end
 
   def load(path) # steep:ignore MethodArityMismatch
@@ -24,22 +24,25 @@ module Kernel
       $LOADED_FEATURES << path
       return !!result
     end
-    load_file(path)
+    __require_load_file(path)
   end
 
-  # private
+  # The helpers of require and load. They are called on the receiver of
+  # require, which is any object, so a name that a class may well define
+  # for itself (load_paths, load_file, required?) would be taken from it:
+  # load in a class with its own load_paths called that one.
 
-  def load_error(name)
+  def __require_load_error(name)
     e = LoadError.new("cannot load such file -- #{name}")
     e.path = name if e.respond_to?(:path=)
     e
   end
 
-  def required?(name)
+  def __required?(name)
     $LOADED_FEATURES.include?(name)
   end
 
-  def load_paths(name)
+  def __require_load_paths(name)
     if name.start_with?("/")
       [""] # Absolute paths are not relative to any load path
     else
@@ -47,9 +50,9 @@ module Kernel
     end
   end
 
-  def load_file(name_with_ext)
+  def __require_load_file(name_with_ext)
     path = ""
-    lps = load_paths(name_with_ext)
+    lps = __require_load_paths(name_with_ext)
     lpi = 0
     while lpi < lps.size
       path = File.expand_path(name_with_ext, lps[lpi])
@@ -57,7 +60,7 @@ module Kernel
       lpi += 1
     end
     if path.empty?
-      raise load_error(name_with_ext)
+      raise __require_load_error(name_with_ext)
     else
       sandbox = Sandbox.new('require')
       begin
@@ -71,7 +74,7 @@ module Kernel
           sandbox.load_file(path)
           err = sandbox.error and raise err
         end
-        $LOADED_FEATURES << name_with_ext unless required?(name_with_ext)
+        $LOADED_FEATURES << name_with_ext unless __required?(name_with_ext)
       ensure
         # close, not terminate: terminate leaves the task in the scheduler
         # and registered as a GC root, so every require leaks one task.
@@ -81,8 +84,8 @@ module Kernel
     end
   end
 
-  def require_file(name)
-    lps = load_paths(name)
+  def __require_file(name)
+    lps = __require_load_paths(name)
     lpi = 0
     exts = if name.end_with?(".rb") || name.end_with?(".mrb")
              [""]
@@ -94,13 +97,13 @@ module Kernel
       while ei < exts.size
         path = File.expand_path("#{name}#{exts[ei]}", lps[lpi])
         if File.file?(path)
-          return (required?(path) ? false : load_file(path))
+          return (__required?(path) ? false : __require_load_file(path))
         end
         ei += 1
       end
       lpi += 1
     end
-    raise load_error(name)
+    raise __require_load_error(name)
   end
 
 end

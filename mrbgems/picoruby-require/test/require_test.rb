@@ -1,7 +1,7 @@
 # Kernel#require searches $LOAD_PATH for the file. These tests check the
 # search itself, so there are no real files: File.file? says yes to every
-# path, and load_file (the method require_file hands the found path to)
-# records the path instead of running the file.
+# path, and __require_load_file (the method __require_file hands the found
+# path to) records the path instead of running the file.
 class RequireTest < Picotest::Test
   LOAD_PATH = "/picotest/lib"
 
@@ -17,11 +17,27 @@ class RequireTest < Picotest::Test
     $LOADED_FEATURES = @loaded_features
   end
 
-  # Replaces Kernel#load_file for the test object, which is the receiver
-  # of require.
-  def load_file(path)
+  # Replaces Kernel#__require_load_file for the test object, which is the
+  # receiver of require.
+  def __require_load_file(path)
     @loaded << path
     true
+  end
+
+  # Names a class may define for itself, as Rails' RoutesReloader does
+  # load_paths: require and load must not call them.
+  def load_paths
+    raise "the receiver's own load_paths was called"
+  end
+
+  def required?
+    raise "the receiver's own required? was called"
+  end
+
+  def test_receiver_methods_of_the_same_name_are_not_called
+    stub(File).file? { true }
+    assert_equal true, require("bar")
+    assert_equal ["#{LOAD_PATH}/bar.mrb"], @loaded
   end
 
   def test_name_without_extension_prefers_mrb
@@ -58,11 +74,11 @@ class RequireTest < Picotest::Test
   end
 
   # The picotest runner wraps Kernel#require and rescues LoadError from it,
-  # so this test calls require_file, the method that raises.
+  # so this test calls __require_file, the method that raises.
   def test_missing_file_raises_load_error_with_the_name_as_given
     stub(File).file? { false }
     assert_raise(LoadError, "cannot load such file -- nope.rb") do
-      require_file "nope.rb"
+      __require_file "nope.rb"
     end
     assert_equal [], @loaded
   end
@@ -72,7 +88,7 @@ class RequireTest < Picotest::Test
     stub(File).file? { false }
     error = nil
     begin
-      require_file "nope"
+      __require_file "nope"
     rescue LoadError => e
       error = e
     end
