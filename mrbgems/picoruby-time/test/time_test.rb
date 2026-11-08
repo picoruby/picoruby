@@ -283,6 +283,28 @@ class TimeTest < Picotest::Test
     assert_equal(5, local.hour)
   end
 
+  # A zone object gives the offset it has at the time, whichever way its
+  # utc_to_local hands the local time back
+  class WallClockZone
+    def utc_to_local(t) = Time.utc(t.year, t.month, t.day, t.hour + 9, t.min, t.sec)
+  end
+
+  class OffsetZone
+    def utc_to_local(t) = t.getlocal("-05:00")
+  end
+
+  def test_getlocal_and_localtime_with_a_zone_object
+    t = Time.utc(2025, 3, 4, 5, 6, 7)
+    l = t.getlocal(WallClockZone.new)
+    assert_equal(9 * 3600, l.utc_offset)
+    assert_equal(14, l.hour)
+    assert_equal(t.to_i, l.to_i)
+    assert_equal(-5 * 3600, t.getlocal(OffsetZone.new).utc_offset)
+    t.localtime(WallClockZone.new)
+    assert_equal(9 * 3600, t.utc_offset)
+    assert_raise(ArgumentError) { t.getlocal(Object.new) }
+  end
+
   def test_getlocal_and_localtime
     t = Time.utc(2025, 3, 4, 5, 6, 7)
     l = t.getlocal

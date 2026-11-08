@@ -4,6 +4,31 @@ class Time
   class TimeMethods
   end
 
+  # getlocal and localtime take a zone object too: one with utc_to_local,
+  # as ActiveSupport::TimeZone and TZInfo::Timezone are. It stands for the
+  # offset it has at this time, which the time then keeps; CRuby keeps the
+  # object itself, and #zone returns it.
+  alias __getlocal getlocal
+  alias __localtime localtime
+
+  def getlocal(zone = nil)
+    __getlocal(__zone_offset(zone))
+  end
+
+  def localtime(zone = nil)
+    __localtime(__zone_offset(zone))
+  end
+
+  # The zone argument as getlocal takes it: a zone object becomes its offset
+  # in seconds. utc_to_local returns the local time either as a Time with
+  # that offset or as the wall clock in a UTC Time; this is right for both.
+  def __zone_offset(zone)
+    return zone if zone.nil? || zone.is_a?(String) || zone.is_a?(Integer) || zone.is_a?(Symbol)
+    return zone unless zone.respond_to?(:utc_to_local)
+    local = zone.utc_to_local(getutc)
+    local.to_i + local.utc_offset - to_i
+  end
+
   # Comparable is not on every VM; between? and clamp are what Time needs
   def between?(min, max)
     min <= self && self <= max
