@@ -125,6 +125,15 @@ TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server)
     return NULL;
   }
 
+  /* On macOS and the BSDs the accepted socket takes O_NONBLOCK from the
+     listening one, which is non-blocking just above, and its blocking reads
+     would fail with EAGAIN before data arrives. It blocks, as a socket
+     accepted on Linux does. */
+  int client_flags = fcntl(client_fd, F_GETFL, 0);
+  if (client_flags != -1 && (client_flags & O_NONBLOCK)) {
+    fcntl(client_fd, F_SETFL, client_flags & ~O_NONBLOCK);
+  }
+
   /* Create TCPSocket object for client */
   picorb_socket_t *client = (picorb_socket_t *)picorb_alloc(vm, sizeof(picorb_socket_t));
   if (!client) {
