@@ -1,6 +1,7 @@
 #include "mruby.h"
 #include "mruby/presym.h"
 #include "mruby/string.h"
+#include "mruby/internal.h"
 
 static mrb_value
 mrb_base64_s_encode(mrb_state *mrb, mrb_value klass)
@@ -99,6 +100,9 @@ mrb_base64_s_decode(mrb_state *mrb, mrb_value klass)
     }
   }
 
+  /* bytes, as CRuby's ASCII-8BIT result is: an index into a decoded
+     random token counts bytes, not the UTF-8 characters they might form */
+  RSTR_ENCODING_SET(mrb_str_ptr(output), MRB_STR_ENCODING_BINARY);
   return output;
 }
 

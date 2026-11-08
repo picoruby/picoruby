@@ -28,6 +28,16 @@ class Base64Test < Picotest::Test
     assert_equal "", Base64.decode64("")
   end
 
+  # The decoded string holds bytes: an index counts them even where they
+  # would read as a UTF-8 character ("\xE3\x81\x82") or as none ("\xFF").
+  def test_decode_gives_bytes
+    s = Base64.decode64("44GC/2Fi")
+    assert_equal 6, s.size
+    assert_equal 0xE3, s[0].ord
+    assert_equal "ab", s[4, 2]
+    assert_equal 6, Base64.urlsafe_decode64("44GC_2Fi").size
+  end
+
   def test_strict_decode
     assert_equal "picoruby", Base64.strict_decode64("cGljb3J1Ynk=")
     assert_raise(ArgumentError) { Base64.strict_decode64("cGljb3J1Ynk=\n") }
