@@ -48,3 +48,13 @@ value = GPIO.read_at(15)
 - `GPIO.write_at(pin, value)` - Write to pin without creating instance
 - `GPIO.high_at?(pin)` - Check if pin is HIGH
 - `GPIO.low_at?(pin)` - Check if pin is LOW
+
+## nRF52 notes
+
+- Pins accept the `P0.13` / `P1.02` spelling used by the datasheet and
+  board silkscreens, as a String or a Symbol; `P0_13` works too, so a
+  symbol needs no quoting. The two ports flatten into one range, so
+  `P0.xx` is `xx` and `P1.xx` is `32 + xx`.
+- `GPIO::ALT` has no effect. PIN_CNF has no function field; a peripheral
+  claims a pin from its own side by writing the pin number into its PSEL
+  register, so there is no per-pin mux for GPIO to set.
