@@ -9,7 +9,6 @@
  */
 
 #include <stdbool.h>
-#include <stddef.h>
 #include <stdint.h>
 
 #include "nrf.h"
@@ -24,10 +23,32 @@
    past that. */
 #define RNG_SPIN_BUDGET 10000000u
 
+/*
+ * Hand the request to whoever owns the peripheral, if anyone does.
+ *
+ * Masking the vector below keeps VALRDY ours, but it does not make
+ * START/STOP ours. OpenThread's driver keeps NRF_RNG free-running to fill
+ * a pool, and its otPlatEntropyGet restarts the generator only on the
+ * branch where the pool was non-empty (ot-nrf528xx src/src/entropy.c), so
+ * a STOP from here between its emptiness check and its restart leaves the
+ * generator stopped with an empty pool -- and that loop never ends. The
+ * race is against thread-context code, not the ISR, so no masking reaches
+ * it. Rather than arbitrate, defer: the weak default says nobody owns it,
+ * and the OpenThread port overrides it once its stack is up.
+ */
+__attribute__((weak)) bool
+rng_platform_random_bytes(uint8_t *out, size_t len)
+{
+  (void)out;
+  (void)len;
+  return false;
+}
+
 int
 rng_random_bytes_impl(uint8_t *buf, size_t len)
 {
   bool irq_was_enabled;
+  bool owned;
   int result = 0;
 
   if (buf == NULL) {
@@ -36,6 +57,13 @@ rng_random_bytes_impl(uint8_t *buf, size_t len)
   if (len == 0) {
     return 0;
   }
+  if (rng_platform_random_bytes(buf, len)) {
+    return 0;
+  }
+
+  /* INTENSET rather than the NVIC: it is the peripheral-level enable an
+     owner sets, and it stays set even while its vector is masked. */
+  owned = nrf_rng_int_get(NRF_RNG_INT_VALRDY_MASK);
 
   /*
    * EVENTS_VALRDY is a single latch, not a counter, so an
@@ -79,8 +107,11 @@ rng_random_bytes_impl(uint8_t *buf, size_t len)
 
 done:
   /* Stopped rather than left running: an idle RNG keeps its oscillator
-     and drops the core out of the deepest sleep the board can reach. */
-  nrf_rng_task_trigger(NRF_RNG_TASK_STOP);
+     and drops the core out of the deepest sleep the board can reach.
+     Left running when it has an owner, whose pool depends on it. */
+  if (!owned) {
+    nrf_rng_task_trigger(NRF_RNG_TASK_STOP);
+  }
   if (irq_was_enabled) {
     NVIC_EnableIRQ(RNG_IRQn);
   }

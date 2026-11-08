@@ -1,6 +1,7 @@
 #ifndef RNG_DEFINED_H_
 #define RNG_DEFINED_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -21,5 +22,19 @@ uint8_t rng_random_byte_impl(void);
  * implementation for free (src/rng.c); one that can fail overrides it.
  */
 int rng_random_bytes_impl(uint8_t *buf, size_t len);
+
+/*
+ * Optional platform entropy source.
+ *
+ * A port whose RNG peripheral is owned by something else -- a radio
+ * stack that keeps it free-running behind a pool -- overrides this so
+ * the two do not fight over START/STOP. The weak default answers false,
+ * meaning "nobody owns it, read the peripheral directly".
+ *
+ * Declared here rather than left to match by hand across two
+ * translation units, so a signature change is a compile error instead
+ * of a silently mismatched override.
+ */
+bool rng_platform_random_bytes(uint8_t *out, size_t len);
 
 #endif
