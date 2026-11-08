@@ -66,6 +66,28 @@ class TCPServerTest < Picotest::Test
     end
   end
 
+  # The host given is where the server listens: a loopback server takes a
+  # loopback client, and a host that does not resolve is refused
+  def test_tcp_server_listens_on_the_host_given
+    server = TCPServer.new("127.0.0.1", 18095)
+    begin
+      client = TCPSocket.new("127.0.0.1", 18095)
+      accepted = nil
+      i = 0
+      while accepted.nil? && i < 100
+        accepted = server.accept_nonblock
+        i += 1
+      end
+      assert_false accepted.nil?
+      accepted&.close
+      client.close
+    ensure
+      server.close
+    end
+    TCPServer.new("localhost", 18096).close
+    assert_raise(RuntimeError) { TCPServer.new("no-such-host.invalid", 18097) }
+  end
+
   # Test 5: TCPServer.close works
   def test_tcp_server_close
     server = TCPServer.new(nil, 18084)

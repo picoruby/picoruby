@@ -159,7 +159,8 @@ typedef struct picorb_tcp_server {
 typedef struct picorb_tcp_server picorb_tcp_server_t;
 #endif
 
-picorb_tcp_server_t* TCPServer_create(picorb_state *vm, int port, int backlog);
+/* host: the address to listen on, NULL or "" for every interface */
+picorb_tcp_server_t* TCPServer_create(picorb_state *vm, const char *host, int port, int backlog);
 picorb_socket_t* TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server);
 bool TCPServer_close(picorb_state *vm, picorb_tcp_server_t *server);
 int TCPServer_port(picorb_state *vm, picorb_tcp_server_t *server);

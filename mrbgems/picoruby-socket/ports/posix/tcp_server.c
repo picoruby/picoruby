@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <netinet/tcp.h>
+#include <netdb.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
 #ifdef socket
@@ -20,7 +21,7 @@
 
 /* Create and start a TCP server */
 picorb_tcp_server_t*
-TCPServer_create(picorb_state *vm, int port, int backlog)
+TCPServer_create(picorb_state *vm, const char *host, int port, int backlog)
 {
   picorb_tcp_server_t *server = picorb_alloc(vm, sizeof(picorb_tcp_server_t));
   if (!server) return NULL;
@@ -50,6 +51,25 @@ TCPServer_create(picorb_state *vm, int port, int backlog)
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(port);
+
+  /* Listen on the host given, as CRuby does: "127.0.0.1" or "localhost"
+     takes loopback connections only. nil or "" is every interface. The
+     socket is IPv4, so the host resolves to an IPv4 address. */
+  if (host && host[0] != '\0') {
+    struct addrinfo hints = {0};
+    struct addrinfo *res = NULL;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    if (getaddrinfo(host, NULL, &hints, &res) != 0 || !res) {
+      if (res) freeaddrinfo(res);
+      close(server->listen_fd);
+      picorb_free(vm, server);
+      return NULL;
+    }
+    addr.sin_addr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    freeaddrinfo(res);
+  }
 
   if (bind(server->listen_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     perror("bind failed");
