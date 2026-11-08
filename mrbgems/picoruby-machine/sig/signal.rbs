@@ -16,3 +16,7 @@ module Signal
   def self.raise: (signal_t signal) -> void
   private def self.signum: (signal_t signal) -> Integer
 end
+
+module Kernel
+  def trap: (Signal::signal_t signal, ?Signal::handler_t command) ?{ () -> void } -> Signal::handler_t
+end

@@ -65,3 +65,10 @@ module Signal
   end
 
 end
+
+module Kernel
+  # trap(signal, command = nil) { } is Signal.trap, as in CRuby
+  def trap(signal, command = nil, &block)
+    Signal.trap(signal, command, &block) # steep:ignore UnresolvedOverloading
+  end
+end
