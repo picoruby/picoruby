@@ -610,7 +610,7 @@ class Keyboard
             # Send release before cleanup
             @callback&.call(
               row: key_pos[0], col: key_pos[1],
-              keycode: 0, modifier: current_modifier, pressed: false
+              keycode: 0, modifier: 0, pressed: false
             )
             keys_to_delete << key_pos
           else
@@ -884,7 +884,7 @@ class Keyboard
       if kc
         @callback&.call(row: 0, col: 0, keycode: kc, modifier: (mod || 0), pressed: true)
         sleep_ms(10)
-        @callback&.call(row: 0, col: 0, keycode: 0, modifier: 0, pressed: false)
+        @callback&.call(row: 0, col: 0, keycode: 0, modifier: current_modifier, pressed: false)
         sleep_ms(10)
       end
       ci += 1

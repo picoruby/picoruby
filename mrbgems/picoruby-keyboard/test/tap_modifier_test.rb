@@ -20,6 +20,8 @@ class KeyboardTapModifierTest < Picotest::Test
     # Send the deferred tap release and forget the tapped state at once.
     @kbd.instance_variable_set(:@tap_release_ms, 0)
     @kbd.instance_variable_set(:@repush_threshold_ms, 0)
+    # Keep a slow runner from turning a tap into a hold.
+    @kbd.instance_variable_set(:@tap_threshold_ms, 10_000)
     @events = []
     events = @events
     @kbd.instance_variable_set(:@callback, Proc.new { |e| events << e })
