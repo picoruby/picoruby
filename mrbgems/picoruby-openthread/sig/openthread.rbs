@@ -1,0 +1,46 @@
+module OpenThread
+  class ConnectTimeout < StandardError
+  end
+
+  ROLES: Array[Symbol]
+  CHANNEL_MIN: Integer
+  CHANNEL_MAX: Integer
+
+  # Defined by the C layer.
+  def self.__init: () -> bool
+  def self.started?: () -> bool
+  def self.__set_dataset_tlvs: (String) -> bool
+  def self.__set_dataset: (String, Integer, Integer) -> bool
+  def self.__ip6_enable: (?bool) -> bool
+  def self.__thread_enable: (?bool) -> bool
+  def self.__role: () -> Integer
+  def self.eid: () -> String?
+  def self.addresses: () -> Array[String]
+  def self.__role_queue=: (untyped) -> void
+  def self.__role_event_popped: () -> void
+  @role_queue: untyped
+
+  def self.init: () -> bool
+  def self.validate_tlvs!: (String) -> bool
+  def self.configure: (?network_key: String?, ?pan_id: Integer?, ?channel: Integer?, ?tlvs: String?) -> bool
+  def self.start: () -> bool
+  def self.stop: () -> bool
+  def self.role: () -> Symbol
+  def self.attached?: () -> bool
+  def self.wait_attached: (?timeout_ms: Integer) -> bool
+
+  type udp_addr = Array[String | Integer]
+
+  class UDP
+    # Defined by the C layer.
+    def bind: (String | Integer, ?Integer) -> Integer
+    def send: (String, Integer, String, Integer) -> Integer
+    def recvfrom_nonblock: (?Integer) -> [String, udp_addr]?
+    def close: () -> nil
+    def dropped: () -> Integer
+
+    def recvfrom: (?Integer, ?Integer) -> [String, udp_addr]
+    def read: (?Integer) -> String
+  end
+end
+
