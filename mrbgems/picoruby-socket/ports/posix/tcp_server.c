@@ -116,8 +116,9 @@ TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server)
   errno = saved_errno;
 
   if (client_fd < 0) {
-    /* EAGAIN or EWOULDBLOCK means no connection available */
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    /* EAGAIN or EWOULDBLOCK means no connection available; EINTR, a
+       signal, means none was taken this time */
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
       return NULL;
     }
     /* Other errors */
