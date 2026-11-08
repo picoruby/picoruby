@@ -69,6 +69,12 @@ enum {
   IRQ_SRC_UART1,                        /* UART0 should not wake for */
   IRQ_SRC_UART_END_,                    /* traffic on UART1 */
   IRQ_SRC_PLATFORM_END_ = IRQ_SRC_UART_END_,
+#elif defined(PICORB_PLATFORM_NRF52)
+  /* -- nRF52: two UARTE instances ---------------------------------- */
+  IRQ_SRC_UART0 = IRQ_SRC_COMMON_END_,
+  IRQ_SRC_UART1,
+  IRQ_SRC_UART_END_,
+  IRQ_SRC_PLATFORM_END_ = IRQ_SRC_UART_END_,
 #elif defined(PICORB_PLATFORM_POSIX)
   /* -- POSIX host: the single stub UART the tests drive ----------- */
   IRQ_SRC_UART0 = IRQ_SRC_COMMON_END_,
