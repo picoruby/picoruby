@@ -21,9 +21,25 @@ module Signal
   def self.trap(signal, command = nil, &block)
     # @type var signal: Signal::signal_t
     # @type var command: Signal::handler_t
-    old_handler = HANDLERS[signum(signal)]
-    HANDLERS[signum(signal)] = command || block
+    num = signum(signal)
+    old_handler = HANDLERS[num]
+    handler = command || block
+    HANDLERS[num] = handler
+    # A POSIX process with no SIGINT handler of its own (the picoruby
+    # command) catches the signal for a Proc; see __dispatch_pending
+    if num == 2 && Machine.respond_to?(:__trap_sigint)
+      Machine.__trap_sigint(handler.is_a?(Proc))
+    end
     old_handler
+  end
+
+  # Run the handler of a SIGINT the process caught since the last call, as
+  # CRuby would have when it arrived. A waiting loop calls this between
+  # waits, where running Ruby code is safe.
+  def self.__dispatch_pending
+    if Machine.respond_to?(:__sigint_pending?) && Machine.__sigint_pending?
+      self.raise(:INT)
+    end
   end
 
   def self.list

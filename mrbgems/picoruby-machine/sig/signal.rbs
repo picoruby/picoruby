@@ -14,6 +14,7 @@ module Signal
   LIST: Hash[String, Integer]
 
   def self.raise: (signal_t signal) -> void
+  def self.__dispatch_pending: () -> void
   private def self.signum: (signal_t signal) -> Integer
 end
 

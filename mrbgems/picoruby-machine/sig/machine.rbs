@@ -29,6 +29,8 @@ module Machine
   def self.reboot: (?Integer wait_ms) -> nil
   def self.check_signal: () -> void
   def self.poll_signal: () -> Symbol?
+  def self.__trap_sigint: (bool on) -> bool
+  def self.__sigint_pending?: () -> bool
   def self.signal_self_manage: () -> void
   def self.pop_signal_self_manage: () -> bool
   def self.wifi_available?: () -> bool
