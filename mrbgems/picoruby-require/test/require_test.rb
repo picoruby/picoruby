@@ -19,7 +19,7 @@ class RequireTest < Picotest::Test
 
   # Replaces Kernel#__require_load_file for the test object, which is the
   # receiver of require.
-  def __require_load_file(path)
+  def __require_load_file(path, _cwd = false)
     @loaded << path
     true
   end
@@ -64,6 +64,23 @@ class RequireTest < Picotest::Test
     stub(File).file? { true }
     assert_equal true, require("foo.json")
     assert_equal ["#{LOAD_PATH}/foo.json.mrb"], @loaded
+  end
+
+  # ./ and ../ are relative to the working directory, not the load path
+  def test_dot_slash_name_is_looked_for_in_the_working_directory
+    stub(File).file? { true }
+    cwd = File.expand_path(".")
+    assert_equal true, require("./foo")
+    assert_equal ["#{cwd}/foo.mrb"], @loaded
+  end
+
+  # load looks in the working directory after the load path; require does not
+  def test_load_goes_on_to_the_working_directory
+    cwd = File.expand_path(".")
+    assert_equal [LOAD_PATH, cwd], __require_load_paths("db/schema.rb", true)
+    assert_equal [LOAD_PATH], __require_load_paths("db/schema.rb")
+    assert_equal [cwd], __require_load_paths("../x.rb")
+    assert_equal [""], __require_load_paths("/x.rb", true)
   end
 
   def test_loaded_path_is_not_loaded_again

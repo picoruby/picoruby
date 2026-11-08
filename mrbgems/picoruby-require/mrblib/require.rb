@@ -24,7 +24,7 @@ module Kernel
       $LOADED_FEATURES << path
       return !!result
     end
-    __require_load_file(path)
+    __require_load_file(path, true)
   end
 
   # The helpers of require and load. They are called on the receiver of
@@ -42,17 +42,24 @@ module Kernel
     $LOADED_FEATURES.include?(name)
   end
 
-  def __require_load_paths(name)
+  # Where to look for name: nowhere but itself when absolute, the working
+  # directory for ./ and ../, else the load path. load (cwd: true) goes on
+  # to the working directory after the load path, as CRuby's does.
+  def __require_load_paths(name, cwd = false)
     if name.start_with?("/")
       [""] # Absolute paths are not relative to any load path
+    elsif name.start_with?("./") || name.start_with?("../")
+      [File.expand_path(".")]
+    elsif cwd
+      ($LOAD_PATH || []) + [File.expand_path(".")]
     else
       $LOAD_PATH || []
     end
   end
 
-  def __require_load_file(name_with_ext)
+  def __require_load_file(name_with_ext, cwd = false)
     path = ""
-    lps = __require_load_paths(name_with_ext)
+    lps = __require_load_paths(name_with_ext, cwd)
     lpi = 0
     while lpi < lps.size
       path = File.expand_path(name_with_ext, lps[lpi])
