@@ -138,7 +138,7 @@ enum {
   H_CLASS_OFF,  /* word offset of the class table */
   H_NLOOK,      /* OP_LOOK instructions */
   H_LOOK_DEPTH, /* deepest lookaround nesting */
-  H_ANCHORED,   /* 1 when every match starts with ^ */
+  H_ANCHORED,   /* 1 when every match starts with \A or \G */
   H_NAMES_OFF,  /* word offset of the group name table, 0 without names */
   H_BACKTRACK,  /* 1 when the program has a backreference */
   H_WORDS       /* header size */
@@ -151,8 +151,8 @@ enum {
   OP_SPLIT,     /* x preferred, y second */
   OP_JMP,       /* x */
   OP_SAVE,      /* x = slot */
-  OP_BOL,
-  OP_EOL,
+  OP_BOL,       /* x = RX_AT_* of ^ \A \G */
+  OP_EOL,       /* x = RX_AT_* of $ \z \Z */
   OP_WORDB,     /* \b */
   OP_NWORDB,    /* \B */
   OP_LOOK,      /* x = body pc, y = RX_LOOK_* bits | max length << 3 */
@@ -226,8 +226,8 @@ enum {
   N_REP,    /* a; x = min, y = max (-1 = unbounded), b = greedy */
   N_GROUP,  /* a; x = group index, 0 when the group does not capture;
                y = 1 when the group is named */
-  N_BOL,
-  N_EOL,
+  N_BOL,    /* x = RX_AT_*: ^ \A \G */
+  N_EOL,    /* x = RX_AT_*: $ \z \Z */
   N_WORDB,
   N_NWORDB,
   N_LOOK,   /* a; x = RX_LOOK_* bits | max length << RX_LOOK_SHIFT */
@@ -237,6 +237,16 @@ enum {
                pattern and b its length, 0 for a number */
   N_BREF    /* \1, \k<name>: x = group number once resolve_brefs()
                ran; a = flags; b and y name the group as for N_CALL */
+};
+
+/* the x of N_BOL / N_EOL and OP_BOL / OP_EOL: where each anchor holds */
+enum {
+  RX_AT_LINE_BEGIN = 0, /* ^: the start, or after a newline before more */
+  RX_AT_BEGIN,          /* \A: the start */
+  RX_AT_SEARCH,         /* \G: where the search began */
+  RX_AT_LINE_END,       /* $: the end, or before a newline */
+  RX_AT_END,            /* \z: the end */
+  RX_AT_END_NL          /* \Z: the end, or before a newline that ends it */
 };
 
 typedef struct {
@@ -778,7 +788,7 @@ max_len(const rx_parser *p, int n, bool *unbounded)
   }
 }
 
-/* Does every path through node n begin with ^? Then a search can
+/* Does every path through node n begin with \A or \G? Then a search can
  * stop after its first position instead of trying each one. Walks
  * the chains like max_len. */
 static bool
@@ -787,7 +797,7 @@ starts_with_bol(const rx_parser *p, int n)
   for (;;) {
     const rx_node *nd = &p->nodes[n];
     switch (nd->t) {
-    case N_BOL: return true;
+    case N_BOL: return nd->x == RX_AT_BEGIN || nd->x == RX_AT_SEARCH;
     case N_CAT: case N_GROUP: n = nd->a; continue;
     case N_ALT:
       if (!starts_with_bol(p, nd->a)) return false;
@@ -1163,8 +1173,8 @@ parse_atom(rx_parser *p, int depth)
   case ')': perr(p, "unmatched )"); return 0;
   case '[': return node_new(p, N_CLASS, 0, 0, parse_class(p), p->flags);
   case '.': return node_new(p, N_ANY, 0, 0, 0, p->flags);
-  case '^': return node_new(p, N_BOL, 0, 0, 0, 0);
-  case '$': return node_new(p, N_EOL, 0, 0, 0, 0);
+  case '^': return node_new(p, N_BOL, 0, 0, RX_AT_LINE_BEGIN, 0);
+  case '$': return node_new(p, N_EOL, 0, 0, RX_AT_LINE_END, 0);
   case '*': case '+': case '?': perr(p, "nothing to repeat"); return 0;
   case '{': return node_new(p, N_CHAR, 0, 0, '{', p->flags);
   case '\\': {
@@ -1172,8 +1182,10 @@ parse_atom(rx_parser *p, int depth)
     uint32_t e = next(p);
     uint32_t lit;
     switch (e) {
-    case 'A': return node_new(p, N_BOL, 0, 0, 0, 0);
-    case 'z': case 'Z': return node_new(p, N_EOL, 0, 0, 0, 0);
+    case 'A': return node_new(p, N_BOL, 0, 0, RX_AT_BEGIN, 0);
+    case 'G': return node_new(p, N_BOL, 0, 0, RX_AT_SEARCH, 0);
+    case 'z': return node_new(p, N_EOL, 0, 0, RX_AT_END, 0);
+    case 'Z': return node_new(p, N_EOL, 0, 0, RX_AT_END_NL, 0);
     case 'b': return node_new(p, N_WORDB, 0, 0, 0, 0);
     case 'B': return node_new(p, N_NWORDB, 0, 0, 0, 0);
     case 'd': case 'w': case 's': case 'h': {
@@ -1537,8 +1549,8 @@ gen_node(rx_gen *g, const rx_parser *p, int n)
     case N_CHAR:  emit(g, OP_CHAR, (uint32_t)nd->x, (uint32_t)nd->y); break;
     case N_ANY:   emit(g, OP_ANY, 0, (uint32_t)nd->y); break;
     case N_CLASS: emit(g, OP_CLASS, (uint32_t)nd->x, (uint32_t)nd->y); break;
-    case N_BOL:   emit(g, OP_BOL, 0, 0); break;
-    case N_EOL:   emit(g, OP_EOL, 0, 0); break;
+    case N_BOL:   emit(g, OP_BOL, (uint32_t)nd->x, 0); break;
+    case N_EOL:   emit(g, OP_EOL, (uint32_t)nd->x, 0); break;
     case N_WORDB: emit(g, OP_WORDB, 0, 0); break;
     case N_NWORDB: emit(g, OP_NWORDB, 0, 0); break;
     case N_BREF:  emit(g, OP_BREF, (uint32_t)nd->x, (uint32_t)nd->a); break;
@@ -1769,9 +1781,27 @@ typedef struct {
   uint32_t *err;    /* scratch[0], RX_ERR_* */
   const uint8_t *s;
   size_t len;
+  size_t start;         /* where the search began: \G */
   uint32_t *scratch;
   size_t level_words;   /* scratch words per level */
 } rx_shared;
+
+/* Does the anchor of kind at (an RX_AT_*) hold at pos? */
+static bool
+anchor_holds(const rx_shared *sh, uint32_t at, size_t pos)
+{
+  switch (at) {
+  /* not after a newline that ends the string, as in Ruby */
+  case RX_AT_LINE_BEGIN: return pos == 0 || (pos < sh->len && sh->s[pos - 1] == '\n');
+  case RX_AT_BEGIN:      return pos == 0;
+  case RX_AT_SEARCH:     return pos == sh->start;
+  case RX_AT_LINE_END:   return pos == sh->len || sh->s[pos] == '\n';
+  case RX_AT_END:        return pos == sh->len;
+  case RX_AT_END_NL:
+    return pos == sh->len || (pos + 1 == sh->len && sh->s[pos] == '\n');
+  default:               return false;
+  }
+}
 
 /* one level: the main run or one lookaround sub-match */
 typedef struct {
@@ -1908,10 +1938,8 @@ addthread(rx_vm *vm, rx_list *l, uint32_t pc0, size_t pos)
       *sp++ = pc + 1; *sp++ = RX_EXPLORE;
       break;
     case OP_BOL:
-      if (pos == 0) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
-      break;
     case OP_EOL:
-      if (pos == sh->len) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
+      if (anchor_holds(sh, i[1], pos)) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
       break;
     case OP_WORDB:
       if (at_word_boundary(sh, pos)) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
@@ -2267,8 +2295,8 @@ bt_match(rx_bt *bt, int depth, uint32_t pc, size_t pos, size_t end_at)
       bt->work[i[1]] = (int32_t)pos;
       pc++;
       continue;
-    case OP_BOL:    ok = pos == 0; break;
-    case OP_EOL:    ok = pos == sh->len; break;
+    case OP_BOL:
+    case OP_EOL:    ok = anchor_holds(sh, i[1], pos); break;
     case OP_WORDB:  ok = at_word_boundary(sh, pos); break;
     case OP_NWORDB: ok = !at_word_boundary(sh, pos); break;
     case OP_LOOK: {
@@ -2365,6 +2393,7 @@ regex_exec(const uint32_t *prog, const uint8_t *s, size_t len, size_t start,
   sh.nlook = (int)prog[H_NLOOK];
   sh.s = s;
   sh.len = len;
+  sh.start = start;
   sh.err = scratch;
   *sh.err = 0;
   sh.scratch = scratch + 1;
