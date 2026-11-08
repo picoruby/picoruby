@@ -3,6 +3,7 @@
 #include <time.h>
 
 #include "nrf.h"
+#include "nrf_delay.h"
 
 #include "../../include/machine.h"
 
@@ -30,6 +31,30 @@ uint32_t
 Machine_stack_usage(void)
 {
   return 0;
+}
+
+/*
+ * Weak, because a product that owns a console has to keep the link
+ * alive while it waits. R2P2-nRF's USB CDC build pumps the Nordic
+ * app_usbd stack from its own Machine_delay_ms; a busy wait here
+ * would freeze the console for the whole delay. So this is the
+ * plain-SDK default for a board without one -- picoruby-nRF's bare
+ * UARTE build -- and any such product overrides it.
+ */
+__attribute__((weak)) void
+Machine_delay_ms(uint32_t ms)
+{
+  nrf_delay_ms(ms);
+}
+
+/*
+ * Weak for symmetry with Machine_delay_ms: a product may need to quiesce
+ * peripherals first. The reset itself is the same on every nRF52.
+ */
+__attribute__((weak)) void
+Machine_reboot(void)
+{
+  NVIC_SystemReset();
 }
 
 bool
