@@ -41,12 +41,9 @@ TCPServer_create(picorb_state *vm, int port, int backlog)
     return NULL;
   }
 
-#ifdef SO_REUSEPORT
-  /* Set SO_REUSEPORT option for better load balancing (if available) */
-  if (setsockopt(server->listen_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
-    /* SO_REUSEPORT is optional, continue even if it fails */
-  }
-#endif
+  /* No SO_REUSEPORT: with it a second server binds a port in use without
+     error, and the two take turns at its connections. As with CRuby, the
+     second one fails instead. */
 
   /* Bind to address */
   struct sockaddr_in addr = {0};

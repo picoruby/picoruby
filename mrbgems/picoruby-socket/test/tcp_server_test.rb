@@ -56,6 +56,16 @@ class TCPServerTest < Picotest::Test
     server.close
   end
 
+  # A port another server listens on cannot be taken, as in CRuby
+  def test_tcp_server_on_a_port_in_use_raises
+    server = TCPServer.new(nil, 18094)
+    begin
+      assert_raise(RuntimeError) { TCPServer.new(nil, 18094) }
+    ensure
+      server.close
+    end
+  end
+
   # Test 5: TCPServer.close works
   def test_tcp_server_close
     server = TCPServer.new(nil, 18084)
