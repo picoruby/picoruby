@@ -133,6 +133,12 @@ Rules and fine print:
 - **Do not sleep while core1 is running** (e.g. PSG playback): the
   clock reconfiguration is not synchronized with core1. Stop it
   first.
+- **nRF52** has no calendar peripheral and no backup domain, so
+  `set_hwclock` / `get_hwclock` are a tick count on RTC2 with an epoch
+  offset: accurate while the board runs, gone across a reset.
+  `get_hwclock` returns false until the clock has been set. RTC2 is used
+  rather than RTC0 (reserved by the SoftDevice) or RTC1 (app_timer's).
+  `Machine.sleep` is not supported and raises.
 - **ESP32** supports only `deep: false, source: :timer` (light
   sleep); everything else raises `NotImplementedError` there. On
   POSIX the timer cells are a plain sleep and GPIO wake raises.
