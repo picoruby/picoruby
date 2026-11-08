@@ -41,14 +41,14 @@ Task 3 rescued: Error in task 3
         end
 
         # Task 2: Will succeed
-        JS.global.fetch('favicon.ico') do
+        JS.global.fetch('../favicon.ico') do
           log "Task 2: Success"
         rescue => e
           log "Task 2 rescued: #{e.message} (should not happen)"
         end
 
         # Task 3: Will raise different error
-        JS.global.fetch('favicon.ico') do
+        JS.global.fetch('../favicon.ico') do
           log "Task 3: Before raise"
           raise "Error in task 3"
         rescue => e

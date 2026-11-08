@@ -33,7 +33,7 @@ Caught in outer: Error in chain
           JS.global.fetch('../favicon.ico') do |r1|
             log "Step 1: Got first response"
 
-            JS.global.fetch('favicon.ico') do |r2|
+            JS.global.fetch('../favicon.ico') do |r2|
               log "Step 2: Got second response"
               raise "Error in chain"
             end

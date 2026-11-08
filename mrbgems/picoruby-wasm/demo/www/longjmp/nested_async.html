@@ -33,10 +33,10 @@ Caught at level 1: Error at level 3
         JS.global.fetch('../favicon.ico') do |response1|
           log "Level 1: Got response"
 
-          JS.global.fetch('favicon.ico') do |response2|
+          JS.global.fetch('../favicon.ico') do |response2|
             log "Level 2: Got response"
 
-            JS.global.fetch('favicon.ico') do |response3|
+            JS.global.fetch('../favicon.ico') do |response3|
               log "Level 3: About to raise"
               raise "Error at level 3"
               log "Level 3: After raise (should not print)"
