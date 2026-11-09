@@ -1158,6 +1158,7 @@ mrbc_regexp_init(mrbc_vm *vm)
 
   /* the C side of mrblib/regexp.rb */
   mrbc_define_method(vm, class_Regexp, "escape", c_regexp_escape);
+  mrbc_define_method(vm, class_Regexp, "quote", c_regexp_escape);
   mrbc_define_method(vm, class_Regexp, "__bmatch", c_regexp_bmatch);
   mrbc_define_method(vm, class_MatchData, "byteoffset", c_match_data_byteoffset);
   mrbc_define_method(vm, string_class, "__sub",   c_string_sub_c);

@@ -22,7 +22,7 @@ simulation that carries capture positions) runs the program.
 
 | Class | Methods |
 |-------|---------|
-| `Regexp` (class) | `compile(pattern, options = nil, encoding = nil)`, `new` (the same), `escape(str)`, `union(*patterns)` |
+| `Regexp` (class) | `compile(pattern, options = nil, encoding = nil)`, `new` (the same), `escape(str)`, `quote` (the same), `union(*patterns)` |
 | `Regexp` | `match(str, pos = 0)`, `match?(str, pos = 0)`, `===`, `=~`, `source`, `to_s`, `inspect`, `casefold?`, `options` |
 | `MatchData` | `[]`, `to_a`, `captures`, `length`, `size`, `string`, `regexp`, `pre_match`, `post_match`, `begin(n)`, `end(n)`, `byteoffset(n)`, `to_s`, `inspect` |
 | `String` | `match(pattern, pos = 0)`, `match?(pattern, pos = 0)`, `=~`, `sub`, `sub!`, `gsub`, `gsub!`, `scan`, `split`, `index`, `rindex`, `[]`, `slice`, `slice!`, `partition`, `rpartition`, `start_with?` |

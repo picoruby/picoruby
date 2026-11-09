@@ -536,6 +536,10 @@ class RegexpStringTest < Picotest::Test
     assert_false Regexp.new(Regexp.escape("1+1")).match?("11")
   end
 
+  def test_quote_is_escape
+    assert_equal "a\\.b\\*c", Regexp.quote("a.b*c")
+  end
+
   # ---- String#sub / gsub with a String replacement ----
 
   def test_sub_with_regexp

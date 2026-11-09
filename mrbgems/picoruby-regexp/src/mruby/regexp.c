@@ -982,6 +982,7 @@ mrb_picoruby_regexp_gem_init(mrb_state *mrb)
 
   /* the C side of mrblib/regexp.rb */
   mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(escape), mrb_regexp_escape, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(quote), mrb_regexp_escape, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(__bmatch), mrb_regexp_bmatch, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_MatchData, MRB_SYM(byteoffset), mrb_match_data_byteoffset, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, string_class, MRB_SYM(__sub), mrb_string_sub_c, MRB_ARGS_REQ(3));
