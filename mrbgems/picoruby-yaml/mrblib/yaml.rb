@@ -25,6 +25,8 @@ module YAML
 #  private
 
   def self.parse(yaml_string)
+    # &name: the node each anchor names, for *name and << to refer to
+    anchors = {} #: Hash[String, untyped]
     lines = yaml_string.split("\n")
     root = {} #: Hash[untyped, untyped]
     stack = [root] #: Array[untyped]
@@ -68,12 +70,15 @@ module YAML
               parent[parent.size - 1] = new_array
             end
           end
+          replace_anchor(anchors, stack[-1], new_array)
           stack[-1] = new_array
           current_object = new_array
         end
-        if value.nil? || value.empty?
+        anchor = anchor_only(value)
+        if value.nil? || value.empty? || anchor
           new_item = {} #: Hash[untyped, untyped]
           current_object << new_item
+          anchors[anchor] = new_item if anchor
           stack.push(new_item)
           indent_stack.push(indent)
         elsif !quoted?(value) && (value.include?(': ') || value.end_with?(':'))
@@ -85,25 +90,29 @@ module YAML
           current_object << new_item
           stack.push(new_item)
           indent_stack.push(indent)
-          if item_value.nil? || item_value.empty?
+          anchor = anchor_only(item_value)
+          if item_value.nil? || item_value.empty? || anchor
             nested = {} #: Hash[untyped, untyped]
             new_item[item_key] = nested
+            anchors[anchor] = nested if anchor
             stack.push(nested)
             indent_stack.push(indent + line_strip.length - value.length)
           else
-            new_item[item_key] = parse_value(item_value)
+            assign(new_item, item_key, parse_value(item_value, anchors))
           end
         else
-          current_object << parse_value(value)
+          current_object << parse_value(value, anchors)
         end
       else
-        if value.nil? || value.empty?
+        anchor = anchor_only(value)
+        if value.nil? || value.empty? || anchor
           new_item = {} #: Hash[untyped, untyped]
           current_object[key] = new_item
+          anchors[anchor] = new_item if anchor
           stack.push(new_item)
           indent_stack.push(indent)
         else
-          current_object[key] = parse_value(value)
+          assign(current_object, key, parse_value(value, anchors))
         end
       end
 
@@ -114,12 +123,69 @@ module YAML
     stack[0]
   end
 
+  # "&name" with nothing after it: the anchor of the block collection on
+  # the lines below. nil for anything else.
+  def self.anchor_only(value)
+    return nil unless value && value.getbyte(0) == 38 # &
+    value = strip_comment(value)
+    return nil if value.include?(" ")
+    value.byteslice(1, value.bytesize - 1).to_s
+  end
+
+  # A Hash opened for a block collection turned out to be a list; an
+  # anchor on it names the list.
+  def self.replace_anchor(anchors, old_object, new_object)
+    # object_id, as mruby/c has no equal?: the very object, not an equal one
+    old_id = old_object.object_id
+    names = anchors.keys
+    names_size = names.size
+    i = 0
+    while i < names_size
+      name = names[i]
+      anchors[name] = new_object if anchors[name].object_id == old_id
+      i += 1
+    end
+  end
+
+  # hash[key] = value, except that a << key merges the Hash it is given,
+  # or each Hash of a list of them, the first one winning, into hash
+  def self.assign(hash, key, value)
+    if key == "<<" && value.is_a?(Hash)
+      hash.merge!(value)
+    elsif key == "<<" && value.is_a?(Array)
+      i = value.size - 1
+      while 0 <= i
+        item = value[i]
+        hash.merge!(item) if item.is_a?(Hash)
+        i -= 1
+      end
+    else
+      hash[key] = value
+    end
+  end
+
   # A scalar, a quoted string ("..." with escapes, '...' with ''), a flow
   # sequence or mapping, ~ (nil) or a :symbol, as Psych reads them; a
-  # # comment after a plain value is not part of it.
-  def self.parse_value(value)
+  # # comment after a plain value is not part of it. `anchors` holds the
+  # nodes *name and &name refer to, while a document is parsed.
+  def self.parse_value(value, anchors = nil)
     value = value.strip
     first = value.getbyte(0)
+    if first == 42 && anchors # *alias: the very node the anchor names
+      name = strip_comment(value)
+      name = name.byteslice(1, name.bytesize - 1).to_s
+      unless anchors.has_key?(name)
+        raise ArgumentError, "An alias referenced an unknown anchor: #{name}"
+      end
+      return anchors[name]
+    elsif first == 38 && anchors # &anchor value
+      parts = value.split(" ", 2)
+      name = parts[0].byteslice(1, parts[0].bytesize - 1).to_s
+      rest = parts[1]
+      node = rest.nil? || rest.empty? ? nil : parse_value(rest, anchors)
+      anchors[name] = node
+      return node
+    end
     if first == 34 # "
       r = parse_double_quoted(value)
       return r if r
@@ -127,10 +193,10 @@ module YAML
       r = parse_single_quoted(value)
       return r if r
     elsif first == 91 # [
-      r = parse_flow(value, 93)
+      r = parse_flow(value, 93, anchors)
       return r if r
     elsif first == 123 # {
-      r = parse_flow(value, 125)
+      r = parse_flow(value, 125, anchors)
       return r if r
     end
     value = strip_comment(value)
@@ -280,7 +346,7 @@ module YAML
 
   # [a, b] or {k: v}, items split at commas outside quotes and brackets;
   # nil when nothing closes it
-  def self.parse_flow(value, close)
+  def self.parse_flow(value, close, anchors)
     items = [] #: Array[String]
     depth = 0
     quote = 0
@@ -316,7 +382,7 @@ module YAML
       j = 0
       while j < items.size
         item = items[j].strip
-        list << parse_value(item) unless item.empty? && items.size == 1
+        list << parse_value(item, anchors) unless item.empty? && items.size == 1
         j += 1
       end
       list
@@ -327,7 +393,7 @@ module YAML
         item = items[j].strip
         unless item.empty?
           k, v = split_key_value(item)
-          hash[k] = v.nil? || v.empty? ? nil : parse_value(v)
+          hash[k] = v.nil? || v.empty? ? nil : parse_value(v, anchors)
         end
         j += 1
       end

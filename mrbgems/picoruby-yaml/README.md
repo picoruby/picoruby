@@ -40,9 +40,10 @@ puts yaml
 - Hashes, Arrays, Strings, Integers, Floats, Booleans, nil
 - Comments (lines starting with `#`)
 - Nested structures with indentation
+- Anchors (`&name`), aliases (`*name`) and `<<` merge keys (loading only)
 
 ## Notes
 
 - This is a simple implementation, not complete YAML 1.2 spec
 - Designed to be small and simple, not fast or feature-complete
-- Does not support all YAML features (anchors, tags, etc.)
+- Does not support all YAML features (tags, multi-line scalars, etc.)

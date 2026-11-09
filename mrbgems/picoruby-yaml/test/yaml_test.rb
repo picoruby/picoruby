@@ -1,6 +1,7 @@
 # picoruby-yaml is a small parser and generator: a document is a Hash of
 # scalars, nested Hashes and lists of scalars. The tests cover what the
-# README promises; anchors and tags are out of scope.
+# README promises, and anchors, aliases and << merge keys; tags are out
+# of scope.
 class YAMLTest < Picotest::Test
   def test_load_scalars
     doc = YAML.load("a: 1\nb: 2.5\nc: true\nd: false\ne: null\nf: hello world\ng: -3\n")
@@ -156,5 +157,48 @@ class YAMLTest < Picotest::Test
     File.open(path, "w") { |f| f.write("name: PicoRuby\nversion: 3\n") }
     assert_equal({"name" => "PicoRuby", "version" => 3}, YAML.load_file(path))
     File.unlink(path)
+  end
+
+  def test_alias_of_a_scalar
+    doc = YAML.load("a: &x 1\nb: *x\n")
+    assert_equal({"a" => 1, "b" => 1}, doc)
+  end
+
+  def test_anchor_on_a_block_mapping_keeps_its_nesting
+    doc = YAML.load("default: &default\n  adapter: sqlite3\n  timeout: 5000\nother: 1\n")
+    assert_equal({"default" => {"adapter" => "sqlite3", "timeout" => 5000}, "other" => 1}, doc)
+  end
+
+  def test_alias_is_the_anchored_object
+    doc = YAML.load("a: &x\n  k: v\nb: *x\n")
+    # object_id, as mruby/c has no equal?
+    assert_equal(doc["a"].object_id, doc["b"].object_id)
+  end
+
+  def test_anchor_on_a_block_list
+    doc = YAML.load("a: &l\n  - 1\n  - 2\nb: *l\n")
+    assert_equal([1, 2], doc["b"])
+  end
+
+  def test_merge_key
+    yaml = "default: &default\n  adapter: sqlite3\n  timeout: 5000\n\n" \
+           "development:\n  <<: *default\n  database: dev\n  timeout: 1\n"
+    doc = YAML.load(yaml)
+    assert_equal({"adapter" => "sqlite3", "timeout" => 1, "database" => "dev"}, doc["development"])
+    assert_equal({"adapter" => "sqlite3", "timeout" => 5000}, doc["default"])
+  end
+
+  def test_merge_key_with_a_list_the_first_wins
+    doc = YAML.load("a: &a\n  x: 1\nb: &b\n  x: 2\n  y: 2\nc:\n  <<: [*a, *b]\n")
+    assert_equal({"x" => 1, "y" => 2}, doc["c"])
+  end
+
+  def test_aliases_in_list_items
+    doc = YAML.load("v: &v 3\nl:\n  - *v\n  - name: *v\n")
+    assert_equal([3, {"name" => 3}], doc["l"])
+  end
+
+  def test_unknown_alias
+    assert_raise(ArgumentError) { YAML.load("a: *nope\n") }
   end
 end
