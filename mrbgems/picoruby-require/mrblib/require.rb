@@ -119,6 +119,9 @@ $LOADED_FEATURES = ["require"]
 # The Array exists from here on; code that sets the load path changes
 # it in place (`clear`, `<<`), as `$LOAD_PATH` is read-only in CRuby.
 $LOAD_PATH = []
+# $: and $" are the same Arrays under their short names
+$: = $LOAD_PATH
+$" = $LOADED_FEATURES
 
 if RUBY_ENGINE == 'mruby/c'
   class Object

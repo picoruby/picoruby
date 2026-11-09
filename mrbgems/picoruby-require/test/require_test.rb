@@ -5,16 +5,23 @@
 class RequireTest < Picotest::Test
   LOAD_PATH = "/picotest/lib"
 
+  # The globals change in place, as code that sets the load path does, so
+  # that $: and $" keep naming the same Arrays.
   def setup
     @loaded = []
-    @load_path = $LOAD_PATH
+    @load_path = $LOAD_PATH.dup
     @loaded_features = $LOADED_FEATURES.dup
-    $LOAD_PATH = [LOAD_PATH]
+    __refill($LOAD_PATH, [LOAD_PATH])
   end
 
   def teardown
-    $LOAD_PATH = @load_path
-    $LOADED_FEATURES = @loaded_features
+    __refill($LOAD_PATH, @load_path)
+    __refill($LOADED_FEATURES, @loaded_features)
+  end
+
+  def __refill(ary, items)
+    ary.clear
+    items.each { |item| ary << item }
   end
 
   # Replaces Kernel#__require_load_file for the test object, which is the
@@ -98,6 +105,13 @@ class RequireTest < Picotest::Test
       __require_file "nope.rb"
     end
     assert_equal [], @loaded
+  end
+
+  def test_short_names_of_the_load_path_and_loaded_features
+    $: << "/picotest/other"
+    assert_equal [LOAD_PATH, "/picotest/other"], $LOAD_PATH
+    $LOADED_FEATURES << "picotest_feature"
+    assert_true $".include?("picotest_feature")
   end
 
   def test_load_error_path_is_the_name_as_given
