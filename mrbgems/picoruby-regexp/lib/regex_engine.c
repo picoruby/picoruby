@@ -600,6 +600,56 @@ class_complement_tail(rx_parser *p, int off, int from)
   if (lo <= 0x10FFFF) class_add(p, off, lo, 0x10FFFF);
 }
 
+/* Add the ASCII ranges of the POSIX class or character property named by
+ * the n bytes at s, in any case, to class off, sorted so that their
+ * complement can be taken. False for a name it does not know. */
+static bool
+class_add_named(rx_parser *p, int off, const char *s, size_t n)
+{
+  char name[8];
+  if (n >= sizeof(name)) return false;
+  for (size_t k = 0; k < n; k++) {
+    char ch = s[k];
+    name[k] = (ch >= 'A' && ch <= 'Z') ? (char)(ch + 32) : ch;
+  }
+#define NAME_IS(lit) (n == sizeof(lit) - 1 && memcmp(name, lit, n) == 0)
+  if (NAME_IS("alnum")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z'); class_add(p, off, 'a', 'z');
+  } else if (NAME_IS("alpha")) {
+    class_add(p, off, 'A', 'Z'); class_add(p, off, 'a', 'z');
+  } else if (NAME_IS("ascii")) {
+    class_add(p, off, 0, 0x7f);
+  } else if (NAME_IS("blank")) {
+    class_add(p, off, '\t', '\t'); class_add(p, off, ' ', ' ');
+  } else if (NAME_IS("cntrl")) {
+    class_add(p, off, 0, 0x1f); class_add(p, off, 0x7f, 0x7f);
+  } else if (NAME_IS("digit")) {
+    class_add(p, off, '0', '9');
+  } else if (NAME_IS("graph")) {
+    class_add(p, off, 0x21, 0x7e);
+  } else if (NAME_IS("lower")) {
+    class_add(p, off, 'a', 'z');
+  } else if (NAME_IS("print")) {
+    class_add(p, off, 0x20, 0x7e);
+  } else if (NAME_IS("punct")) {
+    class_add(p, off, 0x21, 0x2f); class_add(p, off, 0x3a, 0x40);
+    class_add(p, off, 0x5b, 0x60); class_add(p, off, 0x7b, 0x7e);
+  } else if (NAME_IS("space")) {
+    class_add(p, off, '\t', '\r'); class_add(p, off, ' ', ' ');
+  } else if (NAME_IS("upper")) {
+    class_add(p, off, 'A', 'Z');
+  } else if (NAME_IS("word")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z');
+    class_add(p, off, '_', '_'); class_add(p, off, 'a', 'z');
+  } else if (NAME_IS("xdigit")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'F'); class_add(p, off, 'a', 'f');
+  } else {
+    return false;
+  }
+#undef NAME_IS
+  return true;
+}
+
 /* [:name:] or [:^name:] after the `[` inside a class, ASCII as \w is.
  * False (and nothing read) when no `:]` closes it: then `[` is itself. */
 static bool
@@ -613,49 +663,35 @@ class_posix(rx_parser *p, int off)
   size_t name = i;
   while (i < p->len && p->src[i] >= 'a' && p->src[i] <= 'z') i++;
   if (i + 1 >= p->len || p->src[i] != ':' || p->src[i + 1] != ']') return false;
-  size_t n = i - name;
-  const char *s = (const char *)p->src + name;
   int from = p->ncls;
-#define POSIX_IS(lit) (n == sizeof(lit) - 1 && memcmp(s, lit, n) == 0)
-  if (POSIX_IS("alnum")) {
-    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z'); class_add(p, off, 'a', 'z');
-  } else if (POSIX_IS("alpha")) {
-    class_add(p, off, 'A', 'Z'); class_add(p, off, 'a', 'z');
-  } else if (POSIX_IS("ascii")) {
-    class_add(p, off, 0, 0x7f);
-  } else if (POSIX_IS("blank")) {
-    class_add(p, off, '\t', '\t'); class_add(p, off, ' ', ' ');
-  } else if (POSIX_IS("cntrl")) {
-    class_add(p, off, 0, 0x1f); class_add(p, off, 0x7f, 0x7f);
-  } else if (POSIX_IS("digit")) {
-    class_add(p, off, '0', '9');
-  } else if (POSIX_IS("graph")) {
-    class_add(p, off, 0x21, 0x7e);
-  } else if (POSIX_IS("lower")) {
-    class_add(p, off, 'a', 'z');
-  } else if (POSIX_IS("print")) {
-    class_add(p, off, 0x20, 0x7e);
-  } else if (POSIX_IS("punct")) {
-    class_add(p, off, 0x21, 0x2f); class_add(p, off, 0x3a, 0x40);
-    class_add(p, off, 0x5b, 0x60); class_add(p, off, 0x7b, 0x7e);
-  } else if (POSIX_IS("space")) {
-    class_add(p, off, '\t', '\r'); class_add(p, off, ' ', ' ');
-  } else if (POSIX_IS("upper")) {
-    class_add(p, off, 'A', 'Z');
-  } else if (POSIX_IS("word")) {
-    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z');
-    class_add(p, off, '_', '_'); class_add(p, off, 'a', 'z');
-  } else if (POSIX_IS("xdigit")) {
-    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'F'); class_add(p, off, 'a', 'f');
-  } else {
+  if (!class_add_named(p, off, (const char *)p->src + name, i - name)) {
     p->pos = save;
     perr(p, "invalid POSIX bracket type");
     return true;
   }
-#undef POSIX_IS
   if (neg) class_complement_tail(p, off, from);
   p->pos = i + 2;
   return true;
+}
+
+/* {name} or {^name} after \p or \P (neg): a character property, of the
+ * names the POSIX classes have and as ASCII as they are. */
+static void
+class_property(rx_parser *p, int off, bool neg)
+{
+  if (at_end(p) || p->src[p->pos] != '{') { perr(p, "invalid character property name {}"); return; }
+  size_t i = p->pos + 1;
+  if (i < p->len && p->src[i] == '^') { neg = !neg; i++; }
+  size_t name = i;
+  while (i < p->len && p->src[i] != '}') i++;
+  if (i >= p->len) { perr(p, "invalid character property name {}"); return; }
+  int from = p->ncls;
+  if (!class_add_named(p, off, (const char *)p->src + name, i - name)) {
+    perr(p, "invalid character property name");
+    return;
+  }
+  if (neg) class_complement_tail(p, off, from);
+  p->pos = i + 1;
 }
 
 /* one item inside [...]: a codepoint, or an escape naming a set */
@@ -682,6 +718,11 @@ class_item(rx_parser *p, int off, bool *was_set)
     default:  class_add(p, off, '0', '9'); class_add(p, off, 'A', 'F'); class_add(p, off, 'a', 'f'); break;
     }
     class_complement_tail(p, off, from);
+    *was_set = true;
+    return 0;
+  }
+  if (e == 'p' || e == 'P') {
+    class_property(p, off, e == 'P');
     *was_set = true;
     return 0;
   }
@@ -1195,6 +1236,12 @@ parse_atom(rx_parser *p, int depth)
     }
     case 'D': case 'W': case 'S': case 'H':
       return node_new(p, N_CLASS, 0, 0, negated_escape_class(p, e + 32), p->flags);
+    case 'p': case 'P': {
+      int off = class_begin(p, false);
+      class_property(p, off, e == 'P');
+      if (p->err) return 0;
+      return node_new(p, N_CLASS, 0, 0, off, p->flags);
+    }
     case 'x': case 'u':
       if (!code_escape(p, e, &lit)) return 0;
       return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);

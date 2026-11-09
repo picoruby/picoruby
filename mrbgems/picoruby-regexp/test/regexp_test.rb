@@ -43,7 +43,7 @@ class RegexpTest < Picotest::Test
   end
 
   def test_unsupported_syntax_raises_regexp_error
-    assert_raise(RegexpError) { Regexp.new("\\p{Alpha}") }
+    assert_raise(RegexpError) { Regexp.new("\\p{Greek}") } # no script properties
   end
 
   # ---- Inline options ----
