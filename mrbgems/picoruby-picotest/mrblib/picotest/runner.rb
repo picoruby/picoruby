@@ -63,7 +63,8 @@ module Picotest
         test = klass.new
         tmpfile = "#{@tmpdir}/#{klass.to_s}.rb"
         File.open(tmpfile, "w") do |f|
-          f.puts "$LOAD_PATH = ['#{@load_path}']" if @load_path
+          # in place, so that $: still names the load path
+          f.puts "$LOAD_PATH.clear; $LOAD_PATH << '#{@load_path}'" if @load_path
           f.puts <<~KERNEL
             module Kernel
               alias :require_original :require
