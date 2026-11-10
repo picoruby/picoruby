@@ -104,7 +104,17 @@ module Kernel
       while ei < exts.size
         path = File.expand_path("#{name}#{exts[ei]}", lps[lpi])
         if File.file?(path)
-          return (__required?(path) ? false : __require_load_file(path))
+          # A file still loading further up is not loaded again, as CRuby
+          # has it for a circular require: an autoload for a constant the
+          # file is defining asks for the file it is in.
+          return false if __required?(path) || $__require_loading.include?(path)
+          $__require_loading << path
+          begin
+            loaded = __require_load_file(path)
+          ensure
+            $__require_loading.pop
+          end
+          return loaded
         end
         ei += 1
       end
@@ -116,6 +126,8 @@ module Kernel
 end
 
 $LOADED_FEATURES = ["require"]
+# The paths require is loading, innermost last
+$__require_loading = []
 # The Array exists from here on; code that sets the load path changes
 # it in place (`clear`, `<<`), as `$LOAD_PATH` is read-only in CRuby.
 $LOAD_PATH = []

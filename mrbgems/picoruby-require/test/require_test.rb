@@ -25,9 +25,19 @@ class RequireTest < Picotest::Test
   end
 
   # Replaces Kernel#__require_load_file for the test object, which is the
-  # receiver of require.
+  # receiver of require. With @nested, the "file" requires that name in
+  # turn, and @nested_result has what that require returned; with @broken,
+  # it raises.
   def __require_load_file(path, _cwd = false)
     @loaded << path
+    if @broken
+      @broken = nil
+      raise "broken"
+    end
+    if (nested = @nested)
+      @nested = nil
+      @nested_result = require(nested)
+    end
     true
   end
 
@@ -95,6 +105,21 @@ class RequireTest < Picotest::Test
     $LOADED_FEATURES << "#{LOAD_PATH}/foo.rb"
     assert_equal false, require("foo.rb")
     assert_equal [], @loaded
+  end
+
+  def test_file_still_loading_is_not_loaded_again
+    stub(File).file? { true }
+    @nested = "foo.rb"
+    assert_equal true, require("foo.rb")
+    assert_equal false, @nested_result
+    assert_equal ["#{LOAD_PATH}/foo.rb"], @loaded
+  end
+
+  def test_file_is_loadable_again_once_its_load_raised
+    stub(File).file? { true }
+    @broken = true
+    assert_raise(RuntimeError) { require("bar.rb") }
+    assert_equal true, require("bar.rb")
   end
 
   # The picotest runner wraps Kernel#require and rescues LoadError from it,

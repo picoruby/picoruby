@@ -1,5 +1,7 @@
 RITE_VERSION: String
 
+$__require_loading: Array[String]
+
 class LoadError
   attr_writer path: String?
 end
