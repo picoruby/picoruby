@@ -10,12 +10,13 @@ module Signal
   type signal_t = Integer | String | Symbol
   type handler_t = String | Proc | nil
 
-  HANDLERS: Hash[Integer, handler_t]
+  HANDLERS: Hash[Integer | String, handler_t]
   LIST: Hash[String, Integer]
 
   def self.raise: (signal_t signal) -> void
   def self.__dispatch_pending: () -> void
   private def self.signum: (signal_t signal) -> Integer
+  def self.__trap_key: (signal_t signal) -> (Integer | String)
 end
 
 module Kernel

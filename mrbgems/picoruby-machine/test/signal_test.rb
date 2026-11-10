@@ -26,4 +26,22 @@ class SignalTest < Picotest::Test
     Signal.trap(:INT, "DEFAULT")
     assert_false Machine.__trap_sigint(false)
   end
+
+  # A signal only the host lists can be trapped, and gets its handler back;
+  # one nobody knows raises ArgumentError
+  def test_trap_a_signal_only_the_host_lists
+    names = Signal.list.keys
+    host_only = nil
+    i = 0
+    while i < names.size
+      host_only ||= names[i] if Signal::LIST[names[i]].nil?
+      i += 1
+    end
+    if host_only
+      handler = Proc.new { }
+      old = Signal.trap(host_only, handler)
+      assert_equal handler.object_id, Signal.trap(host_only, old).object_id
+    end
+    assert_raise(ArgumentError) { Signal.trap("NOSUCHSIGNAL") { } }
+  end
 end
