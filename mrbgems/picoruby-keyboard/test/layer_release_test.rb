@@ -61,6 +61,6 @@ class KeyboardLayerReleaseTest < Picotest::Test
     @events.clear
     release(0, 0)
     assert_equal [[0, 0]], @events
-    assert_equal({}, @kbd.instance_variable_get(:@tap_hold_keys).select { |k, _| k == [0, 0] })
+    assert_nil @kbd.instance_variable_get(:@tap_hold_keys)[[0, 0]]
   end
 end

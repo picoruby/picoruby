@@ -35,7 +35,7 @@ class Keyboard
     @repush_threshold_ms = 200  # Repush threshold for double-tap-hold
     @keys_pressed = {}          # Track physically pressed keys: {[row, col] => true}
     @active_keys = {}           # Track active keys with their resolved keycode/modifier: {[row, col] => {keycode:, modifier:}}
-    @pressed_keys = {}          # Key resolved at press, reused on release: {[row, col] => [keycode, modifier]}
+    @press_keycodes = {}        # Keycode resolved at press, reused on release: {[row, col] => keycode}
 
     # Combo key management
     @combos = []                # [{keycodes: [...], action: keycode_or_symbol}, ...]
@@ -213,13 +213,14 @@ class Keyboard
     # from another layer if the layer changed while the key was held, and
     # the key resolved at press would never be released (stuck modifier
     # or a key repeating on the host).
+    # The release does not use the modifier: @active_keys is cleared by
+    # position and the event carries current_modifier.
     if pressed
       keycode, modifier = resolve_key(row, col)
-      @pressed_keys[key_pos] = [keycode, modifier]
-    elsif pressed_key = @pressed_keys.delete(key_pos)
-      keycode, modifier = pressed_key
+      @press_keycodes[key_pos] = keycode
     else
-      keycode, modifier = resolve_key(row, col)
+      keycode = @press_keycodes.delete(key_pos) || resolve_keycode(row, col)
+      modifier = 0
     end
 
     # Handle special layer keycodes
