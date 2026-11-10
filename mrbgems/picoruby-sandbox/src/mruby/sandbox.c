@@ -342,6 +342,7 @@ mrb_sandbox_close(mrb_state *mrb, mrb_value self)
 
   mrb_value task = ss->task;
   mrb_close_task(mrb, task);
+  mrb_gc_unregister(mrb, task);
   ss->task = mrb_nil_value();
   return mrb_nil_value();
 }
