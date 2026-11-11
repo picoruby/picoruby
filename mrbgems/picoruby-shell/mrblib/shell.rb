@@ -526,7 +526,11 @@ class Shell
         when "quit", "exit"
           break
         else
-          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("begin; _ = (#{script}); rescue Exception => _; end; _", filename: "(irb)")
+          # The value has to reach `_` through the temporary register both
+          # ways, because Sandbox#result reads that register. Assigning the
+          # exception straight to `_` leaves the receiver of the failed call
+          # there, and irb then prints it as if the line had succeeded.
+          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("_ = begin; (#{script}); rescue Exception => _; _; end; _", filename: "(irb)")
             buffer.put :ENTER
           else
             editor.feed_at_bottom
