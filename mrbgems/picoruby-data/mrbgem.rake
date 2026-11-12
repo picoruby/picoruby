@@ -3,6 +3,8 @@ MRuby::Gem::Specification.new('picoruby-data') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'Data class'
 
+  spec.add_dependency 'picoruby-picorubyvm' if ENV['TEST_TASK']
+
   spec.add_conflict 'mruby-data'
 end
 
