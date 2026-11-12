@@ -52,6 +52,7 @@ c_instance_to_h(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   data_instance_t *instance_data = (data_instance_t *)v->instance->data;
   mrbc_value members = instance_data->members;
+  mrbc_incref(&members);
   SET_RETURN(members);
 }
 
@@ -131,7 +132,6 @@ c_new(mrbc_vm *vm, mrbc_value *v, int argc)
     mrbc_hash_set(&members, &key, &value);
     mrbc_incref(&value);
   }
-  mrbc_incref(&members);
   instance_data->members = members;
   SET_RETURN(self);
 }
@@ -145,6 +145,7 @@ c_members(mrbc_vm *vm, mrbc_value *v, int argc)
   }
   data_subclass_t *subclass_data = (data_subclass_t *)v->instance->data;
   mrbc_value member_keys = subclass_data->member_keys;
+  mrbc_incref(&member_keys);
   SET_RETURN(member_keys);
 }
 
@@ -193,7 +194,6 @@ c_define(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_define_method(vm, cls, "inspect", c_instance_inspect);
 
   data->cls = cls;
-  mrbc_incref(&member_keys);
   data->member_keys = member_keys;
   SET_RETURN(subclass);
 }
