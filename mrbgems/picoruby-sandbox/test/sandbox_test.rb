@@ -231,4 +231,21 @@ class SandboxTest < Picotest::Test
     assert_equal dormant_count, Task.stat[:dormant][:count] if picoruby?
     assert_nil sandbox.close
   end
+
+  def test_close_releases_task_for_gc
+    skip "requires mruby GC and ObjectSpace" unless picoruby?
+
+    GC.start
+    before = ObjectSpace.each_object(Task) { |_task| }
+
+    # Removing tasks from the scheduler must also let their Ruby wrappers
+    # be collected. Do not retain a sandbox or task in a local variable.
+    30.times do
+      Sandbox.new.close
+    end
+
+    GC.start
+    after = ObjectSpace.each_object(Task) { |_task| }
+    assert_equal before, after
+  end
 end
