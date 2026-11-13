@@ -2,20 +2,47 @@
 #include "mruby/presym.h"
 #include "../include/watchdog.h"
 
+/*
+ * Map a refusal to an exception. Shaped after
+ * machine_sleep_raise_unless_ok in picoruby-machine.
+ */
+static void
+watchdog_raise_unless_ok(mrb_state *mrb, int status)
+{
+  switch (status) {
+    case WATCHDOG_ERROR_NONE:
+      break;
+    case WATCHDOG_ERROR_UNSUPPORTED:
+      mrb_raise(mrb, E_NOTIMP_ERROR,
+                "the watchdog cannot be stopped on this platform");
+      break;
+    case WATCHDOG_ERROR_INVALID_VALUE:
+      mrb_raise(mrb, E_ARGUMENT_ERROR, "delay_ms out of range");
+      break;
+    case WATCHDOG_ERROR_ALREADY_ON:
+      mrb_raise(mrb, E_RUNTIME_ERROR,
+                "the watchdog is running and cannot be reconfigured");
+      break;
+    default:
+      mrb_raise(mrb, E_RUNTIME_ERROR, "watchdog error");
+      break;
+  }
+}
+
 static mrb_value
 mrb_s_enable(mrb_state *mrb, mrb_value klass)
 {
   mrb_int delay_ms;
   mrb_bool pause_on_debug = TRUE;
   mrb_get_args(mrb, "i|b", &delay_ms, &pause_on_debug);
-  Watchdog_enable(delay_ms, pause_on_debug);
+  watchdog_raise_unless_ok(mrb, Watchdog_enable(delay_ms, pause_on_debug));
   return mrb_int_value(mrb, 0);
 }
 
 static mrb_value
 mrb_s_disable(mrb_state *mrb, mrb_value klass)
 {
-  Watchdog_disable();
+  watchdog_raise_unless_ok(mrb, Watchdog_disable());
   return mrb_int_value(mrb, 0);
 }
 
