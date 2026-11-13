@@ -233,9 +233,11 @@ class SandboxTest < Picotest::Test
   end
 
   def test_close_releases_task_for_gc
-    skip "requires mruby GC and ObjectSpace" unless picoruby?
+    unless picoruby? && Object.const_defined?(:ObjectSpace)
+      skip "requires mruby GC and ObjectSpace"
+    end
 
-    GC.start
+    # ObjectSpace.each_object runs a full GC before it counts.
     before = ObjectSpace.each_object(Task) { |_task| }
 
     # Removing tasks from the scheduler must also let their Ruby wrappers
@@ -244,7 +246,6 @@ class SandboxTest < Picotest::Test
       Sandbox.new.close
     end
 
-    GC.start
     after = ObjectSpace.each_object(Task) { |_task| }
     assert_equal before, after
   end

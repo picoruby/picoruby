@@ -554,7 +554,9 @@ class Shell
       end
     end
   ensure
-    sandbox.terminate
+    # close, not terminate: terminate leaves the task in the scheduler
+    # and registered as a GC root, so every irb session leaks one task.
+    sandbox.close
   end
 
   def builtin?(name)

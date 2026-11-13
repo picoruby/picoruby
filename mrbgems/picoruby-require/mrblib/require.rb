@@ -53,7 +53,9 @@ module Kernel
         err = sandbox.error and raise err
         $LOADED_FEATURES << name_with_ext unless required?(name_with_ext)
       ensure
-        sandbox.terminate
+        # close, not terminate: terminate leaves the task in the scheduler
+        # and registered as a GC root, so every require leaks one task.
+        sandbox.close
       end
       true
     end
