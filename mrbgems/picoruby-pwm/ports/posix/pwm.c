@@ -1,8 +1,10 @@
 #include "../../include/pwm.h"
 
-void
+int
 PWM_init(uint32_t pin)
 {
+  (void)pin;
+  return PWM_ERROR_NONE;
 }
 
 void

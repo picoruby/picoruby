@@ -5,11 +5,11 @@
 static int8_t channel_for_gpio[GPIO_NUM_MAX];
 static int next_free_channel = 0;
 
-void
+int
 PWM_init(uint32_t gpio)
 {
-  if (gpio >= GPIO_NUM_MAX) return;
-  if (next_free_channel >= LEDC_CHANNEL_MAX) return;
+  if (gpio >= GPIO_NUM_MAX) return PWM_ERROR_INVALID_PIN;
+  if (next_free_channel >= LEDC_CHANNEL_MAX) return PWM_ERROR_NO_INSTANCE;
 
   ledc_timer_config_t ledc_timer = {
     .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -32,6 +32,7 @@ PWM_init(uint32_t gpio)
   ledc_channel_config(&ledc_channel);
 
   channel_for_gpio[gpio] = next_free_channel++;
+  return PWM_ERROR_NONE;
 }
 
 void

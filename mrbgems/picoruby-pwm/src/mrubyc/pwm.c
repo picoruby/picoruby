@@ -3,10 +3,32 @@
 #define GETIV(str)      mrbc_instance_getiv(&v[0], mrbc_str_to_symid(#str))
 #define SETIV(str, val) mrbc_instance_setiv(&v[0], mrbc_str_to_symid(#str), val)
 
+/* Returns true when it raised, so the caller leaves without setting a
+   return value. Same shape as watchdog_raised and machine_sleep_raised. */
+static bool
+pwm_raised(mrbc_vm *vm, int status)
+{
+  switch (status) {
+    case PWM_ERROR_NONE:
+      return false;
+    case PWM_ERROR_INVALID_PIN:
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "not a PWM-capable pin");
+      return true;
+    case PWM_ERROR_NO_INSTANCE:
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "no PWM instance left for this pin");
+      return true;
+    default:
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "PWM error");
+      return true;
+  }
+}
+
 static void
 c__init(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  PWM_init(GET_INT_ARG(1));
+  if (pwm_raised(vm, PWM_init(GET_INT_ARG(1)))) {
+    return;
+  }
   SET_INT_RETURN(0);
 }
 

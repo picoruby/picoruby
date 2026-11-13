@@ -2,12 +2,31 @@
 #include <mruby/presym.h>
 #include <mruby/variable.h>
 
+/* Same shape as machine_sleep_raise_unless_ok in picoruby-machine. */
+static void
+pwm_raise_unless_ok(mrb_state *mrb, int status)
+{
+  switch (status) {
+    case PWM_ERROR_NONE:
+      break;
+    case PWM_ERROR_INVALID_PIN:
+      mrb_raise(mrb, E_ARGUMENT_ERROR, "not a PWM-capable pin");
+      break;
+    case PWM_ERROR_NO_INSTANCE:
+      mrb_raise(mrb, E_RUNTIME_ERROR, "no PWM instance left for this pin");
+      break;
+    default:
+      mrb_raise(mrb, E_RUNTIME_ERROR, "PWM error");
+      break;
+  }
+}
+
 static mrb_value
 mrb__init(mrb_state *mrb, mrb_value self)
 {
   mrb_int pin;
   mrb_get_args(mrb, "i", &pin);
-  PWM_init(pin);
+  pwm_raise_unless_ok(mrb, PWM_init(pin));
   return mrb_int_value(mrb, 0);
 }
 
