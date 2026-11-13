@@ -526,7 +526,11 @@ class Shell
         when "quit", "exit"
           break
         else
-          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("begin; _ = (#{script}); rescue Exception => _; end; _", filename: "(irb)")
+          # The rescue clause itself gives the exception as the value of the
+          # begin expression. A trailing `; _` after `end` compiles to
+          # `RETURN R1` without a MOVE, and on mruby/c Sandbox#result then
+          # reads a register that does not hold the exception.
+          if buffer.lines[-1][-1] == "\\" || !sandbox.compile("begin; _ = (#{script}); rescue Exception => _; _; end", filename: "(irb)")
             buffer.put :ENTER
           else
             editor.feed_at_bottom

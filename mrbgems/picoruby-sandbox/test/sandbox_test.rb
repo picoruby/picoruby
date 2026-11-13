@@ -219,6 +219,35 @@ class SandboxTest < Picotest::Test
     assert_equal :new, sandbox.result
   end
 
+  # Run a line the way Shell#run_irb wraps it and return Sandbox#result.
+  def irb_eval(sandbox, script)
+    sandbox.compile("begin; _ = (#{script}); rescue Exception => _; _; end", filename: "(irb)")
+    sandbox.execute
+    sandbox.wait(timeout: nil)
+    sandbox.suspend
+    sandbox.result
+  end
+
+  # On mruby/c, Sandbox#result reads the register the compiler recorded.
+  # The irb wrapper must leave the rescued exception in that register.
+  def test_irb_wrapper_result_is_the_rescued_exception
+    sandbox = Sandbox.new
+    sandbox.compile("_ = nil")
+    sandbox.execute
+    sandbox.wait(timeout: nil)
+    sandbox.suspend
+
+    assert_equal 3, irb_eval(sandbox, "x = 3")
+    assert_equal 3, irb_eval(sandbox, "x")
+    assert_equal NoMethodError, irb_eval(sandbox, "undefined_name_for_test").class
+    assert_equal NoMethodError, irb_eval(sandbox, "nil.undefined_name_for_test").class
+    assert_equal RuntimeError, irb_eval(sandbox, "raise 'x'").class
+    assert_equal NameError, irb_eval(sandbox, "UndefinedConstForTest").class
+    # `_` holds the result of the line before.
+    assert_equal NameError, irb_eval(sandbox, "_").class
+    sandbox.close
+  end
+
   def test_close_removes_task_from_scheduler
     dormant_count = Task.stat[:dormant][:count] if picoruby?
     sandbox = Sandbox.new

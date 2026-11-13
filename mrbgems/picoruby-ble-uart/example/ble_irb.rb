@@ -10,7 +10,8 @@ sandbox = Sandbox.new('ble-irb')
 
 uart.start do
   if (line = uart.gets_nonblock) && (code = line.chomp) && !code.empty?
-    if sandbox.compile("begin; _ = (#{code}); rescue => _; end; _")
+    # See Shell#run_irb for why `_` is inside the rescue clause.
+    if sandbox.compile("begin; _ = (#{code}); rescue => _; _; end")
       executed = sandbox.execute
       sandbox.wait(timeout: nil)
       sandbox.suspend
