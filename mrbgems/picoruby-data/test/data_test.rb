@@ -87,6 +87,70 @@ class DataTest < Picotest::Test
     assert_true obj.is_a?(Data)
   end
 
+  def test_is_a_object
+    obj = Data.define(:x).new(1)
+    assert_true obj.is_a?(Object)
+  end
+
+  def test_is_a_own_definition
+    klass = Data.define(:x)
+    obj = klass.new(1)
+    assert_true obj.is_a?(klass)
+  end
+
+  def test_is_a_other_definition
+    klass = Data.define(:x)
+    other = Data.define(:x)
+    obj = klass.new(1)
+    assert_false obj.is_a?(other)
+  end
+
+  def test_is_a_unrelated_object
+    obj = Data.define(:x).new(1)
+    assert_false obj.is_a?(Object.new)
+  end
+
+  def test_is_a_definition_made_after_own_definition_is_released
+    # The test holds no reference to the definition of obj. No definition
+    # made later may match obj, whatever address it gets.
+    obj = instance_of_temporary_definition
+    others = []
+    16.times { others << Data.define(:val) }
+    matched = 0
+    others.each { |other| matched += 1 if obj.is_a?(other) }
+    assert_equal 0, matched
+  end
+
+  # ---- an instance does not need a reference to its definition ----
+
+  def test_instance_outlives_definition_reference
+    obj = instance_of_temporary_definition
+    garbage = []
+    8.times { |i| garbage << Data.define("member_#{i}") }
+    assert_equal 1, obj.val
+    assert_equal [:val], obj.members
+    assert_equal 1, obj.to_h[:val]
+  end
+
+  # ---- methods of the wrong receiver ----
+
+  def test_new_on_instance_raises
+    obj = Data.define(:x).new(1)
+    assert_raise(NoMethodError) { obj.new(1) }
+  end
+
+  def test_define_on_definition_raises
+    klass = Data.define(:x)
+    assert_raise(NoMethodError) { klass.define(:y) }
+  end
+
+  # ---- #inspect ----
+
+  def test_inspect
+    obj = Data.define(:x).new(1)
+    assert_equal "#<data>", obj.inspect
+  end
+
   # ---- multiple independent subclasses ----
 
   def test_two_subclasses_are_independent
@@ -208,21 +272,17 @@ class DataTest < Picotest::Test
     assert_equal before, used_memory
   end
 
-  def test_definitions_release_member_keys
-    small = [:value]
-    large = []
-    32.times { |i| large << "member_#{i}".to_sym }
-    discard_definitions(small)
-    discard_definitions(large)
+  def test_definitions_release_memory
+    keys = []
+    32.times { |i| keys << "member_#{i}".to_sym }
+    discard_definitions(keys)
     before = used_memory
-    discard_definitions(small)
-    small_growth = used_memory - before
-    before = used_memory
-    discard_definitions(large)
-    large_growth = used_memory - before
-    # A class registration keeps memory that does not depend on the member
-    # count. A leaked key array does: 20 arrays of 32 values exceed 1 KiB.
-    assert_true large_growth - small_growth < 1024
+    discard_definitions(keys)
+    assert_equal before, used_memory
+  end
+
+  def instance_of_temporary_definition
+    Data.define(:val).new(1)
   end
 
   def used_memory
