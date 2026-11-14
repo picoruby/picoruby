@@ -51,8 +51,8 @@ static void
 c_instance_to_h(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   data_instance_t *instance_data = (data_instance_t *)v->instance->data;
-  mrbc_value members = instance_data->members;
-  mrbc_incref(&members);
+  /* Return a copy so that the caller cannot change the members. */
+  mrbc_value members = mrbc_hash_dup(vm, &instance_data->members);
   SET_RETURN(members);
 }
 
@@ -144,8 +144,8 @@ c_members(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
   data_subclass_t *subclass_data = (data_subclass_t *)v->instance->data;
-  mrbc_value member_keys = subclass_data->member_keys;
-  mrbc_incref(&member_keys);
+  /* Return a copy so that the caller cannot change the definition. */
+  mrbc_value member_keys = mrbc_array_dup(vm, &subclass_data->member_keys);
   SET_RETURN(member_keys);
 }
 
@@ -156,6 +156,15 @@ c_members(mrbc_vm *vm, mrbc_value *v, int argc)
 static void
 c_define(mrbc_vm *vm, mrbc_value *v, int argc)
 {
+  /* Check the arguments before any allocation: nothing to release on error. */
+  for (int i = 0; i < argc; i++) {
+    mrbc_vtype tt = GET_ARG(i + 1).tt;
+    if (tt != MRBC_TT_STRING && tt != MRBC_TT_SYMBOL) {
+      mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
+      return;
+    }
+  }
+
   mrbc_value subclass = mrbc_instance_new(vm, v->cls, sizeof(data_subclass_t));
   data_subclass_t *data = (data_subclass_t *)subclass.instance->data;
   memset(data, 0, sizeof(data_subclass_t));
@@ -170,20 +179,11 @@ c_define(mrbc_vm *vm, mrbc_value *v, int argc)
   mrbc_value member_keys = mrbc_array_new(vm, argc);
   for (int i = 0; i < argc; i++) {
     mrbc_value arg = GET_ARG(i + 1);
-    mrbc_value key;
-    switch (arg.tt) {
-      case MRBC_TT_STRING: {
-        key = mrbc_symbol_value(mrbc_str_to_symid((const char *)arg.string->data));
-        break;
-        }
-      case MRBC_TT_SYMBOL: {
-        key = arg;
-        break;
-        }
-      default: {
-        mrbc_raise(vm, MRBC_CLASS(TypeError), "not a symbol nor a string");
-        return;
-      }
+    mrbc_value key = arg;
+    if (arg.tt == MRBC_TT_STRING) {
+      /* mrbc_symbol_new copies the name. mrbc_str_to_symid keeps the pointer,
+         which dangles when the String is released. */
+      key = mrbc_symbol_new(vm, (const char *)arg.string->data);
     }
     mrbc_array_set(&member_keys, i, &key);
   }

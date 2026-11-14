@@ -130,4 +130,128 @@ class DataTest < Picotest::Test
     assert_equal :foo, obj.kind
   end
 
+  # ---- Data.define argument check ----
+
+  def test_define_with_invalid_member_raises
+    assert_raise(TypeError) { Data.define(:x, 1) }
+  end
+
+  def test_define_keeps_name_of_released_string
+    # No symbol of this name exists before Data.define makes it.
+    name = "runtime_" + "member"
+    klass = Data.define(name)
+    name = nil
+    garbage = []
+    8.times { |i| garbage << "garbage_string_#{i}" }
+    assert_equal "runtime_member", klass.members[0].to_s
+  end
+
+  # ---- returned collections are copies ----
+
+  def test_to_h_returns_copy
+    klass = Data.define(:name)
+    obj = klass.new("Alice")
+    h = obj.to_h
+    h[:name] = "Bob"
+    assert_equal "Alice", obj.name
+    assert_equal "Alice", obj.to_h[:name]
+  end
+
+  def test_class_members_returns_copy
+    klass = Data.define(:x)
+    klass.members << :y
+    assert_equal [:x], klass.members
+    assert_equal 1, klass.new(1).x
+  end
+
+  # ---- reference counting ----
+
+  def test_to_h_remains_valid_after_returned_hashes_are_released
+    klass = Data.define(:name, :score)
+    obj = klass.new("Alice", 99)
+    3.times do
+      h = obj.to_h
+      assert_equal "Alice", h[:name]
+      assert_equal 99, h[:score]
+      h = nil
+    end
+    assert_equal "Alice", obj.name
+    assert_equal 99, obj.score
+  end
+
+  def test_class_members_remain_valid_after_returned_arrays_are_released
+    klass = Data.define(:name, :score)
+    3.times do
+      members = klass.members
+      assert_equal [:name, :score], members
+      members = nil
+    end
+    obj = klass.new("Alice", 99)
+    assert_equal "Alice", obj.name
+    assert_equal 99, obj.score
+  end
+
+  def test_instances_release_members
+    klass = Data.define(:value)
+    discard_instances(klass)
+    before = used_memory
+    discard_instances(klass)
+    assert_equal before, used_memory
+  end
+
+  def test_returned_collections_release_memory
+    klass = Data.define(:value)
+    obj = klass.new('payload')
+    discard_collections(klass, obj)
+    before = used_memory
+    discard_collections(klass, obj)
+    assert_equal before, used_memory
+  end
+
+  def test_definitions_release_member_keys
+    small = [:value]
+    large = []
+    32.times { |i| large << "member_#{i}".to_sym }
+    discard_definitions(small)
+    discard_definitions(large)
+    before = used_memory
+    discard_definitions(small)
+    small_growth = used_memory - before
+    before = used_memory
+    discard_definitions(large)
+    large_growth = used_memory - before
+    # A class registration keeps memory that does not depend on the member
+    # count. A leaked key array does: 20 arrays of 32 values exceed 1 KiB.
+    assert_true large_growth - small_growth < 1024
+  end
+
+  def used_memory
+    require 'picorubyvm'
+    PicoRubyVM.memory_statistics[:used]
+  end
+
+  def discard_instances(klass)
+    100.times do
+      obj = klass.new('payload')
+      obj = nil
+    end
+    nil
+  end
+
+  def discard_collections(klass, obj)
+    100.times do
+      obj.to_h
+      klass.members
+    end
+    nil
+  end
+
+  def discard_definitions(keys)
+    20.times do
+      klass = Data.define(*keys)
+      klass = nil
+    end
+    nil
+  end
+
 end
