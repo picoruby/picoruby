@@ -136,8 +136,6 @@ c_set_scan_params(mrbc_vm *vm, mrbc_value *v, int argc)
     scan_type = 0;
   } else if (mrbc_str_to_symid("active") == v[1].i) {
     scan_type = 1;
-    mrbc_raise(vm, MRBC_CLASS(ArgumentError), "scan_type active is not implemented");
-    return;
   } else {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong parameter of scan_type");
     return;
