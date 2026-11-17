@@ -1,8 +1,96 @@
 #include <mrubyc.h>
+#include <opcode.h>
 #include "picoruby/debug.h"
 
 #define SS() \
   SandboxState *ss = (SandboxState *)v->instance->data
+
+/*
+ * With flag_permanence, OP_RETURN at the top level takes a reference to the
+ * value it returns so that Sandbox#result can read it, and nothing gives it
+ * back. Each line would pin its result: a String, or the exception of a
+ * line that failed. Give the reference back once the next run replaces the
+ * previous one. The task stopped on OP_RETURN, so vm->inst is just past it
+ * and still inside the previous code.
+ */
+static void
+sandbox_drop_return_ref(mrbc_vm *vm)
+{
+  if (vm->flag_stop && vm->callinfo_tail == NULL && vm->inst[-2] == OP_RETURN) {
+    mrbc_decref(&vm->regs[vm->inst[-1]]);
+  }
+}
+
+/*
+ * Every line of irb is a compile and a load into the same VM, and neither
+ * gave anything back, so a session ran out of heap after some dozens of
+ * lines.
+ *
+ * What the previous load left is released once the new one has replaced
+ * it. The irep's instructions point into the dumped code, so the two go
+ * together. An irep with children keeps both: a method, a block or a class
+ * body can outlive the line that defined it. One without children cannot.
+ * Symbol names are safe too, because flag_permanence copies them when they
+ * are loaded. OP_SYMBOL is the exception, as it registers a name straight
+ * from the pool, but the compiler only emits it for a form Prism folds.
+ *
+ * Not released: the symbol copies themselves, which mrbc_raw_alloc_no_free
+ * makes for good, so a line still costs a few bytes for each symbol.
+ *
+ * code is NULL when the irep was loaded from code that is not the
+ * sandbox's own: the caller's code of exec_mrb, or the start-up code of
+ * the task. The irep is a separate block and is released all the same.
+ */
+static void
+sandbox_release_loaded(SandboxState *ss, mrbc_irep *irep, uint8_t *code)
+{
+  if (!irep || irep->rlen != 0) {
+    return;
+  }
+  mrbc_irep_free(irep);
+  /* A second load of the same code still runs in it. */
+  if (code && code != ss->loaded_code) {
+    mrc_free(ss->cc, code);
+  }
+}
+
+/*
+ * The options of the last compile carry the names of the local variables
+ * to the next compile. They outlive the compiler context, so the context
+ * does not free them.
+ */
+static void
+sandbox_free_options(SandboxState *ss)
+{
+  pm_options_t *options = ss->options;
+  if (!options) {
+    return;
+  }
+  for (size_t s = 0; s < options->scopes_count; s++) {
+    pm_options_scope_t *scope = &options->scopes[s];
+    for (size_t l = 0; l < scope->locals_count; l++) {
+      mrc_free(ss->cc, (void *)scope->locals[l].source);
+    }
+  }
+  pm_options_cleanup(options);
+  mrc_free(ss->cc, options);
+  ss->options = NULL;
+}
+
+/*
+ * Forget ss->vm_code. Code that the compiler made and that was never
+ * loaded has no user, so it is freed. Loaded code is left to
+ * sandbox_release_loaded(), and code from exec_mrb belongs to the caller.
+ */
+static void
+sandbox_discard_code(SandboxState *ss)
+{
+  if (ss->code_owned && ss->vm_code && ss->vm_code != ss->loaded_code) {
+    mrc_free(ss->cc, ss->vm_code);
+  }
+  ss->vm_code = NULL;
+  ss->code_owned = false;
+}
 
 static void
 sandbox_release_task(SandboxState *ss)
@@ -10,12 +98,24 @@ sandbox_release_task(SandboxState *ss)
   if (!ss->tcb) {
     return;
   }
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
+  mrbc_irep *irep = sandbox_vm->top_irep;
+  /* As in sandbox_release_loaded(): the code of an irep with children
+   * stays. */
+  uint8_t *code = (irep && irep->rlen == 0) ? ss->loaded_code : NULL;
+  if (ss->loaded_code) {
+    sandbox_drop_return_ref(sandbox_vm);
+  }
 //  mrc_irep_free(ss->cc, ss->irep); // Can't free code in ROM
-  mrbc_vm_end((mrbc_vm *)&ss->tcb->vm);
+  mrbc_vm_end(sandbox_vm);
   mrbc_terminate_task(ss->tcb);
-  mrbc_delete_task(ss->tcb);
+  mrbc_delete_task(ss->tcb); /* mrbc_vm_close() frees the irep */
   mrbc_raw_free(ss->tcb);
   ss->tcb = NULL;
+  /* The task is gone, so nothing runs in the last loaded code either. */
+  sandbox_discard_code(ss);
+  ss->loaded_code = NULL;
+  mrc_free(ss->cc, code);
 }
 
 static void
@@ -24,6 +124,7 @@ mrbc_sandbox_free(mrbc_value *self)
   SandboxState *ss = (SandboxState *)self->instance->data;
   sandbox_release_task(ss);
   free_ccontext(ss);
+  sandbox_free_options(ss);
 }
 
 
@@ -133,12 +234,17 @@ sandbox_compile_sub(mrbc_vm *vm, mrbc_value *v, uint8_t *script, size_t size, co
   }
   else {
     size_t vm_code_size = 0;
+    sandbox_discard_code(ss);
     int result = mrc_dump_irep(ss->cc, (const mrc_irep *)ss->irep, 0, &ss->vm_code, &vm_code_size);
+    /* The dump is a copy. Nothing reads the compiler's irep after this. */
+    mrc_irep_free(ss->cc, ss->irep);
+    ss->irep = NULL;
     if (result != MRC_DUMP_OK) {
       mrbc_raise(vm, MRBC_CLASS(RuntimeError), "Dump failed");
       free_ccontext(ss);
       return;
     }
+    ss->code_owned = true;
     SET_TRUE_RETURN();
   }
 }
@@ -192,16 +298,32 @@ reset_vm(mrbc_vm *vm)
   vm->flag_stop       = 0;
 }
 
+/*
+ * Load ss->vm_code into the task, run it, and release what the previous
+ * load left.
+ */
 static bool
-sandbox_exec_mrb_sub(mrbc_vm *sandbox_vm, SandboxState *ss)
+sandbox_load(SandboxState *ss)
 {
+  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
+  mrbc_irep *prev_irep = sandbox_vm->top_irep;
+  uint8_t *prev_code = ss->loaded_code;
   if (mrbc_load_mrb(sandbox_vm, ss->vm_code) != 0) {
+    /* The previous run stays in place. Keep its irep paired with
+     * ss->loaded_code for the next load. */
+    sandbox_vm->top_irep = prev_irep;
     return false;
-  } else {
-    reset_vm(sandbox_vm);
-    mrbc_resume_task(ss->tcb);
-    return true;
   }
+  /* Only now: after a failed load the next call comes here again for the
+   * same run, and the reference must go back once. */
+  if (prev_code) {
+    sandbox_drop_return_ref(sandbox_vm);
+  }
+  reset_vm(sandbox_vm);
+  ss->loaded_code = ss->code_owned ? ss->vm_code : NULL;
+  sandbox_release_loaded(ss, prev_irep, prev_code);
+  mrbc_resume_task(ss->tcb);
+  return true;
 }
 
 static void
@@ -213,9 +335,9 @@ c_sandbox_exec_mrb(mrbc_vm *vm, mrbc_value *v, int argc)
     mrc_irep_free(ss->cc, ss->irep);
     ss->irep = NULL;
   }
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  ss->vm_code = GET_STRING_ARG(1);
-  if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
+  sandbox_discard_code(ss);
+  ss->vm_code = GET_STRING_ARG(1); /* the caller owns this code */
+  if (sandbox_load(ss)) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -231,9 +353,9 @@ c_sandbox_exec_mrb_from_memory(mrbc_vm *vm, mrbc_value *v, int argc)
     mrc_irep_free(ss->cc, ss->irep);
     ss->irep = NULL;
   }
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  ss->vm_code = (uint8_t *)(intptr_t)GET_INT_ARG(1);
-  if (sandbox_exec_mrb_sub(sandbox_vm, ss)) {
+  sandbox_discard_code(ss);
+  ss->vm_code = (uint8_t *)(intptr_t)GET_INT_ARG(1); /* the caller owns this code */
+  if (sandbox_load(ss)) {
     SET_TRUE_RETURN();
   } else {
     SET_FALSE_RETURN();
@@ -252,13 +374,10 @@ static void
 c_sandbox_execute(mrbc_vm *vm, mrbc_value *v, int argc)
 {
   SS();
-  mrbc_vm *sandbox_vm = (mrbc_vm *)&ss->tcb->vm;
-  if(mrbc_load_mrb(sandbox_vm, ss->vm_code) != 0) {
-    SET_FALSE_RETURN();
-  } else {
-    reset_vm(sandbox_vm);
-    mrbc_resume_task(ss->tcb);
+  if (sandbox_load(ss)) {
     SET_TRUE_RETURN();
+  } else {
+    SET_FALSE_RETURN();
   }
 }
 

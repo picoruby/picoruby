@@ -13,6 +13,10 @@ typedef struct sandbox_state {
   mrbc_tcb *tcb;
 #endif
   uint8_t *vm_code;
+#if defined(PICORB_VM_MRUBYC)
+  uint8_t *loaded_code; /* compiled here and loaded into the task's VM */
+  bool code_owned;      /* vm_code came from the compiler, not the caller */
+#endif
   pm_options_t *options;
 } SandboxState;
 
