@@ -248,6 +248,112 @@ class SandboxTest < Picotest::Test
     sandbox.close
   end
 
+  # On mruby/c, the sandbox frees the code of a line when the next line
+  # replaces it. What the line made must not point into that code.
+  def test_values_outlive_the_line_that_made_them
+    sandbox = Sandbox.new
+    irb_eval(sandbox, "$sandbox_test_str = 'made by a line'")
+    irb_eval(sandbox, "$sandbox_test_sym = :sandbox_test_fresh_symbol")
+    irb_eval(sandbox, "def sandbox_test_method; :from_method; end")
+    irb_eval(sandbox, "$sandbox_test_proc = Proc.new { :from_proc }")
+    5.times { irb_eval(sandbox, "'filler' + 1.to_s") }
+
+    assert_equal "made by a line", irb_eval(sandbox, "$sandbox_test_str")
+    assert_equal "sandbox_test_fresh_symbol", irb_eval(sandbox, "$sandbox_test_sym.to_s")
+    assert_equal :from_method, irb_eval(sandbox, "sandbox_test_method")
+    assert_equal :from_proc, irb_eval(sandbox, "$sandbox_test_proc.call")
+    sandbox.close
+  ensure
+    $sandbox_test_str = nil
+    $sandbox_test_sym = nil
+    $sandbox_test_proc = nil
+  end
+
+  def test_execute_runs_the_same_code_again
+    $sandbox_test_count = 0
+    sandbox = Sandbox.new
+    assert sandbox.compile("$sandbox_test_count += 1")
+    3.times do
+      sandbox.execute
+      sandbox.wait(timeout: nil)
+      sandbox.suspend
+    end
+    assert_equal 3, $sandbox_test_count
+    assert_equal 4, irb_eval(sandbox, "$sandbox_test_count + 1")
+    sandbox.close
+  ensure
+    $sandbox_test_count = nil
+  end
+
+  def used_memory
+    require 'picorubyvm'
+    PicoRubyVM.memory_statistics[:used]
+  end
+
+  # The lines of the heap tests have no symbol and no irb wrapper. mruby/c
+  # copies the name of every symbol of the code on each load and keeps the
+  # copy, and the wrapper alone has two symbols.
+  def eval_plain(sandbox, script)
+    sandbox.compile(script)
+    sandbox.execute
+    sandbox.wait(timeout: nil)
+    sandbox.suspend
+    sandbox.result
+  end
+
+  def eval_lines(sandbox, n)
+    n.times do
+      eval_plain(sandbox, "'a string result'")
+      eval_plain(sandbox, "[1, 'two', 3.0]")
+    end
+    nil
+  end
+
+  # A line without a method, a block or a class body leaves nothing behind
+  # once the next line has replaced it.
+  def test_lines_do_not_grow_the_heap
+    skip "mruby/c frees the code of each line" unless femtoruby?
+    sandbox = Sandbox.new
+    eval_lines(sandbox, 3)
+    before = used_memory
+    eval_lines(sandbox, 50)
+    after = used_memory
+    # 100 lines. One line that is not released costs more than 100 bytes.
+    assert_in_delta 0, after - before, 1000
+    sandbox.close
+  end
+
+  def open_and_close(n, use)
+    n.times do
+      sandbox = Sandbox.new
+      if use
+        eval_plain(sandbox, "x = 'a string result'")
+        # Compiled and never executed.
+        sandbox.compile("'not executed'")
+      end
+      sandbox.close
+    end
+    nil
+  end
+
+  def heap_growth_of_sandboxes(use)
+    open_and_close(3, use)
+    before = used_memory
+    open_and_close(30, use)
+    used_memory - before
+  end
+
+  # close releases the last line, the code that was never executed and the
+  # names of the local variables. A sandbox that ran nothing is the
+  # baseline: the task itself is not the subject of this test.
+  def test_close_releases_what_the_sandbox_compiled
+    skip "mruby/c frees the code of each line" unless femtoruby?
+    unused = heap_growth_of_sandboxes(false)
+    used = heap_growth_of_sandboxes(true)
+    # 30 sandboxes. One that is not released costs more than 100 bytes.
+    assert_in_delta 0, used - unused, 1000
+  end
+
   def test_close_removes_task_from_scheduler
     dormant_count = Task.stat[:dormant][:count] if picoruby?
     sandbox = Sandbox.new
