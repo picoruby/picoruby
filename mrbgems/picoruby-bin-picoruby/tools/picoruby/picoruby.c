@@ -7,6 +7,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <errno.h>
+#include <limits.h>
+#include <stdint.h>
 #if !defined(_WIN32) && !defined(_WIN64)
 #include <termios.h>
 #include <unistd.h>
@@ -44,22 +47,41 @@ static uint8_t vm_heap_static[HEAP_SIZE] __attribute__((aligned(8)));
 
 /* The VM heap: HEAP_SIZE bytes built in, or the number of kilobytes in
  * PICORUBY_HEAP_SIZE when that is set, for a script that needs more
- * than a microcontroller would have. */
+ * than a microcontroller would have. A build on the libc allocator
+ * (mruby without estalloc) does not use this heap, so it ignores the
+ * variable. */
 static uint8_t *
 vm_heap_alloc(size_t *size)
 {
-  const char *env = getenv("PICORUBY_HEAP_SIZE");
-  if (env && *env) {
-    long kb = strtol(env, NULL, 10);
-    uint8_t *heap = kb > 0 ? (uint8_t *)malloc((size_t)kb * 1024) : NULL;
-    if (heap) {
-      *size = (size_t)kb * 1024;
-      return heap;
-    }
-    fprintf(stderr, "PICORUBY_HEAP_SIZE=%s ignored: expected kilobytes\n", env);
-  }
   *size = HEAP_SIZE;
+#if defined(PICORB_VM_MRUBY) && !defined(PICORB_ALLOC_ESTALLOC)
   return vm_heap_static;
+#else
+  const char *env = getenv("PICORUBY_HEAP_SIZE");
+  if (!env || !*env) return vm_heap_static;
+#if defined(PICORB_VM_MRUBYC)
+  /* mrbc_init() takes the size as an unsigned int */
+  const unsigned long long max_kb = UINT_MAX / 1024;
+#else
+  const unsigned long long max_kb = SIZE_MAX / 1024;
+#endif
+  char *end;
+  errno = 0;
+  long kb = strtol(env, &end, 10);
+  if (errno != 0 || end == env || *end != '\0' || kb <= 0 ||
+      max_kb < (unsigned long long)kb) {
+    fprintf(stderr, "PICORUBY_HEAP_SIZE=%s ignored: expected kilobytes (1..%llu)\n",
+            env, max_kb);
+    return vm_heap_static;
+  }
+  uint8_t *heap = (uint8_t *)malloc((size_t)kb * 1024);
+  if (!heap) {
+    fprintf(stderr, "PICORUBY_HEAP_SIZE=%s ignored: cannot allocate %ld KB\n", env, kb);
+    return vm_heap_static;
+  }
+  *size = (size_t)kb * 1024;
+  return heap;
+#endif
 }
 
 #if defined(_WIN32) || defined(_WIN64)
