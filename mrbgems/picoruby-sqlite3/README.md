@@ -56,6 +56,15 @@ db.close     # close also auto-persists
 The rest of the API (execute, transactions, pragmas, backup, ...) is identical
 to the microcontroller build.
 
+## POSIX host build
+
+The host build (`build_config/default.rb`) has no picoruby-vfs, because it
+would reopen `File` and `Dir` over the host's own. There only
+`SQLite3::Database.new(":memory:")` opens; any other name raises
+`SQLite3::CantOpenException`. Temporary tables live in memory
+(`SQLITE_TEMP_STORE=3`), as on wasm. `rake test:gems:*` still builds the gem
+with picoruby-vfs and a RAM littlefs.
+
 ## Usage
 
 ```ruby

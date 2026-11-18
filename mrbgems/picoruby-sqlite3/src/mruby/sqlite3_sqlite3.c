@@ -22,6 +22,7 @@ mrb_sqlite3_exception_class_for(mrb_state *mrb, int status)
     case SQLITE_FULL:       sym = MRB_SYM(FullException);       break;
     case SQLITE_CORRUPT:    sym = MRB_SYM(CorruptException);    break;
     case SQLITE_IOERR:      sym = MRB_SYM(IOException);         break;
+    case SQLITE_CANTOPEN:   sym = MRB_SYM(CantOpenException);   break;
     default:                return mrb_sqlite3_exception_class(mrb);
   }
   return mrb_class_get_under_id(mrb, class_SQLite3, sym);
@@ -44,6 +45,7 @@ mrb_picoruby_sqlite3_gem_init(mrb_state *mrb)
   mrb_define_class_under_id(mrb, class_SQLite3, MRB_SYM(FullException), class_Exception);
   mrb_define_class_under_id(mrb, class_SQLite3, MRB_SYM(CorruptException), class_Exception);
   mrb_define_class_under_id(mrb, class_SQLite3, MRB_SYM(IOException), class_Exception);
+  mrb_define_class_under_id(mrb, class_SQLite3, MRB_SYM(CantOpenException), class_Exception);
 
   mrb_init_class_SQLite3_Database(mrb, class_SQLite3);
   mrb_init_class_SQLite3_Statement(mrb, class_SQLite3);

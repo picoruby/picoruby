@@ -15,6 +15,10 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
     spec.add_dependency 'picoruby-indexeddb'
     spec.cc.defines << "SQLITE_ENABLE_DESERIALIZE" # sqlite3_serialize/deserialize
     spec.cc.defines << "SQLITE_TEMP_STORE=3"       # temp b-trees in RAM (no VFS)
+  elsif build.posix? && !ENV['TEST_TASK']
+    # The host build: picoruby-vfs would reopen File and Dir over the host's
+    # own, so there is no VFS and only ":memory:" databases open.
+    spec.cc.defines << "SQLITE_TEMP_STORE=3"       # temp b-trees in RAM (no VFS)
   else
     spec.add_dependency 'picoruby-vfs'
     if ENV['TEST_TASK']
