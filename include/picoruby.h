@@ -173,6 +173,8 @@ bool picoruby_load_model_by_name(const char *gem);
 
 // created in mruby/src/load.c
 mrb_irep *mrb_read_irep(mrb_state *mrb, const uint8_t *bin);
+// in mruby/src/state.c; mruby/irep.h is not included (see MRUBY_IREP_H above)
+void mrb_irep_decref(mrb_state *mrb, mrb_irep *irep);
 
 mrb_value mrb_task_run(mrb_state *mrb);
 

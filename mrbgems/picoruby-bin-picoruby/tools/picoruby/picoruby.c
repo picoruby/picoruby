@@ -349,12 +349,6 @@ parse_args(void *vm, int argc, char **argv, struct _args *args)
 static void
 cleanup(mrb_state *vm, struct _args *args)
 {
-#if defined(PICORB_VM_MRUBY)
-  // TODO: fix segv
-//  mrb_close(vm);
-#elif defined(PICORB_VM_MRUBYC)
-  (void)vm;
-#endif
   if (!args->fname)
     picorb_free(vm, args->cmdline);
   picorb_free(vm, args->argv);
@@ -364,6 +358,11 @@ cleanup(mrb_state *vm, struct _args *args)
     }
     picorb_free(vm, args->libv);
   }
+#if defined(PICORB_VM_MRUBY)
+  mrb_close(vm);
+#elif defined(PICORB_VM_MRUBYC)
+  (void)vm;
+#endif
 }
 
 static void
@@ -392,6 +391,20 @@ picorb_print_diagnostics(mrc_ccontext *cc, const char *cmdline, picorb_bool verb
 }
 
 #if defined(PICORB_VM_MRUBY)
+/* The program has ended raising `vm->exc`: report it unless it is a
+   SystemExit, and answer the exit status. `vm->exc` is left set, so that
+   the Kernel#at_exit blocks, which run as the state is closed, see it as
+   `$!`. */
+static int
+program_end(mrb_state *vm)
+{
+  if (MRB_EXC_EXIT_P(vm->exc)) {
+    return MRB_EXC_EXIT_STATUS(vm, vm->exc);
+  }
+  picorb_print_error(vm);
+  return EXIT_FAILURE;
+}
+
 static int /* macro needs `mrb` */
 mrb_lib_run(mrc_ccontext *cc, mrc_irep *irep)
 {
@@ -409,7 +422,12 @@ mrb_lib_run(mrc_ccontext *cc, mrc_irep *irep)
   }
   mrb_value v = mrb_top_run(mrb, proc, mrb_top_self(mrb), 1);
   if (mrb->exc) {
-    MRB_EXC_CHECK_EXIT(mrb, mrb->exc);
+    if (MRB_EXC_EXIT_P(mrb->exc)) {
+      /* closing the state runs the at_exit blocks */
+      int status = MRB_EXC_EXIT_STATUS(mrb, mrb->exc);
+      mrb_close(mrb);
+      exit(status);
+    }
     if (!mrb_undef_p(v)) {
       picorb_print_error(mrb);
     }
@@ -722,6 +740,9 @@ main(int argc, char **argv)
       exit(EXIT_FAILURE);
     }
     tcb_list[tcb_list_size++] = task;
+    /* The task's proc holds the irep now; mrc_irep_free() would free it
+       while procs made from it still run, as at_exit blocks do. */
+    mrb_irep_decref(vm, (mrb_irep *)irep);
 #elif defined(PICORB_VM_MRUBYC)
     if (!vm_code) {
       int result;
@@ -759,20 +780,15 @@ main(int argc, char **argv)
     mrb_vm_ci_env_clear(vm, vm->c->cibase);
     n = EXIT_SUCCESS;
     if (vm->exc) {
-      MRB_EXC_CHECK_EXIT(vm, vm->exc);
-      picorb_print_error(vm);
-      n = EXIT_FAILURE;
+      n = program_end(vm);
     }
-    for (int i = 0; i < tcb_list_size; i++) {
+    for (int i = 0; i < tcb_list_size && !(vm->exc && MRB_EXC_EXIT_P(vm->exc)); i++) {
       mrb_value result = mrb_task_value(vm, tcb_list[i]);
       if (mrb_exception_p(result)) {
         vm->exc = mrb_obj_ptr(result);
-        MRB_EXC_CHECK_EXIT(vm, vm->exc);
-        picorb_print_error(vm);
-        n = EXIT_FAILURE;
+        n = program_end(vm);
       }
     }
-    mrc_irep_free(cc, irep);
     if (source) mrc_free(cc, source);
 #elif defined(PICORB_VM_MRUBYC)
     if (mrbc_run() != 0) {
