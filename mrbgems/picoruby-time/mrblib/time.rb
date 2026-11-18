@@ -92,7 +92,7 @@ class Time
 
   def __adjust(digits, how)
     return self if digits >= 6
-    scale = 10 ** (6 - digits)
+    scale = 10 ** (6 - digits) #: Integer
     us = usec
     rem = us % scale
     return self if rem == 0
