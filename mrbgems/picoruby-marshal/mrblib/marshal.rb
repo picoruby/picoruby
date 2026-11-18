@@ -136,7 +136,7 @@ module Marshal
     # An object refers to itself, or to one being dumped around it: there
     # are no object links here, so dumping would not end.
     def dump_nested(obj)
-      stack = (@dumping ||= [])
+      stack = (@dumping ||= []) #: Array[Integer]
       id = obj.object_id
       i = 0
       while i < stack.size
@@ -470,7 +470,7 @@ module Marshal
         if obj.is_a?(Exception) && ivar == :mesg
           obj = obj.exception(value) if value
         elsif obj.is_a?(Exception) && ivar == :bt
-          obj.set_backtrace(value) if value
+          obj.set_backtrace(value) if value # steep:ignore UnresolvedOverloading
         elsif ivar.to_s.start_with?("@")
           obj.instance_variable_set(ivar, value)
         end
