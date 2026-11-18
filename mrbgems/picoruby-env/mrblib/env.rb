@@ -8,7 +8,9 @@ class ENVClass
     i = 0
     while i < keys_size
       key = keys[i]
-      yield(key, h[key])
+      # two values, as Hash#each yields them; the sig types the block as
+      # Enumerable's [key, value] pair
+      yield(key, h[key]) # steep:ignore
       i += 1
     end
     self
@@ -41,7 +43,7 @@ class ENVClass
   def to_h
     h = _hash
     return h.dup unless block_given?
-    result = {}
+    result = {} #: Hash[untyped, untyped]
     keys = h.keys
     keys_size = keys.size
     i = 0
@@ -103,7 +105,7 @@ class ENVClass
 
   def values_at(*names)
     h = _hash
-    result = []
+    result = [] #: Array[String | nil]
     names_size = names.size
     i = 0
     while i < names_size
@@ -115,7 +117,7 @@ class ENVClass
 
   def slice(*names)
     h = _hash
-    result = {}
+    result = {} #: Hash[String, String]
     names_size = names.size
     i = 0
     while i < names_size
@@ -145,7 +147,7 @@ class ENVClass
         key = keys[j]
         value = hash[key]
         if block_given? && key?(key)
-          value = yield(key, self[key], value)
+          value = yield(key, self[key].to_s, value)
         end
         self[key] = value
         j += 1
@@ -170,7 +172,7 @@ class ENVClass
   # A Hash of the variables the block answers true for.
   def select
     h = _hash
-    result = {}
+    result = {} #: Hash[String, String]
     keys = h.keys
     keys_size = keys.size
     i = 0
@@ -187,7 +189,7 @@ class ENVClass
   # A Hash of the variables the block answers false for.
   def reject
     h = _hash
-    result = {}
+    result = {} #: Hash[String, String]
     keys = h.keys
     keys_size = keys.size
     i = 0
