@@ -32,6 +32,17 @@ class WebSocketServerTest < Picotest::Test
     assert_equal("258EAFA5-E914-47DA-95CA-C5AB0DC85B11", Net::WebSocket::WEBSOCKET_GUID)
   end
 
+  # The example of RFC 6455 section 1.3. The value goes into a header, so
+  # it must be one line with no newline.
+  def test_accept_key_of_rfc6455_example
+    klass = Net::WebSocket::Server::Connection
+    return unless klass.respond_to?(:allocate) # mruby/c has no allocate
+    conn = klass.allocate
+    # __send__: Connection#send is the WebSocket send
+    assert_equal("s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+                 conn.__send__(:compute_accept_key, "dGhlIHNhbXBsZSBub25jZQ=="))
+  end
+
   def test_error_when_accepting_without_start
     server = Net::WebSocket::Server.new
     assert_raise(Net::WebSocket::WebSocketError) do

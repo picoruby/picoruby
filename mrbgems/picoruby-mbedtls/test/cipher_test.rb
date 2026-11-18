@@ -40,7 +40,7 @@ class CipherTest < Picotest::Test
     tag = cipher.write_tag
 
     encrypted = ciphertext + tag
-    encrypted_base64 = Base64.encode64(encrypted)
+    encrypted_base64 = Base64.strict_encode64(encrypted)
 
     assert_equal(12, cipher.iv_len)
     assert_equal( "Fhx37n8YaTsckUbtLxHFMcoVmoyWMvCXM4RzLG0=", encrypted_base64)

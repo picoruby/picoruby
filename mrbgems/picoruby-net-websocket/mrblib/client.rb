@@ -197,7 +197,8 @@ module Net
           key_bytes << [RNG.random_int % 256].pack("C")
           ki += 1
         end
-        sec_key = Base64.encode64(key_bytes)
+        # one line of RFC 4648 Base64 (RFC 6455), not encode64's MIME lines
+        sec_key = Base64.strict_encode64(key_bytes)
 
         # Build HTTP request
         request = "GET #{@path} HTTP/1.1\r\n"

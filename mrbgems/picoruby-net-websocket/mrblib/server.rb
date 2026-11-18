@@ -210,7 +210,8 @@ module Net
           digest = MbedTLS::Digest.new(:sha1)
           digest.update(sec_key + WEBSOCKET_GUID)
           hash = digest.finish
-          Base64.encode64(hash)
+          # a header value: one line, with no newline (RFC 6455)
+          Base64.strict_encode64(hash)
         end
 
         def send_frame(opcode, payload, masked: false)

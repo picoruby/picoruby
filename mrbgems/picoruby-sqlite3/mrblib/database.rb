@@ -173,7 +173,7 @@ class SQLite3
           raise SQLite3::Exception.new(
             "cannot persist a database that has no snapshot name (\":memory:\")")
         end
-        self.class.__store[name] = Base64.encode64(serialize)
+        self.class.__store[name] = Base64.strict_encode64(serialize)
         true
       end
 

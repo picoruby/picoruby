@@ -34,7 +34,7 @@ password = cli.ask("WiFi Password? (leave blank if no password required)", allow
 answers["wifi"]["encoded_password"] = if password.nil? || password.empty?
   nil
 else
-  Base64.encode64(encrypt_proc.call(password))
+  Base64.strict_encode64(encrypt_proc.call(password))
 end
 answers["wifi"]["auto_connect"] = cli.ask("Auto Connect? (y/n)") do |q|
   q.default = "y"

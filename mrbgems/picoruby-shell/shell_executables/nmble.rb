@@ -92,7 +92,7 @@ class WifiConfigPeripheral < BLE
       "country_code" => @country,
       "wifi" => {
         "ssid" => @ssid,
-        "encoded_password" => Base64.encode64(encrypt_password(@password)),
+        "encoded_password" => Base64.strict_encode64(encrypt_password(@password)),
         "auto_connect" => true,
         "watchdog" => (@watchdog == 'y')
       }
