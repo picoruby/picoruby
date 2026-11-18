@@ -161,6 +161,21 @@ class JsonTest < Picotest::Test
     assert_equal('[{"custom":true}]', JSON.generate([klass.new]))
   end
 
+  def test_object_is_written_as_its_to_s
+    obj = Object.new
+    assert_equal("[#{JSON.generate(obj.to_s)}]", JSON.generate([obj]))
+    assert_equal(JSON.generate(obj.to_s), obj.to_json)
+  end
+
+  def test_own_to_json_goes_on_from_the_depth
+    klass = Class.new do
+      def to_json(state = nil, *) = JSON.generate({"d" => state.depth}, state)
+    end
+    state = JSON::State.new(indent: "  ", object_nl: "\n", array_nl: "\n")
+    assert_equal("[\n  [\n    {\n      \"d\":2\n    }\n  ]\n]", JSON.generate([[klass.new]], state))
+    assert_equal(0, state.depth)
+  end
+
   def test_fragment
     assert_equal('[{"raw":1}]', JSON.generate([JSON::Fragment.new('{"raw":1}')]))
   end
@@ -174,6 +189,8 @@ class JsonTest < Picotest::Test
     assert_equal('"a\\"b\\\\c\\n\\u0001"', JSON.generate("a\"b\\c\n\u0001"))
     assert_equal('"日本語"', JSON.generate("日本語"))
     assert_equal('"a\\/b"', JSON.generate("a/b", script_safe: true))
+    assert_equal('"a\\u2028b\\u2029c"', JSON.generate("a\u2028b\u2029c", script_safe: true))
+    assert_equal("\"a\u2028b\"", JSON.generate("a\u2028b"))
     assert_equal('"a/b"', JSON.generate("a/b"))
   end
 
@@ -183,5 +200,15 @@ class JsonTest < Picotest::Test
     120.times { nxt = []; cur << nxt; cur = nxt }
     assert_raise(JSON::NestingError) { JSON.generate(deep) }
     assert_equal(true, JSON.generate(deep, max_nesting: 0).start_with?("[[["))
+  end
+end
+
+# Generating a Float works on both VMs
+class JsonFloatTest < Picotest::Test
+  def test_generate_float
+    assert_equal('[1.5]', JSON.generate([1.5]))
+    assert_raise(JSON::GeneratorError) { JSON.generate([0.0 / 0.0]) }
+    assert_raise(JSON::GeneratorError) { JSON.generate([1.0 / 0.0]) }
+    assert_equal('[NaN,Infinity,-Infinity]', JSON.generate([0.0 / 0.0, 1.0 / 0.0, -1.0 / 0.0], allow_nan: true))
   end
 end

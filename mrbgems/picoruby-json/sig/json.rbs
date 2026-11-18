@@ -105,6 +105,7 @@ module JSON
     include JSON::Common
 
     HEX_CHARS: String
+    INFINITY: Float
 
     @obj: untyped
     @state: State?
@@ -143,5 +144,37 @@ module JSON
 end
 
 class Object
+  def to_json: (?untyped state) -> String
+end
+
+class Hash[unchecked out K, unchecked out V]
+  def to_json: (?untyped state) -> String
+end
+
+class Array[unchecked out Elem]
+  def to_json: (?untyped state) -> String
+end
+
+class String
+  def to_json: (?untyped state) -> String
+end
+
+class Integer
+  def to_json: (?untyped state) -> String
+end
+
+class Float
+  def to_json: (?untyped state) -> String
+end
+
+class TrueClass
+  def to_json: (?untyped state) -> String
+end
+
+class FalseClass
+  def to_json: (?untyped state) -> String
+end
+
+class NilClass
   def to_json: (?untyped state) -> String
 end

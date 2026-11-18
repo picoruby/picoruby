@@ -511,9 +511,19 @@ module JSON
       when Fragment
         obj.json
       else
-        # an object with its own to_json writes itself, as in CRuby
-        if obj.respond_to?(:to_json) && !obj.method(:to_json).owner.equal?(Kernel)
-          obj.to_json(@state)
+        # any other object writes itself with its to_json, as in CRuby;
+        # Object#to_json writes its to_s. A State carries the depth here,
+        # so a to_json that generates with it goes on from this depth.
+        if obj.respond_to?(:to_json)
+          state = @state
+          return obj.to_json(nil) unless state
+          depth = state.depth
+          state.depth = @depth
+          begin
+            obj.to_json(state)
+          ensure
+            state.depth = depth
+          end
         else
           generate_string(obj.to_s)
         end
@@ -602,12 +612,16 @@ module JSON
     def generate_string(str)
       result = '"'
       state = @state
+      script_safe = state ? state.script_safe? : false
       run_start = 0
       index = 0
       while byte = str.getbyte(index)
         escaped = if byte == 34 then '\\"'
                   elsif byte == 92 then '\\\\'
-                  elsif byte == 47 && state && state.script_safe? then '\\/'
+                  elsif byte == 47 && script_safe then '\\/'
+                  elsif byte == 226 && script_safe && str.getbyte(index + 1) == 128 &&
+                        ((last = str.getbyte(index + 2)) == 168 || last == 169)
+                    last == 168 ? '\\u2028' : '\\u2029'
                   elsif byte >= 32 then nil
                   elsif byte == 8 then '\\b'
                   elsif byte == 12 then '\\f'
@@ -619,6 +633,7 @@ module JSON
         if escaped
           result << str.byteslice(run_start, index - run_start).to_s if run_start < index
           result << escaped
+          index += 2 if byte == 226 # the rest of U+2028 or U+2029
           run_start = index + 1
         end
         index += 1
@@ -628,13 +643,17 @@ module JSON
       result
     end
 
+    INFINITY = 1.0 / 0
+
+    # mruby/c has neither nan? nor infinite?: NaN is the Float that is not
+    # equal to itself
     def generate_float(obj)
-      if obj.nan? || obj.infinite?
+      if obj != obj || obj == INFINITY || obj == -INFINITY
         state = @state
         unless state && state.allow_nan?
           raise JSON::GeneratorError.new("#{obj} not allowed in JSON")
         end
-        return obj.nan? ? 'NaN' : (obj > 0 ? 'Infinity' : '-Infinity')
+        return obj != obj ? 'NaN' : (obj > 0 ? 'Infinity' : '-Infinity')
       end
       obj.to_s
     end
@@ -934,9 +953,58 @@ module JSON
   end
 end
 
-# to_json on the core classes, as the json library defines it: the
-# argument is a State or an option Hash, or nothing
+# to_json, as the json library defines it: the argument is a State or an
+# option Hash, or nothing. An object is written as its to_s; the classes
+# that JSON has values for are written as those.
 class Object
+  def to_json(state = nil)
+    JSON.generate(to_s, state)
+  end
+end
+
+class Hash
+  def to_json(state = nil)
+    JSON.generate(self, state)
+  end
+end
+
+class Array
+  def to_json(state = nil)
+    JSON.generate(self, state)
+  end
+end
+
+class String
+  def to_json(state = nil)
+    JSON.generate(self, state)
+  end
+end
+
+class Integer
+  def to_json(state = nil)
+    JSON.generate(self, state)
+  end
+end
+
+class Float
+  def to_json(state = nil)
+    JSON.generate(self, state)
+  end
+end
+
+class TrueClass
+  def to_json(state = nil)
+    JSON.generate(self, state)
+  end
+end
+
+class FalseClass
+  def to_json(state = nil)
+    JSON.generate(self, state)
+  end
+end
+
+class NilClass
   def to_json(state = nil)
     JSON.generate(self, state)
   end
