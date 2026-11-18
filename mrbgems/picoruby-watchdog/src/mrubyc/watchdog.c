@@ -1,6 +1,34 @@
 #include <mrubyc.h>
 #include "../include/watchdog.h"
 
+/*
+ * Map a refusal to an exception. Shaped after machine_sleep_raised in
+ * picoruby-machine: returns true when it raised, so the caller leaves
+ * without setting a return value.
+ */
+static bool
+watchdog_raised(mrbc_vm *vm, int status)
+{
+  switch (status) {
+    case WATCHDOG_ERROR_NONE:
+      return false;
+    case WATCHDOG_ERROR_UNSUPPORTED:
+      mrbc_raise(vm, MRBC_CLASS(NotImplementedError),
+                 "the watchdog cannot be stopped on this platform");
+      return true;
+    case WATCHDOG_ERROR_INVALID_VALUE:
+      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "delay_ms out of range");
+      return true;
+    case WATCHDOG_ERROR_ALREADY_ON:
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError),
+                 "the watchdog is running and cannot be reconfigured");
+      return true;
+    default:
+      mrbc_raise(vm, MRBC_CLASS(RuntimeError), "watchdog error");
+      return true;
+  }
+}
+
 static void
 c_Watchdog_enable(mrbc_vm *vm, mrbc_value *v, int argc)
 {
@@ -21,14 +49,18 @@ c_Watchdog_enable(mrbc_vm *vm, mrbc_value *v, int argc)
       return;
     }
   }
-  Watchdog_enable(GET_INT_ARG(1), pause_on_debug);
+  if (watchdog_raised(vm, Watchdog_enable(GET_INT_ARG(1), pause_on_debug))) {
+    return;
+  }
   SET_INT_RETURN(0);
 }
 
 static void
 c_Watchdog_disable(mrbc_vm *vm, mrbc_value *v, int argc)
 {
-  Watchdog_disable();
+  if (watchdog_raised(vm, Watchdog_disable())) {
+    return;
+  }
   SET_INT_RETURN(0);
 }
 

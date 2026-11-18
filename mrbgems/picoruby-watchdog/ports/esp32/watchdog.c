@@ -2,7 +2,7 @@
 
 static bool subscribed = false;
 
-void
+int
 Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
 {
   esp_task_wdt_config_t twdt_config = {
@@ -13,9 +13,10 @@ Watchdog_enable(uint32_t delay_ms, bool pause_on_debug)
   if (!subscribed && esp_task_wdt_add(NULL) == ESP_OK) {
     subscribed = true;
   }
+  return WATCHDOG_ERROR_NONE;
 }
 
-void
+int
 Watchdog_disable(void)
 {
   if (subscribed) {
@@ -23,6 +24,7 @@ Watchdog_disable(void)
     subscribed = false;
   }
   esp_task_wdt_deinit();
+  return WATCHDOG_ERROR_NONE;
 }
 
 void
