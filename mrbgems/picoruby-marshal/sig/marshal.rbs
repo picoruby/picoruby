@@ -11,6 +11,15 @@ module Marshal
   TYPE_ARRAY: String
   TYPE_HASH: String
   TYPE_IVAR: String
+  TYPE_SYMLINK: String
+  TYPE_OBJECT: String
+  TYPE_USERDEF: String
+  TYPE_USRMARSHAL: String
+  TYPE_CLASS: String
+  TYPE_MODULE: String
+  NO_IVAR_STATE: Array[String]
+
+  self.@dumping: Array[Integer]
 
   type marshalable = nil | Proc | bool | Integer | Float | String | Symbol | Array[marshalable] | Hash[marshalable, marshalable]
 
@@ -32,4 +41,15 @@ module Marshal
   private def self.load_array: (String data, Integer pos, Array[Symbol] symbols) -> [Array[marshalable], Integer]
   private def self.load_hash: (String data, Integer pos, Array[Symbol] symbols) -> [Hash[marshalable, marshalable], Integer]
   private def self.load_ivar: (String data, Integer pos, Array[Symbol] symbols) -> [marshalable, Integer]
+  private def self.dump_other: (untyped obj) -> String
+  private def self.class_path: (Module mod) -> String
+  private def self.dump_bytes: (String str) -> String
+  private def self.no_ivar_state?: (untyped obj) -> bool
+  private def self.dump_nested: (untyped obj) { () -> String } -> String
+  private def self.dump_plain_object: (untyped obj) -> String
+  private def self.load_typed_symbol: (String data, Integer pos, Array[Symbol] symbols) -> [String, Integer]
+  private def self.load_class_or_module: (String data, Integer pos, String type) -> [untyped, Integer]
+  private def self.path_to_class: (String name) -> untyped
+  private def self.allocate: (untyped klass) -> untyped
+  private def self.load_plain_object: (String data, Integer pos, Array[Symbol] symbols) -> [untyped, Integer]
 end
