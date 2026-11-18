@@ -96,6 +96,14 @@ class JsonTest < Picotest::Test
       JSON.parse('{"name":"日本","lat":35.5,"offset":-7}'))
   end
 
+  # A \u escape gives text, so the string counts characters, not bytes
+  def test_parse_unicode_escape_gives_text
+    assert_equal 1, JSON.parse('["\\u3042"]')[0].size
+    assert_equal 3, JSON.parse('["a\\u3042b"]')[0].size
+    assert_equal 1, JSON.parse('["\\ud83d\\ude00"]')[0].size
+    assert_equal "あ", JSON.parse('["\\u3042"]')[0]
+  end
+
   def test_generate_nested_json_string
     # Test for ActionCable-like nested JSON
     inner = JSON.generate({channel: "ChatChannel", room: "lobby"})

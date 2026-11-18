@@ -581,7 +581,12 @@ module JSON
       code
     end
 
+    # On mruby, pack('U') gives a UTF-8 text string. pack('C*') gives a
+    # binary one, which makes the string it is appended to binary too, so
+    # an escaped U+3042 would count 3 characters. mruby/c has no 'U' and
+    # no encodings.
     def utf8_encode(code)
+      return [code].pack('U') unless RUBY_ENGINE == "mruby/c"
       if code < 0x80
         [code].pack('C*')
       elsif code < 0x800
