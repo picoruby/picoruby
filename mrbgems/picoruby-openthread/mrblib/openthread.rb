@@ -118,11 +118,13 @@ module OpenThread
   # Thread node has no separate "got an address" step to hang it on.
   def self.wait_attached(timeout_ms: 30_000)
     return true if attached?
-    queue = (@role_queue ||= begin
-      q = Task::Queue.new
-      self.__role_queue = q
-      q
-    end)
+    # Held by the C side rather than in @role_queue: on mruby/c an ivar
+    # set with a module as self lands on the module's method table.
+    queue = __role_queue
+    unless queue
+      queue = Task::Queue.new
+      self.__role_queue = queue
+    end
     deadline = timeout_ms
     while deadline > 0
       started = Machine.board_millis

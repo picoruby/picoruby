@@ -16,9 +16,9 @@ module OpenThread
   def self.__role: () -> Integer
   def self.eid: () -> String?
   def self.addresses: () -> Array[String]
+  def self.__role_queue: () -> untyped
   def self.__role_queue=: (untyped) -> void
   def self.__role_event_popped: () -> void
-  @role_queue: untyped
 
   def self.init: () -> bool
   def self.validate_tlvs!: (String) -> bool

@@ -66,6 +66,13 @@ mrb_ot_set_role_queue(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+/* OpenThread.__role_queue -- nil until one is set. */
+static mrb_value
+mrb_ot_get_role_queue(mrb_state *mrb, mrb_value self)
+{
+  return queue_mrb == mrb ? role_queue : mrb_nil_value();
+}
+
 static mrb_value
 mrb_ot_role_event_popped(mrb_state *mrb, mrb_value self)
 {
@@ -310,6 +317,7 @@ mrb_picoruby_openthread_gem_init(mrb_state *mrb)
   mrb_define_module_function_id(mrb, mod, MRB_SYM(__role), mrb_ot_role, MRB_ARGS_NONE());
   mrb_define_module_function_id(mrb, mod, MRB_SYM(eid), mrb_ot_eid, MRB_ARGS_NONE());
   mrb_define_module_function_id(mrb, mod, MRB_SYM(addresses), mrb_ot_addresses, MRB_ARGS_NONE());
+  mrb_define_module_function_id(mrb, mod, MRB_SYM(__role_queue), mrb_ot_get_role_queue, MRB_ARGS_NONE());
   mrb_define_module_function_id(mrb, mod, MRB_SYM_E(__role_queue), mrb_ot_set_role_queue, MRB_ARGS_REQ(1));
   mrb_define_module_function_id(mrb, mod, MRB_SYM(__role_event_popped), mrb_ot_role_event_popped, MRB_ARGS_NONE());
 

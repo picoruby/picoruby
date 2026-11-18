@@ -25,7 +25,8 @@ static uint8_t pending_role_events;
 void
 OT_push_role_change(int role)
 {
-  if (role_queue.tt == MRBC_TT_NIL ||
+  /* Zero-initialised, role_queue is MRBC_TT_EMPTY, not MRBC_TT_NIL. */
+  if (role_queue.tt != MRBC_TT_OBJECT ||
       OT_MAX_PENDING_EVENTS <= pending_role_events) {
     return;
   }
@@ -47,6 +48,24 @@ c_ot_set_role_queue(mrbc_vm *vm, mrbc_value *v, int argc)
   role_queue = GET_ARG(1);
   pending_role_events = 0;
   SET_NIL_RETURN();
+}
+
+/*
+ * OpenThread.__role_queue -- nil until one is set.
+ *
+ * The queue is kept here and not in an ivar on the module: mruby/c's
+ * mrbc_instance_setiv takes the class path only for MRBC_TT_CLASS, so
+ * `@x = ...` with a module as self writes over the module's method table.
+ */
+static void
+c_ot_get_role_queue(mrbc_vm *vm, mrbc_value *v, int argc)
+{
+  if (role_queue.tt != MRBC_TT_OBJECT) {
+    SET_NIL_RETURN();
+    return;
+  }
+  mrbc_incref(&role_queue);
+  SET_RETURN(role_queue);
 }
 
 static void
@@ -367,6 +386,7 @@ mrbc_openthread_init(mrbc_vm *vm)
   mrbc_define_method(vm, mod, "__role",             c_ot_role);
   mrbc_define_method(vm, mod, "eid",                c_ot_eid);
   mrbc_define_method(vm, mod, "addresses",          c_ot_addresses);
+  mrbc_define_method(vm, mod, "__role_queue",       c_ot_get_role_queue);
   mrbc_define_method(vm, mod, "__role_queue=",      c_ot_set_role_queue);
   mrbc_define_method(vm, mod, "__role_event_popped", c_ot_role_event_popped);
 
