@@ -24,8 +24,44 @@ class Base64Test < Picotest::Test
     assert_equal "picoruby", Base64.decode64("cGljb3J1Ynk=")
     assert_equal "picoruby", Base64.decode64("cGljb3J1\nYnk=\n")
     assert_equal "picoruby", Base64.decode64("cGlj b3J1 Ynk")
-    assert_equal "aa", Base64.decode64("YQ==YQ==")
     assert_equal "", Base64.decode64("")
+  end
+
+  # The cases below give what CRuby's decode64 gives: padding ends the
+  # input, and a '=' before the third character of a group is skipped
+  def test_decode_stops_at_padding
+    assert_equal "a", Base64.decode64("YQ==YQ==")
+    assert_equal "a", Base64.decode64("YQ=\n=Yg==")
+    assert_equal "a", Base64.decode64("YW=Jj")
+    assert_equal "a", Base64.decode64("=YQ==")
+    assert_equal "a", Base64.decode64("Y Q = =")
+    assert_equal "abcd", Base64.decode64("YWJjZA=")
+    assert_equal "", Base64.decode64("Y")
+  end
+
+  def test_encode_line_break_positions
+    assert_equal "YWFh" * 15 + "\n", Base64.encode64("a" * 45)
+    assert_equal "YWFh" * 15 + "\nYQ==\n", Base64.encode64("a" * 46)
+  end
+
+  def test_strict_decode_rejects_what_cruby_rejects
+    assert_equal "", Base64.strict_decode64("")
+    assert_equal "ab", Base64.strict_decode64("YWI=")
+    assert_raise(ArgumentError) { Base64.strict_decode64("YR==") }
+    assert_raise(ArgumentError) { Base64.strict_decode64("YWJ=") }
+    assert_raise(ArgumentError) { Base64.strict_decode64("YWJj\n") }
+    assert_raise(ArgumentError) { Base64.strict_decode64(" YWJj") }
+    assert_raise(ArgumentError) { Base64.strict_decode64("YQ==YQ==") }
+    assert_raise(ArgumentError) { Base64.strict_decode64("YQ=A") }
+  end
+
+  # mruby-encoding gives force_encoding on the mruby VM, so a decoded
+  # text reads as UTF-8 again
+  def test_decoded_text_reads_as_utf8_after_force_encoding
+    return if RUBY_ENGINE == "mruby/c"
+    s = Base64.decode64("44GC")
+    assert_equal 3, s.size
+    assert_equal 1, s.force_encoding("UTF-8").size
   end
 
   # The decoded string holds bytes: an index counts them even where they

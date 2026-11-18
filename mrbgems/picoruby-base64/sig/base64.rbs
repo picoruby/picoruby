@@ -1,6 +1,8 @@
 class Base64
   def self.encode64: (String) -> String
+  def self.strict_encode64: (String) -> String
   def self.decode64: (String) -> String
-  def self.urlsafe_encode64: (String) -> String
+  def self.strict_decode64: (String) -> String
+  def self.urlsafe_encode64: (String, ?padding: bool) -> String
   def self.urlsafe_decode64: (String) -> String
 end
