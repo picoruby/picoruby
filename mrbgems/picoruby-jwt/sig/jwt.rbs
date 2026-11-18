@@ -33,6 +33,7 @@ module JWT
     def initialize: (String token, key_t key, String algorithm) -> void
     def verify_hmac: () -> nil
     def verify_rsa: () -> nil
+    private def decode_json_segment: (String segment) -> Hash[String, Object]
     private def base64_url_decode: (String) -> String
   end
 end

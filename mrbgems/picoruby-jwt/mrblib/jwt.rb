@@ -21,9 +21,10 @@ module JWT
     end
     headers['alg'] = algorithm
     headers['typ'] = "JWT"
+    # Base64url with no padding (RFC 7515)
     segments = [] #: Array[String]
-    segments << Base64.urlsafe_encode64(JSON.generate headers)
-    segments << Base64.urlsafe_encode64(JSON.generate payload)
+    segments << Base64.urlsafe_encode64(JSON.generate(headers), padding: false)
+    segments << Base64.urlsafe_encode64(JSON.generate(payload), padding: false)
     signing_input = segments.join('.')
     signature = ''
     case algorithm.to_s.downcase
@@ -41,7 +42,7 @@ module JWT
     else
       raise "Algorithm: #{algorithm} not supported"
     end
-    segments << Base64.urlsafe_encode64(signature)
+    segments << Base64.urlsafe_encode64(signature, padding: false)
     segments.join('.')
   end
 
@@ -72,11 +73,11 @@ module JWT
     def initialize(token, key, algorithm)
       header_b64, payload_b64, @signature_b64 = token.split(".")
       @data = "#{header_b64}.#{payload_b64}"
-      @header = JSON.parse(Base64.urlsafe_decode64(header_b64.to_s))
+      @header = decode_json_segment(header_b64.to_s)
       unless @header["alg"].to_s.downcase == algorithm
         raise JWT::IncorrectAlgorithm.new("Expected a different algorithm. Expected: #{algorithm}, Got: #{@header['alg']}")
       end
-      @payload = JSON.parse(Base64.urlsafe_decode64(payload_b64.to_s))
+      @payload = decode_json_segment(payload_b64.to_s)
       if @payload['exp'].nil?
         raise JWT::DecodeError.new("Missing expiration time in header")
       end
@@ -88,7 +89,7 @@ module JWT
       # @type ivar @key: String
       hmac = MbedTLS::HMAC.new(@key, "sha256")
       hmac.update(@data)
-      if @signature_b64 != Base64.urlsafe_encode64(hmac.digest)
+      if @signature_b64 != Base64.urlsafe_encode64(hmac.digest, padding: false)
         raise JWT::VerificationError.new("Signature verification failed")
       end
     end
@@ -106,6 +107,17 @@ module JWT
     end
 
     # private
+
+    # The JSON of a header or a payload segment. Base64 decodes to a
+    # binary string; the JSON in it is UTF-8 text (RFC 7519). A segment
+    # that is not Base64url or not JSON is a DecodeError, as in ruby-jwt.
+    def decode_json_segment(segment)
+      json = Base64.urlsafe_decode64(segment)
+      json.force_encoding("UTF-8") if json.respond_to?(:force_encoding)
+      JSON.parse(json)
+    rescue ArgumentError, JSON::ParserError => e
+      raise JWT::DecodeError.new("Invalid segment encoding: #{e.message}")
+    end
 
     def base64_url_decode(str)
       str += '=' * ((4 - str.size % 4) % 4)
