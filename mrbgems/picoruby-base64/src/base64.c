@@ -14,7 +14,7 @@ base64_convert(unsigned char n)
   } else if (n == 0x2f) {
     return 63; // slash
   } else {
-    return 0;
+    return 255; // not in the alphabet: decode64 skips it, as CRuby does
   }
 }
 
