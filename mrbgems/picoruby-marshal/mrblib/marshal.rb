@@ -15,6 +15,11 @@ module Marshal
   TYPE_ARRAY     = '['
   TYPE_HASH      = '{'
   TYPE_IVAR      = 'I'
+  TYPE_OBJECT    = 'o'
+  TYPE_USERDEF   = 'u'
+  TYPE_USRMARSHAL = 'U'
+  TYPE_CLASS     = 'c'
+  TYPE_MODULE    = 'm'
 
   class << self
     def dump(obj) # steep:ignore MethodArityMismatch
@@ -66,8 +71,85 @@ module Marshal
       when Hash
         dump_hash(obj)
       else
-        raise ArgumentError, "can't dump #{obj.class}"
+        dump_other(obj)
       end
+    end
+
+    # Classes, modules and other objects, on the mruby VM. mruby/c has no
+    # Class or Module to tell them by, nor Exception#backtrace.
+    def dump_other(obj)
+      raise ArgumentError, "can't dump #{obj.class}" unless Object.const_defined?(:Module)
+      if obj.is_a?(Class)
+        TYPE_CLASS + dump_bytes(class_path(obj))
+      elsif obj.is_a?(Module)
+        TYPE_MODULE + dump_bytes(class_path(obj))
+      elsif obj.is_a?(Proc)
+        raise TypeError, "no _dump_data is defined for class #{obj.class}"
+      else
+        if obj.respond_to?(:marshal_dump)
+          TYPE_USRMARSHAL + dump_symbol(class_path(obj.class).to_sym) +
+            dump_nested(obj) { dump_object(obj.marshal_dump) }
+        elsif obj.respond_to?(:_dump)
+          TYPE_USERDEF + dump_symbol(class_path(obj.class).to_sym) +
+            dump_bytes(obj._dump(-1))
+        else
+          dump_nested(obj) { dump_plain_object(obj) }
+        end
+      end
+    end
+
+    # The name a class or module is loaded back by
+    def class_path(mod)
+      name = mod.respond_to?(:name) ? mod.name : mod.to_s
+      if name.nil? || name.start_with?("#")
+        raise TypeError, "can't dump anonymous #{mod.is_a?(Class) ? "class" : "module"} #{mod}"
+      end
+      name
+    end
+
+    def dump_bytes(str)
+      encode_fixnum(str.bytesize) + str
+    end
+
+    # An object refers to itself, or to one being dumped around it: there
+    # are no object links here, so dumping would not end.
+    def dump_nested(obj)
+      stack = (@dumping ||= [])
+      id = obj.object_id
+      i = 0
+      while i < stack.size
+        raise ArgumentError, "can't dump an object that refers to itself (#{obj.class})" if stack[i] == id
+        i += 1
+      end
+      stack << id
+      begin
+        result = yield
+      ensure
+        stack.pop
+      end
+      result
+    end
+
+    # An object as its class and instance variables, @ and all. An exception
+    # has its message and backtrace first, as mesg and bt with no @, as
+    # CRuby has them.
+    def dump_plain_object(obj)
+      ivars = obj.instance_variables
+      body = ""
+      count = ivars.size
+      if obj.is_a?(Exception)
+        body << dump_symbol(:mesg) << dump_object(obj.message)
+        body << dump_symbol(:bt) << dump_object(obj.backtrace)
+        count += 2
+      end
+      i = 0
+      while i < ivars.size
+        name = ivars[i]
+        body << dump_symbol(name)
+        body << dump_object(obj.instance_variable_get(name))
+        i += 1
+      end
+      TYPE_OBJECT + dump_symbol(class_path(obj.class).to_sym) + encode_fixnum(count) + body
     end
 
     def dump_integer(n)
@@ -169,6 +251,21 @@ module Marshal
         load_hash(data, pos)
       when TYPE_IVAR
         load_ivar(data, pos)
+      when TYPE_OBJECT
+        load_plain_object(data, pos)
+      when TYPE_USRMARSHAL
+        name, pos = load_typed_symbol(data, pos)
+        obj = allocate(path_to_class(name))
+        value, pos = load_object(data, pos)
+        obj.marshal_load(value)
+        [obj, pos]
+      when TYPE_USERDEF
+        name, pos = load_typed_symbol(data, pos)
+        str, pos = load_string(data, pos)
+        [path_to_class(name)._load(str), pos]
+      when TYPE_CLASS, TYPE_MODULE
+        name, pos = load_string(data, pos)
+        [path_to_class(name), pos]
       else
         raise ArgumentError, "unsupported type: #{(type.getbyte(0) || 0).to_s(16)}"
       end
@@ -285,6 +382,54 @@ module Marshal
         i += 1
       end
       [hash, pos]
+    end
+
+    def load_typed_symbol(data, pos)
+      sym, pos = load_object(data, pos)
+      raise ArgumentError, "dump format error (symbol expected)" unless sym.is_a?(Symbol)
+      [sym.to_s, pos]
+    end
+
+    def path_to_class(name)
+      parts = name.split("::")
+      mod = Object
+      i = 0
+      while i < parts.size
+        part = parts[i]
+        unless mod.const_defined?(part)
+          raise ArgumentError, "undefined class/module #{name}"
+        end
+        mod = mod.const_get(part)
+        i += 1
+      end
+      mod
+    end
+
+    def allocate(klass)
+      unless klass.respond_to?(:allocate)
+        raise TypeError, "can't load #{klass}: no allocate on this VM"
+      end
+      klass.allocate
+    end
+
+    def load_plain_object(data, pos)
+      name, pos = load_typed_symbol(data, pos)
+      obj = allocate(path_to_class(name))
+      count, pos = decode_fixnum(data, pos)
+      i = 0
+      while i < count
+        ivar, pos = load_object(data, pos)
+        value, pos = load_object(data, pos)
+        if obj.is_a?(Exception) && ivar == :mesg
+          obj = obj.exception(value) if value
+        elsif obj.is_a?(Exception) && ivar == :bt
+          obj.set_backtrace(value) if value
+        elsif ivar.to_s.start_with?("@")
+          obj.instance_variable_set(ivar, value)
+        end
+        i += 1
+      end
+      [obj, pos]
     end
 
     def load_ivar(data, pos)

@@ -141,4 +141,93 @@ class MarshalTest < Picotest::Test
       Marshal.load("\x04")  # Too short
     end
   end
+
+  class Point
+    attr_reader :x, :y
+    def initialize(x, y)
+      @x = x
+      @y = y
+    end
+  end
+
+  class Pair
+    attr_reader :a
+    def initialize(a)
+      @a = a
+    end
+
+    def marshal_dump
+      [@a, :extra]
+    end
+
+    def marshal_load(data)
+      @a = data[0]
+    end
+  end
+
+  class TaggedError < StandardError
+    attr_reader :tag
+    def initialize(message, tag)
+      super(message)
+      @tag = tag
+    end
+  end
+
+  # Objects other than the core values are the mruby VM's: mruby/c has
+  # neither Module nor allocate
+  def objects?
+    Object.const_defined?(:Module) && Point.respond_to?(:allocate)
+  end
+
+  def test_marshal_object_dumps_as_class_and_instance_variables
+    return unless objects?
+    data = Marshal.dump(Point.new(1, "two"))
+    point = Marshal.load(data)
+    assert_equal Point, point.class
+    assert_equal 1, point.x
+    assert_equal "two", point.y
+  end
+
+  def test_marshal_object_with_marshal_dump
+    return unless objects?
+    pair = Marshal.load(Marshal.dump(Pair.new([1, 2])))
+    assert_equal Pair, pair.class
+    assert_equal [1, 2], pair.a
+  end
+
+  def test_marshal_exception_keeps_message_backtrace_and_ivars
+    return unless objects?
+    error = TaggedError.new("broken", :t)
+    error.set_backtrace(["a.rb:1"])
+    data = Marshal.dump(error)
+    loaded = Marshal.load(data)
+    assert_equal TaggedError, loaded.class
+    assert_equal "broken", loaded.message
+    assert_equal ["a.rb:1"], loaded.backtrace
+    assert_equal :t, loaded.tag
+  end
+
+  def test_marshal_class_and_module
+    return unless objects?
+    assert_equal Point, Marshal.load(Marshal.dump(Point))
+    assert_equal Marshal, Marshal.load(Marshal.dump(Marshal))
+  end
+
+  def test_marshal_proc_raises_type_error
+    return unless objects?
+    assert_raise(TypeError) { Marshal.dump(Proc.new { }) }
+  end
+
+  def test_marshal_object_referring_to_itself_raises
+    return unless objects?
+    point = Point.new(1, nil)
+    point.instance_variable_set(:@y, point)
+    assert_raise(ArgumentError) { Marshal.dump(point) }
+    assert_equal 1, Marshal.load(Marshal.dump(Point.new(1, 2))).x
+  end
+
+  def test_marshal_object_raises_argument_error_without_objects
+    return if objects?
+    assert_raise(ArgumentError) { Marshal.dump(Point.new(1, 2)) }
+  end
 end
