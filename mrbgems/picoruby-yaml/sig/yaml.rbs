@@ -1,5 +1,6 @@
 module YAML
-  self.@anchors: Hash[String, untyped]?
+  INDICATORS: String
+  HEX_DIGITS: String
 
   # The loaded document is a Hash, an Array or a scalar depending on the
   # source, so the return type cannot be narrowed here.
@@ -13,6 +14,11 @@ module YAML
   private def self.replace_anchor: (Hash[String, untyped], untyped, untyped) -> void
   private def self.assign: (Hash[untyped, untyped], untyped, untyped) -> void
   private def self.quoted?: (String) -> bool
+  private def self.quote_end: (String) -> Integer?
+  private def self.mapping_item?: (String) -> bool
+  private def self.plain?: (String) -> bool
+  private def self.plain_key?: (String) -> bool
+  private def self.quote: (String) -> String
   private def self.strip_comment: (String) -> String
   private def self.parse_double_quoted: (String) -> String?
   private def self.parse_single_quoted: (String) -> String?

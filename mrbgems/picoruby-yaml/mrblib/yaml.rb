@@ -81,7 +81,7 @@ module YAML
           anchors[anchor] = new_item if anchor
           stack.push(new_item)
           indent_stack.push(indent)
-        elsif !quoted?(value) && (value.include?(': ') || value.end_with?(':'))
+        elsif mapping_item?(value)
           # `- key: value` opens a Hash item. Its other keys follow at
           # the column of this key, so the item stays on the stack at the
           # dash's indent and a key of a nested value at its own column.
@@ -201,7 +201,10 @@ module YAML
     end
     value = strip_comment(value)
     return nil if value == "~"
-    if first == 58 && 1 < value.bytesize && !value.include?(" ") # :symbol
+    # :name is a Symbol; :8080 and ::1 stay Strings
+    second = value.getbyte(1)
+    if first == 58 && second && !value.include?(" ") &&
+       (second == 95 || (65 <= second && second <= 90) || (97 <= second && second <= 122))
       return value.byteslice(1, value.bytesize - 1).to_s.to_sym
     end
     if is_integer?(value)
@@ -226,6 +229,7 @@ module YAML
       while ki < keys.size
         key = keys[ki]
         value = object[key]
+        key = quote(key) if key.is_a?(String) && !plain_key?(key)
         yaml << "#{' ' * indent}#{key}:"
         if value.nil?
           yaml << " null\n"
@@ -255,9 +259,56 @@ module YAML
         ai += 1
       end
       yaml
+    when String
+      plain?(object) ? object : quote(object)
     else
       object.to_s
     end
+  end
+
+  # The first characters that make a plain value something else
+  INDICATORS = "[]{}*&:~\"'#!|>%@`,"
+
+  # whether the String s, written as it is, loads back as itself
+  def self.plain?(s)
+    return false if s.empty? || s != s.strip
+    return false if INDICATORS.include?(s.byteslice(0, 1).to_s)
+    return false if (s.start_with?("- ") || s.start_with?("? ") || s == "-" || s == "?")
+    return false if s.include?(" #") || s.include?(": ") || s.end_with?(":")
+    i = 0
+    n = s.bytesize
+    while i < n
+      return false if s.getbyte(i).to_i < 32
+      i += 1
+    end
+    parse_value(s) == s
+  end
+
+  # a key is read up to its first : and a line starting with - is a list item
+  def self.plain_key?(s)
+    plain?(s) && !s.include?(":") && !s.start_with?("-")
+  end
+
+  HEX_DIGITS = "0123456789abcdef"
+
+  # s as a "..." scalar that parse_double_quoted reads back
+  def self.quote(s)
+    out = '"'
+    i = 0
+    n = s.bytesize
+    while i < n
+      c = s.getbyte(i).to_i
+      if c == 34 then out << '\\"'
+      elsif c == 92 then out << '\\\\'
+      elsif c == 10 then out << '\\n'
+      elsif c == 9 then out << '\\t'
+      elsif c == 13 then out << '\\r'
+      elsif c < 32 then out << '\\x' << HEX_DIGITS[c >> 4].to_s << HEX_DIGITS[c & 15].to_s
+      else out << s.byteslice(i, 1).to_s
+      end
+      i += 1
+    end
+    out << '"'
   end
 
   def self.count_leading_spaces(string)
@@ -265,6 +316,13 @@ module YAML
   end
 
   def self.split_key_value(string)
+    if quoted?(string)
+      e = quote_end(string)
+      if e && string.getbyte(e + 1) == 58 # a quoted key may hold a :
+        key = parse_value(string.byteslice(0, e + 1).to_s).to_s
+        return [key, string.byteslice(e + 2, string.bytesize - e - 2).to_s.strip]
+      end
+    end
     parts = string.split(':', 2)
     key = parts[0].strip
     key = parse_value(key).to_s if quoted?(key)
@@ -274,6 +332,39 @@ module YAML
   def self.quoted?(string)
     first = string.getbyte(0)
     first == 34 || first == 39
+  end
+
+  # the index of the quote that closes the quoted scalar string starts
+  # with; nil when none does
+  def self.quote_end(string)
+    q = string.getbyte(0)
+    i = 1
+    n = string.bytesize
+    while i < n
+      c = string.getbyte(i)
+      if c == 92 && q == 34 # an escape in "..."
+        i += 2
+      elsif c == q
+        return i unless q == 39 && string.getbyte(i + 1) == 39 # '' in '...'
+        i += 2
+      else
+        i += 1
+      end
+    end
+    nil
+  end
+
+  # whether the text of a list item is a `key: value` or `key:` mapping
+  # item; a quoted key is one when a : follows its closing quote
+  def self.mapping_item?(value)
+    if quoted?(value)
+      e = quote_end(value)
+      return false unless e && value.getbyte(e + 1) == 58 # :
+      c = value.getbyte(e + 2)
+      c.nil? || c == 32
+    else
+      value.include?(': ') || value.end_with?(':')
+    end
   end
 
   # plain text up to a " #" that starts a comment
@@ -377,12 +468,16 @@ module YAML
       i += 1
     end
     return nil if n <= i
+    # text after the closing bracket: a plain value, not a flow collection
+    rest = value.byteslice(i + 1, n - i - 1).to_s
+    return nil unless strip_comment(rest).strip.empty?
     if close == 93
       list = [] #: Array[untyped]
       j = 0
       while j < items.size
         item = items[j].strip
-        list << parse_value(item, anchors) unless item.empty? && items.size == 1
+        # [] and the empty item after a trailing comma are no item
+        list << parse_value(item, anchors) unless item.empty? && j == items.size - 1
         j += 1
       end
       list
@@ -393,7 +488,7 @@ module YAML
         item = items[j].strip
         unless item.empty?
           k, v = split_key_value(item)
-          hash[k] = v.nil? || v.empty? ? nil : parse_value(v, anchors)
+          assign(hash, k, v.nil? || v.empty? ? nil : parse_value(v, anchors))
         end
         j += 1
       end
@@ -403,6 +498,9 @@ module YAML
 
   # the UTF-8 bytes of codepoint cp
   def self.utf8_char(cp)
+    if 0x10ffff < cp || (0xd800 <= cp && cp <= 0xdfff)
+      raise ArgumentError, "found invalid Unicode character escape code"
+    end
     if cp < 0x80
       cp.chr
     elsif cp < 0x800

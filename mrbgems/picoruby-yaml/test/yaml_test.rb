@@ -201,4 +201,46 @@ class YAMLTest < Picotest::Test
   def test_unknown_alias
     assert_raise(ArgumentError) { YAML.load("a: *nope\n") }
   end
+
+  def test_dump_then_load
+    values = ["Cafe #2", "*guest", "&x", "[lab] 5G", "{x}", "a: b", "ends:", " lead", "trail ",
+              "", "true", "1", "1.5", "~", "null", ":sym", "#hash", "- x", "-",
+              "line\nbreak", "tab\there", "q\"uote", "back\\slash", "plain text", "日本語"]
+    values.each do |v|
+      assert_equal({"ssid" => v}, YAML.load(YAML.dump({"ssid" => v})))
+      assert_equal([v], YAML.load(YAML.dump([v])))
+    end
+    keys = {"a: b" => 1, "x:y" => 2, "-k" => 3, "true" => 4, "plain" => 5}
+    assert_equal(keys, YAML.load(YAML.dump(keys)))
+  end
+
+  def test_list_item_with_a_quoted_key
+    assert_equal([{"name" => "foo"}], YAML.load(%Q(- "name": foo\n)))
+    assert_equal([{"a:b" => 1}], YAML.load(%Q(- 'a:b': 1\n)))
+    assert_equal(["a: b"], YAML.load(%Q(- "a: b"\n)))
+  end
+
+  def test_text_after_a_closing_bracket
+    assert_equal({"msg" => "[INFO] started"}, YAML.load("msg: [INFO] started\n"))
+    assert_equal({"msg" => "{a} b"}, YAML.load("msg: {a} b\n"))
+    assert_equal({"a" => [1, 2]}, YAML.load("a: [1, 2] # two\n"))
+  end
+
+  def test_a_symbol_starts_with_a_letter_or_underscore
+    assert_equal({"port" => ":8080", "host" => "::1", "sym" => :abc, "u" => :_x},
+                 YAML.load("port: :8080\nhost: ::1\nsym: :abc\nu: :_x\n"))
+  end
+
+  def test_invalid_unicode_escape
+    assert_raise(ArgumentError) { YAML.load(%Q(a: "\\U00110000"\n)) }
+    assert_raise(ArgumentError) { YAML.load(%Q(a: "\\uD83D"\n)) }
+  end
+
+  def test_flow_sequence_trailing_comma
+    assert_equal({"a" => ["x", "y"], "b" => []}, YAML.load("a: [x, y,]\nb: []\n"))
+  end
+
+  def test_merge_key_in_a_flow_mapping
+    assert_equal({"a" => {"k" => 1, "m" => 2}}, YAML.load("a: {k: 1, <<: {m: 2}}\n"))
+  end
 end
