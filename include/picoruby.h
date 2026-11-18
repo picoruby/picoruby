@@ -33,9 +33,9 @@
 #define PICORB_ESTALLOC_MRUBYC_INIT(heap, size) ((void)0)
 #endif
 
-#define picorb_vm_init()  do { \
-  PICORB_ESTALLOC_MRUBYC_INIT(vm_heap, HEAP_SIZE); \
-  mrbc_init(vm_heap, HEAP_SIZE); \
+#define picorb_vm_init(heap, size)  do { \
+  PICORB_ESTALLOC_MRUBYC_INIT(heap, size); \
+  mrbc_init(heap, size); \
   vm = mrbc_vm_open(NULL); \
   picoruby_init_require(vm); \
 } while(0)
@@ -120,8 +120,8 @@ bool picoruby_load_model_by_name(const char *gem);
 #endif
 
 #if defined(PICORB_ALLOC_ESTALLOC)
-#define picorb_vm_init()  do { \
-  vm = mrb_open_with_custom_alloc(vm_heap, HEAP_SIZE); \
+#define picorb_vm_init(heap, size)  do { \
+  vm = mrb_open_with_custom_alloc(heap, size); \
   if (MRB_OPEN_FAILURE(vm)) { \
     fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv); \
     mrb_print_error(vm); /* a gem init raised; handles NULL */ \
@@ -131,7 +131,8 @@ bool picoruby_load_model_by_name(const char *gem);
   global_mrb = vm; \
 } while(0)
 #else
-#define picorb_vm_init()  do { \
+#define picorb_vm_init(heap, size)  do { \
+  (void)(heap); (void)(size); \
   vm = mrb_open(); \
   if (MRB_OPEN_FAILURE(vm)) { \
     fprintf(stderr, "%s: Invalid mrb_state, exiting mruby\n", *argv); \
