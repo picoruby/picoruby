@@ -183,12 +183,13 @@ UART_set_flow_control(int unit_num, bool cts, bool rts)
   uart_set_hw_flow(unit, cts, rts);
 }
 
-void
+int
 UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity)
 {
   uart_inst_t *unit = NULL;
   UNIT_SELECT();
   uart_set_format(unit, data_bits, stop_bits, (uart_parity_t)parity);
+  return UART_ERROR_NONE;
 }
 
 void
