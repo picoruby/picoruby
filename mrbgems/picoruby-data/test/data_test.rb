@@ -257,32 +257,48 @@ class DataTest < Picotest::Test
 
   def test_instances_release_members
     klass = Data.define(:value)
-    discard_instances(klass)
-    before = used_memory
-    discard_instances(klass)
-    assert_equal before, used_memory
+    before, after = memory_around { discard_instances(klass) }
+    assert_equal before, after
   end
 
   def test_returned_collections_release_memory
     klass = Data.define(:value)
     obj = klass.new('payload')
-    discard_collections(klass, obj)
-    before = used_memory
-    discard_collections(klass, obj)
-    assert_equal before, used_memory
+    before, after = memory_around { discard_collections(klass, obj) }
+    assert_equal before, after
   end
 
   def test_definitions_release_memory
     keys = []
     32.times { |i| keys << "member_#{i}".to_sym }
-    discard_definitions(keys)
-    before = used_memory
-    discard_definitions(keys)
-    assert_equal before, used_memory
+    before, after = memory_around { discard_definitions(keys) }
+    assert_equal before, after
   end
 
   def instance_of_temporary_definition
     Data.define(:val).new(1)
+  end
+
+  # The used size before and after one more round of the block, once the
+  # block has run until two rounds in a row leave the same size (at most 5
+  # rounds). The size counts whole allocator blocks, so the heap the
+  # earlier tests left (their order depends on the host Ruby) moves it by
+  # a few bytes on the first rounds even with no leak. A leak grows it
+  # every round and never settles. Both sizes are taken here, in the same
+  # frame, so the block and this method's registers count in both.
+  def memory_around
+    last = nil
+    before = nil
+    round = 0
+    while round < 5
+      yield
+      before = used_memory
+      break if before == last
+      last = before
+      round += 1
+    end
+    yield
+    [before, used_memory]
   end
 
   def used_memory
