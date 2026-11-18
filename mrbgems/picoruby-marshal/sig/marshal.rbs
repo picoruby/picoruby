@@ -22,13 +22,14 @@ module Marshal
   private def self.dump_symbol: (Symbol sym) -> String
   private def self.dump_array: (untyped ary) -> String
   private def self.dump_hash: (untyped hash) -> String
-  private def self.load_object: (String data, Integer pos) -> [marshalable, Integer]
+  private def self.load_object: (String data, Integer pos, Array[Symbol] symbols) -> [marshalable, Integer]
   private def self.load_integer: (String data, Integer pos) -> [Integer, Integer]
   private def self.decode_fixnum: (String data, Integer pos) -> [Integer, Integer]
   private def self.load_float: (String data, Integer pos) -> [Float, Integer]
   private def self.load_string: (String data, Integer pos) -> [String, Integer]
-  private def self.load_symbol: (String data, Integer pos) -> [Symbol, Integer]
-  private def self.load_array: (String data, Integer pos) -> [Array[marshalable], Integer]
-  private def self.load_hash: (String data, Integer pos) -> [Hash[marshalable, marshalable], Integer]
-  private def self.load_ivar: (String data, Integer pos) -> [marshalable, Integer]
+  private def self.load_symbol: (String data, Integer pos, Array[Symbol] symbols) -> [Symbol, Integer]
+  private def self.load_symlink: (String data, Integer pos, Array[Symbol] symbols) -> [Symbol, Integer]
+  private def self.load_array: (String data, Integer pos, Array[Symbol] symbols) -> [Array[marshalable], Integer]
+  private def self.load_hash: (String data, Integer pos, Array[Symbol] symbols) -> [Hash[marshalable, marshalable], Integer]
+  private def self.load_ivar: (String data, Integer pos, Array[Symbol] symbols) -> [marshalable, Integer]
 end

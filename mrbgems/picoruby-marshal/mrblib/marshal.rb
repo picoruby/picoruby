@@ -12,6 +12,7 @@ module Marshal
   TYPE_FLOAT     = 'f'
   TYPE_STRING    = '"'
   TYPE_SYMBOL    = ':'
+  TYPE_SYMLINK   = ';'
   TYPE_ARRAY     = '['
   TYPE_HASH      = '{'
   TYPE_IVAR      = 'I'
@@ -21,6 +22,10 @@ module Marshal
   TYPE_CLASS     = 'c'
   TYPE_MODULE    = 'm'
 
+  # Built-in classes that keep their state outside instance variables: as
+  # an 'o' record they would load back empty, so dump raises instead
+  NO_IVAR_STATE = %w[Range Time Struct Data Method UnboundMethod Rational Complex Random]
+
   class << self
     def dump(obj) # steep:ignore MethodArityMismatch
       result = VERSION_STRING.dup
@@ -28,6 +33,9 @@ module Marshal
       result
     end
 
+    # Do not load data from an untrusted source: the data names the classes
+    # to allocate and the instance variables to set, and calls their
+    # marshal_load or _load, as in CRuby.
     def load(data) # steep:ignore MethodArityMismatch
       # @type var data: String
       raise ArgumentError, "marshal data too short" if data.bytesize < 2
@@ -40,7 +48,9 @@ module Marshal
       end
 
       pos = 2
-      obj, pos = load_object(data, pos)
+      # the symbols read so far, for ';' to refer to
+      symbols = [] #: Array[Symbol]
+      obj, pos = load_object(data, pos, symbols)
       obj
     end
 
@@ -92,6 +102,8 @@ module Marshal
         elsif obj.respond_to?(:_dump)
           TYPE_USERDEF + dump_symbol(class_path(obj.class).to_sym) +
             dump_bytes(obj._dump(-1))
+        elsif no_ivar_state?(obj)
+          raise TypeError, "can't dump #{obj.class}"
         else
           dump_nested(obj) { dump_plain_object(obj) }
         end
@@ -109,6 +121,16 @@ module Marshal
 
     def dump_bytes(str)
       encode_fixnum(str.bytesize) + str
+    end
+
+    def no_ivar_state?(obj)
+      i = 0
+      while i < NO_IVAR_STATE.size
+        name = NO_IVAR_STATE[i]
+        return true if Object.const_defined?(name) && obj.is_a?(Object.const_get(name))
+        i += 1
+      end
+      false
     end
 
     # An object refers to itself, or to one being dumped around it: there
@@ -224,7 +246,7 @@ module Marshal
       result
     end
 
-    def load_object(data, pos)
+    def load_object(data, pos, symbols)
       raise ArgumentError, "marshal data too short" if pos >= data.bytesize
 
       type = [(data.getbyte(pos) || 0)].pack("C")
@@ -244,28 +266,29 @@ module Marshal
       when TYPE_STRING
         load_string(data, pos)
       when TYPE_SYMBOL
-        load_symbol(data, pos)
+        load_symbol(data, pos, symbols)
+      when TYPE_SYMLINK
+        load_symlink(data, pos, symbols)
       when TYPE_ARRAY
-        load_array(data, pos)
+        load_array(data, pos, symbols)
       when TYPE_HASH
-        load_hash(data, pos)
+        load_hash(data, pos, symbols)
       when TYPE_IVAR
-        load_ivar(data, pos)
+        load_ivar(data, pos, symbols)
       when TYPE_OBJECT
-        load_plain_object(data, pos)
+        load_plain_object(data, pos, symbols)
       when TYPE_USRMARSHAL
-        name, pos = load_typed_symbol(data, pos)
+        name, pos = load_typed_symbol(data, pos, symbols)
         obj = allocate(path_to_class(name))
-        value, pos = load_object(data, pos)
+        value, pos = load_object(data, pos, symbols)
         obj.marshal_load(value)
         [obj, pos]
       when TYPE_USERDEF
-        name, pos = load_typed_symbol(data, pos)
+        name, pos = load_typed_symbol(data, pos, symbols)
         str, pos = load_string(data, pos)
         [path_to_class(name)._load(str), pos]
       when TYPE_CLASS, TYPE_MODULE
-        name, pos = load_string(data, pos)
-        [path_to_class(name), pos]
+        load_class_or_module(data, pos, type)
       else
         raise ArgumentError, "unsupported type: #{(type.getbyte(0) || 0).to_s(16)}"
       end
@@ -353,41 +376,65 @@ module Marshal
       [data.byteslice(pos, len) || "", pos + len]
     end
 
-    def load_symbol(data, pos)
+    def load_symbol(data, pos, symbols)
       len, pos = decode_fixnum(data, pos)
       raise ArgumentError, "marshal data too short" if pos + len > data.bytesize
-      [(data.byteslice(pos, len) || "").to_sym, pos + len]
+      sym = (data.byteslice(pos, len) || "").to_sym
+      symbols << sym
+      [sym, pos + len]
     end
 
-    def load_array(data, pos)
+    # ';' and the index of a symbol read before: CRuby writes each symbol
+    # in full once, and by its index after that
+    def load_symlink(data, pos, symbols)
+      index, pos = decode_fixnum(data, pos)
+      raise ArgumentError, "bad symbol" if index < 0 || symbols.size <= index
+      [symbols[index], pos]
+    end
+
+    def load_array(data, pos, symbols)
       len, pos = decode_fixnum(data, pos)
       ary = [] #: Array[untyped]
       i = 0
       while i < len
-        elem, pos = load_object(data, pos)
+        elem, pos = load_object(data, pos, symbols)
         ary << elem
         i += 1
       end
       [ary, pos]
     end
 
-    def load_hash(data, pos)
+    def load_hash(data, pos, symbols)
       len, pos = decode_fixnum(data, pos)
       hash = {} #: Hash[untyped, untyped]
       i = 0
       while i < len
-        key, pos = load_object(data, pos)
-        value, pos = load_object(data, pos)
+        key, pos = load_object(data, pos, symbols)
+        value, pos = load_object(data, pos, symbols)
         hash[key] = value
         i += 1
       end
       [hash, pos]
     end
 
-    def load_typed_symbol(data, pos)
-      sym, pos = load_object(data, pos)
+    def load_typed_symbol(data, pos, symbols)
+      sym, pos = load_object(data, pos, symbols)
       raise ArgumentError, "dump format error (symbol expected)" unless sym.is_a?(Symbol)
       [sym.to_s, pos]
+    end
+
+    def load_class_or_module(data, pos, type)
+      name, pos = load_string(data, pos)
+      unless Object.const_defined?(:Module)
+        raise ArgumentError, "can't load #{name}: no Module on this VM"
+      end
+      mod = path_to_class(name)
+      if type == TYPE_CLASS
+        raise ArgumentError, "#{name} does not refer to class" unless mod.is_a?(Class)
+      elsif !mod.is_a?(Module) || mod.is_a?(Class)
+        raise ArgumentError, "#{name} does not refer to module"
+      end
+      [mod, pos]
     end
 
     def path_to_class(name)
@@ -412,14 +459,14 @@ module Marshal
       klass.allocate
     end
 
-    def load_plain_object(data, pos)
-      name, pos = load_typed_symbol(data, pos)
+    def load_plain_object(data, pos, symbols)
+      name, pos = load_typed_symbol(data, pos, symbols)
       obj = allocate(path_to_class(name))
       count, pos = decode_fixnum(data, pos)
       i = 0
       while i < count
-        ivar, pos = load_object(data, pos)
-        value, pos = load_object(data, pos)
+        ivar, pos = load_object(data, pos, symbols)
+        value, pos = load_object(data, pos, symbols)
         if obj.is_a?(Exception) && ivar == :mesg
           obj = obj.exception(value) if value
         elsif obj.is_a?(Exception) && ivar == :bt
@@ -432,9 +479,9 @@ module Marshal
       [obj, pos]
     end
 
-    def load_ivar(data, pos)
+    def load_ivar(data, pos, symbols)
       # Load the object with instance variables
-      obj, pos = load_object(data, pos)
+      obj, pos = load_object(data, pos, symbols)
 
       # Load number of instance variables
       num_ivars, pos = decode_fixnum(data, pos)
@@ -443,9 +490,9 @@ module Marshal
       i = 0
       while i < num_ivars
         # Skip ivar name (symbol)
-        _, pos = load_object(data, pos)
+        _, pos = load_object(data, pos, symbols)
         # Skip ivar value
-        _, pos = load_object(data, pos)
+        _, pos = load_object(data, pos, symbols)
         i += 1
       end
 

@@ -226,6 +226,32 @@ class MarshalTest < Picotest::Test
     assert_equal 1, Marshal.load(Marshal.dump(Point.new(1, 2))).x
   end
 
+  # CRuby writes a symbol in full once and as ';' and its index after that
+  def test_marshal_load_symlink
+    assert_equal [:a, :a], Marshal.load("\x04\x08[\x07:\x06a;\x00")
+    assert_raise(ArgumentError) { Marshal.load("\x04\x08[\x07:\x06a;\x06") }
+  end
+
+  def test_marshal_load_objects_dumped_by_cruby
+    return unless objects?
+    data = "\x04\x08[\x07o:\x17MarshalTest::Point\x07:\x07@xi\x06:\x07@yi\x07o;\x00\x07;\x06i\x08;\x07i\x09"
+    points = Marshal.load(data)
+    assert_equal MarshalTest::Point, points[1].class
+    assert_equal 3, points[1].x
+    assert_equal 4, points[1].y
+  end
+
+  def test_marshal_built_in_without_ivar_state_raises_type_error
+    return unless objects?
+    assert_raise(TypeError) { Marshal.dump(1..3) }
+  end
+
+  def test_marshal_load_class_checks_kind
+    return unless objects?
+    assert_raise(ArgumentError) { Marshal.load("\x04\x08c\x0cMarshal") }
+    assert_raise(ArgumentError) { Marshal.load("\x04\x08m\x0bObject") }
+  end
+
   def test_marshal_object_raises_argument_error_without_objects
     return if objects?
     assert_raise(ArgumentError) { Marshal.dump(Point.new(1, 2)) }
