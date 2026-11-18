@@ -39,6 +39,9 @@ MRuby::GemBox.new do |conf|
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-numeric-ext"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-kernel-ext"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
+    # String#force_encoding: a binary result (Base64.decode64) can be read
+    # as UTF-8 again
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-encoding"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-array-ext"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-hash-ext"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-sprintf"
