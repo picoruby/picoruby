@@ -42,7 +42,13 @@ picorb_time_fields(time_t unixtime, bool utc, bool fixed, long offset_east,
   }
 #if defined(PICORB_PLATFORM_POSIX)
   localtime_r(&unixtime, tm);
+#if !defined(_WIN32)
+  /* tm_gmtoff is the offset in effect then, daylight saving time
+     included; `timezone` is that of standard time */
+  *timezone_west = -tm->tm_gmtoff;
+#else
   *timezone_west = timezone;
+#endif
 #else
   *timezone_west = ENV_get_timezone_offset();
   time_t local_unixtime = unixtime - *timezone_west;
@@ -190,6 +196,14 @@ picorb_local_zone(const struct tm *tm)
   (void)tm;
   return NULL;
 #endif
+}
+
+/* Microseconds in a Float of seconds, rounded to the nearest as Time.at
+ * takes them: truncating made 249 / 1000000.0 seconds 248 microseconds */
+static int64_t
+picorb_float_usec(double sec)
+{
+  return (int64_t)(sec * USEC + (sec < 0 ? -0.5 : 0.5));
 }
 
 #if defined(PICORB_VM_MRUBY)

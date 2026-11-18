@@ -1,4 +1,51 @@
 class TimeTest < Picotest::Test
+  def test_new_with_string_fields
+    assert_equal(Time.new(2000, 1, 1).to_i, Time.new("2000", "1", "1").to_i)
+    assert_equal(Time.new(2000, 1, 2, 3).to_i, Time.new("2000", 1, "2", "3").to_i)
+  end
+
+  def test_before_1970_with_a_fraction
+    t = Time.at(-0.5)
+    assert_equal(-1, t.to_i)
+    assert_equal(500000, t.usec)
+    t = Time.utc(1969, 12, 31, 23, 59, 59, 250000)
+    assert_equal(-1, t.to_i)
+    assert_equal(250000, t.usec)
+    assert_equal(59, t.sec)
+  end
+
+  def test_round_floor_ceil_to_the_microsecond
+    assert_equal(123000, Time.at(10, 123249).floor(3).usec)
+    assert_equal(124000, Time.at(10, 123751).ceil(3).usec)
+    assert_equal(123000, Time.at(10, 123249).round(3).usec)
+    assert_equal(124000, Time.at(10, 123751).round(3).usec)
+    assert_equal(999751, (Time.at(10) - 249 / 1000000.0).usec)
+  end
+
+  def test_usec_argument_range
+    assert_raise(ArgumentError) { Time.utc(2000, 1, 1, 0, 0, 0, 1_000_000) }
+    assert_raise(ArgumentError) { Time.utc(2000, 1, 1, 0, 0, 0, -1) }
+    assert_raise(ArgumentError) { Time.local(2000, 1, 1, 0, 0, 0, 1_500_000) }
+    assert_equal(999999, Time.utc(2000, 1, 1, 0, 0, 0, 999999).usec)
+  end
+
+  def test_seconds_fraction_stays_in_its_second
+    t = Time.utc(2000, 1, 1, 0, 0, 0.9999997)
+    assert_equal(946684800, t.to_i)
+    assert_equal(0, t.sec)
+    assert_equal(999999, t.usec)
+  end
+
+  # whatever zone the test runs in: the offset is the one in effect at
+  # that time, daylight saving time included
+  def test_utc_offset_is_that_of_the_time
+    [1, 7].each do |mon|
+      t = Time.local(2026, mon, 1, 12)
+      fields_as_utc = Time.utc(t.year, t.mon, t.mday, t.hour, t.min, t.sec)
+      assert_equal(fields_as_utc.to_i - t.to_i, t.utc_offset)
+    end
+  end
+
   def test_at_and_to_i
     assert_equal(0, Time.at(0).to_i)
     assert_equal(1234567890, Time.at(1234567890).to_i)

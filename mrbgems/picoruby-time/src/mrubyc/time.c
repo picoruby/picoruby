@@ -187,11 +187,17 @@ time_from_fields(struct VM *vm, mrbc_value v[], int argc, bool utc, bool with_zo
       if (!zone_arg(vm, &v[7], &utc, &fixed, &offset_east)) return;
     } else {
       mrbc_value u = GET_ARG(7);
-      if (u.tt == MRBC_TT_FLOAT) usec_extra = (mrbc_int_t)(u.d + 0.5);
+      double d;
+      if (u.tt == MRBC_TT_FLOAT) d = u.d;
       else {
-        usec_extra = (mrbc_int_t)Integer(u);
+        d = (double)Integer(u);
         if (vm->exception.tt == MRBC_TT_EXCEPTION) return;
       }
+      if (!(0 <= d && d < USEC)) {
+        mrbc_raise(vm, MRBC_CLASS(ArgumentError), "subsecx out of range");
+        return;
+      }
+      usec_extra = (mrbc_int_t)d; /* truncated, as CRuby does */
     }
     argc = 6;
   } else if (zone) {
@@ -239,7 +245,8 @@ time_from_fields(struct VM *vm, mrbc_value v[], int argc, bool utc, bool with_zo
       mrbc_raise(vm, MRBC_CLASS(ArgumentError), "sec out of range");
       return;
     }
-    usec = (sec - (int)sec) * USEC + 0.5;
+    /* truncated, as CRuby does: rounding could reach a whole second */
+    usec = (sec - (int)sec) * USEC;
     tm.tm_sec = (int)sec;
   } else tm.tm_sec = 0;
   mrbc_value time = new_from_tm(vm, v, &tm, utc, fixed, offset_east);
@@ -370,11 +377,9 @@ c_new(struct VM *vm, mrbc_value v[], int argc)
   if (argc == 0) {
     c_now(vm, v, 0);
     if (in_zone) time_set_zone(vm, &v[0], in_zone);
-  } else if (v[1].tt == MRBC_TT_STRING) {
-    if (argc != 1) {
-      mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 1)");
-      return;
-    }
+  } else if (argc == 1 && v[1].tt == MRBC_TT_STRING) {
+    /* a lone String is a time to parse; Strings among other arguments
+       are fields, each read with Integer() */
     time_from_string(vm, v, &v[1], in_zone);
   } else if (7 < argc) {
     mrbc_raise(vm, MRBC_CLASS(ArgumentError), "wrong number of arguments (expected 0..7)");
@@ -394,7 +399,10 @@ static void
 c_to_i(struct VM *vm, mrbc_value v[], int argc)
 {
   PICORB_TIME *data = (PICORB_TIME *)v->instance->data;
-  SET_INT_RETURN((mrbc_int_t)data->unixtime_us / USEC);
+  mrbc_int_t sec = data->unixtime_us / USEC;
+  /* floored: C's / truncates toward zero before 1970 */
+  if (data->unixtime_us % USEC < 0) sec--;
+  SET_INT_RETURN(sec);
 }
 
 static void
@@ -522,7 +530,9 @@ c_sec(struct VM *vm, mrbc_value v[], int argc)
 static void
 c_usec(struct VM *vm, mrbc_value v[], int argc)
 {
-  SET_INT_RETURN(((PICORB_TIME *)v->instance->data)->unixtime_us % USEC);
+  mrbc_int_t usec = ((PICORB_TIME *)v->instance->data)->unixtime_us % USEC;
+  if (usec < 0) usec += USEC; /* floored, as to_i */
+  SET_INT_RETURN(usec);
 }
 static void
 c_wday(struct VM *vm, mrbc_value v[], int argc)
@@ -760,7 +770,7 @@ c_sub(struct VM *vm, mrbc_value v[], int argc)
     }
     case MRBC_TT_FLOAT:
     {
-      SET_RETURN(new_from_unixtime_us_like(vm, v, base - (mrbc_int_t)(v[1].d * USEC), self_data));
+      SET_RETURN(new_from_unixtime_us_like(vm, v, base - picorb_float_usec(v[1].d), self_data));
       break;
     }
     default:
@@ -790,7 +800,7 @@ c_add(struct VM *vm, mrbc_value v[], int argc)
     }
     case MRBC_TT_FLOAT:
     {
-      SET_RETURN(new_from_unixtime_us_like(vm, v, base + (mrbc_int_t)(v[1].d * USEC), self_data));
+      SET_RETURN(new_from_unixtime_us_like(vm, v, base + picorb_float_usec(v[1].d), self_data));
       break;
     }
     default:

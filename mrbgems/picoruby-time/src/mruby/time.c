@@ -205,12 +205,18 @@ time_set_zone(mrb_state *mrb, mrb_value time, mrb_value zone)
 static int64_t
 usec_arg(mrb_state *mrb, mrb_value v)
 {
-  if (mrb_integer_p(v)) return (int64_t)mrb_integer(v);
-  if (mrb_float_p(v)) return (int64_t)(mrb_float(v) + 0.5);
-  if (mrb_respond_to(mrb, v, MRB_SYM(to_f))) {
-    return (int64_t)(mrb_as_float(mrb, mrb_funcall_id(mrb, v, MRB_SYM(to_f), 0)) + 0.5);
+  double d;
+  if (mrb_integer_p(v)) {
+    d = (double)mrb_integer(v);
+  } else if (mrb_float_p(v)) {
+    d = mrb_float(v);
+  } else if (!mrb_string_p(v) && mrb_respond_to(mrb, v, MRB_SYM(to_f))) {
+    d = mrb_as_float(mrb, mrb_funcall_id(mrb, v, MRB_SYM(to_f), 0));
+  } else {
+    d = (double)Integer(v);
   }
-  return (int64_t)Integer(v);
+  if (!(0 <= d && d < USEC)) mrb_raise(mrb, E_ARGUMENT_ERROR, "subsecx out of range");
+  return (int64_t)d; /* truncated, as CRuby does */
 }
 
 /* Time.local, Time.utc and Time.new share the fields; Time.new takes
@@ -289,7 +295,8 @@ time_from_fields(mrb_state *mrb, mrb_value klass, mrb_value *argv, mrb_int argc,
       sec = (double)Integer(argv[5]);
     }
     if (sec < 0 || 60 < sec) mrb_raise(mrb, E_ARGUMENT_ERROR, "sec out of range");
-    usec = (sec - (int)sec) * USEC + 0.5;
+    /* truncated, as CRuby does: rounding could reach a whole second */
+    usec = (sec - (int)sec) * USEC;
     tm.tm_sec = (int)sec;
   } else {
     tm.tm_sec = 0;
@@ -409,10 +416,9 @@ mrb_s_new(mrb_state *mrb, mrb_value klass)
     if (!mrb_nil_p(in_zone)) time_set_zone(mrb, now, in_zone);
     return now;
   }
-  if (mrb_string_p(argv[0])) {
-    if (argc != 1) {
-      mrb_raisef(mrb, E_ARGUMENT_ERROR, "wrong number of arguments (given %d, expected 1)", argc);
-    }
+  /* a lone String is a time to parse; Strings among other arguments are
+     fields, each read with Integer() */
+  if (argc == 1 && mrb_string_p(argv[0])) {
     return time_from_string(mrb, klass, argv[0], in_zone);
   }
   if (7 < argc) {
@@ -440,7 +446,10 @@ static mrb_value
 mrb_to_i(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_int64_value(mrb, data->unixtime_us / USEC);
+  int64_t sec = data->unixtime_us / USEC;
+  /* floored: C's / truncates toward zero before 1970 */
+  if (data->unixtime_us % USEC < 0) sec--;
+  return mrb_int64_value(mrb, sec);
 }
 
 static mrb_value
@@ -587,7 +596,9 @@ static mrb_value
 mrb_usec(mrb_state *mrb, mrb_value self)
 {
   PICORB_TIME *data = (PICORB_TIME *)DATA_PTR(self);
-  return mrb_int_value(mrb, (mrb_int)(data->unixtime_us % USEC));
+  int64_t usec = data->unixtime_us % USEC;
+  if (usec < 0) usec += USEC; /* floored, as to_i */
+  return mrb_int_value(mrb, (mrb_int)usec);
 }
 
 static mrb_value
@@ -837,7 +848,7 @@ mrb_sub(mrb_state *mrb, mrb_value self)
   if (mrb_integer_p(other)) {
     return new_from_unixtime_us_like(mrb, self, base - mrb_as_int64(mrb, other) * USEC, self_data);
   } else if (mrb_float_p(other)) {
-    return new_from_unixtime_us_like(mrb, self, base - (int64_t)(mrb_float(other) * USEC), self_data);
+    return new_from_unixtime_us_like(mrb, self, base - picorb_float_usec(mrb_float(other)), self_data);
   } else if (mrb_obj_is_instance_of(mrb, other, mrb_obj_class(mrb, self))) {
     int64_t other_unixtime_us = ((PICORB_TIME *)DATA_PTR(other))->unixtime_us;
     mrb_float result = (mrb_float)(self_unixtime_us - other_unixtime_us) / (mrb_float)USEC;
@@ -860,7 +871,7 @@ mrb_add(mrb_state *mrb, mrb_value self)
   if (mrb_integer_p(other)) {
     return new_from_unixtime_us_like(mrb, self, base + mrb_as_int64(mrb, other) * USEC, self_data);
   } else if (mrb_float_p(other)) {
-    return new_from_unixtime_us_like(mrb, self, base + (int64_t)(mrb_float(other) * USEC), self_data);
+    return new_from_unixtime_us_like(mrb, self, base + picorb_float_usec(mrb_float(other)), self_data);
   } else {
     mrb_raise(mrb, E_ARGUMENT_ERROR, "wrong argument type");
     return mrb_nil_value();
