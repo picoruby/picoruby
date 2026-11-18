@@ -601,12 +601,13 @@ module JSON
     # costs no per-character work.
     def generate_string(str)
       result = '"'
+      state = @state
       run_start = 0
       index = 0
       while byte = str.getbyte(index)
         escaped = if byte == 34 then '\\"'
                   elsif byte == 92 then '\\\\'
-                  elsif byte == 47 && @state && @state.script_safe? then '\\/'
+                  elsif byte == 47 && state && state.script_safe? then '\\/'
                   elsif byte >= 32 then nil
                   elsif byte == 8 then '\\b'
                   elsif byte == 12 then '\\f'
@@ -629,7 +630,8 @@ module JSON
 
     def generate_float(obj)
       if obj.nan? || obj.infinite?
-        unless @state && @state.allow_nan?
+        state = @state
+        unless state && state.allow_nan?
           raise JSON::GeneratorError.new("#{obj} not allowed in JSON")
         end
         return obj.nan? ? 'NaN' : (obj > 0 ? 'Infinity' : '-Infinity')
@@ -673,7 +675,7 @@ module JSON
     # private
 
     def parse_object
-      result = {} #: Hash[String, untyped]
+      result = {} #: Hash[String | Symbol, untyped]
       @index += 1  # Skip '{'
       skip_whitespace
 
