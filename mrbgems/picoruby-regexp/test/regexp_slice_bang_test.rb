@@ -40,7 +40,6 @@ class RegexpSliceBangTest < Picotest::Test
   end
 
   def test_slice_bang_other_forms
-    return unless "".respond_to?(:__slice_bang_str) # needs mruby-string-ext
     s = "hello"
     assert_equal "el", s.slice!(1, 2)
     assert_equal "hlo", s

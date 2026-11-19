@@ -225,16 +225,13 @@ class String
 
   # slice!(regexp, capture = 0) removes the first match, or that group of
   # it, and returns the removed text; nil when nothing matched. Every other
-  # form stays with the VM's own slice!, which a build without
-  # mruby-string-ext lacks.
-  alias __slice_bang_str slice! if "".respond_to?(:slice!)
+  # form stays with the VM's own slice!: mruby/c has it in its core, and
+  # on the mruby VM this gem depends on mruby-string-ext for it.
+  alias __slice_bang_str slice!
 
   def slice!(*args)
     re = args[0] #: untyped
-    unless re.is_a?(Regexp)
-      raise TypeError, "wrong argument type #{re.class} (expected Regexp)" unless respond_to?(:__slice_bang_str)
-      return __slice_bang_str(*args)
-    end
+    return __slice_bang_str(*args) unless re.is_a?(Regexp)
     raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" if 2 < args.size
     group = (args.size == 2 ? args[1] : 0) #: untyped
     md = re.__bmatch(self, 0)
