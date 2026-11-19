@@ -214,6 +214,17 @@ class YAMLTest < Picotest::Test
     assert_equal(keys, YAML.load(YAML.dump(keys)))
   end
 
+  # Psych reads these as numbers, booleans, dates or times
+  def test_dump_quotes_what_psych_reads_as_another_value
+    values = ["yes", "No", "ON", "off", "0x10", "+1", "1_000", "0b1", ".5", "1.",
+              "12:30", "2026-01-01", "5G lab", "-x"]
+    values.each do |v|
+      assert_equal("v: \"#{v}\"\n", YAML.dump({"v" => v}))
+      assert_equal({"v" => v}, YAML.load(YAML.dump({"v" => v})))
+    end
+    assert_equal("v: lab 5G\n", YAML.dump({"v" => "lab 5G"}))
+  end
+
   def test_list_item_with_a_quoted_key
     assert_equal([{"name" => "foo"}], YAML.load(%Q(- "name": foo\n)))
     assert_equal([{"a:b" => 1}], YAML.load(%Q(- 'a:b': 1\n)))

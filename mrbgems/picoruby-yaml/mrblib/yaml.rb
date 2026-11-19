@@ -275,6 +275,7 @@ module YAML
     return false if INDICATORS.include?(s.byteslice(0, 1).to_s)
     return false if (s.start_with?("- ") || s.start_with?("? ") || s == "-" || s == "?")
     return false if s.include?(" #") || s.include?(": ") || s.end_with?(":")
+    return false if other_value_in_psych?(s)
     i = 0
     n = s.bytesize
     while i < n
@@ -282,6 +283,17 @@ module YAML
       i += 1
     end
     parse_value(s) == s
+  end
+
+  # whether Psych (YAML 1.1) may read s as a value other than a String, so
+  # that a dumped file loads the same on a host. A number, a date or a time
+  # starts with a digit, a sign or a dot, and yes, no, on and off are
+  # booleans there. A String quoted without need still loads as itself.
+  def self.other_value_in_psych?(s)
+    first = s.getbyte(0).to_i
+    return true if (48 <= first && first <= 57) || first == 43 || first == 45 || first == 46
+    word = s.downcase
+    word == "yes" || word == "no" || word == "on" || word == "off"
   end
 
   # a key is read up to its first : and a line starting with - is a list item
