@@ -204,11 +204,16 @@ class WebAudioSynthTest < Picotest::Test
 
   def test_old_ended_callback_does_not_release_reused_slot
     synth = JS::WebAudio::Synth.new(context: @context, voice_count: 1)
-    synth.handle_midi([:note_on, 0, 60, 100], :serial, 0, 10)
-    old = @context.oscillators[-1]
-    synth.handle_midi([:note_on, 0, 64, 100], :serial, 0, 20)
-    old.finish
-    assert_equal 64, synth.active_voices[0][:note]
+    begin
+      synth.handle_midi([:note_on, 0, 60, 100], :serial, 0, 10)
+      old = @context.oscillators[-1]
+      synth.handle_midi([:note_on, 0, 64, 100], :serial, 0, 20)
+      old.finish
+      assert_equal 64, synth.active_voices[0][:note]
+    ensure
+      # its cleanup task runs until close, as the one of @synth does
+      synth.close
+    end
   end
 
   def test_pitch_bend_updates_active_voice
