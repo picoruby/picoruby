@@ -9,6 +9,10 @@ module JSON
   class GeneratorError < JSONError
   end
   # @sidebar error
+  class NestingError < ParserError
+  end
+  UnparserError: singleton(GeneratorError)
+  # @sidebar error
   class DiggerError < JSONError
   end
 
@@ -21,8 +25,57 @@ module JSON
     private def expect_sequence: (String) -> void
   end
 
-  def self.parse: (String) -> untyped
-  def self.generate: (untyped) -> String
+  PRETTY_STATE_PROTOTYPE: Hash[Symbol, String]
+
+  class State
+    attr_accessor indent: String
+    attr_accessor space: String
+    attr_accessor space_before: String
+    attr_accessor object_nl: String
+    attr_accessor array_nl: String
+    attr_accessor allow_nan: bool
+    attr_accessor max_nesting: Integer
+    attr_accessor ascii_only: bool
+    attr_accessor depth: Integer
+    attr_accessor script_safe: bool
+    attr_accessor strict: bool
+
+    def self.from_state: (untyped opts) -> State
+    def initialize: (?Hash[untyped, untyped]? opts) -> void
+    def configure: (Hash[untyped, untyped] opts) -> self
+    alias merge configure
+    def allow_nan?: () -> bool
+    def ascii_only?: () -> bool
+    def script_safe?: () -> bool
+    def strict?: () -> bool
+    def check_circular?: () -> bool
+    def []: (Symbol | String name) -> untyped
+    def []=: (Symbol | String name, untyped value) -> untyped
+    def to_h: () -> Hash[Symbol, untyped]
+    alias to_hash to_h
+    def generate: (untyped obj) -> String
+  end
+
+  class Fragment
+    attr_reader json: String
+    def initialize: (String json) -> void
+    def to_json: (*untyped) -> String
+    def ==: (untyped other) -> bool
+  end
+
+  def self.parse: (String json, ?untyped opts) -> untyped
+  def self.parse!: (String json, ?untyped opts) -> untyped
+  def self.load: (untyped source, ?untyped proc, ?untyped opts) -> untyped
+  def self.[]: (untyped object, ?untyped opts) -> untyped
+  def self.generate: (untyped obj, ?untyped opts) -> String
+  def self.unparse: (untyped obj, ?untyped opts) -> String
+  def self.fast_generate: (untyped obj, ?untyped opts) -> String
+  def self.pretty_generate: (untyped obj, ?untyped opts) -> String
+  def self.pretty_unparse: (untyped obj, ?untyped opts) -> String
+  def self.dump: (untyped obj, ?untyped io, ?untyped limit) -> untyped
+  def self.state: () -> singleton(State)
+  def self.parser: () -> singleton(Parser)
+  def self.generator: () -> singleton(Generator)
 
   class Digger
     type dig_key_t = (String | Integer)
@@ -52,15 +105,20 @@ module JSON
     include JSON::Common
 
     HEX_CHARS: String
+    INFINITY: Float
 
     @obj: untyped
+    @state: State?
+    @depth: Integer
 
-    def initialize: (untyped) -> void
+    def initialize: (untyped, ?State? state) -> void
     def generate: (?untyped) -> String
     private def generate_object: (Hash[String, untyped]) -> String
     private def generate_array: (Array[untyped]) -> String
-    private def generate_string: (String | Symbol) -> String
+    private def generate_string: (String) -> String
     private def generate_number: (Integer|Float) -> String
+    private def generate_float: (Float) -> String
+    private def check_nesting: () -> void
   end
 
   class Parser
@@ -68,10 +126,11 @@ module JSON
 
     @json: String
     @index: Integer
+    @symbolize_names: bool
 
-    def initialize: (String) -> void
+    def initialize: (String, ?bool symbolize_names) -> void
     def parse: () -> untyped
-    private def parse_object: () -> Hash[String, untyped]
+    private def parse_object: () -> Hash[String | Symbol, untyped]
     private def parse_array: () -> Array[untyped]
     private def parse_string: () -> String
     private def parse_number: () -> (Integer | Float)
@@ -82,4 +141,40 @@ module JSON
     private def parse_integer: (Integer, Integer) -> Integer
     private def parse_float: (Integer, Integer) -> Float
   end
+end
+
+class Object
+  def to_json: (?untyped state) -> String
+end
+
+class Hash[unchecked out K, unchecked out V]
+  def to_json: (?untyped state) -> String
+end
+
+class Array[unchecked out Elem]
+  def to_json: (?untyped state) -> String
+end
+
+class String
+  def to_json: (?untyped state) -> String
+end
+
+class Integer
+  def to_json: (?untyped state) -> String
+end
+
+class Float
+  def to_json: (?untyped state) -> String
+end
+
+class TrueClass
+  def to_json: (?untyped state) -> String
+end
+
+class FalseClass
+  def to_json: (?untyped state) -> String
+end
+
+class NilClass
+  def to_json: (?untyped state) -> String
 end
