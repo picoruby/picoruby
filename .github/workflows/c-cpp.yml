@@ -12,7 +12,7 @@ on:
 env:
   GIT_DISCOVERY_ACROSS_FILESYSTEM: 1
   # The CRuby every job runs the build tools on. Change it here only.
-  RUBY_VERSION: '4.0.7'
+  RUBY_VERSION: '4.0.10'
 
 permissions:
   contents: write
