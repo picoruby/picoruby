@@ -1,6 +1,7 @@
 # picoruby-yaml is a small parser and generator: a document is a Hash of
 # scalars, nested Hashes and lists of scalars. The tests cover what the
-# README promises; quoting, anchors and tags are out of scope.
+# README promises, and anchors, aliases and << merge keys; tags are out
+# of scope.
 class YAMLTest < Picotest::Test
   def test_load_scalars
     doc = YAML.load("a: 1\nb: 2.5\nc: true\nd: false\ne: null\nf: hello world\ng: -3\n")
@@ -156,5 +157,90 @@ class YAMLTest < Picotest::Test
     File.open(path, "w") { |f| f.write("name: PicoRuby\nversion: 3\n") }
     assert_equal({"name" => "PicoRuby", "version" => 3}, YAML.load_file(path))
     File.unlink(path)
+  end
+
+  def test_alias_of_a_scalar
+    doc = YAML.load("a: &x 1\nb: *x\n")
+    assert_equal({"a" => 1, "b" => 1}, doc)
+  end
+
+  def test_anchor_on_a_block_mapping_keeps_its_nesting
+    doc = YAML.load("default: &default\n  adapter: sqlite3\n  timeout: 5000\nother: 1\n")
+    assert_equal({"default" => {"adapter" => "sqlite3", "timeout" => 5000}, "other" => 1}, doc)
+  end
+
+  def test_alias_is_the_anchored_object
+    doc = YAML.load("a: &x\n  k: v\nb: *x\n")
+    # object_id, as mruby/c has no equal?
+    assert_equal(doc["a"].object_id, doc["b"].object_id)
+  end
+
+  def test_anchor_on_a_block_list
+    doc = YAML.load("a: &l\n  - 1\n  - 2\nb: *l\n")
+    assert_equal([1, 2], doc["b"])
+  end
+
+  def test_merge_key
+    yaml = "default: &default\n  adapter: sqlite3\n  timeout: 5000\n\n" \
+           "development:\n  <<: *default\n  database: dev\n  timeout: 1\n"
+    doc = YAML.load(yaml)
+    assert_equal({"adapter" => "sqlite3", "timeout" => 1, "database" => "dev"}, doc["development"])
+    assert_equal({"adapter" => "sqlite3", "timeout" => 5000}, doc["default"])
+  end
+
+  def test_merge_key_with_a_list_the_first_wins
+    doc = YAML.load("a: &a\n  x: 1\nb: &b\n  x: 2\n  y: 2\nc:\n  <<: [*a, *b]\n")
+    assert_equal({"x" => 1, "y" => 2}, doc["c"])
+  end
+
+  def test_aliases_in_list_items
+    doc = YAML.load("v: &v 3\nl:\n  - *v\n  - name: *v\n")
+    assert_equal([3, {"name" => 3}], doc["l"])
+  end
+
+  def test_unknown_alias
+    assert_raise(ArgumentError) { YAML.load("a: *nope\n") }
+  end
+
+  def test_dump_then_load
+    values = ["Cafe #2", "*guest", "&x", "[lab] 5G", "{x}", "a: b", "ends:", " lead", "trail ",
+              "", "true", "1", "1.5", "~", "null", ":sym", "#hash", "- x", "-",
+              "line\nbreak", "tab\there", "q\"uote", "back\\slash", "plain text", "日本語"]
+    values.each do |v|
+      assert_equal({"ssid" => v}, YAML.load(YAML.dump({"ssid" => v})))
+      assert_equal([v], YAML.load(YAML.dump([v])))
+    end
+    keys = {"a: b" => 1, "x:y" => 2, "-k" => 3, "true" => 4, "plain" => 5}
+    assert_equal(keys, YAML.load(YAML.dump(keys)))
+  end
+
+  def test_list_item_with_a_quoted_key
+    assert_equal([{"name" => "foo"}], YAML.load(%Q(- "name": foo\n)))
+    assert_equal([{"a:b" => 1}], YAML.load(%Q(- 'a:b': 1\n)))
+    assert_equal(["a: b"], YAML.load(%Q(- "a: b"\n)))
+  end
+
+  def test_text_after_a_closing_bracket
+    assert_equal({"msg" => "[INFO] started"}, YAML.load("msg: [INFO] started\n"))
+    assert_equal({"msg" => "{a} b"}, YAML.load("msg: {a} b\n"))
+    assert_equal({"a" => [1, 2]}, YAML.load("a: [1, 2] # two\n"))
+  end
+
+  def test_a_symbol_starts_with_a_letter_or_underscore
+    assert_equal({"port" => ":8080", "host" => "::1", "sym" => :abc, "u" => :_x},
+                 YAML.load("port: :8080\nhost: ::1\nsym: :abc\nu: :_x\n"))
+  end
+
+  def test_invalid_unicode_escape
+    assert_raise(ArgumentError) { YAML.load(%Q(a: "\\U00110000"\n)) }
+    assert_raise(ArgumentError) { YAML.load(%Q(a: "\\uD83D"\n)) }
+  end
+
+  def test_flow_sequence_trailing_comma
+    assert_equal({"a" => ["x", "y"], "b" => []}, YAML.load("a: [x, y,]\nb: []\n"))
+  end
+
+  def test_merge_key_in_a_flow_mapping
+    assert_equal({"a" => {"k" => 1, "m" => 2}}, YAML.load("a: {k: 1, <<: {m: 2}}\n"))
   end
 end

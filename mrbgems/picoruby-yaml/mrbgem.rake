@@ -3,6 +3,11 @@ MRuby::Gem::Specification.new('picoruby-yaml') do |spec|
   spec.author  = 'HASUMI Hitoshi'
   spec.summary = 'YAML parser for PicoRuby'
 
+  if build.femtoruby?
+    # object_id on mruby/c
+    spec.add_dependency 'picoruby-metaprog'
+  end
+
   if build.posix?
     if build.femtoruby?
       spec.add_dependency 'picoruby-posix-io'
