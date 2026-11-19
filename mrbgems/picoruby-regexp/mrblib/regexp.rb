@@ -38,9 +38,52 @@ class Regexp
   end
 end
 
+class MatchData
+  # [] takes a Range or a start and a length too, over to_a, as Array#[]
+  # does; a group number or name stays with the C method.
+  alias __aref_group []
+
+  def [](*args)
+    list = args #: Array[untyped]
+    if list.size == 2
+      part = to_a[list[0], list[1]] #: untyped
+      return part
+    end
+    idx = list[0]
+    if idx.is_a?(Range)
+      part = to_a[idx] #: untyped
+      return part
+    end
+    __aref_group(idx)
+  end
+end
+
 class String
   # the String and nil forms of split stay with the VM's own split
   alias __split_str split
+
+  # start_with? takes a Regexp too, which must match at the start; $~
+  # follows the last Regexp tried, as in CRuby. A String prefix is
+  # compared here, since a build may have no start_with? of its own.
+  def start_with?(*prefixes)
+    i = 0
+    n = prefixes.size
+    while i < n
+      pre = prefixes[i] #: untyped
+      if pre.is_a?(Regexp)
+        md = pre.__bmatch(self, 0)
+        md = nil if md && md.byteoffset(0)[0] != 0
+        $~ = md
+        return true if md
+      elsif pre.is_a?(String)
+        return true if byteslice(0, pre.bytesize) == pre
+      else
+        raise TypeError, "no implicit conversion of #{pre.class} into String"
+      end
+      i += 1
+    end
+    false
+  end
 
   # The Regexp a pattern argument stands for. A String matches itself.
   def __regexp_for(pattern)
@@ -89,6 +132,8 @@ class String
       b = pair[0]
       e = pair[1]
       result << src.byteslice(last, b - last).to_s
+      # the block reads this match through $~, $1, $& as in CRuby
+      $~ = md
       result << yield(md.to_s)
       raise RuntimeError, "string modified" unless self == src
       if e == b
@@ -145,12 +190,28 @@ class String
   # Every match: the matched text, or the Array of groups when the
   # pattern has any. With a block each match is yielded instead.
   def scan(pattern, &block)
-    matches = __scan(__regexp_for(pattern))
-    return matches unless block
-    i = 0
-    while i < matches.size
-      block.call(matches[i])
-      i += 1
+    re = __regexp_for(pattern)
+    return __scan(re) unless block
+    # With a block, $~ is each match as it is yielded, as in CRuby. The
+    # matches are read from a copy, which the block cannot change.
+    src = self.dup
+    len = src.bytesize
+    pos = 0
+    while pos <= len
+      md = re.__bmatch(src, pos)
+      break unless md
+      pair = md.byteoffset(0) #: [Integer, Integer]
+      b = pair[0]
+      e = pair[1]
+      $~ = md
+      caps = md.captures
+      block.call(caps.empty? ? md[0] : caps)
+      if e == b
+        break if len <= b
+        pos = b + __charlen_at(src, b)
+      else
+        pos = e
+      end
     end
     self
   end
@@ -160,5 +221,46 @@ class String
     return __split_str(*args) unless pattern.is_a?(Regexp)
     limit = (args[1] || 0) #: Integer
     __split(pattern, limit)
+  end
+
+  # slice!(regexp, capture = 0) removes the first match, or that group of
+  # it, and returns the removed text; nil when nothing matched. Every other
+  # form stays with the VM's own slice!, which a build without
+  # mruby-string-ext lacks.
+  alias __slice_bang_str slice! if "".respond_to?(:slice!)
+
+  def slice!(*args)
+    re = args[0] #: untyped
+    unless re.is_a?(Regexp)
+      raise TypeError, "wrong argument type #{re.class} (expected Regexp)" unless respond_to?(:__slice_bang_str)
+      return __slice_bang_str(*args)
+    end
+    raise ArgumentError, "wrong number of arguments (given #{args.size}, expected 1..2)" if 2 < args.size
+    group = (args.size == 2 ? args[1] : 0) #: untyped
+    md = re.__bmatch(self, 0)
+    $~ = md
+    return nil unless md
+    removed = md[group]
+    return nil unless removed
+    pair = md.byteoffset(group) #: [Integer, Integer]
+    b = pair[0]
+    e = pair[1]
+    replace(byteslice(0, b).to_s + byteslice(e, bytesize - e).to_s)
+    removed
+  end
+end
+
+# A Symbol matches as the String of its name, as in CRuby.
+class Symbol
+  def =~(pattern)
+    to_s =~ pattern
+  end
+
+  def match(pattern, pos = 0)
+    to_s.match(pattern, pos)
+  end
+
+  def match?(pattern, pos = 0)
+    to_s.match?(pattern, pos)
   end
 end

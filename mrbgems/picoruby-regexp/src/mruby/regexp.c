@@ -261,6 +261,16 @@ regexp_index_of(mrb_state *mrb, mrb_value re_obj, mrb_value str)
   return mrb_int_value(mrb, (mrb_int)c);
 }
 
+/* The String a match target stands for: a Symbol matches its name, as
+   in CRuby (`/a/.match(:a)`, `/a/ =~ :a`). Anything else must be a String. */
+static mrb_value
+regexp_target_str(mrb_state *mrb, mrb_value obj)
+{
+  if (mrb_symbol_p(obj)) return mrb_sym_str(mrb, mrb_symbol(obj));
+  mrb_ensure_string_type(mrb, obj);
+  return obj;
+}
+
 /* Regexp#match(str, pos = 0) -> MatchData or nil */
 static mrb_value
 mrb_regexp_match(mrb_state *mrb, mrb_value self)
@@ -269,7 +279,7 @@ mrb_regexp_match(mrb_state *mrb, mrb_value self)
   mrb_int pos = 0;
   mrb_get_args(mrb, "o|i", &str, &pos);
   if (mrb_nil_p(str)) return mrb_nil_value();
-  mrb_ensure_string_type(mrb, str);
+  str = regexp_target_str(mrb, str);
   return regexp_match_at(mrb, self, str, pos);
 }
 
@@ -281,7 +291,7 @@ mrb_regexp_match_p(mrb_state *mrb, mrb_value self)
   mrb_int pos = 0;
   mrb_get_args(mrb, "o|i", &str, &pos);
   if (mrb_nil_p(str)) return mrb_false_value();
-  mrb_ensure_string_type(mrb, str);
+  str = regexp_target_str(mrb, str);
   return mrb_bool_value(regexp_test_at(mrb, self, str, pos));
 }
 
@@ -303,7 +313,7 @@ mrb_regexp_match_op(mrb_state *mrb, mrb_value self)
   mrb_value str;
   mrb_get_args(mrb, "o", &str);
   if (mrb_nil_p(str)) return mrb_nil_value();
-  mrb_ensure_string_type(mrb, str);
+  str = regexp_target_str(mrb, str);
   return regexp_index_of(mrb, self, str);
 }
 
@@ -972,6 +982,7 @@ mrb_picoruby_regexp_gem_init(mrb_state *mrb)
 
   /* the C side of mrblib/regexp.rb */
   mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(escape), mrb_regexp_escape, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, class_Regexp, MRB_SYM(quote), mrb_regexp_escape, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, class_Regexp, MRB_SYM(__bmatch), mrb_regexp_bmatch, MRB_ARGS_REQ(2));
   mrb_define_method_id(mrb, class_MatchData, MRB_SYM(byteoffset), mrb_match_data_byteoffset, MRB_ARGS_REQ(1));
   mrb_define_method_id(mrb, string_class, MRB_SYM(__sub), mrb_string_sub_c, MRB_ARGS_REQ(3));

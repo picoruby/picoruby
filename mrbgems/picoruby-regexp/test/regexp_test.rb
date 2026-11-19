@@ -536,6 +536,10 @@ class RegexpStringTest < Picotest::Test
     assert_false Regexp.new(Regexp.escape("1+1")).match?("11")
   end
 
+  def test_quote_is_escape
+    assert_equal "a\\.b\\*c", Regexp.quote("a.b*c")
+  end
+
   # ---- String#sub / gsub with a String replacement ----
 
   def test_sub_with_regexp
@@ -587,6 +591,10 @@ class RegexpStringTest < Picotest::Test
     assert_equal "1 4 9", "1 2 3".gsub(/\d/) { |d| (d.to_i * d.to_i).to_s }
     assert_equal "hello", "hello".gsub(/z/) { |m| "x" }
     assert_equal "-a-b-", "ab".gsub(/x*/) { "-" }
+    # $~ and the group globals describe the current match inside the block
+    assert_equal "A_B", "a_b".gsub(/(.)/) { $1.upcase }
+    assert_equal "FooBar", "foo_bar".gsub(/(?:^|_)(.)/) { $1.upcase }
+    assert_equal "a[b]", "ab".sub(/(b)/) { "[#{$~[1]}]" }
   end
 
   def test_sub_with_block
@@ -725,6 +733,17 @@ class RegexpStringTest < Picotest::Test
     /z/.match("a")
     assert_nil $~
     assert_nil $1
+  end
+
+  def test_symbol_matches_as_its_name
+    assert_equal 1, (/b/ =~ :ab)
+    assert_equal "b", /b/.match(:ab)[0]
+    assert_true /b/.match?(:ab)
+    assert_false /z/.match?(:ab)
+    assert_equal 1, (:ab =~ /b/)
+    assert_equal "b", :ab.match(/b/)[0]
+    assert_true :ab.match?(/b/)
+    assert_true :name=.match?(/[^\]]=\z/)
   end
 
   def test_last_match_after_string_methods
