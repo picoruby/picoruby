@@ -184,6 +184,13 @@ class JsonTest < Picotest::Test
     assert_equal(0, state.depth)
   end
 
+  def test_own_to_json_gets_a_state_without_options
+    klass = Class.new do
+      def to_json(state = nil, *) = JSON.generate({"d" => state.depth}, state)
+    end
+    assert_equal('[[{"d":2}]]', JSON.generate([[klass.new]]))
+  end
+
   def test_fragment
     assert_equal('[{"raw":1}]', JSON.generate([JSON::Fragment.new('{"raw":1}')]))
   end

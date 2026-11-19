@@ -513,10 +513,10 @@ module JSON
       else
         # any other object writes itself with its to_json, as in CRuby;
         # Object#to_json writes its to_s. A State carries the depth here,
-        # so a to_json that generates with it goes on from this depth.
+        # so a to_json that generates with it goes on from this depth. The
+        # argument is always a State, as in CRuby, also for the compact output.
         if obj.respond_to?(:to_json)
-          state = @state
-          return obj.to_json(nil) unless state
+          state = @state || State.new
           depth = state.depth
           state.depth = @depth
           begin
