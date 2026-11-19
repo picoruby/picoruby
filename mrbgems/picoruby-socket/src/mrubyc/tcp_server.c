@@ -83,20 +83,16 @@ c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
     return;
   }
 
-  /* Note: host parameter is currently ignored in embedded implementation */
-  /* All interfaces are bound regardless of host parameter */
-  (void)host;
-
   /* Create instance with wrapper structure */
   mrbc_value instance = mrbc_instance_new(vm, v->cls, sizeof(tcp_server_wrapper_t));
   tcp_server_wrapper_t *wrapper = (tcp_server_wrapper_t *)instance.instance->data;
   wrapper->vm = vm;
 
   /* Create TCP server and store pointer */
-  wrapper->ptr = TCPServer_create(vm, port, backlog);
+  wrapper->ptr = TCPServer_create(vm, host, port, backlog);
   if (!wrapper->ptr) {
     mrbc_raise(vm, MRBC_CLASS(RuntimeError),
-               "failed to create TCP server (port may be in TIME_WAIT state, wait ~2 minutes and retry)");
+               "failed to create TCP server (the host may not resolve, or the port be in use or in TIME_WAIT state)");
     return;
   }
 

@@ -8,6 +8,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+#include <poll.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
 #ifdef socket
@@ -80,8 +81,26 @@ TCPSocket_connect(picorb_state *vm, picorb_socket_t *sock, const char *host, int
     freeaddrinfo(res);
   }
 
-  /* Connect */
-  if (connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+  /* Connect. A signal (such as the VM's timer tick) can cut connect()
+     short with EINTR while the connection goes on: wait until the socket
+     is writable, then read how the connection ended. */
+  int rc = connect(sock->fd, (struct sockaddr *)&addr, sizeof(addr));
+  if (rc < 0 && errno == EINTR) {
+    struct pollfd pfd = { sock->fd, POLLOUT, 0 };
+    int ready;
+    do {
+      ready = poll(&pfd, 1, -1);
+    } while (ready < 0 && errno == EINTR);
+    if (ready > 0) {
+      int so_error = 0;
+      socklen_t so_len = sizeof(so_error);
+      if (getsockopt(sock->fd, SOL_SOCKET, SO_ERROR, &so_error, &so_len) == 0) {
+        rc = so_error ? -1 : 0;
+        errno = so_error;
+      }
+    }
+  }
+  if (rc < 0) {
     snprintf(sock->errmsg, sizeof(sock->errmsg),
              "connect(\"%s\":%d): %s", host, port, strerror(errno));
     close(sock->fd);
@@ -113,7 +132,10 @@ TCPSocket_send(picorb_state *vm, picorb_socket_t *sock, const void *data, size_t
     return -1;
   }
 
-  ssize_t sent = send(sock->fd, data, len, 0);
+  ssize_t sent;
+  do {   /* retried when a signal interrupts it before anything is sent */
+    sent = send(sock->fd, data, len, 0);
+  } while (sent < 0 && errno == EINTR);
   if (sent < 0) {
     return -1;
   }
@@ -148,7 +170,10 @@ TCPSocket_recv(picorb_state *vm, picorb_socket_t *sock, void *buf, size_t len, b
   }
 
   /* Return as soon as any data is available (readpartial semantics). */
-  ssize_t received = recv(sock->fd, buf, len, 0);
+  ssize_t received;
+  do {   /* retried when a signal interrupts the wait */
+    received = recv(sock->fd, buf, len, 0);
+  } while (received < 0 && errno == EINTR);
 
   if (received < 0) {
     return -1;

@@ -12,8 +12,10 @@
 #include <stdlib.h>
 
 picorb_tcp_server_t*
-TCPServer_create(picorb_state *vm, int port, int backlog)
+TCPServer_create(picorb_state *vm, const char *host, int port, int backlog)
 {
+  /* host is not resolved here yet: every interface is bound */
+  (void)host;
   picorb_tcp_server_t *server = picorb_alloc(vm, sizeof(picorb_tcp_server_t));
   if (!server) return NULL;
 

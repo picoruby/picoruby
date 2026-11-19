@@ -65,7 +65,7 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
 
   /* Parse host argument */
   if (mrb_string_p(host_arg)) {
-    host = RSTRING_PTR(host_arg);
+    host = RSTRING_CSTR(mrb, host_arg);
   } else if (!mrb_nil_p(host_arg)) {
     mrb_raise(mrb, E_TYPE_ERROR, "host must be a String or nil");
   }
@@ -82,16 +82,12 @@ mrb_tcp_server_initialize(mrb_state *mrb, mrb_value self)
     mrb_raise(mrb, E_ARGUMENT_ERROR, "backlog must be positive");
   }
 
-  /* Note: host parameter is currently ignored in embedded implementation */
-  /* All interfaces are bound regardless of host parameter */
-  (void)host;
-
   /* Create TCP server */
-  picorb_tcp_server_t *server = TCPServer_create(mrb, port, (int)backlog);
+  picorb_tcp_server_t *server = TCPServer_create(mrb, host, port, (int)backlog);
   if (!server) {
     mrb_raisef(mrb, E_RUNTIME_ERROR,
-               "failed to create TCP server on port %i (port may be in TIME_WAIT state, wait ~2 minutes and retry)",
-               port);
+               "failed to create TCP server on %s:%i (the host may not resolve, or the port be in use or in TIME_WAIT state)",
+               host ? host : "*", port);
   }
 
   mrb_data_init(self, server, &mrb_tcp_server_type);

@@ -10,6 +10,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <netinet/tcp.h>
+#include <netdb.h>
 
 /* Prevent name collision with embedded Ruby bytecode */
 #ifdef socket
@@ -20,7 +21,7 @@
 
 /* Create and start a TCP server */
 picorb_tcp_server_t*
-TCPServer_create(picorb_state *vm, int port, int backlog)
+TCPServer_create(picorb_state *vm, const char *host, int port, int backlog)
 {
   picorb_tcp_server_t *server = picorb_alloc(vm, sizeof(picorb_tcp_server_t));
   if (!server) return NULL;
@@ -41,18 +42,34 @@ TCPServer_create(picorb_state *vm, int port, int backlog)
     return NULL;
   }
 
-#ifdef SO_REUSEPORT
-  /* Set SO_REUSEPORT option for better load balancing (if available) */
-  if (setsockopt(server->listen_fd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) < 0) {
-    /* SO_REUSEPORT is optional, continue even if it fails */
-  }
-#endif
+  /* No SO_REUSEPORT: with it a second server binds a port in use without
+     error, and the two take turns at its connections. As with CRuby, the
+     second one fails instead. */
 
   /* Bind to address */
   struct sockaddr_in addr = {0};
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = INADDR_ANY;
   addr.sin_port = htons(port);
+
+  /* Listen on the host given, as CRuby does: "127.0.0.1" or "localhost"
+     takes loopback connections only. nil or "" is every interface. The
+     socket is IPv4, so the host resolves to an IPv4 address. */
+  if (host && host[0] != '\0') {
+    struct addrinfo hints = {0};
+    struct addrinfo *res = NULL;
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_flags = AI_PASSIVE;
+    if (getaddrinfo(host, NULL, &hints, &res) != 0 || !res) {
+      if (res) freeaddrinfo(res);
+      close(server->listen_fd);
+      picorb_free(vm, server);
+      return NULL;
+    }
+    addr.sin_addr = ((struct sockaddr_in *)res->ai_addr)->sin_addr;
+    freeaddrinfo(res);
+  }
 
   if (bind(server->listen_fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
     perror("bind failed");
@@ -119,13 +136,23 @@ TCPServer_accept_nonblock(picorb_state *vm, picorb_tcp_server_t *server)
   errno = saved_errno;
 
   if (client_fd < 0) {
-    /* EAGAIN or EWOULDBLOCK means no connection available */
-    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+    /* EAGAIN or EWOULDBLOCK means no connection available; EINTR, a
+       signal, means none was taken this time */
+    if (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR) {
       return NULL;
     }
     /* Other errors */
     perror("accept failed");
     return NULL;
+  }
+
+  /* On macOS and the BSDs the accepted socket takes O_NONBLOCK from the
+     listening one, which is non-blocking just above, and its blocking reads
+     would fail with EAGAIN before data arrives. It blocks, as a socket
+     accepted on Linux does. */
+  int client_flags = fcntl(client_fd, F_GETFL, 0);
+  if (client_flags != -1 && (client_flags & O_NONBLOCK)) {
+    fcntl(client_fd, F_SETFL, client_flags & ~O_NONBLOCK);
   }
 
   /* Create TCPSocket object for client */

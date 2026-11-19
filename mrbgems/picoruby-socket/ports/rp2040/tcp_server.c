@@ -252,8 +252,10 @@ tcp_accept_callback(void *arg, struct altcp_pcb *newpcb, err_t err)
 
 /* Create TCP server */
 picorb_tcp_server_t*
-TCPServer_create(picorb_state *vm, int port, int backlog)
+TCPServer_create(picorb_state *vm, const char *host, int port, int backlog)
 {
+  /* host is not resolved here yet: every interface is bound */
+  (void)host;
   if (port <= 0 || port > 65535) {
     return NULL;
   }

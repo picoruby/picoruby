@@ -23,7 +23,8 @@ class TCPServer
   #   new(host, service)           - Listen on the specified host and port
   #   new(host, service, backlog)  - Full parameters with backlog
   #
-  # @param host [String, nil] Hostname or IP address (currently ignored in embedded impl)
+  # @param host [String, nil] Hostname or IPv4 address to listen on; nil or "" is every
+  #   interface (POSIX only: the embedded ports listen on every interface)
   # @param service [Integer] Port number to listen on (1-65535)
   # @param backlog [Integer] Maximum number of pending connections (default: 5)
   # @raise [ArgumentError] if port is invalid or wrong number of arguments
