@@ -13,6 +13,8 @@ simulation that carries capture positions) runs the program.
   linear time.
 - The VM does not allocate, and recurses only to test a lookaround, at most
   4 levels deep. Each `Regexp` holds one scratch block, sized at compile time.
+  A pattern with a backreference runs on a backtracker instead, whose stack
+  comes from the heap during the search (see below).
 - The compiler grows its buffers with the pattern. `/a/` compiles in about 1 KB
   of temporary heap.
 - Text is UTF-8. `.` and a class consume one character. `MatchData#begin`,
@@ -118,20 +120,27 @@ the reason and the byte offset in the pattern.
 
 ## Differences from CRuby
 
-- `^` and `$` anchor the whole string, not a line. `\Z` is the same as `\z`.
 - `i` folds ASCII letters only. `/é/i` does not match `É`.
-- `\p{...}` raises `RegexpError` at compile time. POSIX classes are ASCII:
-  `[[:alpha:]]` does not match `é`.
+- POSIX classes, and `\p{...}`, which takes their names only, are ASCII:
+  `[[:alpha:]]` and `\p{Alpha}` do not match `é`.
 - Matching takes time linear in the subject, but for a pattern with a
-  backreference: that one runs on a backtracker, which can take far longer,
-  and raises `RegexpError` after `REGEX_BT_MAX_STEPS` (10,000,000) steps.
-  `\10` with fewer than ten groups is an error, not an octal escape.
+  backreference: that one runs on a backtracker, which can take far longer.
+  It raises `RegexpError` after `REGEX_BT_MAX_STEPS` steps (10,000,000 unless
+  the build sets it; 1,000,000 in the r2p2 builds), or when its stack passes
+  `REGEX_BT_MAX_STACK` entries of 12 bytes (1,048,576; 1,024 on RP2040 and
+  4,096 on RP2350).
 - A possessive repeat of more than one character, and an atomic group, are
   taken as the greedy repeat and a plain group: where CRuby finds no match
   because they keep what they took, as in `/(?>a*)a/` on `"aa"`, this finds
-  one. A possessive repeat of one character is exact.
-- A recursive `\g<n>` is followed 8 levels deep; input nested deeper does
-  not match.
+  one. A possessive repeat of one character is exact. In a pattern with a
+  backreference they do not stop the backtracker from trying the other ways
+  through their body either, so such a pattern can run until
+  `REGEX_BT_MAX_STEPS`: on an RP2040 that holds the task scheduler up for
+  seconds.
+- A recursive `\g<n>` is followed 8 levels deep, fewer when the copies
+  outgrow the program. A search into input nested deeper raises
+  `RegexpError` ("subexpression call nested too deep"), except `match?`
+  when it found a match.
 - `\w`, `\d`, `\s` and so `\b` are ASCII: `é` is not a word character, so
   `/\bé/` matches in `"aé"`.
 - A lookbehind body may have any bounded length, as in `(?<=a|bc)` or

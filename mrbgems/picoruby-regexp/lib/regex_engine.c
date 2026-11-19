@@ -34,11 +34,13 @@
  * A possessive repeat (X*+, X++, X?+) gives back nothing it matched.
  * Of one character X it is written as the greedy repeat and a (?!X)
  * after it, which is exact: X*+ is X*(?!X), and X?+ is X or (?!X).
- * As in Ruby, X{n,m}+ is not possessive but (?:X{n,m})+. An atomic
- * group (?>X) is (?:X) in the same way. Of anything longer it is the greedy repeat,
- * so a match that a possessive repeat would refuse by keeping what it
- * took is still found; with no backtracking, the possessive form has
- * no time to save here.
+ * As in Ruby, X{n,m}+ is not possessive but (?:X{n,m})+. Of anything
+ * longer it is the greedy repeat, and an atomic group (?>X) is (?:X) in
+ * the same way, so a match that they would refuse by keeping what they
+ * took is still found. On the Pike VM that costs no time. On the
+ * backtracker it does: neither stops it from trying the other ways
+ * through X, so a pattern with a backreference can take up to
+ * RX_BT_MAX_STEPS steps where CRuby gives up at once.
  *
  * Memory follows the pattern, not the limits. The compiler grows its
  * three work buffers (AST nodes, class ranges, code) from a few
@@ -562,7 +564,7 @@ code_escape(rx_parser *p, uint32_t e, uint32_t *out)
   return true;
 }
 
-/* \0 and the octal digits after it, or (in a class) \1 to \7 and up to
+/* \0 and the octal digits after it, or \1 to \7 and up to
  * two more: a codepoint below 0x80, as Ruby reads them in a UTF-8 pattern.
  * first is the digit after the backslash, already read. */
 static uint32_t
@@ -1071,23 +1073,25 @@ static int
 parse_backref(rx_parser *p, int num)
 {
   if (num > 0) {
-    /* \nnn of more than one digit is an octal escape, as in Ruby, when no
-       group nnn turns up: keep its value (or -1) for resolve_brefs() */
-    int digits = 1;
-    int32_t octal = num <= 7 ? num : -1;
+    /* As in Onigmo: \n is a backreference when n is at most 9 or at
+     * most the groups opened so far. Otherwise \1 to \7 start an octal
+     * escape of up to three digits, \8 and \9 stand for the digit, and
+     * the digits after either are literal: \1012 is \101 then 2. */
+    size_t first_at = p->pos - 1;
     while (!at_end(p) && p->src[p->pos] >= '0' && p->src[p->pos] <= '9') {
-      uint8_t d = p->src[p->pos];
-      if (digits < 3 && octal >= 0 && d <= '7') octal = octal * 8 + (d - '0');
-      else if (digits < 3) octal = -1;
-      num = num * 10 + (d - '0');
-      digits++;
+      if (num < 100000) num = num * 10 + (p->src[p->pos] - '0');
       p->pos++;
-      if (num > RX_MAX_GROUPS && octal < 0) { perr(p, "invalid backref number/name"); return 0; }
     }
-    if (digits > 3 || digits == 1) octal = -1;
-    if (octal < 0 && num > RX_MAX_GROUPS) { perr(p, "invalid backref number/name"); return 0; }
-    p->nbrefs++;
-    return node_new(p, N_BREF, p->flags, 0, num, octal);
+    if (num <= 9 || num < p->ngroups) {
+      p->nbrefs++;
+      return node_new(p, N_BREF, p->flags, 0, num, -1);
+    }
+    p->pos = first_at + 1;
+    uint8_t first = p->src[first_at];
+    if (first >= '8') return node_new(p, N_CHAR, 0, 0, first, p->flags);
+    uint32_t v = octal_escape(p, first);
+    if (p->err) return 0;
+    return node_new(p, N_CHAR, 0, 0, (int32_t)v, p->flags);
   }
   if (at_end(p) || (p->src[p->pos] != '<' && p->src[p->pos] != '\'')) {
     return node_new(p, N_CHAR, 0, 0, 'k', p->flags);
@@ -1114,7 +1118,7 @@ parse_backref(rx_parser *p, int num)
     if (sign < 0) v = p->ngroups - v;
     if (v <= 0) { perr(p, "invalid backref number/name"); return 0; }
     p->ncall_numbered++;
-    return node_new(p, N_BREF, p->flags, 0, v, 0);
+    return node_new(p, N_BREF, p->flags, 0, v, -1);
   }
   if (sign || n == 0 || n > RX_MAX_NAME_LEN) { perr(p, "invalid backref number/name"); return 0; }
   return node_new(p, N_BREF, p->flags, (int32_t)n, 0, (int32_t)start);
@@ -1130,16 +1134,6 @@ resolve_brefs(rx_parser *p)
     rx_node *nd = &p->nodes[i];
     if (nd->t != N_BREF) continue;
     int idx = nd->x;
-    if (nd->b == 0 && nd->y >= 0 && idx >= p->ngroups) {
-      /* no such group: the digits were an octal escape */
-      if (nd->y >= 0x80) { perr(p, "invalid multibyte escape"); return; }
-      int32_t flags = nd->a;
-      nd->t = N_CHAR;
-      nd->x = nd->y;
-      nd->y = flags;
-      nd->a = 0;
-      continue;
-    }
     if (nd->b > 0) {
       idx = -1;
       for (int e = 0; e < p->nnames; e += 2 + p->names[e + 1]) {
@@ -1753,7 +1747,7 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
     prog[H_ANCHORED] = starts_with_bol(&p, root) ? 1u : 0u;
     prog[H_NAMES_OFF] = 0;
     prog[H_BACKTRACK] = 0;
-    /* the backreferences left once octal escapes were told apart */
+    /* a pattern with a backreference runs on the backtracker */
     for (int i = 0; i < p.nnodes; i++) {
       if (p.nodes[i].t == N_BREF) { prog[H_BACKTRACK] = 1; break; }
     }

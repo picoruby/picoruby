@@ -23,6 +23,17 @@ class RegexpPosixTest < Picotest::Test
     assert_raise(RegexpError) { Regexp.new("[\\200]") }
   end
 
+  # as in Onigmo: \n past the groups and past 9 is an octal escape of up
+  # to three digits, and the digits after it are literal
+  def test_octal_escapes_beside_backreferences
+    assert_equal "A2", "A2"[/\1012/]
+    assert_equal "\x018", "\x018"[/\18/]
+    assert_equal "\n8", "\n8"[/\128/]
+    assert_equal "81", "81"[/\81/]
+    assert_equal "a\x018", "a\x018"[/(a)\18/]
+    assert_equal "\babc", "\babc"[/\10(a)(b)(c)/]
+  end
+
   def test_local_name_pattern
     re = /\A(?![A-Z0-9])(?:[[:alnum:]_]|[^\0-\177])+\z/
     assert_true re.match?("local_var1")

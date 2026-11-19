@@ -35,9 +35,11 @@ typedef struct {
 static struct RClass *class_Regexp;
 static struct RClass *class_MatchData;
 
-/* The engine's compiler allocates through these names. Compilation
- * runs under one mrb_state at a time, set just before the call. The
- * VM allocates nothing. */
+/* The engine allocates through these names: the compiler, and the
+ * backtracker that runs a pattern with a backreference. Each call into
+ * the engine runs under the mrb_state of the method that makes it,
+ * which sets rx_mrb first: regexp_new before a compile, get_regexp
+ * before a search. */
 static mrb_state *rx_mrb;
 
 void *
@@ -91,6 +93,7 @@ raise_nomem(mrb_state *mrb)
 static picorb_regexp *
 get_regexp(mrb_state *mrb, mrb_value obj)
 {
+  rx_mrb = mrb;   /* the search that follows may allocate */
   return (picorb_regexp *)mrb_data_get_ptr(mrb, obj, &regexp_type);
 }
 

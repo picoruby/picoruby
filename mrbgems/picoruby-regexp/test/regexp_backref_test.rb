@@ -42,6 +42,10 @@ class RegexpBackrefTest < Picotest::Test
     assert_raise(RegexpError) { Regexp.new("(a)\\2") }
     assert_raise(RegexpError) { Regexp.new("(?<n>a)\\1") }
     assert_raise(RegexpError) { Regexp.new("(?<n>a)\\k<m>") }
+    # \k<n> to a group that does not exist, and a numbered one beside a
+    # named group
+    assert_raise(RegexpError) { Regexp.new("\\k<2>") }
+    assert_raise(RegexpError) { Regexp.new("(a)(?<n>b)\\k<-1>") }
     # a bare \k is a k
     assert_equal "k", "k"[Regexp.new("\\k")]
   end
@@ -49,5 +53,17 @@ class RegexpBackrefTest < Picotest::Test
   def test_backtracking_limit_raises
     re = Regexp.new("(x+x+)+y\\1")
     assert_raise(RegexpError) { re.match("x" * 40) }
+    assert_raise(RegexpError) { "x" * 40 =~ re }
+    assert_raise(RegexpError) { ("x" * 40).rindex(re) }
+    # a later call that runs no search reports nothing
+    assert_equal [], "".split(re)
+    assert_equal ["abc"], "abc".split(re, 1)
+  end
+
+  # a recursive call cut short on the backtracker raises as on the Pike VM
+  def test_recursive_call_nested_too_deep
+    re = /(\((?:\g<1>)*\))\1/
+    assert_equal "(())(())", re.match("(())(())")[0]
+    assert_raise(RegexpError) { re.match("(" * 9 + ")" * 9) }
   end
 end

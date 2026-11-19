@@ -43,6 +43,10 @@ MRuby::CrossBuild.new("r2p2-femtoruby-pico_w#{ENV['PICORB_DEBUG'] ? '-debug' : '
   # presyms into it at every parse, and a pool that grows to hold them
   # leaves each outgrown array behind in the arena.
   conf.cc.defines << "PM_CONSTANT_POOL_MIN_CAPACITY=128"
+  # picoruby-regexp: the backtracker for a pattern with a backreference
+  # keeps its stack under 12 KB and gives up after a million steps
+  conf.cc.defines << "REGEX_BT_MAX_STACK=1024"
+  conf.cc.defines << "REGEX_BT_MAX_STEPS=1000000"
   conf.cc.defines << "MRBC_USE_FLOAT=2"
   conf.cc.defines << "USE_WIFI"
   conf.cc.defines << "MRBC_USE_STRING_UTF8"
