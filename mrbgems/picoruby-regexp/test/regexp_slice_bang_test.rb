@@ -21,6 +21,9 @@ class RegexpSliceBangTest < Picotest::Test
     s = "key=value"
     assert_equal "value", s.slice!(/(\w+)=(\w+)/, 2)
     assert_equal "key=", s
+    s = "a1"
+    assert_equal "1", s.slice!(/(?<d>\d)/, "d")
+    assert_equal "a", s
     s = "ab"
     assert_nil s.slice!(/a(x)?/, 1)
     assert_equal "ab", s

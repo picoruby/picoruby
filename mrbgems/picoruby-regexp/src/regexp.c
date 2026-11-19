@@ -26,8 +26,7 @@
 #define PICORB_RX_MULTILINE  4
 
 /* Option letters -> Ruby option bits. Returns -1 on a letter that is
- * not an option. 'x' is accepted and kept in the options, but the
- * engine has no extended mode: the pattern is taken as written. */
+ * not an option. */
 static int
 picorb_rx_options_from_letters(const char *s, size_t len)
 {
@@ -50,6 +49,7 @@ picorb_rx_engine_flags(int options)
   int flags = 0;
   if (options & PICORB_RX_IGNORECASE) flags |= (int)REGEX_ICASE;
   if (options & PICORB_RX_MULTILINE) flags |= (int)REGEX_DOTALL;
+  if (options & PICORB_RX_EXTENDED) flags |= (int)REGEX_EXTENDED;
   return flags;
 }
 
@@ -152,8 +152,8 @@ typedef void (*picorb_rx_emit)(void *ctx, const uint8_t *p, size_t n);
 typedef void (*picorb_rx_on_match)(void *ctx, const int32_t *caps, int nsave);
 typedef void (*picorb_rx_on_piece)(void *ctx, size_t b, size_t e);
 
-/* RX_MAX_GROUPS in the engine is 16, so nsave is at most 32 */
-#define PICORB_RX_MAX_NSAVE 32
+/* a pattern has at most REGEX_MAX_GROUPS groups, two positions each */
+#define PICORB_RX_MAX_NSAVE (2 * REGEX_MAX_GROUPS)
 
 /* Regexp.escape: a backslash before every byte the engine reads as
  * syntax, and \n \t \r \f \v spelled out. A space stays a space. */
@@ -183,20 +183,70 @@ picorb_rx_escape(const uint8_t *s, size_t len, picorb_rx_emit emit, void *ctx)
   }
 }
 
+/* The group a name stands for: among the groups with that name, the
+ * last one that took part in the match, or the last one when none
+ * did (caps may be NULL to skip that). -1 when no group has the name. */
+static int
+picorb_rx_group_named(const uint32_t *prog, const int32_t *caps,
+                      const uint8_t *name, size_t nlen)
+{
+  int n = (int)prog[1] / 2;
+  int found = -1;
+  for (int g = 1; g < n; g++) {
+    size_t len;
+    const uint8_t *gname = regex_group_name(prog, g, &len);
+    if (!gname || len != nlen || memcmp(gname, name, nlen) != 0) continue;
+    if (found < 0 || !caps || caps[2 * g] >= 0 || caps[2 * found] < 0) found = g;
+  }
+  return found;
+}
+
+/* true when group g carries a name that no lower group has, so a
+ * walk over the groups lists each name once */
+static bool
+picorb_rx_name_is_first(const uint32_t *prog, int g)
+{
+  size_t len;
+  const uint8_t *name = regex_group_name(prog, g, &len);
+  if (!name) return false;
+  for (int h = 1; h < g; h++) {
+    size_t hlen;
+    const uint8_t *hname = regex_group_name(prog, h, &hlen);
+    if (hname && hlen == len && memcmp(hname, name, len) == 0) return false;
+  }
+  return true;
+}
+
 /* Expand a replacement template against one match: \0 and \& are
  * the whole match, \1..\9 a group (nothing when it did not take part
- * or does not exist), \\ a backslash. Any other \x stays as written. */
-static void
-picorb_rx_expand(const uint8_t *repl, size_t rlen, const uint8_t *s,
-                 const int32_t *caps, int nsave, picorb_rx_emit emit, void *ctx)
+ * or does not exist), \k<name> a named group, \\ a backslash. Any
+ * other \x stays as written. Returns false on a \k<name> the pattern
+ * does not have, with *bad_name and *bad_len pointing at the name. */
+static bool
+picorb_rx_expand(const uint32_t *prog, const uint8_t *repl, size_t rlen, const uint8_t *s,
+                 const int32_t *caps, int nsave, picorb_rx_emit emit, void *ctx,
+                 const uint8_t **bad_name, size_t *bad_len)
 {
   size_t run = 0;
   for (size_t i = 0; i < rlen; i++) {
     if (repl[i] != '\\' || i + 1 >= rlen) continue;
     uint8_t c = repl[i + 1];
     int group = -1;
+    size_t skip = 1;
     if (c == '0' || c == '&') group = 0;
     else if ('1' <= c && c <= '9') group = c - '0';
+    else if (c == 'k' && i + 2 < rlen && repl[i + 2] == '<') {
+      size_t close = i + 3;
+      while (close < rlen && repl[close] != '>') close++;
+      if (close >= rlen) continue;
+      group = picorb_rx_group_named(prog, caps, repl + i + 3, close - (i + 3));
+      if (group < 0) {
+        *bad_name = repl + i + 3;
+        *bad_len = close - (i + 3);
+        return false;
+      }
+      skip = close - i;
+    }
     else if (c != '\\') continue;
     emit(ctx, repl + run, i - run);
     if (group < 0) {
@@ -204,20 +254,23 @@ picorb_rx_expand(const uint8_t *repl, size_t rlen, const uint8_t *s,
     } else if (2 * group + 1 < nsave && caps[2 * group] >= 0) {
       emit(ctx, s + caps[2 * group], (size_t)(caps[2 * group + 1] - caps[2 * group]));
     }
-    i++;
+    i += skip;
     run = i + 1;
   }
   emit(ctx, repl + run, rlen - run);
+  return true;
 }
 
 /* sub (global false) or gsub (global true) with a template. Emits
  * the whole result and returns the number of matches; with 0 the
- * caller keeps the subject as it was. After an empty match one
- * character is copied and the search resumes behind it. */
+ * caller keeps the subject as it was, and with -1 the template named
+ * a group the pattern does not have (*bad_name, *bad_len), which the
+ * caller reports as IndexError. After an empty match one character
+ * is copied and the search resumes behind it. */
 static int
 picorb_rx_sub(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t len,
               const uint8_t *repl, size_t rlen, bool global, int32_t *last_caps,
-              picorb_rx_emit emit, void *ctx)
+              picorb_rx_emit emit, void *ctx, const uint8_t **bad_name, size_t *bad_len)
 {
   int32_t caps[PICORB_RX_MAX_NSAVE];
   int nsave = (int)prog[1];
@@ -229,7 +282,7 @@ picorb_rx_sub(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_t 
     count++;
     if (last_caps) memcpy(last_caps, caps, sizeof(int32_t) * (size_t)nsave);
     emit(ctx, s + last, b - last);
-    picorb_rx_expand(repl, rlen, s, caps, nsave, emit, ctx);
+    if (!picorb_rx_expand(prog, repl, rlen, s, caps, nsave, emit, ctx, bad_name, bad_len)) return -1;
     if (e == b) {
       if (b >= len) { last = len; break; }
       size_t w = picorb_utf8_charlen(s, len, b);
@@ -307,6 +360,9 @@ picorb_rx_split(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_
   int nsave = (int)prog[1];
   size_t pos = 0, beg = 0;
   long count = 0;
+  /* regex_exec_error reads scratch[0]: a split that runs no search
+     leaves no error from an earlier one */
+  scratch[0] = 0;
   if (len == 0) return;
   while (pos <= len) {
     if (limit > 0 && count >= limit - 1) break;
