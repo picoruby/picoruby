@@ -121,6 +121,7 @@ regexp_new(mrbc_vm *vm, const char *src, int slen, int options)
     return mrbc_nil_value();
   }
   picorb_regexp *re = get_regexp(&obj);
+  scratch[0] = 0;   /* no search yet, no error (regex_exec_error) */
   re->prog = prog;
   re->scratch = scratch;
   re->options = options;
@@ -179,10 +180,22 @@ c_regexp_compile(mrbc_vm *vm, mrbc_value v[], int argc)
   SET_RETURN(obj);
 }
 
+/* A search that could not give the right answer is an error, not a
+ * miss (regex_exec_error): raised, and true, so that the caller
+ * returns at once */
+static int
+regexp_exec_failed(mrbc_vm *vm, picorb_regexp *re)
+{
+  const char *e = regex_exec_error(re->prog, re->scratch);
+  if (!e) return 0;
+  mrbc_raise(vm, class_RegexpError, e);
+  return 1;
+}
+
 /* Run re over str from character position cpos. caps gets the byte
  * offsets. 0 when cpos is outside the string or nothing matches. */
 static int
-regexp_run(picorb_regexp *re, const mrbc_value *str, mrbc_int_t cpos, int32_t *caps, int first_only)
+regexp_run(mrbc_vm *vm, picorb_regexp *re, const mrbc_value *str, mrbc_int_t cpos, int32_t *caps, int first_only)
 {
   const uint8_t *s = (const uint8_t *)mrbc_string_cstr(str);
   size_t len = (size_t)mrbc_string_size(str);
@@ -192,7 +205,9 @@ regexp_run(picorb_regexp *re, const mrbc_value *str, mrbc_int_t cpos, int32_t *c
   }
   long b = picorb_utf8_char_to_byte(s, len, (long)cpos);
   if (b < 0) return 0;
-  return regex_exec(re->prog, s, len, (size_t)b, caps, first_only != 0, re->scratch);
+  int hit = regex_exec(re->prog, s, len, (size_t)b, caps, first_only != 0, re->scratch);
+  if (!hit) regexp_exec_failed(vm, re);
+  return hit;
 }
 
 static mrbc_value
@@ -230,7 +245,7 @@ regexp_match_at(mrbc_vm *vm, mrbc_value *re_obj, const mrbc_value *str, mrbc_int
 {
   picorb_regexp *re = get_regexp(re_obj);
   int32_t caps[PICORB_RX_MAX_NSAVE];
-  if (!regexp_run(re, str, cpos, caps, 0)) {
+  if (!regexp_run(vm, re, str, cpos, caps, 0)) {
     set_last_match(mrbc_nil_value());
     return mrbc_nil_value();
   }
@@ -244,10 +259,10 @@ regexp_match_at(mrbc_vm *vm, mrbc_value *re_obj, const mrbc_value *str, mrbc_int
 
 /* yes or no, without capture positions */
 static int
-regexp_test_at(const mrbc_value *re_obj, const mrbc_value *str, mrbc_int_t cpos)
+regexp_test_at(mrbc_vm *vm, const mrbc_value *re_obj, const mrbc_value *str, mrbc_int_t cpos)
 {
   int32_t caps[PICORB_RX_MAX_NSAVE];
-  return regexp_run(get_regexp(re_obj), str, cpos, caps, 1);
+  return regexp_run(vm, get_regexp(re_obj), str, cpos, caps, 1);
 }
 
 /* the character offset where the match starts, or -1; $~ follows */
@@ -320,7 +335,7 @@ c_regexp_match_p(mrbc_vm *vm, mrbc_value v[], int argc)
   if (argc < 1 || v[1].tt == MRBC_TT_NIL) { SET_FALSE_RETURN(); return; }
   if (!subject_of(vm, &v[1], &subj)) return;
   if (!pos_arg(vm, v, argc, &pos)) { subject_release(&v[1], &subj); return; }
-  bool hit = regexp_test_at(&v[0], &subj, pos);
+  bool hit = regexp_test_at(vm, &v[0], &subj, pos);
   subject_release(&v[1], &subj);
   if (hit) SET_TRUE_RETURN(); else SET_FALSE_RETURN();
 }
@@ -716,7 +731,7 @@ c_string_match_p(mrbc_vm *vm, mrbc_value v[], int argc)
   if (!pos_arg(vm, v, argc, &pos)) return;
   mrbc_value re = ensure_regexp(vm, &v[1], &temp);
   if (re.tt != MRBC_TT_OBJECT) return;
-  int hit = regexp_test_at(&re, &v[0], pos);
+  int hit = regexp_test_at(vm, &re, &v[0], pos);
   release_regexp(&re, temp);
   if (hit) SET_TRUE_RETURN(); else SET_FALSE_RETURN();
 }
@@ -738,11 +753,13 @@ c_string_match_op(mrbc_vm *vm, mrbc_value v[], int argc)
 
 /* Run re over str from byte offset bpos. */
 static int
-regexp_run_bytes(picorb_regexp *re, const mrbc_value *str, mrbc_int_t bpos, int32_t *caps, int first_only)
+regexp_run_bytes(mrbc_vm *vm, picorb_regexp *re, const mrbc_value *str, mrbc_int_t bpos, int32_t *caps, int first_only)
 {
   size_t len = (size_t)mrbc_string_size(str);
   if (bpos < 0 || (size_t)bpos > len) return 0;
-  return regex_exec(re->prog, (const uint8_t *)mrbc_string_cstr(str), len, (size_t)bpos, caps, first_only != 0, re->scratch);
+  int hit = regex_exec(re->prog, (const uint8_t *)mrbc_string_cstr(str), len, (size_t)bpos, caps, first_only != 0, re->scratch);
+  if (!hit) regexp_exec_failed(vm, re);
+  return hit;
 }
 
 /* Regexp#__bmatch(str, byte_pos) -> MatchData or nil */
@@ -755,7 +772,7 @@ c_regexp_bmatch(mrbc_vm *vm, mrbc_value v[], int argc)
   }
   picorb_regexp *re = get_regexp(&v[0]);
   int32_t caps[PICORB_RX_MAX_NSAVE];
-  if (!regexp_run_bytes(re, &v[1], v[2].i, caps, 0)) { SET_NIL_RETURN(); return; }
+  if (!regexp_run_bytes(vm, re, &v[1], v[2].i, caps, 0)) { SET_NIL_RETURN(); return; }
   mrbc_value md = match_data_new(vm, &v[0], &v[1], caps, (int)re->prog[1]);
   SET_RETURN(md);
 }
@@ -843,6 +860,7 @@ c_string_sub_c(mrbc_vm *vm, mrbc_value v[], int argc)
     mrbc_raisef(vm, MRBC_CLASS(IndexError), "undefined group name reference: %s", name);
     return;
   }
+  if (regexp_exec_failed(vm, re)) { mrbc_decref(&c.out); return; }
   set_last_match(n ? match_data_new(vm, &v[1], &v[0], last, (int)re->prog[1]) : mrbc_nil_value());
   if (n) {
     SET_RETURN(c.out);
@@ -881,6 +899,7 @@ c_string_scan_c(mrbc_vm *vm, mrbc_value v[], int argc)
   build_ctx c = { vm, mrbc_array_new(vm, 0), &v[0] };
   int32_t last[PICORB_RX_MAX_NSAVE];
   int n = picorb_rx_scan(re->prog, re->scratch, (const uint8_t *)mrbc_string_cstr(&v[0]), (size_t)mrbc_string_size(&v[0]), last, scan_match, &c);
+  if (regexp_exec_failed(vm, re)) { mrbc_decref(&c.out); return; }
   set_last_match(n ? match_data_new(vm, &v[1], &v[0], last, (int)re->prog[1]) : mrbc_nil_value());
   SET_RETURN(c.out);
 }
@@ -906,6 +925,7 @@ c_string_split_c(mrbc_vm *vm, mrbc_value v[], int argc)
   mrbc_int_t limit = v[2].i;
   build_ctx c = { vm, mrbc_array_new(vm, 0), &v[0] };
   picorb_rx_split(re->prog, re->scratch, (const uint8_t *)mrbc_string_cstr(&v[0]), (size_t)mrbc_string_size(&v[0]), (long)limit, split_piece, &c);
+  if (regexp_exec_failed(vm, re)) { mrbc_decref(&c.out); return; }
   if (limit == 0) {
     /* trailing empty pieces go, as in CRuby */
     while (mrbc_array_size(&c.out) > 0) {
@@ -1038,7 +1058,9 @@ regexp_rmatch_at(mrbc_vm *vm, mrbc_value *re_obj, const mrbc_value *str, mrbc_in
   if (cpos > chars) cpos = chars;
   long b = picorb_utf8_char_to_byte(s, len, (long)cpos);
   int32_t caps[PICORB_RX_MAX_NSAVE];
-  if (!picorb_rx_rindex(re->prog, re->scratch, s, len, (size_t)b, caps)) {
+  int hit = picorb_rx_rindex(re->prog, re->scratch, s, len, (size_t)b, caps);
+  if (regexp_exec_failed(vm, re)) return mrbc_nil_value();
+  if (!hit) {
     set_last_match(mrbc_nil_value());
     return mrbc_nil_value();
   }

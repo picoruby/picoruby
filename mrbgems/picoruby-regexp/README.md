@@ -11,8 +11,8 @@ simulation that carries capture positions) runs the program.
 
 - A match costs O(input x program) time. A pattern such as `(a*)*b` runs in
   linear time.
-- The VM does not recurse and does not allocate. Each `Regexp` holds one
-  scratch block, sized at compile time.
+- The VM does not allocate, and recurses only to test a lookaround, at most
+  4 levels deep. Each `Regexp` holds one scratch block, sized at compile time.
 - The compiler grows its buffers with the pattern. `/a/` compiles in about 1 KB
   of temporary heap.
 - Text is UTF-8. `.` and a class consume one character. `MatchData#begin`,
@@ -96,7 +96,7 @@ the reason and the byte offset in the pattern.
 | `(...)` | Capture group. Up to 15 groups |
 | `(?<name>...)` `(?'name'...)` | Named capture group. With a named group in the pattern, plain `(...)` do not capture, as in CRuby |
 | `(?:...)` | Group without capture |
-| `(?i:...)` `(?-i:...)` `(?i)` | Options for the body, or for the rest of the enclosing group. `i` and `m` take effect; `x` is accepted and ignored |
+| `(?i:...)` `(?-i:...)` `(?i)` | Options for the body, or for the rest of the enclosing group, including the alternatives after it (`a(?i)b\|c` is `a(?i:b\|c)`). `i` and `m` take effect; `x` is accepted and ignored |
 | `(?=...)` `(?!...)` | Lookahead and negative lookahead |
 | `(?<=...)` `(?<!...)` | Lookbehind and negative lookbehind. The body must have a bounded length; it may be an alternation of different lengths |
 | `\|` | Alternation. The earlier alternative wins at the same position |

@@ -10,4 +10,19 @@ class RegexpGroupNameTest < Picotest::Test
     assert_raise(RegexpError) { Regexp.new("(?<-a>x)") }
     assert_equal "x", /(?<+a>x)/.match("x")["+a"]
   end
+
+  # beside a named group the plain ones take no group slot: 15 named
+  # groups fit beside any number of plain ones
+  def test_plain_groups_beside_named_ones_take_no_slot
+    src = ""
+    i = 0
+    while i < 15
+      src << "(?<n#{i}>a)"
+      i += 1
+    end
+    src << "()" * 60
+    md = Regexp.new(src).match("a" * 15)
+    assert_equal 16, md.size
+    assert_equal "a", md[:n14]
+  end
 end

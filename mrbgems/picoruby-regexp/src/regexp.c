@@ -360,6 +360,9 @@ picorb_rx_split(const uint32_t *prog, uint32_t *scratch, const uint8_t *s, size_
   int nsave = (int)prog[1];
   size_t pos = 0, beg = 0;
   long count = 0;
+  /* regex_exec_error reads scratch[0]: a split that runs no search
+     leaves no error from an earlier one */
+  scratch[0] = 0;
   if (len == 0) return;
   while (pos <= len) {
     if (limit > 0 && count >= limit - 1) break;

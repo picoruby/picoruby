@@ -131,6 +131,7 @@ regexp_new(mrb_state *mrb, const char *src, mrb_int slen, int options)
     mrb_free(mrb, re);
     raise_nomem(mrb);
   }
+  scratch[0] = 0;   /* no search yet, no error (regex_exec_error) */
   re->prog = prog;
   re->scratch = scratch;
   re->options = options;
@@ -181,10 +182,20 @@ mrb_regexp_compile(mrb_state *mrb, mrb_value self)
   return regexp_new(mrb, RSTRING_PTR(pattern), RSTRING_LEN(pattern), options_from_arg(mrb, flags));
 }
 
+/* A search that could not give the right answer is an error, not a
+ * miss (regex_exec_error) */
+static void
+regexp_check_exec(mrb_state *mrb, picorb_regexp *re)
+{
+  const char *e = regex_exec_error(re->prog, re->scratch);
+  if (e) mrb_raise(mrb, E_REGEXP_ERROR, e);
+}
+
 /* Run re over str from character position cpos. caps gets the byte
  * offsets. False when cpos is outside the string or nothing matches. */
+
 static mrb_bool
-regexp_run(picorb_regexp *re, mrb_value str, mrb_int cpos, int32_t *caps, mrb_bool first_only)
+regexp_run(mrb_state *mrb, picorb_regexp *re, mrb_value str, mrb_int cpos, int32_t *caps, mrb_bool first_only)
 {
   const uint8_t *s = (const uint8_t *)RSTRING_PTR(str);
   size_t len = (size_t)RSTRING_LEN(str);
@@ -194,7 +205,9 @@ regexp_run(picorb_regexp *re, mrb_value str, mrb_int cpos, int32_t *caps, mrb_bo
   }
   long b = picorb_utf8_char_to_byte(s, len, (long)cpos);
   if (b < 0) return FALSE;
-  return regex_exec(re->prog, s, len, (size_t)b, caps, first_only, re->scratch);
+  mrb_bool hit = regex_exec(re->prog, s, len, (size_t)b, caps, first_only, re->scratch);
+  if (!hit) regexp_check_exec(mrb, re);
+  return hit;
 }
 
 static mrb_value
@@ -235,7 +248,7 @@ regexp_match_at(mrb_state *mrb, mrb_value re_obj, mrb_value str, mrb_int cpos)
   picorb_regexp *re = get_regexp(mrb, re_obj);
   int32_t caps[PICORB_RX_MAX_NSAVE];
   mrb_value md = mrb_nil_value();
-  if (regexp_run(re, str, cpos, caps, FALSE)) {
+  if (regexp_run(mrb, re, str, cpos, caps, FALSE)) {
     md = match_data_new(mrb, re_obj, str, caps, (int)re->prog[1]);
   }
   set_last_match(mrb, md);
@@ -248,7 +261,7 @@ regexp_test_at(mrb_state *mrb, mrb_value re_obj, mrb_value str, mrb_int cpos)
 {
   picorb_regexp *re = get_regexp(mrb, re_obj);
   int32_t caps[PICORB_RX_MAX_NSAVE];
-  return regexp_run(re, str, cpos, caps, TRUE);
+  return regexp_run(mrb, re, str, cpos, caps, TRUE);
 }
 
 /* the character offset where the match starts, or nil; $~ follows */
@@ -620,11 +633,13 @@ mrb_string_match_op(mrb_state *mrb, mrb_value self)
 
 /* Run re over str from byte offset bpos. */
 static mrb_bool
-regexp_run_bytes(picorb_regexp *re, mrb_value str, mrb_int bpos, int32_t *caps, mrb_bool first_only)
+regexp_run_bytes(mrb_state *mrb, picorb_regexp *re, mrb_value str, mrb_int bpos, int32_t *caps, mrb_bool first_only)
 {
   size_t len = (size_t)RSTRING_LEN(str);
   if (bpos < 0 || (size_t)bpos > len) return FALSE;
-  return regex_exec(re->prog, (const uint8_t *)RSTRING_PTR(str), len, (size_t)bpos, caps, first_only, re->scratch);
+  mrb_bool hit = regex_exec(re->prog, (const uint8_t *)RSTRING_PTR(str), len, (size_t)bpos, caps, first_only, re->scratch);
+  if (!hit) regexp_check_exec(mrb, re);
+  return hit;
 }
 
 /* Regexp#__bmatch(str, byte_pos) -> MatchData or nil */
@@ -636,7 +651,7 @@ mrb_regexp_bmatch(mrb_state *mrb, mrb_value self)
   mrb_get_args(mrb, "Si", &str, &bpos);
   picorb_regexp *re = get_regexp(mrb, self);
   int32_t caps[PICORB_RX_MAX_NSAVE];
-  if (!regexp_run_bytes(re, str, bpos, caps, FALSE)) return mrb_nil_value();
+  if (!regexp_run_bytes(mrb, re, str, bpos, caps, FALSE)) return mrb_nil_value();
   return match_data_new(mrb, self, str, caps, (int)re->prog[1]);
 }
 
@@ -694,6 +709,7 @@ mrb_string_sub_c(mrb_state *mrb, mrb_value self)
   if (n < 0) {
     mrb_raisef(mrb, E_INDEX_ERROR, "undefined group name reference: %l", (const char *)bad_name, bad_len);
   }
+  regexp_check_exec(mrb, re);
   set_last_match(mrb, n ? match_data_new(mrb, re_obj, self, last, (int)re->prog[1]) : mrb_nil_value());
   return n ? c.out : mrb_nil_value();
 }
@@ -726,6 +742,7 @@ mrb_string_scan_c(mrb_state *mrb, mrb_value self)
   build_ctx c = { mrb, mrb_ary_new(mrb), self };
   int32_t last[PICORB_RX_MAX_NSAVE];
   int n = picorb_rx_scan(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self), last, scan_match, &c);
+  regexp_check_exec(mrb, re);
   set_last_match(mrb, n ? match_data_new(mrb, re_obj, self, last, (int)re->prog[1]) : mrb_nil_value());
   return c.out;
 }
@@ -747,6 +764,7 @@ mrb_string_split_c(mrb_state *mrb, mrb_value self)
   picorb_regexp *re = get_regexp(mrb, re_obj);
   build_ctx c = { mrb, mrb_ary_new(mrb), self };
   picorb_rx_split(re->prog, re->scratch, (const uint8_t *)RSTRING_PTR(self), (size_t)RSTRING_LEN(self), (long)limit, split_piece, &c);
+  regexp_check_exec(mrb, re);
   if (limit == 0) {
     /* trailing empty pieces go, as in CRuby */
     while (RARRAY_LEN(c.out) > 0 && RSTRING_LEN(RARRAY_PTR(c.out)[RARRAY_LEN(c.out) - 1]) == 0) {
@@ -881,7 +899,9 @@ regexp_rmatch_at(mrb_state *mrb, mrb_value re_obj, mrb_value str, mrb_int cpos)
     if (cpos > chars) cpos = chars;
     long b = picorb_utf8_char_to_byte(s, len, (long)cpos);
     int32_t caps[PICORB_RX_MAX_NSAVE];
-    if (picorb_rx_rindex(re->prog, re->scratch, s, len, (size_t)b, caps)) {
+    mrb_bool hit = picorb_rx_rindex(re->prog, re->scratch, s, len, (size_t)b, caps);
+    regexp_check_exec(mrb, re);
+    if (hit) {
       md = match_data_new(mrb, re_obj, str, caps, (int)re->prog[1]);
     }
   }

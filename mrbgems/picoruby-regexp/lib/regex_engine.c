@@ -23,8 +23,10 @@
  * A subexpression call \g<n> has no stack to return through either:
  * the compiler writes group n out again where it is called. A group
  * that calls itself is unrolled RX_MAX_CALL_DEPTH levels deep (fewer
- * when the copies outgrow the program), and input nested deeper than
- * that does not match.
+ * when the copies outgrow the program), and the innermost copy is an
+ * OP_DEEP. A search that reaches it reports the error "subexpression
+ * call nested too deep" (regex_exec_error) instead of an answer that
+ * deeper input would change.
  *
  * A possessive repeat (X*+, X++, X?+) gives back nothing it matched.
  * Of one character X it is written as the greedy repeat and a (?!X)
@@ -86,6 +88,7 @@ void regex_free(void *p);
 #define RX_MAX_NAME_LEN 64   /* bytes in one group name */
 #define RX_MAX_LOOK_DEPTH 4  /* lookaround inside lookaround */
 #define RX_MAX_CALL_DEPTH 8  /* \g<n> calls written out inside each other */
+#define RX_MAX_GEN_DEPTH 260 /* gen() frames: what 64 nested groups take */
 #define RX_INIT       32     /* first size of a work buffer, in items */
 
 /* an unpatched slot in a backpatch chain */
@@ -142,8 +145,12 @@ enum {
   OP_NWORDB,    /* \B */
   OP_LOOK,      /* x = body pc, y = RX_LOOK_* bits | max length << 3 */
   OP_LMATCH,    /* the end of a lookaround body */
-  OP_MATCH
+  OP_MATCH,
+  OP_DEEP       /* a recursive \g<n> past RX_MAX_CALL_DEPTH */
 };
+
+/* scratch[0]: why the last regex_exec found no match */
+#define RX_ERR_DEEP 1u
 
 /* the y word of OP_LOOK (and the x of N_LOOK) */
 #define RX_LOOK_NEG    1u   /* (?!...) or (?<!...) */
@@ -230,8 +237,10 @@ typedef struct {
   int nnames, cap_names;  /* bytes used and held */
   int nnamed;         /* named groups */
   int ngroups;        /* including group 0 */
-  int nlook;          /* lookarounds in the pattern */
   int ncalls;         /* \g<...> calls */
+  size_t over_at;     /* where the groups first outnumbered RX_MAX_GROUPS */
+  size_t named_over_at; /* where the named ones did */
+  int nlook;          /* lookarounds in the pattern */
   int ncall_numbered; /* of them by number */
   int look_depth;     /* lookarounds open around the current position */
   int look_depth_max;
@@ -479,6 +488,8 @@ code_escape(rx_parser *p, uint32_t e, uint32_t *out)
     if (n < 4) { perr(p, "invalid Unicode escape"); return false; }
   }
   if (v > 0x10FFFF) { perr(p, "invalid Unicode escape"); return false; }
+  /* a surrogate is no character, so it could never match */
+  if (v >= 0xD800 && v <= 0xDFFF) { perr(p, "invalid Unicode range"); return false; }
   *out = v;
   return true;
 }
@@ -611,8 +622,21 @@ starts_with_bol(const rx_parser *p, int n)
   }
 }
 
-/* (?imx-imx:...) scopes options to its body and (?imx-imx) sets them
- * for the rest of the enclosing group, both after the `(?` was seen. */
+/* The node of a non-capturing group with body inner: the body itself,
+ * but for an empty one, which a repeat would take for a bare (?i) and
+ * refuse. (?:){3} is fine, as in CRuby. */
+static int
+group_of(rx_parser *p, int inner)
+{
+  if (p->nodes[inner].t != N_EMPTY) return inner;
+  return node_new(p, N_GROUP, inner, 0, 0, 0);
+}
+
+/* (?imx-imx:...) scopes options to its body, and (?imx-imx) sets them
+ * for the rest of the enclosing group, both after the `(?` was seen.
+ * As in Onigmo, the rest includes the alternatives after it: a(?i)b|c
+ * is a(?i:b|c). So the bare form parses that rest as its own body and
+ * leaves the group's `)` to the caller. */
 static int
 parse_options(rx_parser *p, int depth)
 {
@@ -633,12 +657,15 @@ parse_options(rx_parser *p, int depth)
       p->flags = saved;
       if (p->err) return 0;
       if (at_end(p) || next(p) != ')') { perr(p, "missing )"); return 0; }
-      return inner;
+      return group_of(p, inner);
     }
     else if (c == ')') {
       p->pos++;
+      int saved = p->flags;
       p->flags = flags;
-      return node_new(p, N_EMPTY, 0, 0, 0, 0);
+      int rest = parse_alt(p, depth + 1);
+      p->flags = saved;
+      return p->err ? 0 : rest;
     }
     else { perr(p, "unsupported group syntax"); return 0; }
     p->pos++;
@@ -715,7 +742,7 @@ parse_group_name(rx_parser *p, uint8_t close)
 static void
 renumber_groups(rx_parser *p)
 {
-  int map[RX_MAX_GROUPS];
+  int map[256];   /* group numbers as parsed, up to 254 */
   int next_idx = 1;
   memset(map, 0, sizeof map);
   for (int i = 0; i < p->nnames; i += 2 + p->names[i + 1]) {
@@ -840,11 +867,14 @@ parse_atom(rx_parser *p, int depth)
     }
     int idx = 0;
     if (capture) {
-      if (p->ngroups >= RX_MAX_GROUPS) { perr(p, "too many groups"); return 0; }
+      /* RX_MAX_GROUPS is checked once the pattern is parsed: with a
+         named group anywhere in it, the plain groups do not capture */
+      if (p->ngroups >= 255) { perr(p, "too many groups"); return 0; }
       idx = p->ngroups++;
+      if (p->ngroups == RX_MAX_GROUPS + 1) p->over_at = p->pos;
       if (name_entry >= 0) {
         p->names[name_entry] = (uint8_t)idx;
-        p->nnamed++;
+        if (++p->nnamed == RX_MAX_GROUPS) p->named_over_at = p->pos;
       }
     }
     int saved = p->flags;
@@ -852,7 +882,8 @@ parse_atom(rx_parser *p, int depth)
     p->flags = saved;
     if (p->err) return 0;
     if (at_end(p) || next(p) != ')') { perr(p, "missing )"); return 0; }
-    return capture ? node_new(p, N_GROUP, inner, 0, idx, name_entry >= 0) : inner;
+    if (capture) return node_new(p, N_GROUP, inner, 0, idx, name_entry >= 0);
+    return group_of(p, inner);
   }
   case ')': perr(p, "unmatched )"); return 0;
   case '[': return node_new(p, N_CLASS, 0, 0, parse_class(p), p->flags);
@@ -1075,9 +1106,13 @@ typedef struct {
   uint32_t *code;   /* 3 words per instruction */
   int ninst, cap;   /* cap in instructions */
   const char *err;
+  int depth;        /* gen() frames around this point */
   int call_depth;   /* \g<n> calls being written out around this point */
   int call_max;     /* how deep they may go */
   uint64_t open;    /* bit n: group n is being written out around this point */
+  int nlook;        /* OP_LOOK instructions written */
+  int look_depth;   /* lookarounds being written out around this point */
+  int look_depth_max;
 } rx_gen;
 
 static int
@@ -1147,8 +1182,55 @@ gen_optional(rx_gen *g, const rx_parser *p, int body, int nopt, bool greedy)
  * of the whole chain, which is known only when the loop leaves: the
  * pending JMPs are threaded through their own target slot the way
  * gen_optional threads its SPLITs. */
+static void gen_node(rx_gen *g, const rx_parser *p, int n);
+
+/* Does node n compile to no instruction at all? An option setting
+ * (?i), a plain group of nothing and X{0} do. A repeat of such a body
+ * matches the empty string whatever its count, so gen() writes it as
+ * nothing too, instead of visiting the body count times: the program
+ * cap would never stop (?:(?i)){256}{256}{256}{256}. Walks the chains
+ * like max_len. */
+static bool
+emits_nothing(const rx_parser *p, int n)
+{
+  for (;;) {
+    const rx_node *nd = &p->nodes[n];
+    switch (nd->t) {
+    case N_EMPTY: return true;
+    case N_CAT:
+      if (!emits_nothing(p, nd->a)) return false;
+      n = nd->b;
+      continue;
+    case N_GROUP:
+      if (nd->x != 0) return false;
+      n = nd->a;
+      continue;
+    case N_REP:
+      if (nd->y == 0) return true;
+      n = nd->a;
+      continue;
+    default: return false;
+    }
+  }
+}
+
+/* gen_node behind a cap on the C recursion. A pattern bounds it by
+ * its group nesting, but a repeat of a repeat (a{2}{2}...) or a call
+ * written out inside another call nests without a group. */
 static void
 gen(rx_gen *g, const rx_parser *p, int n)
+{
+  if (g->err) return;
+  if (++g->depth > RX_MAX_GEN_DEPTH) {
+    g->err = "pattern nested too deep";
+  } else {
+    gen_node(g, p, n);
+  }
+  g->depth--;
+}
+
+static void
+gen_node(rx_gen *g, const rx_parser *p, int n)
 {
   uint32_t jmps = RX_NONE;
   for (;;) {
@@ -1190,6 +1272,7 @@ gen(rx_gen *g, const rx_parser *p, int n)
       g->open &= ~(1ull << nd->x);
       break;
     case N_REP: {
+      if (emits_nothing(p, nd->a)) break;
       bool greedy = nd->b != 0;
       for (int i = 0; i < nd->x; i++) gen(g, p, nd->a);
       if (nd->y < 0) gen_star(g, p, nd->a, greedy);
@@ -1199,9 +1282,9 @@ gen(rx_gen *g, const rx_parser *p, int n)
     case N_CALL:
       /* A Pike VM has no stack to return through, so a call is the
        * group written out again here. A recursive one is unrolled
-       * call_max deep; the innermost copy matches nothing. */
+       * call_max deep, and the innermost copy is an OP_DEEP. */
       if (g->call_depth >= g->call_max) {
-        emit(g, OP_CHAR, RX_NO_CHAR, 0);
+        emit(g, OP_DEEP, 0, 0);
         break;
       }
       g->call_depth++;
@@ -1210,13 +1293,30 @@ gen(rx_gen *g, const rx_parser *p, int n)
       break;
     case N_LOOK: {
       /* LOOK runs the body as a sub-match and falls through to the
-       * JMP, which steps over the body; the body ends in LMATCH */
+       * JMP, which steps over the body; the body ends in LMATCH. The
+       * lookarounds are counted here, not in the parser: a call can
+       * write a group with a lookaround out anywhere, inside another
+       * lookaround too, and the scratch has a level per depth. For the
+       * same reason a body that got its groups from a call is marked
+       * RX_LOOK_CAPS here. */
+      if (++g->look_depth > RX_MAX_LOOK_DEPTH) {
+        g->err = "lookaround nested too deep";
+        break;
+      }
+      if (g->look_depth > g->look_depth_max) g->look_depth_max = g->look_depth;
+      g->nlook++;
       int look = emit(g, OP_LOOK, 0, (uint32_t)nd->x);
       int over = emit(g, OP_JMP, 0, 0);
-      patch(g, look, 1, g->ninst);
+      int body = g->ninst;
+      patch(g, look, 1, body);
       gen(g, p, nd->a);
       emit(g, OP_LMATCH, 0, 0);
       patch(g, over, 1, g->ninst);
+      g->look_depth--;
+      if (g->err) break;
+      for (int k = body; k < g->ninst; k++) {
+        if (g->code[3 * k] == OP_SAVE) { g->code[3 * look + 2] |= RX_LOOK_CAPS; break; }
+      }
       break;
     }
     }
@@ -1248,6 +1348,10 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
 
   int root = parse_alt(&p, 0);
   if (!p.err && !at_end(&p)) perr(&p, "unmatched )");
+  if (!p.err && (p.nnamed ? p.nnamed + 1 : p.ngroups) > RX_MAX_GROUPS) {
+    p.err = "too many groups";
+    p.err_at = p.nnamed ? p.named_over_at : p.over_at;
+  }
   if (!p.err && p.nnamed) renumber_groups(&p);
   if (!p.err) resolve_calls(&p, root);
 
@@ -1256,20 +1360,27 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
   uint32_t *prog = NULL;
   if (!p.err) {
     /* Each level of recursion a call is unrolled to copies the group
-     * again; when that outgrows the program, settle for fewer. */
+     * again; when that outgrows the program, the C stack or the
+     * lookaround nesting, settle for fewer. */
     for (g.call_max = RX_MAX_CALL_DEPTH; ; g.call_max--) {
       emit(&g, OP_SAVE, 0, 0);
       gen(&g, &p, root);
       emit(&g, OP_SAVE, 1, 0);
       emit(&g, OP_MATCH, 0, 0);
       if (!g.err || !p.ncalls || g.call_max <= 1 ||
-          strcmp(g.err, "program too large") != 0) {
+          (strcmp(g.err, "program too large") != 0 &&
+           strcmp(g.err, "pattern nested too deep") != 0 &&
+           strcmp(g.err, "lookaround nested too deep") != 0)) {
         break;
       }
       g.err = NULL;
       g.ninst = 0;
+      g.depth = 0;
       g.call_depth = 0;
       g.open = 0;
+      g.nlook = 0;
+      g.look_depth = 0;
+      g.look_depth_max = 0;
     }
     if (g.err) { *err = g.err; *err_at = 0; }
   } else {
@@ -1295,8 +1406,8 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
     prog[H_NSAVE] = (uint32_t)(2 * p.ngroups);
     prog[H_FLAGS] = (uint32_t)flags;
     prog[H_CLASS_OFF] = (uint32_t)(H_WORDS + 3 * g.ninst);
-    prog[H_NLOOK] = (uint32_t)p.nlook;
-    prog[H_LOOK_DEPTH] = (uint32_t)p.look_depth_max;
+    prog[H_NLOOK] = (uint32_t)g.nlook;
+    prog[H_LOOK_DEPTH] = (uint32_t)g.look_depth_max;
     prog[H_ANCHORED] = starts_with_bol(&p, root) ? 1u : 0u;
     prog[H_NAMES_OFF] = 0;
     memcpy(prog + H_WORDS, g.code, 3 * (size_t)g.ninst * sizeof(uint32_t));
@@ -1367,6 +1478,7 @@ typedef struct {
   int ninst;
   int nsave;
   int nlook;
+  uint32_t *err;    /* scratch[0], RX_ERR_* */
   const uint8_t *s;
   size_t len;
   uint32_t *scratch;
@@ -1566,12 +1678,13 @@ level_words(size_t ninst, size_t nsave, size_t nlook)
          2 * (2 * ninst + 2 + nlook * nsave);
 }
 
-/* one level per lookaround nesting depth, plus the main run */
+/* the error word, then one level per lookaround nesting depth, plus
+ * the main run */
 size_t
 regex_scratch_words(const uint32_t *prog)
 {
-  return level_words(prog[H_NINST], prog[H_NSAVE], prog[H_NLOOK]) *
-         (1 + (size_t)prog[H_LOOK_DEPTH]);
+  return 1 + level_words(prog[H_NINST], prog[H_NSAVE], prog[H_NLOOK]) *
+             (1 + (size_t)prog[H_LOOK_DEPTH]);
 }
 
 /* One run of the program from pc0 on scratch level depth. Anchored,
@@ -1640,6 +1753,10 @@ run(const rx_shared *sh, int depth, uint32_t pc0, size_t start, size_t end_at,
       case OP_CLASS:
         step = pos < len && class_match(sh, i[1], i[2], c);
         break;
+      case OP_DEEP:
+        /* a recursive call went deeper than it was unrolled */
+        *sh->err = RX_ERR_DEEP;
+        break;
       case OP_LMATCH:
         if (end_at != RX_ANY_END && pos != end_at) break;
         /* fall through */
@@ -1674,7 +1791,13 @@ run(const rx_shared *sh, int depth, uint32_t pc0, size_t start, size_t end_at,
  * not take part. first_only stops at the first thread that reaches
  * MATCH -- enough for is_match, where nobody reads the positions.
  * scratch is regex_scratch_words(prog) words the caller owns; its
- * content on entry does not matter. */
+ * content on entry does not matter. scratch[0] says why the search
+ * did not match (regex_exec_error); the levels follow it.
+ *
+ * A thread that reached an OP_DEEP was cut short, so a match may be
+ * one that deeper input changes, or no match one that it finds: the
+ * search reports none, with the error. A first_only match stands, as
+ * the copy left out could only have added matches. */
 bool
 regex_exec(const uint32_t *prog, const uint8_t *s, size_t len, size_t start,
               int32_t *out, bool first_only, uint32_t *scratch)
@@ -1687,11 +1810,28 @@ regex_exec(const uint32_t *prog, const uint8_t *s, size_t len, size_t start,
   sh.nlook = (int)prog[H_NLOOK];
   sh.s = s;
   sh.len = len;
-  sh.scratch = scratch;
+  sh.err = scratch;
+  *sh.err = 0;
+  sh.scratch = scratch + 1;
   sh.level_words = level_words(prog[H_NINST], prog[H_NSAVE], prog[H_NLOOK]);
   /* every thread of the main run starts with no group set */
   int32_t init[2 * RX_MAX_GROUPS];
   for (int k = 0; k < sh.nsave; k++) init[k] = -1;
-  return run(&sh, 0, 0, start, RX_ANY_END, prog[H_ANCHORED] != 0, init, out,
-             first_only);
+  bool hit = run(&sh, 0, 0, start, RX_ANY_END, prog[H_ANCHORED] != 0, init,
+                 out, first_only);
+  if (*sh.err) {
+    if (hit && first_only) *sh.err = 0;
+    else hit = false;
+  }
+  return hit;
+}
+
+const char *
+regex_exec_error(const uint32_t *prog, const uint32_t *scratch)
+{
+  (void)prog;
+  switch (scratch[0]) {
+  case RX_ERR_DEEP: return "subexpression call nested too deep";
+  default: return NULL;
+  }
 }
