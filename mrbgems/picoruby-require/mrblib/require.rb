@@ -31,10 +31,14 @@ module Kernel
   # require, which is any object, so a name that a class may well define
   # for itself (load_paths, load_file, required?) would be taken from it:
   # load in a class with its own load_paths called that one.
+  #
+  # The mruby VM parts are chosen by RUBY_ENGINE, not respond_to?: mruby/c
+  # has respond_to? only from picoruby-metaprog, which a build with core
+  # alone does not have.
 
   def __require_load_error(name)
     e = LoadError.new("cannot load such file -- #{name}")
-    e.path = name if e.respond_to?(:path=)
+    e.path = name if RUBY_ENGINE == "mruby"
     e
   end
 
@@ -71,7 +75,7 @@ module Kernel
     else
       sandbox = Sandbox.new('require')
       begin
-        if sandbox.respond_to?(:run_inline)
+        if RUBY_ENGINE == "mruby"
           # mruby VM: run the file on this task. The sandbox task cannot be
           # waited on from a frame the VM entered through C (const_missing,
           # inherited, a sort block, ...): the scheduler never switches to
