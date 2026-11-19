@@ -91,8 +91,9 @@ c_tcp_server_new(mrbc_vm *vm, mrbc_value *v, int argc)
   /* Create TCP server and store pointer */
   wrapper->ptr = TCPServer_create(vm, host, port, backlog);
   if (!wrapper->ptr) {
-    mrbc_raise(vm, MRBC_CLASS(RuntimeError),
-               "failed to create TCP server (the host may not resolve, or the port be in use or in TIME_WAIT state)");
+    mrbc_raisef(vm, MRBC_CLASS(RuntimeError),
+                "failed to create TCP server on %s:%d (the host may not resolve, or the port be in use or in TIME_WAIT state)",
+                host ? host : "*", port);
     return;
   }
 
