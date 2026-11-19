@@ -545,6 +545,23 @@ mrb_s__sigint_pending_p(mrb_state *mrb, mrb_value self)
   sigint_pending = 0;
   return mrb_true_value();
 }
+#else
+/* Elsewhere nothing catches SIGINT for a trap (r2p2's shell delivers it).
+ * The methods exist all the same, so that mrblib needs no respond_to? on
+ * the mruby VM. */
+static mrb_value
+mrb_s__trap_sigint(mrb_state *mrb, mrb_value self)
+{
+  mrb_bool on;
+  mrb_get_args(mrb, "b", &on);
+  return mrb_false_value();
+}
+
+static mrb_value
+mrb_s__sigint_pending_p(mrb_state *mrb, mrb_value self)
+{
+  return mrb_false_value();
+}
 #endif
 
 void
@@ -599,9 +616,9 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
    * wires these onto the STDIN singleton. */
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_stdin_gets), mrb_io_gets, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_stdin_getc), mrb_io_getc, MRB_ARGS_NONE());
+#endif
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(__trap_sigint), mrb_s__trap_sigint, MRB_ARGS_REQ(1));
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM_Q(__sigint_pending), mrb_s__sigint_pending_p, MRB_ARGS_NONE());
-#endif
 }
 
 void

@@ -26,8 +26,11 @@ module Signal
     handler = command || block
     HANDLERS[num] = handler
     # A POSIX process with no SIGINT handler of its own (the picoruby
-    # command) catches the signal for a Proc; see __dispatch_pending
-    if num == 2 && Machine.respond_to?(:__trap_sigint)
+    # command) catches the signal for a Proc; see __dispatch_pending. On the
+    # mruby VM the method always exists and answers false where nothing is
+    # caught (r2p2). mruby/c catches nothing, and its Machine has no C
+    # methods before `require "machine"`, so it is not asked there.
+    if num == 2 && RUBY_ENGINE == "mruby"
       Machine.__trap_sigint(handler.is_a?(Proc))
     end
     old_handler
@@ -37,7 +40,8 @@ module Signal
   # CRuby would have when it arrived. A waiting loop calls this between
   # waits, where running Ruby code is safe.
   def self.__dispatch_pending
-    if Machine.respond_to?(:__sigint_pending?) && Machine.__sigint_pending?
+    # RUBY_ENGINE, not respond_to?: see trap
+    if RUBY_ENGINE == "mruby" && Machine.__sigint_pending?
       self.raise(:INT)
     end
   end

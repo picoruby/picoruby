@@ -12,7 +12,7 @@ class SignalTest < Picotest::Test
   # lets it go again for "DEFAULT"; with nothing caught, dispatching runs
   # no handler
   def test_sigint_is_caught_while_a_proc_is_trapped
-    return unless Machine.respond_to?(:__trap_sigint)
+    skip "only the mruby VM catches SIGINT for a trap" if femtoruby?
     called = false
     old = Signal.trap(:INT) { called = true }
     begin
@@ -25,6 +25,20 @@ class SignalTest < Picotest::Test
     end
     Signal.trap(:INT, "DEFAULT")
     assert_false Machine.__trap_sigint(false)
+  end
+
+  # trap(:INT) and the dispatch work on every build without respond_to?
+  # (mruby/c has it only from picoruby-metaprog); with nothing caught the
+  # handler does not run
+  def test_trap_int_and_dispatch_on_every_build
+    called = false
+    old = Signal.trap(:INT) { called = true }
+    begin
+      Signal.__dispatch_pending
+      assert_false called
+    ensure
+      Signal.trap(:INT, old || "DEFAULT")
+    end
   end
 
   # A signal only the host lists can be trapped, and gets its handler back;
