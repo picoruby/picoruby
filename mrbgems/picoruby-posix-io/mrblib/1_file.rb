@@ -17,7 +17,7 @@ class File < IO
 
   # Alternative to File.read
   def self.load_file(path, length = nil, offset = nil)
-    File.open(path) do |f| # steep:ignore BlockBodyTypeMismatch
+    File.open(path) do |f|
       f.seek(offset) if offset
       f.read(length)
     end

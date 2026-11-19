@@ -30,6 +30,57 @@ class SandboxTest < Picotest::Test
     assert_equal "/myscript.rb", sandbox.result
   end
 
+  def test_load_file_inline_returns_the_value
+    skip "run_inline is on the mruby VM only" if femtoruby?
+    stub(File).open { FileDouble.new("__FILE__") }
+    sandbox = Sandbox.new
+    assert_equal "/myscript.rb", sandbox.load_file("/myscript.rb", inline: true)
+    sandbox.terminate
+  end
+
+  def test_run_inline_returns_the_value
+    skip "run_inline is on the mruby VM only" if femtoruby?
+    sandbox = Sandbox.new
+    sandbox.compile("1 + 2")
+    assert_equal 3, sandbox.run_inline
+    sandbox.terminate
+  end
+
+  def test_run_inline_raises_the_code_s_exception
+    skip "run_inline is on the mruby VM only" if femtoruby?
+    sandbox = Sandbox.new
+    sandbox.compile("raise ArgumentError, 'from the code'")
+    assert_raise(ArgumentError) { sandbox.run_inline }
+    sandbox.terminate
+  end
+
+  def test_run_inline_defines_methods_on_object_with_main_as_self
+    skip "run_inline is on the mruby VM only" if femtoruby?
+    sandbox = Sandbox.new
+    sandbox.compile("$sandbox_test_inline_self = self\ndef sandbox_test_inline_m; :inline; end")
+    sandbox.run_inline
+    assert_equal "main", $sandbox_test_inline_self.to_s
+    assert_equal :inline, Object.new.sandbox_test_inline_m
+    Object.send(:remove_method, :sandbox_test_inline_m)
+    sandbox.terminate
+  end
+
+  # A frame the VM entered through a C function (here Array#sort's block)
+  # cannot be switched away from, so the sandbox task would never run and
+  # wait would never return. run_inline needs no task switch.
+  def test_run_inline_from_a_frame_entered_through_c
+    skip "run_inline is on the mruby VM only" if femtoruby?
+    sandbox = Sandbox.new
+    values = []
+    [2, 1].sort do |a, b|
+      sandbox.compile("10 + 1")
+      values << sandbox.run_inline
+      a <=> b
+    end
+    assert_equal 11, values[0]
+    sandbox.terminate
+  end
+
   def test_load_file_returns_without_running_an_empty_file
     stub(File).open { FileDouble.new("") }
     sandbox = Sandbox.new
