@@ -28,3 +28,19 @@ Complex tzdata names or daylight saving rules are **not supported**.
 ```ruby
 ENV["TZ"] = "JST-9"
 ```
+
+## UTC, offsets and zones
+
+`Time.utc`/`Time.gm` build a UTC time and take microseconds as a seventh
+argument, `Time.new` takes a seventh argument for the UTC offset
+(`"+09:00"`, `"UTC"`, `"Z"` or seconds) or the same as `in:`, and parses
+a String (`Time.new("2026-11-05 12:00:00.5 +09:00")`, `Time.new("2026")`)
+with CRuby's grammar and errors. A Time
+converts with `utc`/`gmtime` (in place), `getutc`/`getgm`, `localtime` and
+`getlocal`. `utc?`, `utc_offset`, `zone`, `yday`, `dst?` and `to_a` report
+the fields; `zone` is `"UTC"`, the platform's abbreviation for a local
+time, or nil for a fixed offset. `Time.at` takes a Float or a second
+argument in `:millisecond`, `:usec` or `:nsec`. `strftime` is written in
+Ruby with CRuby's conversions and flags, so every target formats alike;
+`iso8601`/`xmlschema`, `round`, `floor`, `ceil`, `eql?`, `hash`, `day`,
+`month`, `nsec` and `subsec` come with it.

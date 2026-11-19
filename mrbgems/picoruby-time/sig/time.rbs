@@ -4,4 +4,23 @@ class Time
 
   def self.unixtime_offset: () -> Integer
   def self.time_methods: () -> Time::TimeMethods
+
+  MONTHNAMES: Array[String?]
+  DAYNAMES: Array[String]
+
+  alias __getlocal getlocal
+  alias __localtime localtime
+  def __zone_offset: (untyped zone) -> untyped
+  def clamp: (Time min, Time max) -> Time
+  def subsec: () -> (Integer | Float) | ...
+  def succ: () -> Time
+  def to_time: () -> Time
+  def __adjust: (untyped digits, Symbol how) -> Time
+  def __strftime_num: (Integer value, Integer default_width, String default_pad, String? pad, Integer? width) -> String
+  def __strftime_str: (String value, String? pad, Integer? width) -> String
+  def __strftime_offset: (Integer colons, String? pad, Integer? width) -> String
+  def __strftime_frac: (Integer digits) -> String
+  def __strftime_conv: (String conv, String? pad, Integer? width, Integer colons) -> String?
+  def __cweek: () -> [Integer, Integer]
+  def __days_in_year: (Integer y) -> Integer
 end
