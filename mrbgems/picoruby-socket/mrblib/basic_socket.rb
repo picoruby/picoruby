@@ -56,6 +56,9 @@ class BasicSocket
       while !closed?
         result = yield
         return result if result
+        # a SIGINT the process caught runs its handler here (ours closes
+        # this socket); see Signal.__dispatch_pending
+        Signal.__dispatch_pending if Signal.respond_to?(:__dispatch_pending)
         if event_queue = @event_queue
           event_queue.pop
         else

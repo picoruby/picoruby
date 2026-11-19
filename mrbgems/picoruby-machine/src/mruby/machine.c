@@ -1,3 +1,4 @@
+#include <string.h>
 #include "mruby.h"
 #include "mruby/gc.h"
 #include "mruby/string.h"
@@ -489,6 +490,63 @@ mrb_s__reboot(mrb_state *mrb, mrb_value self)
   return mrb_nil_value();
 }
 
+#if defined(PICORB_PLATFORM_POSIX)
+/* SIGINT for a Ruby trap, on a POSIX process with no handler of its own
+ * (the picoruby command; r2p2 has its shell's). The OS handler only notes
+ * the signal; Signal.__dispatch_pending runs the Ruby handler later, at a
+ * point its caller chose. A second SIGINT before the first was taken does
+ * what an untrapped one does. */
+static volatile sig_atomic_t sigint_pending = 0;
+static bool sigint_trapped = false;
+
+static void
+on_sigint(int signum)
+{
+  if (sigint_pending) {
+    signal(signum, SIG_DFL);
+    raise(signum);
+    return;
+  }
+  sigint_pending = 1;
+}
+
+/* Machine.__trap_sigint(on): catch SIGINT for a Ruby handler, or stop */
+static mrb_value
+mrb_s__trap_sigint(mrb_state *mrb, mrb_value self)
+{
+  mrb_bool on;
+  mrb_get_args(mrb, "b", &on);
+  if (on && !sigint_trapped) {
+    struct sigaction current;
+    if (sigaction(SIGINT, NULL, &current) != 0 || current.sa_handler != SIG_DFL) {
+      return mrb_false_value();   /* someone else handles SIGINT */
+    }
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = on_sigint;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
+    sigint_trapped = true;
+    sigint_pending = 0;
+  }
+  else if (!on && sigint_trapped) {
+    signal(SIGINT, SIG_DFL);
+    sigint_trapped = false;
+    sigint_pending = 0;
+  }
+  return mrb_bool_value(sigint_trapped);
+}
+
+/* Machine.__sigint_pending?: was SIGINT caught since the last call? */
+static mrb_value
+mrb_s__sigint_pending_p(mrb_state *mrb, mrb_value self)
+{
+  if (!sigint_pending) return mrb_false_value();
+  sigint_pending = 0;
+  return mrb_true_value();
+}
+#endif
+
 void
 mrb_picoruby_machine_gem_init(mrb_state* mrb)
 {
@@ -541,6 +599,8 @@ mrb_picoruby_machine_gem_init(mrb_state* mrb)
    * wires these onto the STDIN singleton. */
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_stdin_gets), mrb_io_gets, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(_stdin_getc), mrb_io_getc, MRB_ARGS_NONE());
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM(__trap_sigint), mrb_s__trap_sigint, MRB_ARGS_REQ(1));
+  mrb_define_class_method_id(mrb, module_Machine, MRB_SYM_Q(__sigint_pending), mrb_s__sigint_pending_p, MRB_ARGS_NONE());
 #endif
 }
 
