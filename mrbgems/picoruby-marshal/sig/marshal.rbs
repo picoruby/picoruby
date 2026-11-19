@@ -19,9 +19,9 @@ module Marshal
   TYPE_MODULE: String
   NO_IVAR_STATE: Array[String]
 
-  self.@dumping: Array[Integer]
+  self.@dumping: Array[Integer]?
 
-  type marshalable = nil | Proc | bool | Integer | Float | String | Symbol | Array[marshalable] | Hash[marshalable, marshalable]
+  type marshalable = nil | Proc | bool | Integer | Float | String | Symbol | Array[marshalable] | Hash[marshalable, marshalable] | Module
 
   private def self.dump_object: (marshalable obj) -> String
   private def self.dump_integer: (Integer n) -> String
@@ -48,7 +48,7 @@ module Marshal
   private def self.dump_nested: (untyped obj) { () -> String } -> String
   private def self.dump_plain_object: (untyped obj) -> String
   private def self.load_typed_symbol: (String data, Integer pos, Array[Symbol] symbols) -> [String, Integer]
-  private def self.load_class_or_module: (String data, Integer pos, String type) -> [untyped, Integer]
+  private def self.load_class_or_module: (String data, Integer pos, String type) -> [Module, Integer]
   private def self.path_to_class: (String name) -> untyped
   private def self.allocate: (untyped klass) -> untyped
   private def self.load_plain_object: (String data, Integer pos, Array[Symbol] symbols) -> [untyped, Integer]

@@ -146,8 +146,9 @@ class ENVClass
       while j < keys_size
         key = keys[j]
         value = hash[key]
-        if block_given? && key?(key)
-          value = yield(key, self[key].to_s, value)
+        if block_given?
+          old_value = self[key]
+          value = yield(key, old_value, value) if old_value
         end
         self[key] = value
         j += 1
