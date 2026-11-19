@@ -168,7 +168,7 @@ jobs:
     - name: Setup Emscripten
       uses: mymindstorm/setup-emsdk@v14
       with:
-        version: '6.0.12'
+        version: '7.0.0'
 
     - name: Spinel commit
       id: spinel
@@ -259,7 +259,7 @@ jobs:
     - name: Setup Emscripten
       uses: mymindstorm/setup-emsdk@v14
       with:
-        version: '6.0.12'
+        version: '7.0.0'
 
     - name: Test WASM
       run: rake test:gems:wasm
