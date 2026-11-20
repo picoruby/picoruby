@@ -50,6 +50,13 @@ MRuby::GemBox.new do |conf|
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-error"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-math"
     conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-pack"
+    # Enumerator (external iteration on mruby-fiber) and Enumerator::Lazy.
+    # Their core: dependencies would be looked up in this mrbgems/, so
+    # fiber and enum-ext are named here first.
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-fiber"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-enum-ext"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-enumerator"
+    conf.gem gemdir: "picoruby-mruby/lib/mruby/mrbgems/mruby-enum-lazy"
   end
   unless wasm?
     # WASM has its own Regexp over the JavaScript RegExp (picoruby-wasm)

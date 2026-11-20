@@ -350,6 +350,15 @@ calls are in `include/picoruby_aot.h` and `src/picoruby_aot.c`.
   waits for the scheduler under a compiled method cannot be switched
   away from, as a callee behind `mrb_funcall` cannot. The gem's author
   judges.
+- The same holds for a fiber. A block under a compiled method that
+  calls `Fiber.yield` raises FiberError "can't cross C function
+  boundary". External iteration does that for each value, so `next` and
+  `peek` on an Enumerator of a compiled method (`enum_for(:each)`, or a
+  generator block that calls one) raise where the irep answers.
+  `Task.pass` in a fiber that such a block resumed raises RuntimeError
+  "can't pass across C function boundary". Internal iteration (`to_a`,
+  `map`, `Enumerator::Lazy`) does not switch fibers and is not affected,
+  and such a block can call `next` on another Enumerator.
 - A block literal at a call site (`File.open(path) { |f| f.read }`)
   becomes a cfunc of its own. The call site makes a Proc of it with
   `mrb_proc_new_cfunc_with_env`. The env holds self, each outer local
