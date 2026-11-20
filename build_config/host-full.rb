@@ -9,6 +9,11 @@ MRuby::Build.new do |conf|
   conf.cc.defines << "MRB_INT64"
   conf.cc.defines << "MRB_NO_BOXING"
   conf.cc.defines << "MRB_UTF8_STRING"
+  # no cap of 4096 dynamic symbols, and so no symbol GC: a large library
+  # interns more, and the host has the memory
+  conf.cc.defines << "MRB_SYMBOL_MAX=0"
+  # the uri gem's RFC 3986 patterns have 21 named groups; the default is 16
+  conf.cc.defines << "REGEX_MAX_GROUPS=64"
 
   conf.picoruby
 
