@@ -39,15 +39,198 @@ class RegexpTest < Picotest::Test
   def test_compile_error_raises_regexp_error
     assert_raise(RegexpError) { Regexp.new("(") }
     assert_raise(RegexpError) { Regexp.new("[a") }
-    assert_raise(RegexpError) { Regexp.new("a**") }
     assert_raise(RegexpError) { Regexp.new("a{3,2}") }
   end
 
   def test_unsupported_syntax_raises_regexp_error
     assert_raise(RegexpError) { Regexp.new("(a)\\1") }
-    assert_raise(RegexpError) { Regexp.new("\\bx") }
-    assert_raise(RegexpError) { Regexp.new("(?=a)") }
-    assert_raise(RegexpError) { Regexp.new("(?<n>a)") }
+    assert_raise(RegexpError) { Regexp.new("(?<n>a)\\k<n>") }
+  end
+
+  # ---- Inline options ----
+
+  def test_inline_option_group
+    assert_true /(?i:a)b/.match?("Ab")
+    assert_false /(?i:a)b/.match?("AB")
+    assert_true /(?-i:a)b/i.match?("aB")
+    assert_false /(?-i:a)b/i.match?("AB")
+    assert_true /(?m:.)/.match?("\n")
+    assert_false /(?-m:.)/m.match?("\n")
+  end
+
+  def test_inline_option_to_end_of_group
+    assert_true /a(?i)b/.match?("aB")
+    assert_false /a(?i)b/.match?("AB")
+    assert_true /(?:a(?i)b)c/.match?("aBc")
+    assert_false /(?:a(?i)b)c/.match?("aBC")
+  end
+
+  # ---- Extended mode ----
+
+  def test_extended_ignores_whitespace_and_comments
+    re = /
+      \A (\d+)   # digits
+      \s* - \s*  # a dash
+      ([a-z]+) \z
+    /x
+    md = re.match("12 - ab")
+    assert_equal ["12", "ab"], [md[1], md[2]]
+    assert_false re.match?("12-ab ")
+    assert_true Regexp.new("a b # c", "x").match?("ab")
+    assert_true Regexp.new("a b", Regexp::EXTENDED).match?("ab")
+  end
+
+  def test_extended_keeps_escaped_whitespace_classes_and_quantifiers
+    assert_true /a\ b/x.match?("a b")
+    assert_false /a\ b/x.match?("ab")
+    assert_true /a\#b/x.match?("a#b")
+    assert_true /[ ]/x.match?(" ")
+    assert_equal "aaa", /a +/x.match("aaa")[0]
+  end
+
+  def test_extended_inline_option
+    assert_true /(?x: a b )c/.match?("abc")
+    assert_true /a(?x) b c/.match?("abc")
+    assert_true /(?-x: a)b/x.match?(" ab")
+  end
+
+  # ---- Subexpression calls ----
+
+  def test_call_by_number
+    md = /(a|b)\g<1>/.match("ab")
+    assert_equal "ab", md[0]
+    assert_equal "b", md[1]
+    assert_equal "xx", /(x)\g<-1>/.match("xx")[0]
+    assert_equal "yy", /\g<+1>(y)/.match("yy")[0]
+  end
+
+  def test_recursive_call
+    re = /\A(\((?:\g<1>)*\))\z/
+    assert_true re.match?("(()(()))")
+    assert_false re.match?("(()")
+    md = /\A(\w+\((?:|\g<1>)\))\z/.match("count(max())")
+    assert_equal "count(max())", md[1]
+    assert_equal "((a))", /(?:a|\(\g<0>\))/.match("((a))")[0]
+  end
+
+  def test_call_by_name
+    re = /\A(?<p>\((?:\g<p>)*\))\z/
+    assert_true re.match?("((()))")
+    assert_equal "((()))", re.match("((()))")[:p]
+    assert_equal "ab", /(?<x>a|b)\g'x'/.match("ab")[0]
+  end
+
+  def test_call_errors
+    assert_raise(RegexpError) { Regexp.new("(a)\\g<2>") }
+    assert_raise(RegexpError) { Regexp.new("(?<n>a)\\g<1>") }
+    assert_raise(RegexpError) { Regexp.new("(?<n>a)\\g<m>") }
+    assert_raise(RegexpError) { Regexp.new("\\g<-1>") }
+    assert_raise(RegexpError) { Regexp.new("\\g<") }
+    # CRuby warns and takes it as a g
+    assert_true Regexp.new("a\\gb").match?("agb")
+  end
+
+  def test_extended_with_recursive_calls
+    re = /
+      \A
+      (
+        (?:
+          # "table_name"."column_name" | function(one or no argument)
+          ((?:\w+\.|"\w+"\.)?(?:\w+|"\w+") | \w+\((?:|\g<2>)\))
+        )
+        (?:(?:\s+AS)?\s+(?:\w+|"\w+"))?
+      )
+      (?:\s*,\s*\g<1>)*
+      \z
+    /ix
+    assert_true re.match?("title")
+    assert_true re.match?(%q{"posts"."title", count(id) AS n, max(lower(name))})
+    assert_false re.match?("title; DROP TABLE posts")
+  end
+
+  def test_interpolated_regexp_keeps_its_options
+    inner = /ab/i
+    re = /#{inner}c/
+    assert_true re.match?("ABc")
+    assert_false re.match?("ABC")
+    acronyms = /(?=a)b/
+    assert_true /^(?:#{acronyms}(?=\b|[A-Z_])|\w)/.match?("x")
+  end
+
+  # ---- Word boundaries ----
+
+  def test_word_boundary
+    assert_equal 2, (/\bfoo\b/ =~ "a foo b")
+    assert_equal nil, (/\bfoo\b/ =~ "afoo b")
+    assert_equal 0, (/\bfoo\b/ =~ "foo")
+    assert_equal 1, (/\Bfoo/ =~ "afoo")
+    assert_equal nil, (/\Bfoo/ =~ "foo")
+    assert_equal nil, (/\b/ =~ "  ")
+    assert_equal 0, (/\B/ =~ "")
+    assert_equal ["foo", "bar"], "foo-bar".scan(/\b\w+\b/)
+    assert_equal "Foo Bar", "foo bar".gsub(/\b[a-z]/) { $&.upcase }
+  end
+
+  def test_word_boundary_is_ascii
+    # \w is ASCII here, so a multibyte letter is not a word character
+    assert_equal 1, (/\bé/ =~ "aé")
+  end
+
+  # ---- Lookahead and lookbehind ----
+
+  def test_lookahead
+    assert_equal "a", /a(?=b)/.match("ab")[0]
+    assert_equal nil, /a(?=b)/.match("ac")
+    assert_equal "a", /a(?!b)/.match("ac")[0]
+    assert_equal nil, /a(?!b)/.match("ab")
+    assert_equal nil, /(?=a)b/.match("ab")
+  end
+
+  def test_lookbehind
+    assert_equal 1, (/(?<=a)b/ =~ "ab")
+    assert_equal nil, (/(?<=a)b/ =~ "cb")
+    assert_equal 1, (/(?<!a)b/ =~ "cb")
+    assert_equal nil, (/(?<!a)b/ =~ "ab")
+    assert_equal 0, (/(?<!a)b/ =~ "b")
+    assert_equal 2, (/(?<=ab|c)d/ =~ "abd")
+    assert_equal 1, (/(?<=ab|c)d/ =~ "cd")
+    assert_equal 1, (/(?<=é)b/ =~ "éb")   # a character offset
+  end
+
+  def test_lookbehind_must_be_bounded
+    assert_raise(RegexpError) { Regexp.new("(?<=a+)b") }
+    assert_raise(RegexpError) { Regexp.new("(?<=a*)b") }
+    assert_true Regexp.new("(?<=a{1,3})b").match?("aab")
+  end
+
+  def test_lookaround_captures
+    md = /(?=(a))ab/.match("ab")
+    assert_equal "a", md[1]
+    assert_equal "ab", md[0]
+    md = /(?<=([a-z]))X/.match("aX")
+    assert_equal "a", md[1]
+    md = /(?!(a))b/.match("b")
+    assert_equal nil, md[1]
+  end
+
+  def test_lookaround_nesting
+    assert_true /a(?=b(?!c))/.match?("abd")
+    assert_false /a(?=b(?!c))/.match?("abc")
+    assert_raise(RegexpError) { Regexp.new("a(?=b(?=c(?=d(?=e(?=f)))))") }
+  end
+
+  def test_lookaround_in_gsub
+    assert_equal "foo_bar_baz", "fooBarBaz".gsub(/(?<=[a-z])(?=[A-Z])/, "_").downcase
+    assert_equal "HTML_Parser", "HTMLParser".gsub(/(?<=[A-Z])(?=[A-Z][a-z])|(?<=[a-z\d])(?=[A-Z])/, "_")
+    assert_equal "1,234,567", "1234567".gsub(/(\d)(?=(\d{3})+$)/) { "#{$1}," }
+    assert_equal "a &amp; b &amp; c", "a & b &amp; c".gsub(/&(?!([a-zA-Z]+|(#\d+)|(#[xX][\dA-Fa-f]+));)/, "&amp;")
+  end
+
+  def test_end_anchor_alone_matches
+    assert_equal 2, ("ab" =~ /$/)
+    assert_equal 2, ("ab" =~ /\z/)
+    assert_equal "ab!", "ab".sub(/\z/, "!")
+    assert_equal "!ab", "ab".sub(/\A/, "!")
   end
 
   def test_unknown_option_raises
@@ -313,6 +496,122 @@ class RegexpTest < Picotest::Test
     md = /(?:ab)+(c)/.match("ababc")
     assert_equal 2, md.size
     assert_equal "c", md[1]
+  end
+
+  # ---- Code escapes and \h ----
+
+  def test_hex_and_unicode_escapes
+    assert_true /\x41/.match?("A")
+    assert_true /\u0041/.match?("A")
+    assert_true /\u{3042}/.match?("あ")
+    assert_true /[\x00-\x7f]+/.match?("abc")
+    assert_false /[^\x00-\x7f]/.match?("abc")
+    assert_true /[^\x00-\x7f]/.match?("é")
+    assert_equal "é", /[\u{e9}]/.match("café")[0]
+    assert_raise(RegexpError) { Regexp.new("\\xZZ") }
+    assert_raise(RegexpError) { Regexp.new("\\u12") }
+    assert_raise(RegexpError) { Regexp.new("\\u{110000}") }
+  end
+
+  def test_hex_digit_class
+    assert_equal "ff", /\h+/.match("xff")[0]
+    assert_equal "x", /\H/.match("xff")[0]
+    assert_true /[\h]/.match?("A")
+  end
+
+  # ---- Named groups ----
+
+  def test_named_groups_by_name
+    md = /(?<year>\d{4})-(?<month>\d\d)/.match("on 2024-01-15")
+    assert_equal "2024", md[:year]
+    assert_equal "01",   md["month"]
+    assert_equal "2024", md[1]
+    assert_equal 3, md.size
+    assert_equal ["year", "month"], md.names
+    assert_equal ["year", "month"], md.regexp.names
+    assert_equal({ "year" => [1], "month" => [2] }, md.regexp.named_captures)
+    assert_equal({ "year" => "2024", "month" => "01" }, md.named_captures)
+    assert_equal({ year: "2024", month: "01" }, md.named_captures(symbolize_names: true))
+  end
+
+  def test_named_group_offsets
+    md = /(?<a>é)(?<b>b)/.match("xéb")
+    assert_equal 1, md.begin(:a)
+    assert_equal 2, md.end("a")
+    assert_equal [1, 3], md.byteoffset(:a)
+    assert_equal 2, md.begin(:b)
+  end
+
+  def test_plain_groups_do_not_capture_beside_named_ones
+    md = /(a)(?<x>b)(c)/.match("abc")
+    assert_equal 2, md.size
+    assert_equal "b", md[1]
+    assert_equal "b", md[:x]
+    assert_equal ["b"], md.captures
+    assert_equal ["b"], "abc".scan(/(a)(?<x>b)(c)/)[0]
+  end
+
+  def test_single_quoted_group_name
+    assert_equal "b", /(?'x'b)/.match("ab")[:x]
+  end
+
+  def test_undefined_group_name
+    md = /(?<x>a)/.match("a")
+    assert_raise(IndexError) { md[:y] }
+    assert_raise(IndexError) { md.begin("y") }
+    assert_raise(IndexError) { "a"[/(?<x>a)/, :y] }
+    assert_equal [], /(a)/.names
+    assert_equal({}, /(a)/.named_captures)
+  end
+
+  def test_same_name_twice
+    re = /(?<x>a)|(?<x>b)/
+    assert_equal ["x"], re.names
+    assert_equal({ "x" => [1, 2] }, re.named_captures)
+    assert_equal "b", re.match("b")[:x]
+    assert_equal "a", re.match("a")[:x]
+    assert_nil(/(?<x>a)?(?<x>c)?/.match("z")[:x])
+  end
+
+  def test_named_group_that_did_not_take_part
+    md = /(?<a>x)|(?<b>y)/.match("y")
+    assert_nil md[:a]
+    assert_equal "y", md[:b]
+    assert_equal({ "a" => nil, "b" => "y" }, md.named_captures)
+  end
+
+  def test_bad_group_names
+    assert_raise(RegexpError) { Regexp.new("(?<1a>x)") }
+    assert_raise(RegexpError) { Regexp.new("(?<>x)") }
+    assert_raise(RegexpError) { Regexp.new("(?<a") }
+  end
+
+  def test_string_aref_with_group_name
+    assert_equal "15", "2024-01-15"[/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/, :d]
+    assert_equal "15", "2024-01-15"[/(?<y>\d+)-(?<m>\d+)-(?<d>\d+)/, "d"]
+    assert_nil "abc"[/(?<y>\d+)/, :y]
+  end
+
+  def test_sub_with_named_backreference_in_replacement
+    assert_equal "<b>a", "ab".sub(/(?<x>a)(?<y>b)/, '<\k<y>>\k<x>')
+    assert_equal "<a", "a".sub(/(?<x>a)/, '<\k<x>')
+    assert_equal "ba", "ab".gsub(/(?<x>a)|(?<x>b)/, '\k<x>').reverse
+    assert_raise(IndexError) { "a".sub(/(?<x>a)/, '\k<zz>') }
+    assert_equal "\\k<x", "a".sub(/(?<x>a)/, '\k<x')
+  end
+
+  def test_last_match_by_name
+    /(?<word>\w+)/ =~ "hello"
+    assert_equal "hello", $~[:word]
+    assert_equal "hello", Regexp.last_match[:word]
+  end
+
+  def test_deconstruct_keys
+    case /(?<y>\d+)-(?<m>\d+)/.match("2024-01")
+    in { y:, m: }
+      assert_equal "2024", y
+      assert_equal "01", m
+    end
   end
 
   # ---- MatchData methods ----
@@ -773,15 +1072,21 @@ class RegexpStringTest < Picotest::Test
     assert_false re.match?("axb")
     assert_true re.match?("c*")
     assert_equal "dog", Regexp.union(/cat/, /dog/).match("hotdog")[0]
-    assert_equal "cat|(?:d+)", Regexp.union("cat", /d+/).source
+    mixed = Regexp.union(/cat/i, /dog/)
+    assert_true mixed.match?("CAT")
+    assert_false mixed.match?("DOG")
+    assert_equal 0, mixed.options
+    assert_equal "cat|(?-mix:d+)", Regexp.union("cat", /d+/).source
     assert_true Regexp.union(["x", "y"]).match?("y")
   end
 
   def test_union_options
+    # each part keeps its options; the union itself has none, as in CRuby
     re = Regexp.union(/a/i, /b/i)
-    assert_true re.casefold?
+    assert_false re.casefold?
+    assert_equal "(?i-mx:a)|(?i-mx:b)", re.source
+    assert_true re.match?("A")
     assert_true re.match?("B")
-    assert_raise(ArgumentError) { Regexp.union(/a/i, /b/) }
   end
 
   def test_union_empty_never_matches

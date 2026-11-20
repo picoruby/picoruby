@@ -13,8 +13,17 @@
 
 #define REGEX_ICASE  1u   /* ASCII-only case folding ("i") */
 #define REGEX_DOTALL 2u   /* `.` also matches a newline ("m") */
+#define REGEX_EXTENDED 4u /* whitespace and # comments in the pattern
+                             are not part of it ("x"); compile only */
 
-/* "im" -> bits; -1 on a letter that is not a flag */
+/* The capture groups a pattern may have, group 0 included. A build with
+ * the memory for more may raise it, to 64 at most; a host sizes the
+ * capture arrays it hands regex_exec by it. */
+#ifndef REGEX_MAX_GROUPS
+#define REGEX_MAX_GROUPS 16
+#endif
+
+/* "imx" -> bits; -1 on a letter that is not a flag */
 int regex_flag_bits(const char *flags, size_t len);
 
 /* Compile a pattern to program words (regex_malloc'd; the caller frees
@@ -25,6 +34,12 @@ int regex_flag_bits(const char *flags, size_t len);
 uint32_t *regex_compile_words(const uint8_t *src, size_t len, int flags,
                                  size_t *nwords, const char **err,
                                  size_t *err_at);
+
+/* The name of capture group group in prog, as the bytes and their
+ * count in *len, or NULL when the group has no name. Groups are
+ * numbered as regex_exec reports them: with a named group in the
+ * pattern, the named groups are 1..n and plain (...) do not capture. */
+const uint8_t *regex_group_name(const uint32_t *prog, int group, size_t *len);
 
 /* The words of scratch one regex_exec over prog needs. A loop
  * over many matches of the same program allocates it once. */
@@ -37,9 +52,17 @@ size_t regex_scratch_words(const uint32_t *prog);
  * that reaches MATCH, which is enough for a yes/no answer; the
  * positions are then not the leftmost-first ones. scratch is
  * regex_scratch_words(prog) words; its content on entry does not
- * matter. The VM allocates nothing and never recurses. */
+ * matter, and its first word then holds what regex_exec_error reports.
+ * The VM allocates nothing. It recurses only to test a
+ * lookaround, one level per nesting depth, at most 4 deep. */
 bool regex_exec(const uint32_t *prog, const uint8_t *s, size_t len,
                    size_t start, int32_t *out, bool first_only,
                    uint32_t *scratch);
+
+/* Why the last regex_exec of prog on scratch found no match, when it
+ * could not give the right answer: a recursive subexpression call
+ * that the input nests deeper than the program unrolls it. NULL when
+ * the search simply did not match. */
+const char *regex_exec_error(const uint32_t *prog, const uint32_t *scratch);
 
 #endif /* REGEX_ENGINE_H */

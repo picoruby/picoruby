@@ -19,5 +19,6 @@ class RegexpMatchRangeTest < Picotest::Test
     m = /(a)(b)?(c)/.match("xacx")
     assert_equal "c", m[-1]
     assert_equal "a", m[1]
+    assert_equal "a", /(?<n>a)/.match("a")["n"]
   end
 end

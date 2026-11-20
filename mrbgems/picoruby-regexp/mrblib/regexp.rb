@@ -10,23 +10,19 @@ class Regexp
   MULTILINE  = 4
 
   # One Regexp that matches any of the patterns. A String matches
-  # itself. Regexps must all carry the same options, since the engine
-  # has no inline option groups. With no pattern the result never
-  # matches.
+  # itself; a Regexp keeps its own options in an inline option group,
+  # as Regexp#to_s writes it. With no pattern the result never matches.
   def self.union(*patterns)
     list = patterns #: Array[untyped]
     list = list[0] if list.size == 1 && list[0].is_a?(Array)
-    return Regexp.new(".\\A") if list.empty?
-    options = nil
+    return Regexp.new("(?!)") if list.empty?
     source = ""
     i = 0
     while i < list.size
       pat = list[i]
       source << "|" if 0 < i
       if pat.is_a?(Regexp)
-        options ||= pat.options
-        raise ArgumentError, "Regexp.union: the options differ" if options != pat.options
-        source << "(?:" << pat.source << ")"
+        source << pat.to_s
       elsif pat.is_a?(String)
         source << Regexp.escape(pat)
       else
@@ -34,7 +30,14 @@ class Regexp
       end
       i += 1
     end
-    Regexp.new(source, options || 0)
+    Regexp.new(source)
+  end
+
+  # the MatchData of the last match ($~), or one of its groups
+  def self.last_match(group = nil)
+    md = $~
+    return md unless group
+    md.nil? ? nil : md[group]
   end
 end
 
@@ -55,6 +58,44 @@ class MatchData
       return part
     end
     __aref_group(idx)
+  end
+
+  def names
+    regexp.names
+  end
+
+  # {name => text} for every group name, with the text of the last
+  # group of that name that took part, or nil
+  def named_captures(symbolize_names: false)
+    hash = {} #: Hash[String | Symbol, String?]
+    list = names
+    list_size = list.size
+    i = 0
+    while i < list_size
+      name = list[i]
+      hash[symbolize_names ? name.to_sym : name] = self[name]
+      i += 1
+    end
+    hash
+  end
+
+  # pattern matching: `in {year:, month:}` reads the named groups
+  def deconstruct_keys(keys)
+    hash = {} #: Hash[Symbol, String?]
+    list = names
+    list_size = list.size
+    i = 0
+    while i < list_size
+      name = list[i]
+      sym = name.to_sym
+      hash[sym] = self[name] if keys.nil? || keys.include?(sym)
+      i += 1
+    end
+    hash
+  end
+
+  def deconstruct
+    captures
   end
 end
 
