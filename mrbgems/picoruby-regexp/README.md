@@ -13,6 +13,8 @@ simulation that carries capture positions) runs the program.
   linear time.
 - The VM does not allocate, and recurses only to test a lookaround, at most
   4 levels deep. Each `Regexp` holds one scratch block, sized at compile time.
+  A pattern with a backreference runs on a backtracker instead, whose stack
+  comes from the heap during the search (see below).
 - The compiler grows its buffers with the pattern. `/a/` compiles in about 1 KB
   of temporary heap.
 - Text is UTF-8. `.` and a class consume one character. `MatchData#begin`,
@@ -86,17 +88,23 @@ the reason and the byte offset in the pattern.
 |--------|---------|
 | `.` | Any character. A newline only with `m` |
 | `[...]`, `[^...]` | Class and negated class. Ranges span code points, so `[あ-ん]` works |
-| `\d` `\w` `\s` `\h` `\D` `\W` `\S` `\H` | ASCII digit, word, space and hex-digit classes and their negations |
-| `\xHH` `\uHHHH` `\u{H...}` | A character by its code |
+| `\d` `\w` `\s` `\h` `\D` `\W` `\S` `\H` | ASCII digit, word, space and hex-digit classes and their negations, in a class too |
+| `[[:alpha:]]`, `[[:^alpha:]]` and the other POSIX classes | ASCII, as `\w` is |
+| `\xHH` `\uHHHH` `\u{H...}` `\0` `\177` | A character by its code (octal up to `\177`) |
 | `\n` `\t` `\r` `\f` `\v` `\e` `\0` | Control characters |
 | `\b` `\B` | Word boundary and its negation, on the ASCII word class |
 | `\.` and other escaped punctuation | The literal character |
 | `*` `+` `?` `{n}` `{n,}` `{n,m}` | Greedy repetition. `n` and `m` go up to 256 |
 | `*?` `+?` `??` `{n,m}?` | Lazy repetition |
-| `(...)` | Capture group. Up to 15 groups |
+| `*+` `++` `?+` | Possessive repetition. `{n,m}+` is `(?:...{n,m})+`, as in Ruby |
+| `(...)` | Capture group. Up to 15 groups, or what the build sets with `REGEX_MAX_GROUPS` (at most 64, group 0 included) |
 | `(?<name>...)` `(?'name'...)` | Named capture group. With a named group in the pattern, plain `(...)` do not capture, as in CRuby |
 | `(?:...)` | Group without capture |
-| `(?i:...)` `(?-i:...)` `(?i)` | Options for the body, or for the rest of the enclosing group, including the alternatives after it (`a(?i)b\|c` is `a(?i:b\|c)`). `i` and `m` take effect; `x` is accepted and ignored |
+| `(?>...)` | Atomic group, taken as `(?:...)` |
+| `(?#...)` | Comment |
+| `\1` to `\9`, `\k<name>` `\k'name'` `\k<n>` `\k<-n>` | Backreference. A pattern with one runs on a backtracker |
+| `\g<name>` `\g<n>` `\g<-n>` `\g<0>` | Subexpression call, recursive ones too |
+| `(?i:...)` `(?-i:...)` `(?i)` | Options for the body, or for the rest of the enclosing group, including the alternatives after it (`a(?i)b\|c` is `a(?i:b\|c)`). `i`, `m` and `x` |
 | `(?=...)` `(?!...)` | Lookahead and negative lookahead |
 | `(?<=...)` `(?<!...)` | Lookbehind and negative lookbehind. The body must have a bounded length; it may be an alternation of different lengths |
 | `\|` | Alternation. The earlier alternative wins at the same position |
@@ -108,14 +116,31 @@ the reason and the byte offset in the pattern.
 |--------|--------|
 | `i` | Case folding for ASCII letters only |
 | `m` | `.` also matches a newline |
-| `x` | Kept in `options`, but the pattern is taken as written |
+| `x` | Whitespace, and `#` to the end of the line, are not part of the pattern outside a class |
 
 ## Differences from CRuby
 
-- `^` and `$` anchor the whole string, not a line. `\Z` is the same as `\z`.
 - `i` folds ASCII letters only. `/é/i` does not match `É`.
-- These raise `RegexpError` at compile time: backreferences (`\1`,
-  `\k<name>`), possessive quantifiers, `\p{...}` and POSIX classes.
+- POSIX classes, and `\p{...}`, which takes their names only, are ASCII:
+  `[[:alpha:]]` and `\p{Alpha}` do not match `é`.
+- Matching takes time linear in the subject, but for a pattern with a
+  backreference: that one runs on a backtracker, which can take far longer.
+  It raises `RegexpError` after `REGEX_BT_MAX_STEPS` steps (10,000,000 unless
+  the build sets it; 1,000,000 in the r2p2 builds), or when its stack passes
+  `REGEX_BT_MAX_STACK` entries of 12 bytes (1,048,576; 1,024 on RP2040 and
+  4,096 on RP2350).
+- A possessive repeat of more than one character, and an atomic group, are
+  taken as the greedy repeat and a plain group: where CRuby finds no match
+  because they keep what they took, as in `/(?>a*)a/` on `"aa"`, this finds
+  one. A possessive repeat of one character is exact. In a pattern with a
+  backreference they do not stop the backtracker from trying the other ways
+  through their body either, so such a pattern can run until
+  `REGEX_BT_MAX_STEPS`: on an RP2040 that holds the task scheduler up for
+  seconds.
+- A recursive `\g<n>` is followed 8 levels deep, fewer when the copies
+  outgrow the program. A search into input nested deeper raises
+  `RegexpError` ("subexpression call nested too deep"), except `match?`
+  when it found a match.
 - `\w`, `\d`, `\s` and so `\b` are ASCII: `é` is not a word character, so
   `/\bé/` matches in `"aé"`.
 - A lookbehind body may have any bounded length, as in `(?<=a|bc)` or

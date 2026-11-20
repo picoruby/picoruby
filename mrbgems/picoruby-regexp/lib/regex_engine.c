@@ -6,8 +6,11 @@
  * time and O(program) in memory, with no recursion anywhere, so a
  * regex can never blow the task stack or hold the cooperative
  * scheduler hostage the way a backtracking engine does on (a*)*b.
- * The price is the absence of backreferences, which this engine does
- * not pretend to have.
+ * Backreferences (\1, \k<name>) are the exception: no automaton can
+ * match them, so a pattern that has one runs on a backtracker over the
+ * same program instead (see "the backtracker" below). Only those
+ * patterns give up the guarantees; the backtracker keeps an explicit,
+ * growable stack and stops at RX_BT_MAX_STEPS with an error.
  *
  * Lookahead and lookbehind are the one place the VM calls itself: a
  * (?=...) or (?<=...) is an epsilon edge whose test runs the body as a
@@ -31,11 +34,13 @@
  * A possessive repeat (X*+, X++, X?+) gives back nothing it matched.
  * Of one character X it is written as the greedy repeat and a (?!X)
  * after it, which is exact: X*+ is X*(?!X), and X?+ is X or (?!X).
- * As in Ruby, X{n,m}+ is not possessive but (?:X{n,m})+. An atomic
- * group (?>X) is (?:X) in the same way. Of anything longer it is the greedy repeat,
- * so a match that a possessive repeat would refuse by keeping what it
- * took is still found; with no backtracking, the possessive form has
- * no time to save here.
+ * As in Ruby, X{n,m}+ is not possessive but (?:X{n,m})+. Of anything
+ * longer it is the greedy repeat, and an atomic group (?>X) is (?:X) in
+ * the same way, so a match that they would refuse by keeping what they
+ * took is still found. On the Pike VM that costs no time. On the
+ * backtracker it does: neither stops it from trying the other ways
+ * through X, so a pattern with a backreference can take up to
+ * RX_BT_MAX_STEPS steps where CRuby gives up at once.
  *
  * Memory follows the pattern, not the limits. The compiler grows its
  * three work buffers (AST nodes, class ranges, code) from a few
@@ -82,6 +87,14 @@ void regex_free(void *p);
 #error "REGEX_MAX_GROUPS is at most 64 (rx_gen.open is a 64-bit set)"
 #endif
 #define RX_MAX_REPEAT 256    /* the n in {n,m} */
+#ifndef REGEX_BT_MAX_STEPS
+#define REGEX_BT_MAX_STEPS 10000000  /* backtracker steps per search */
+#endif
+#ifndef REGEX_BT_MAX_STACK
+#define REGEX_BT_MAX_STACK (1 << 20) /* backtracker stack entries */
+#endif
+#define RX_BT_MAX_STEPS REGEX_BT_MAX_STEPS
+#define RX_BT_MAX_STACK REGEX_BT_MAX_STACK
 #define RX_MAX_NODES  4096   /* AST nodes */
 #define RX_MAX_CLASS  65536  /* words of class-range storage */
 #define RX_MAX_NAMES  512    /* bytes of group-name storage */
@@ -127,8 +140,9 @@ enum {
   H_CLASS_OFF,  /* word offset of the class table */
   H_NLOOK,      /* OP_LOOK instructions */
   H_LOOK_DEPTH, /* deepest lookaround nesting */
-  H_ANCHORED,   /* 1 when every match starts with ^ */
+  H_ANCHORED,   /* 1 when every match starts with \A or \G */
   H_NAMES_OFF,  /* word offset of the group name table, 0 without names */
+  H_BACKTRACK,  /* 1 when the program has a backreference */
   H_WORDS       /* header size */
 };
 
@@ -139,18 +153,24 @@ enum {
   OP_SPLIT,     /* x preferred, y second */
   OP_JMP,       /* x */
   OP_SAVE,      /* x = slot */
-  OP_BOL,
-  OP_EOL,
+  OP_BOL,       /* x = RX_AT_* of ^ \A \G */
+  OP_EOL,       /* x = RX_AT_* of $ \z \Z */
   OP_WORDB,     /* \b */
   OP_NWORDB,    /* \B */
   OP_LOOK,      /* x = body pc, y = RX_LOOK_* bits | max length << 3 */
   OP_LMATCH,    /* the end of a lookaround body */
   OP_MATCH,
-  OP_DEEP       /* a recursive \g<n> past RX_MAX_CALL_DEPTH */
+  OP_DEEP,      /* a recursive \g<n> past RX_MAX_CALL_DEPTH */
+  OP_BREF       /* x = group, y = flags: the text group x matched */
 };
 
 /* scratch[0]: why the last regex_exec found no match */
-#define RX_ERR_DEEP 1u
+enum {
+  RX_ERR_NONE,
+  RX_ERR_DEEP,    /* a recursive \g<n> went deeper than it was unrolled */
+  RX_ERR_LIMIT,   /* the backtracker passed RX_BT_MAX_STEPS or _STACK */
+  RX_ERR_NOMEM    /* the backtracker's stack could not grow */
+};
 
 /* the y word of OP_LOOK (and the x of N_LOOK) */
 #define RX_LOOK_NEG    1u   /* (?!...) or (?<!...) */
@@ -208,15 +228,27 @@ enum {
   N_REP,    /* a; x = min, y = max (-1 = unbounded), b = greedy */
   N_GROUP,  /* a; x = group index, 0 when the group does not capture;
                y = 1 when the group is named */
-  N_BOL,
-  N_EOL,
+  N_BOL,    /* x = RX_AT_*: ^ \A \G */
+  N_EOL,    /* x = RX_AT_*: $ \z \Z */
   N_WORDB,
   N_NWORDB,
   N_LOOK,   /* a; x = RX_LOOK_* bits | max length << RX_LOOK_SHIFT */
-  N_CALL    /* \g<n>: x = group number, a = its N_GROUP node (the root
+  N_CALL,   /* \g<n>: x = group number, a = its N_GROUP node (the root
                for group 0) once resolve_calls() ran, -1 before; for
                \g<name> until then, y = the name's byte offset in the
                pattern and b its length, 0 for a number */
+  N_BREF    /* \1, \k<name>: x = group number once resolve_brefs()
+               ran; a = flags; b and y name the group as for N_CALL */
+};
+
+/* the x of N_BOL / N_EOL and OP_BOL / OP_EOL: where each anchor holds */
+enum {
+  RX_AT_LINE_BEGIN = 0, /* ^: the start, or after a newline before more */
+  RX_AT_BEGIN,          /* \A: the start */
+  RX_AT_SEARCH,         /* \G: where the search began */
+  RX_AT_LINE_END,       /* $: the end, or before a newline */
+  RX_AT_END,            /* \z: the end */
+  RX_AT_END_NL          /* \Z: the end, or before a newline that ends it */
 };
 
 typedef struct {
@@ -242,6 +274,7 @@ typedef struct {
   size_t named_over_at; /* where the named ones did */
   int nlook;          /* lookarounds in the pattern */
   int ncall_numbered; /* of them by number */
+  int nbrefs;         /* backreferences */
   int look_depth;     /* lookarounds open around the current position */
   int look_depth_max;
   int flags;          /* the options in force at the current position */
@@ -440,7 +473,6 @@ literal_escape(uint32_t e, uint32_t *out)
   case 'f': *out = '\f'; return true;
   case 'v': *out = '\v'; return true;
   case 'e': *out = 27; return true;
-  case '0': *out = 0; return true;
   default:
     if (e < 0x80 && !((e >= 'a' && e <= 'z') || (e >= 'A' && e <= 'Z') ||
                       (e >= '0' && e <= '9'))) {
@@ -460,19 +492,57 @@ hex_value(uint8_t c)
   return -1;
 }
 
+/* The byte of \xHH after the x has been read: -1 when the digits are
+ * missing. */
+static int
+hex_byte_escape(rx_parser *p)
+{
+  int v = 0;
+  int n = 0;
+  while (n < 2 && !at_end(p) && hex_value(p->src[p->pos]) >= 0) {
+    v = v * 16 + hex_value(p->src[p->pos++]);
+    n++;
+  }
+  return n == 0 ? -1 : v;
+}
+
 /* The codepoint of \xHH, \uHHHH or \u{H...} after the x or u has been
- * read: false when the digits are missing or the value is no codepoint. */
+ * read: false when the digits are missing or the value is no codepoint.
+ * A \xHH from 0x80 up is the lead byte of a UTF-8 sequence that the
+ * \xHH escapes right after it complete, as Ruby reads them in a UTF-8
+ * pattern: /\xE3\x81\x82/ is /あ/, and a byte that leaves the sequence
+ * incomplete or invalid is an error. */
 static bool
 code_escape(rx_parser *p, uint32_t e, uint32_t *out)
 {
   uint32_t v = 0;
   int n = 0;
   if (e == 'x') {
-    while (n < 2 && !at_end(p) && hex_value(p->src[p->pos]) >= 0) {
-      v = v * 16 + (uint32_t)hex_value(p->src[p->pos++]);
-      n++;
+    int b = hex_byte_escape(p);
+    if (b < 0) { perr(p, "invalid hex escape"); return false; }
+    v = (uint32_t)b;
+    if (v >= 0x80) {
+      int more;
+      uint32_t min;
+      if (v >= 0xC2 && v <= 0xDF) { more = 1; v &= 0x1F; min = 0x80; }
+      else if (v >= 0xE0 && v <= 0xEF) { more = 2; v &= 0x0F; min = 0x800; }
+      else if (v >= 0xF0 && v <= 0xF4) { more = 3; v &= 0x07; min = 0x10000; }
+      else { perr(p, "invalid multibyte escape"); return false; }
+      while (more-- > 0) {
+        if (p->len - p->pos < 2 || p->src[p->pos] != '\\' || p->src[p->pos + 1] != 'x') {
+          perr(p, "invalid multibyte escape");
+          return false;
+        }
+        p->pos += 2;
+        b = hex_byte_escape(p);
+        if (b < 0x80 || b > 0xBF) { perr(p, "invalid multibyte escape"); return false; }
+        v = (v << 6) | ((uint32_t)b & 0x3F);
+      }
+      if (v < min || v > 0x10FFFF || (v >= 0xD800 && v <= 0xDFFF)) {
+        perr(p, "invalid multibyte escape");
+        return false;
+      }
     }
-    if (n == 0) { perr(p, "invalid hex escape"); return false; }
   } else if (!at_end(p) && p->src[p->pos] == '{') {
     p->pos++;
     while (!at_end(p) && hex_value(p->src[p->pos]) >= 0) {
@@ -494,6 +564,138 @@ code_escape(rx_parser *p, uint32_t e, uint32_t *out)
   return true;
 }
 
+/* \0 and the octal digits after it, or \1 to \7 and up to
+ * two more: a codepoint below 0x80, as Ruby reads them in a UTF-8 pattern.
+ * first is the digit after the backslash, already read. */
+static uint32_t
+octal_escape(rx_parser *p, uint32_t first)
+{
+  uint32_t v = first - '0';
+  for (int n = 1; n < 3 && !at_end(p); n++) {
+    uint8_t d = p->src[p->pos];
+    if (d < '0' || d > '7') break;
+    v = v * 8 + (uint32_t)(d - '0');
+    p->pos++;
+  }
+  if (v >= 0x80) { perr(p, "invalid multibyte escape"); return 0; }
+  return v;
+}
+
+/* Add the complement of the ranges in [from, ncls) of class off to it,
+ * dropping those ranges: \W \D \S \H and [:^name:] inside a class. The
+ * ranges are sorted and disjoint as the callers add them. */
+static void
+class_complement_tail(rx_parser *p, int off, int from)
+{
+  if (p->err) return;
+  int n = (p->ncls - from) / 2;
+  uint32_t ranges[32];
+  if (n > 16) { perr(p, "class too complex"); return; }
+  for (int i = 0; i < 2 * n; i++) ranges[i] = p->cls[from + i];
+  p->ncls = from;
+  p->cls[off + 1] -= (uint32_t)n;
+  uint32_t lo = 0;
+  for (int i = 0; i < n; i++) {
+    if (ranges[2 * i] > lo) class_add(p, off, lo, ranges[2 * i] - 1);
+    lo = ranges[2 * i + 1] + 1;
+  }
+  if (lo <= 0x10FFFF) class_add(p, off, lo, 0x10FFFF);
+}
+
+/* Add the ASCII ranges of the POSIX class or character property named by
+ * the n bytes at s, in any case, to class off, sorted so that their
+ * complement can be taken. False for a name it does not know. */
+static bool
+class_add_named(rx_parser *p, int off, const char *s, size_t n)
+{
+  char name[8];
+  if (n >= sizeof(name)) return false;
+  for (size_t k = 0; k < n; k++) {
+    char ch = s[k];
+    name[k] = (ch >= 'A' && ch <= 'Z') ? (char)(ch + 32) : ch;
+  }
+#define NAME_IS(lit) (n == sizeof(lit) - 1 && memcmp(name, lit, n) == 0)
+  if (NAME_IS("alnum")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z'); class_add(p, off, 'a', 'z');
+  } else if (NAME_IS("alpha")) {
+    class_add(p, off, 'A', 'Z'); class_add(p, off, 'a', 'z');
+  } else if (NAME_IS("ascii")) {
+    class_add(p, off, 0, 0x7f);
+  } else if (NAME_IS("blank")) {
+    class_add(p, off, '\t', '\t'); class_add(p, off, ' ', ' ');
+  } else if (NAME_IS("cntrl")) {
+    class_add(p, off, 0, 0x1f); class_add(p, off, 0x7f, 0x7f);
+  } else if (NAME_IS("digit")) {
+    class_add(p, off, '0', '9');
+  } else if (NAME_IS("graph")) {
+    class_add(p, off, 0x21, 0x7e);
+  } else if (NAME_IS("lower")) {
+    class_add(p, off, 'a', 'z');
+  } else if (NAME_IS("print")) {
+    class_add(p, off, 0x20, 0x7e);
+  } else if (NAME_IS("punct")) {
+    class_add(p, off, 0x21, 0x2f); class_add(p, off, 0x3a, 0x40);
+    class_add(p, off, 0x5b, 0x60); class_add(p, off, 0x7b, 0x7e);
+  } else if (NAME_IS("space")) {
+    class_add(p, off, '\t', '\r'); class_add(p, off, ' ', ' ');
+  } else if (NAME_IS("upper")) {
+    class_add(p, off, 'A', 'Z');
+  } else if (NAME_IS("word")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z');
+    class_add(p, off, '_', '_'); class_add(p, off, 'a', 'z');
+  } else if (NAME_IS("xdigit")) {
+    class_add(p, off, '0', '9'); class_add(p, off, 'A', 'F'); class_add(p, off, 'a', 'f');
+  } else {
+    return false;
+  }
+#undef NAME_IS
+  return true;
+}
+
+/* [:name:] or [:^name:] after the `[` inside a class, ASCII as \w is.
+ * False (and nothing read) when no `:]` closes it: then `[` is itself. */
+static bool
+class_posix(rx_parser *p, int off)
+{
+  size_t save = p->pos;
+  if (at_end(p) || p->src[p->pos] != ':') return false;
+  size_t i = p->pos + 1;
+  bool neg = i < p->len && p->src[i] == '^';
+  if (neg) i++;
+  size_t name = i;
+  while (i < p->len && p->src[i] >= 'a' && p->src[i] <= 'z') i++;
+  if (i + 1 >= p->len || p->src[i] != ':' || p->src[i + 1] != ']') return false;
+  int from = p->ncls;
+  if (!class_add_named(p, off, (const char *)p->src + name, i - name)) {
+    p->pos = save;
+    perr(p, "invalid POSIX bracket type");
+    return true;
+  }
+  if (neg) class_complement_tail(p, off, from);
+  p->pos = i + 2;
+  return true;
+}
+
+/* {name} or {^name} after \p or \P (neg): a character property, of the
+ * names the POSIX classes have and as ASCII as they are. */
+static void
+class_property(rx_parser *p, int off, bool neg)
+{
+  if (at_end(p) || p->src[p->pos] != '{') { perr(p, "invalid character property name {}"); return; }
+  size_t i = p->pos + 1;
+  if (i < p->len && p->src[i] == '^') { neg = !neg; i++; }
+  size_t name = i;
+  while (i < p->len && p->src[i] != '}') i++;
+  if (i >= p->len) { perr(p, "invalid character property name {}"); return; }
+  int from = p->ncls;
+  if (!class_add_named(p, off, (const char *)p->src + name, i - name)) {
+    perr(p, "invalid character property name");
+    return;
+  }
+  if (neg) class_complement_tail(p, off, from);
+  p->pos = i + 1;
+}
+
 /* one item inside [...]: a codepoint, or an escape naming a set */
 static uint32_t
 class_item(rx_parser *p, int off, bool *was_set)
@@ -505,6 +707,28 @@ class_item(rx_parser *p, int off, bool *was_set)
   uint32_t e = next(p);
   uint32_t lit;
   if (class_add_escape(p, off, e)) { *was_set = true; return 0; }
+  if (e == 'W' || e == 'D' || e == 'S' || e == 'H') {
+    /* sorted ranges, so that their complement can be taken */
+    int from = p->ncls;
+    switch (e) {
+    case 'W':
+      class_add(p, off, '0', '9'); class_add(p, off, 'A', 'Z');
+      class_add(p, off, '_', '_'); class_add(p, off, 'a', 'z');
+      break;
+    case 'D': class_add(p, off, '0', '9'); break;
+    case 'S': class_add(p, off, '\t', '\r'); class_add(p, off, ' ', ' '); break;
+    default:  class_add(p, off, '0', '9'); class_add(p, off, 'A', 'F'); class_add(p, off, 'a', 'f'); break;
+    }
+    class_complement_tail(p, off, from);
+    *was_set = true;
+    return 0;
+  }
+  if (e == 'p' || e == 'P') {
+    class_property(p, off, e == 'P');
+    *was_set = true;
+    return 0;
+  }
+  if (e >= '0' && e <= '7') return octal_escape(p, e);
   if (e == 'x' || e == 'u') return code_escape(p, e, &lit) ? lit : 0;
   if (literal_escape(e, &lit)) return lit;
   perr(p, "unsupported escape in class");
@@ -523,6 +747,14 @@ parse_class(rx_parser *p)
     uint32_t c = peek(p);
     if (c == ']' && !first) { next(p); break; }
     first = false;
+    if (c == '[') {
+      next(p);
+      if (class_posix(p, off)) {
+        if (p->err) return off;
+        continue;
+      }
+      p->pos--;
+    }
     bool set;
     uint32_t lo = class_item(p, off, &set);
     if (p->err) return off;
@@ -584,6 +816,7 @@ max_len(const rx_parser *p, int n, bool *unbounded)
     case N_GROUP: v = max_len(p, nd->a, unbounded); break;
     case N_CAT: v = max_len(p, n, unbounded); break;   /* the last alternative */
     case N_CALL: *unbounded = true; v = 0; break;   /* may recurse */
+    case N_BREF: *unbounded = true; v = 0; break;
     case N_REP:
       if (nd->y < 0) { *unbounded = true; v = 0; }
       else {
@@ -598,7 +831,7 @@ max_len(const rx_parser *p, int n, bool *unbounded)
   }
 }
 
-/* Does every path through node n begin with ^? Then a search can
+/* Does every path through node n begin with \A or \G? Then a search can
  * stop after its first position instead of trying each one. Walks
  * the chains like max_len. */
 static bool
@@ -607,7 +840,7 @@ starts_with_bol(const rx_parser *p, int n)
   for (;;) {
     const rx_node *nd = &p->nodes[n];
     switch (nd->t) {
-    case N_BOL: return true;
+    case N_BOL: return nd->x == RX_AT_BEGIN || nd->x == RX_AT_SEARCH;
     case N_CAT: case N_GROUP: n = nd->a; continue;
     case N_ALT:
       if (!starts_with_bol(p, nd->a)) return false;
@@ -833,6 +1066,93 @@ resolve_calls(rx_parser *p, int root)
   }
 }
 
+/* \k<n>, \k<-n>, \k<name> (or in quotes) after the `\k` was seen, or
+ * num > 0 for \1..\9 and the digits after: a backreference, resolved
+ * once all groups are known. A bare \k is a k, as in Ruby. */
+static int
+parse_backref(rx_parser *p, int num)
+{
+  if (num > 0) {
+    /* As in Onigmo: \n is a backreference when n is at most 9 or at
+     * most the groups opened so far. Otherwise \1 to \7 start an octal
+     * escape of up to three digits, \8 and \9 stand for the digit, and
+     * the digits after either are literal: \1012 is \101 then 2. */
+    size_t first_at = p->pos - 1;
+    while (!at_end(p) && p->src[p->pos] >= '0' && p->src[p->pos] <= '9') {
+      if (num < 100000) num = num * 10 + (p->src[p->pos] - '0');
+      p->pos++;
+    }
+    if (num <= 9 || num < p->ngroups) {
+      p->nbrefs++;
+      return node_new(p, N_BREF, p->flags, 0, num, -1);
+    }
+    p->pos = first_at + 1;
+    uint8_t first = p->src[first_at];
+    if (first >= '8') return node_new(p, N_CHAR, 0, 0, first, p->flags);
+    uint32_t v = octal_escape(p, first);
+    if (p->err) return 0;
+    return node_new(p, N_CHAR, 0, 0, (int32_t)v, p->flags);
+  }
+  if (at_end(p) || (p->src[p->pos] != '<' && p->src[p->pos] != '\'')) {
+    return node_new(p, N_CHAR, 0, 0, 'k', p->flags);
+  }
+  uint8_t close = p->src[p->pos] == '<' ? '>' : '\'';
+  size_t start = ++p->pos;
+  while (p->pos < p->len && p->src[p->pos] != close) p->pos++;
+  if (at_end(p)) { perr(p, "unterminated group name"); return 0; }
+  size_t n = p->pos - start;
+  p->pos++;
+  const uint8_t *s = p->src + start;
+  size_t i = 0;
+  int sign = 0;
+  p->nbrefs++;
+  if (n > 0 && s[0] == '-') { sign = -1; i = 1; }
+  if (i < n && s[i] >= '0' && s[i] <= '9') {
+    int v = 0;
+    for (; i < n; i++) {
+      if (s[i] < '0' || s[i] > '9') { perr(p, "invalid backref number/name"); return 0; }
+      v = v * 10 + (s[i] - '0');
+      if (v > RX_MAX_GROUPS) { perr(p, "invalid backref number/name"); return 0; }
+    }
+    /* relative to the groups opened so far */
+    if (sign < 0) v = p->ngroups - v;
+    if (v <= 0) { perr(p, "invalid backref number/name"); return 0; }
+    p->ncall_numbered++;
+    return node_new(p, N_BREF, p->flags, 0, v, -1);
+  }
+  if (sign || n == 0 || n > RX_MAX_NAME_LEN) { perr(p, "invalid backref number/name"); return 0; }
+  return node_new(p, N_BREF, p->flags, (int32_t)n, 0, (int32_t)start);
+}
+
+/* Point every backreference at the group number it names, once the
+ * groups are numbered. As with calls, a pattern with named groups
+ * refers to them by name only. */
+static void
+resolve_brefs(rx_parser *p)
+{
+  for (int i = 0; i < p->nnodes && !p->err; i++) {
+    rx_node *nd = &p->nodes[i];
+    if (nd->t != N_BREF) continue;
+    int idx = nd->x;
+    if (nd->b > 0) {
+      idx = -1;
+      for (int e = 0; e < p->nnames; e += 2 + p->names[e + 1]) {
+        if (p->names[e + 1] == nd->b &&
+            memcmp(p->names + e + 2, p->src + nd->y, (size_t)nd->b) == 0) {
+          idx = p->names[e];
+          break;
+        }
+      }
+      if (idx < 0) { perr(p, "undefined name reference"); return; }
+    } else if (p->nnamed) {
+      perr(p, "numbered backref/call is not allowed (use name)");
+      return;
+    }
+    if (idx <= 0 || idx >= p->ngroups) { perr(p, "invalid backref number/name"); return; }
+    nd->x = idx;
+  }
+}
+
 static int
 parse_atom(rx_parser *p, int depth)
 {
@@ -888,8 +1208,8 @@ parse_atom(rx_parser *p, int depth)
   case ')': perr(p, "unmatched )"); return 0;
   case '[': return node_new(p, N_CLASS, 0, 0, parse_class(p), p->flags);
   case '.': return node_new(p, N_ANY, 0, 0, 0, p->flags);
-  case '^': return node_new(p, N_BOL, 0, 0, 0, 0);
-  case '$': return node_new(p, N_EOL, 0, 0, 0, 0);
+  case '^': return node_new(p, N_BOL, 0, 0, RX_AT_LINE_BEGIN, 0);
+  case '$': return node_new(p, N_EOL, 0, 0, RX_AT_LINE_END, 0);
   case '*': case '+': case '?': perr(p, "nothing to repeat"); return 0;
   case '{': return node_new(p, N_CHAR, 0, 0, '{', p->flags);
   case '\\': {
@@ -897,8 +1217,10 @@ parse_atom(rx_parser *p, int depth)
     uint32_t e = next(p);
     uint32_t lit;
     switch (e) {
-    case 'A': return node_new(p, N_BOL, 0, 0, 0, 0);
-    case 'z': case 'Z': return node_new(p, N_EOL, 0, 0, 0, 0);
+    case 'A': return node_new(p, N_BOL, 0, 0, RX_AT_BEGIN, 0);
+    case 'G': return node_new(p, N_BOL, 0, 0, RX_AT_SEARCH, 0);
+    case 'z': return node_new(p, N_EOL, 0, 0, RX_AT_END, 0);
+    case 'Z': return node_new(p, N_EOL, 0, 0, RX_AT_END_NL, 0);
     case 'b': return node_new(p, N_WORDB, 0, 0, 0, 0);
     case 'B': return node_new(p, N_NWORDB, 0, 0, 0, 0);
     case 'd': case 'w': case 's': case 'h': {
@@ -908,15 +1230,27 @@ parse_atom(rx_parser *p, int depth)
     }
     case 'D': case 'W': case 'S': case 'H':
       return node_new(p, N_CLASS, 0, 0, negated_escape_class(p, e + 32), p->flags);
+    case 'p': case 'P': {
+      int off = class_begin(p, false);
+      class_property(p, off, e == 'P');
+      if (p->err) return 0;
+      return node_new(p, N_CLASS, 0, 0, off, p->flags);
+    }
     case 'x': case 'u':
       if (!code_escape(p, e, &lit)) return 0;
       return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
     case 'g':
       return parse_call(p);
+    case '0':
+      lit = octal_escape(p, e);
+      if (p->err) return 0;
+      return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
+    case 'k':
+      return parse_backref(p, 0);
     default:
       if (literal_escape(e, &lit)) return node_new(p, N_CHAR, 0, 0, (int32_t)lit, p->flags);
-      if (e >= '1' && e <= '9') perr(p, "backreferences are not supported");
-      else perr(p, "unsupported escape");
+      if (e >= '1' && e <= '9') return parse_backref(p, (int)(e - '0'));
+      perr(p, "unsupported escape");
       return 0;
     }
   }
@@ -1256,10 +1590,11 @@ gen_node(rx_gen *g, const rx_parser *p, int n)
     case N_CHAR:  emit(g, OP_CHAR, (uint32_t)nd->x, (uint32_t)nd->y); break;
     case N_ANY:   emit(g, OP_ANY, 0, (uint32_t)nd->y); break;
     case N_CLASS: emit(g, OP_CLASS, (uint32_t)nd->x, (uint32_t)nd->y); break;
-    case N_BOL:   emit(g, OP_BOL, 0, 0); break;
-    case N_EOL:   emit(g, OP_EOL, 0, 0); break;
+    case N_BOL:   emit(g, OP_BOL, (uint32_t)nd->x, 0); break;
+    case N_EOL:   emit(g, OP_EOL, (uint32_t)nd->x, 0); break;
     case N_WORDB: emit(g, OP_WORDB, 0, 0); break;
     case N_NWORDB: emit(g, OP_NWORDB, 0, 0); break;
+    case N_BREF:  emit(g, OP_BREF, (uint32_t)nd->x, (uint32_t)nd->a); break;
     case N_GROUP:
       /* A copy of the group inside itself (a recursive \g<n>) ends
        * before the enclosing one, whose span CRuby reports: the copy
@@ -1354,6 +1689,7 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
   }
   if (!p.err && p.nnamed) renumber_groups(&p);
   if (!p.err) resolve_calls(&p, root);
+  if (!p.err && p.nbrefs) resolve_brefs(&p);
 
   rx_gen g;
   memset(&g, 0, sizeof g);
@@ -1410,6 +1746,11 @@ regex_compile_words(const uint8_t *src, size_t len, int flags,
     prog[H_LOOK_DEPTH] = (uint32_t)g.look_depth_max;
     prog[H_ANCHORED] = starts_with_bol(&p, root) ? 1u : 0u;
     prog[H_NAMES_OFF] = 0;
+    prog[H_BACKTRACK] = 0;
+    /* a pattern with a backreference runs on the backtracker */
+    for (int i = 0; i < p.nnodes; i++) {
+      if (p.nodes[i].t == N_BREF) { prog[H_BACKTRACK] = 1; break; }
+    }
     memcpy(prog + H_WORDS, g.code, 3 * (size_t)g.ninst * sizeof(uint32_t));
     /* a pattern without a class never allocated p.cls */
     if (p.ncls) {
@@ -1481,9 +1822,27 @@ typedef struct {
   uint32_t *err;    /* scratch[0], RX_ERR_* */
   const uint8_t *s;
   size_t len;
+  size_t start;         /* where the search began: \G */
   uint32_t *scratch;
   size_t level_words;   /* scratch words per level */
 } rx_shared;
+
+/* Does the anchor of kind at (an RX_AT_*) hold at pos? */
+static bool
+anchor_holds(const rx_shared *sh, uint32_t at, size_t pos)
+{
+  switch (at) {
+  /* not after a newline that ends the string, as in Ruby */
+  case RX_AT_LINE_BEGIN: return pos == 0 || (pos < sh->len && sh->s[pos - 1] == '\n');
+  case RX_AT_BEGIN:      return pos == 0;
+  case RX_AT_SEARCH:     return pos == sh->start;
+  case RX_AT_LINE_END:   return pos == sh->len || sh->s[pos] == '\n';
+  case RX_AT_END:        return pos == sh->len;
+  case RX_AT_END_NL:
+    return pos == sh->len || (pos + 1 == sh->len && sh->s[pos] == '\n');
+  default:               return false;
+  }
+}
 
 /* one level: the main run or one lookaround sub-match */
 typedef struct {
@@ -1620,10 +1979,8 @@ addthread(rx_vm *vm, rx_list *l, uint32_t pc0, size_t pos)
       *sp++ = pc + 1; *sp++ = RX_EXPLORE;
       break;
     case OP_BOL:
-      if (pos == 0) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
-      break;
     case OP_EOL:
-      if (pos == sh->len) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
+      if (anchor_holds(sh, i[1], pos)) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
       break;
     case OP_WORDB:
       if (at_word_boundary(sh, pos)) { *sp++ = pc + 1; *sp++ = RX_EXPLORE; }
@@ -1683,6 +2040,12 @@ level_words(size_t ninst, size_t nsave, size_t nlook)
 size_t
 regex_scratch_words(const uint32_t *prog)
 {
+  if (prog[H_BACKTRACK]) {
+    /* the error word, the work caps, a position per instruction and
+     * the caps each lookaround level reports */
+    return 1 + (size_t)prog[H_NSAVE] + (size_t)prog[H_NINST] +
+           (size_t)prog[H_NSAVE] * (1 + (size_t)prog[H_LOOK_DEPTH]);
+  }
   return 1 + level_words(prog[H_NINST], prog[H_NSAVE], prog[H_NLOOK]) *
              (1 + (size_t)prog[H_LOOK_DEPTH]);
 }
@@ -1786,6 +2149,267 @@ run(const rx_shared *sh, int depth, uint32_t pc0, size_t start, size_t end_at,
   return matched;
 }
 
+/* ---- the backtracker ----
+ * A pattern with a backreference runs here: the program is walked
+ * depth first, the preferred branch of a SPLIT before the other, which
+ * is the order the Pike VM's priorities stand for, so a pattern gets
+ * the same match from either. The stack holds what to undo on the way
+ * back: a branch still to try (a pc and a position), a capture slot or
+ * a SPLIT's last position to put back. It lives in memory from
+ * regex_realloc, grows to RX_BT_MAX_STACK entries, and is freed before
+ * the search returns.
+ *
+ * A loop around something that can match empty would go round for
+ * ever: a SPLIT entered again at the position it was last entered at
+ * on the same path fails instead, which is where the Pike VM drops the
+ * thread. A lookaround body runs as a nested search, one C level per
+ * lookaround nesting, as in the Pike VM. A search that takes more than
+ * RX_BT_MAX_STEPS steps, or runs out of stack or memory, stops with no
+ * match and an error that regex_exec_error reports. */
+
+enum { RX_BT_BRANCH, RX_BT_CAP, RX_BT_VISIT };
+
+typedef struct {
+  const rx_shared *sh;
+  int32_t *work;    /* nsave */
+  int32_t *visit;   /* per instruction: where a SPLIT was last entered */
+  int32_t *lout;    /* nsave per lookaround level */
+  uint32_t *stk;    /* 3 words per entry */
+  size_t sp, cap;
+  uint32_t steps;
+  uint32_t err;
+} rx_bt;
+
+static bool
+bt_push(rx_bt *bt, uint32_t type, uint32_t a, uint32_t b)
+{
+  if (bt->sp == bt->cap) {
+    if (bt->cap >= RX_BT_MAX_STACK) { bt->err = RX_ERR_LIMIT; return false; }
+    size_t cap = bt->cap ? 2 * bt->cap : 64;
+    if (cap > RX_BT_MAX_STACK) cap = RX_BT_MAX_STACK;
+    uint32_t *n = regex_realloc(bt->stk, 3 * cap * sizeof(uint32_t));
+    if (!n) { bt->err = RX_ERR_NOMEM; return false; }
+    bt->stk = n;
+    bt->cap = cap;
+  }
+  uint32_t *e = bt->stk + 3 * bt->sp++;
+  e[0] = type; e[1] = a; e[2] = b;
+  return true;
+}
+
+/* Pop back to base, undoing captures and SPLIT positions on the way,
+ * up to the first branch above base. Returns false when there is none:
+ * then everything above base is undone. */
+static bool
+bt_backtrack(rx_bt *bt, size_t base, uint32_t *pc, size_t *pos)
+{
+  while (bt->sp > base) {
+    uint32_t *e = bt->stk + 3 * --bt->sp;
+    switch (e[0]) {
+    case RX_BT_CAP: bt->work[e[1]] = (int32_t)e[2]; break;
+    case RX_BT_VISIT: bt->visit[e[1]] = (int32_t)e[2]; break;
+    default: *pc = e[1]; *pos = e[2]; return true;
+    }
+  }
+  return false;
+}
+
+/* undo everything above base */
+static void
+bt_unwind(rx_bt *bt, size_t base)
+{
+  uint32_t pc;
+  size_t pos;
+  while (bt_backtrack(bt, base, &pc, &pos)) {}
+}
+
+/* Does the text of group g, as the work caps hold it, occur at pos?
+ * *w is its length. An unset group matches nothing, as in Ruby. */
+static bool
+bt_bref(const rx_bt *bt, uint32_t g, uint32_t flags, size_t pos, size_t *w)
+{
+  const rx_shared *sh = bt->sh;
+  int32_t b = bt->work[2 * g], e = bt->work[2 * g + 1];
+  if (b < 0 || e < 0 || e < b) return false;
+  size_t n = (size_t)(e - b);
+  if (!(flags & RX_ICASE)) {
+    if (pos + n > sh->len || memcmp(sh->s + pos, sh->s + b, n) != 0) return false;
+    *w = n;
+    return true;
+  }
+  size_t i = (size_t)b, j = pos;
+  while (i < (size_t)e) {
+    if (j >= sh->len) return false;
+    int wi, wj;
+    uint32_t ci = utf8_decode(sh->s + i, (size_t)e - i, &wi);
+    uint32_t cj = utf8_decode(sh->s + j, sh->len - j, &wj);
+    if (ci != cj && fold(ci) != fold(cj)) return false;
+    i += (size_t)wi;
+    j += (size_t)wj;
+  }
+  *w = j - pos;
+  return true;
+}
+
+static int bt_match(rx_bt *bt, int depth, uint32_t pc, size_t pos, size_t end_at);
+
+/* The test of a LOOK at pos, as look_test makes it: 1, 0, or -1 on an
+ * error. A positive body with groups leaves its captures in the lout
+ * of this level; the work caps are as they were. */
+static int
+bt_look(rx_bt *bt, int depth, const uint32_t *i, size_t pos)
+{
+  const rx_shared *sh = bt->sh;
+  uint32_t body = i[1], y = i[2];
+  bool neg = (y & RX_LOOK_NEG) != 0;
+  int32_t *lout = bt->lout + (size_t)depth * (size_t)sh->nsave;
+  size_t base = bt->sp;
+  int r;
+  if (y & RX_LOOK_BEHIND) {
+    size_t from = back_chars(sh->s, pos, y >> RX_LOOK_SHIFT);
+    for (;;) {
+      r = bt_match(bt, depth + 1, body, from, pos);
+      if (r != 0 || from >= pos) break;
+      int w;
+      utf8_decode(sh->s + from, sh->len - from, &w);
+      from += (size_t)w;
+    }
+  } else {
+    r = bt_match(bt, depth + 1, body, pos, RX_ANY_END);
+  }
+  if (r < 0) return -1;
+  if (r) {
+    memcpy(lout, bt->work, (size_t)sh->nsave * sizeof(int32_t));
+    bt_unwind(bt, base);
+  }
+  return (r != 0) != neg;
+}
+
+/* One attempt from pc at pos: 1 on a MATCH (or an LMATCH at end_at)
+ * with the work caps set and the stack left as it is, 0 with all of it
+ * undone, -1 on an error. */
+static int
+bt_match(rx_bt *bt, int depth, uint32_t pc, size_t pos, size_t end_at)
+{
+  const rx_shared *sh = bt->sh;
+  size_t base = bt->sp;
+  for (;;) {
+    if (++bt->steps > RX_BT_MAX_STEPS) { bt->err = RX_ERR_LIMIT; return -1; }
+    const uint32_t *i = sh->code + 3 * pc;
+    bool ok = true;
+    uint32_t c = 0;
+    int w = 0;
+    switch (i[0]) {
+    case OP_CHAR:
+      if (pos < sh->len) c = utf8_decode(sh->s + pos, sh->len - pos, &w);
+      ok = pos < sh->len && (c == i[1] || ((i[2] & RX_ICASE) && fold(c) == fold(i[1])));
+      if (ok) { pos += (size_t)w; pc++; continue; }
+      break;
+    case OP_ANY:
+      if (pos < sh->len) c = utf8_decode(sh->s + pos, sh->len - pos, &w);
+      ok = pos < sh->len && ((i[2] & RX_DOTALL) || c != '\n');
+      if (ok) { pos += (size_t)w; pc++; continue; }
+      break;
+    case OP_CLASS:
+      if (pos < sh->len) c = utf8_decode(sh->s + pos, sh->len - pos, &w);
+      ok = pos < sh->len && class_match(sh, i[1], i[2], c);
+      if (ok) { pos += (size_t)w; pc++; continue; }
+      break;
+    case OP_BREF: {
+      size_t n;
+      ok = bt_bref(bt, i[1], i[2], pos, &n);
+      if (ok) { pos += n; pc++; continue; }
+      break;
+    }
+    case OP_SPLIT:
+      if (bt->visit[pc] == (int32_t)pos) { ok = false; break; }
+      if (!bt_push(bt, RX_BT_VISIT, pc, (uint32_t)bt->visit[pc]) ||
+          !bt_push(bt, RX_BT_BRANCH, i[2], (uint32_t)pos)) return -1;
+      bt->visit[pc] = (int32_t)pos;
+      pc = i[1];
+      continue;
+    case OP_JMP:
+      pc = i[1];
+      continue;
+    case OP_SAVE:
+      if (!bt_push(bt, RX_BT_CAP, i[1], (uint32_t)bt->work[i[1]])) return -1;
+      bt->work[i[1]] = (int32_t)pos;
+      pc++;
+      continue;
+    case OP_BOL:
+    case OP_EOL:    ok = anchor_holds(sh, i[1], pos); break;
+    case OP_WORDB:  ok = at_word_boundary(sh, pos); break;
+    case OP_NWORDB: ok = !at_word_boundary(sh, pos); break;
+    case OP_LOOK: {
+      int r = bt_look(bt, depth, i, pos);
+      if (r < 0) return -1;
+      ok = r != 0;
+      if (ok && !(i[2] & RX_LOOK_NEG) && (i[2] & RX_LOOK_CAPS)) {
+        int32_t *lout = bt->lout + (size_t)depth * (size_t)sh->nsave;
+        for (int k = 0; k < sh->nsave; k++) {
+          if (lout[k] == bt->work[k]) continue;
+          if (!bt_push(bt, RX_BT_CAP, (uint32_t)k, (uint32_t)bt->work[k])) return -1;
+          bt->work[k] = lout[k];
+        }
+      }
+      break;
+    }
+    case OP_LMATCH:
+      if (end_at != RX_ANY_END && pos != end_at) { ok = false; break; }
+      return 1;
+    case OP_MATCH:
+      return 1;
+    case OP_DEEP:
+      /* a recursive call went deeper than it was unrolled; this path
+       * comes before any match still to be found, so none would be
+       * the right one */
+      bt->err = RX_ERR_DEEP;
+      return -1;
+    default:
+      ok = false;
+      break;
+    }
+    if (ok) { pc++; continue; }
+    if (!bt_backtrack(bt, base, &pc, &pos)) return 0;
+  }
+}
+
+static bool
+bt_exec(const rx_shared *sh, const uint32_t *prog, size_t start, int32_t *out,
+        uint32_t *scratch)
+{
+  rx_bt bt;
+  bt.sh = sh;
+  bt.work = (int32_t *)(scratch + 1);
+  bt.visit = bt.work + sh->nsave;
+  bt.lout = bt.visit + sh->ninst;
+  bt.stk = NULL;
+  bt.sp = bt.cap = 0;
+  bt.steps = 0;
+  bt.err = RX_ERR_NONE;
+  for (int k = 0; k < sh->ninst; k++) bt.visit[k] = -1;
+  bool anchored = prog[H_ANCHORED] != 0;
+  bool hit = false;
+  size_t pos = start;
+  for (;;) {
+    for (int k = 0; k < sh->nsave; k++) bt.work[k] = -1;
+    int r = bt_match(&bt, 0, 0, pos, RX_ANY_END);
+    if (r < 0) break;
+    if (r) {
+      memcpy(out, bt.work, (size_t)sh->nsave * sizeof(int32_t));
+      hit = true;
+      break;
+    }
+    if (anchored || pos >= sh->len) break;
+    int w;
+    utf8_decode(sh->s + pos, sh->len - pos, &w);
+    pos += (size_t)w;
+  }
+  regex_free(bt.stk);
+  scratch[0] = bt.err;
+  return hit;
+}
+
 /* Leftmost-first search from byte offset start. On a match, out[]
  * (nsave slots) holds the capture positions, -1 where a group did
  * not take part. first_only stops at the first thread that reaches
@@ -1810,10 +2434,12 @@ regex_exec(const uint32_t *prog, const uint8_t *s, size_t len, size_t start,
   sh.nlook = (int)prog[H_NLOOK];
   sh.s = s;
   sh.len = len;
+  sh.start = start;
   sh.err = scratch;
   *sh.err = 0;
   sh.scratch = scratch + 1;
   sh.level_words = level_words(prog[H_NINST], prog[H_NSAVE], prog[H_NLOOK]);
+  if (prog[H_BACKTRACK]) return bt_exec(&sh, prog, start, out, scratch);
   /* every thread of the main run starts with no group set */
   int32_t init[2 * RX_MAX_GROUPS];
   for (int k = 0; k < sh.nsave; k++) init[k] = -1;
@@ -1832,6 +2458,8 @@ regex_exec_error(const uint32_t *prog, const uint32_t *scratch)
   (void)prog;
   switch (scratch[0]) {
   case RX_ERR_DEEP: return "subexpression call nested too deep";
+  case RX_ERR_LIMIT: return "backtracking limit exceeded";
+  case RX_ERR_NOMEM: return "out of memory";
   default: return NULL;
   }
 }

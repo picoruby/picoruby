@@ -13,7 +13,7 @@ class RegexpSliceBangTest < Picotest::Test
 
   def test_slice_bang_regexp_anchored
     s = "\xEF\xBB\xBFrun App"
-    s.slice!(Regexp.new("\\A\xEF\xBB\xBF"))
+    s.slice!(/\A\xEF\xBB\xBF/)
     assert_equal "run App", s
   end
 

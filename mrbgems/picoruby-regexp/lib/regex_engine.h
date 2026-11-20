@@ -53,16 +53,20 @@ size_t regex_scratch_words(const uint32_t *prog);
  * positions are then not the leftmost-first ones. scratch is
  * regex_scratch_words(prog) words; its content on entry does not
  * matter, and its first word then holds what regex_exec_error reports.
- * The VM allocates nothing. It recurses only to test a
- * lookaround, one level per nesting depth, at most 4 deep. */
+ * The VM allocates nothing. It recurses only to test a lookaround, one
+ * level per nesting depth, at most 4 deep. A pattern with a
+ * backreference runs on a backtracker instead: that one takes its
+ * stack from regex_realloc (freed before it returns) and nests a C
+ * call per lookaround level. */
 bool regex_exec(const uint32_t *prog, const uint8_t *s, size_t len,
                    size_t start, int32_t *out, bool first_only,
                    uint32_t *scratch);
 
 /* Why the last regex_exec of prog on scratch found no match, when it
- * could not give the right answer: a recursive subexpression call
- * that the input nests deeper than the program unrolls it. NULL when
- * the search simply did not match. */
+ * could not give the right answer: a recursive subexpression call that
+ * the input nests deeper than the program unrolls it, or a
+ * backtracking search that passed its step or stack limit or ran out
+ * of memory. NULL when the search simply did not match. */
 const char *regex_exec_error(const uint32_t *prog, const uint32_t *scratch);
 
 #endif /* REGEX_ENGINE_H */
