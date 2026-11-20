@@ -1,8 +1,8 @@
 # picoruby-regexp
 
-Regular expressions for PicoRuby and FemtoRuby. The gem carries a regex engine
-imported from its upstream repository: two files, `lib/regex_engine.c` and
-`lib/regex_engine.h`. The bindings for mruby and mruby/c live in `src/`.
+Regular expressions for PicoRuby and FemtoRuby. The regex engine is two files,
+`lib/regex_engine.c` and `lib/regex_engine.h`. The bindings for mruby and
+mruby/c live in `src/`.
 
 ## The engine
 
@@ -170,17 +170,12 @@ end
 # => :date
 ```
 
-## Updating the engine
+## Changing the engine
 
-Run the import script with the upstream runtime directory:
+Edit `lib/regex_engine.c` and `lib/regex_engine.h` in this gem. They are the
+master copy of the engine. Another project can carry the two files as they
+are, because they depend on the C library only. Keep them free of PicoRuby
+names for that reason.
 
-```
-ruby lib/import.rb <upstream runtime directory>
-```
-
-The script writes `lib/regex_engine.c` and `lib/regex_engine.h`. It drops the
-upstream class glue, renames the public identifiers to the `regex_` prefix and
-rewrites the comments that describe the upstream runtime. It fails when a
-name of the upstream project survives. Do not edit the two files by hand. The
-engine calls `regex_malloc`, `regex_realloc` and `regex_free`, which
-`src/regexp.c` supplies.
+The engine calls `regex_malloc`, `regex_realloc` and `regex_free`. The host
+defines them: `src/mruby/regexp.c` and `src/mrubyc/regexp.c` do it here.

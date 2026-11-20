@@ -13,8 +13,10 @@
 
 /*
  * Regexp: a data object holding the compiled program and a scratch
- * block for the VM, sized once at compile time so a match allocates
- * nothing. The pattern text is the ivar @source, which the GC marks.
+ * block for the VM, sized once at compile time, so a match on the Pike
+ * VM allocates nothing (the backtracker of a pattern with a
+ * backreference does). The pattern text is the ivar @source, which
+ * the GC marks.
  *
  * MatchData: a data object holding the capture positions as byte
  * offsets, with the frozen subject as @string and the Regexp as

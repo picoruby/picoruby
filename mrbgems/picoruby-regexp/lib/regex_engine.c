@@ -1,11 +1,16 @@
-/* regex_engine.c -- the regex engine of the corelib (spec 10.5).
+/* regex_engine.c -- a regex engine on a Pike VM.
+ *
+ * This file and regex_engine.h depend on the C library only, so a
+ * project can carry them as they are; the host supplies the three
+ * allocator names below.
  *
  * A pattern compiles to a small program; the program runs on a Pike
  * VM (Thompson NFA simulation carrying capture positions). The
  * choice is the whole point: matching costs O(input x program) in
- * time and O(program) in memory, with no recursion anywhere, so a
- * regex can never blow the task stack or hold the cooperative
- * scheduler hostage the way a backtracking engine does on (a*)*b.
+ * time and O(program) in memory, with no recursion but the bounded
+ * one of lookaround (below), so a regex can never blow the task stack
+ * or hold the cooperative scheduler hostage the way a backtracking
+ * engine does on (a*)*b.
  * Backreferences (\1, \k<name>) are the exception: no automaton can
  * match them, so a pattern that has one runs on a backtracker over the
  * same program instead (see "the backtracker" below). Only those
@@ -49,16 +54,17 @@
  * nesting (capped at 64): concatenation and alternation are
  * right-leaning chains that gen() walks in a loop, and a counted
  * repeat patches its splits through a chain threaded in the code
- * itself, so no frame holds an array. The VM allocates nothing: the
- * caller hands regex_exec a scratch block sized by
- * regex_scratch_words, which a scan or gsub loop allocates once.
- * Every allocation the compiler makes is checked; a failure is the
- * compile error "out of memory".
+ * itself, so no frame holds an array. The Pike VM allocates nothing:
+ * the caller hands regex_exec a scratch block sized by
+ * regex_scratch_words, which a scan or gsub loop allocates once. The
+ * backtracker grows its stack through regex_realloc and frees it
+ * before regex_exec returns. Every allocation the compiler makes is
+ * checked; a failure is the compile error "out of memory".
  *
  * The program is a flat array of words that the host keeps with its
  * Regexp object. Nothing here holds a value across calls.
  *
- * Text is validated UTF-8 (spec 10.2): the VM steps one codepoint at
+ * Text is validated UTF-8: the VM steps one codepoint at
  * a time, so `.` and a class consume a whole character, and every
  * position it reports is a byte offset into the subject, which is
  * what byteslice wants.
@@ -70,8 +76,9 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-/* The compiler reaches the host allocator through these three names,
- * which the host defines. The VM allocates nothing. */
+/* The compiler and the backtracker reach the host allocator through
+ * these three names, which the host defines. The Pike VM allocates
+ * nothing. */
 void *regex_malloc(size_t n);
 void *regex_realloc(void *p, size_t n);
 void regex_free(void *p);
@@ -975,11 +982,13 @@ parse_group_name(rx_parser *p, uint8_t close)
 static void
 renumber_groups(rx_parser *p)
 {
-  int map[256];   /* group numbers as parsed, up to 254 */
+  /* parsed group number (up to 254) -> new one (up to RX_MAX_GROUPS,
+   * so a byte); bytes keep the frame small where this is inlined */
+  uint8_t map[256];
   int next_idx = 1;
   memset(map, 0, sizeof map);
   for (int i = 0; i < p->nnames; i += 2 + p->names[i + 1]) {
-    map[p->names[i]] = next_idx;
+    map[p->names[i]] = (uint8_t)next_idx;
     p->names[i] = (uint8_t)next_idx++;
   }
   for (int i = 0; i < p->nnodes; i++) {

@@ -1,9 +1,10 @@
 /* regex_engine.h -- the regex engine's seam.
  *
  * The host compiles a pattern with regex_compile_words and runs the
- * program with regex_exec. The compiler's only need is regex_malloc,
- * regex_realloc and regex_free, which the host supplies; the VM needs
- * nothing. This header depends on the C library only. */
+ * program with regex_exec. The compiler and the backtracker need
+ * regex_malloc, regex_realloc and regex_free, which the host supplies;
+ * the Pike VM needs nothing. This header depends on the C library
+ * only. */
 #ifndef REGEX_ENGINE_H
 #define REGEX_ENGINE_H
 
@@ -53,8 +54,8 @@ size_t regex_scratch_words(const uint32_t *prog);
  * positions are then not the leftmost-first ones. scratch is
  * regex_scratch_words(prog) words; its content on entry does not
  * matter, and its first word then holds what regex_exec_error reports.
- * The VM allocates nothing. It recurses only to test a lookaround, one
- * level per nesting depth, at most 4 deep. A pattern with a
+ * The Pike VM allocates nothing. It recurses only to test a
+ * lookaround, one level per nesting depth, at most 4 deep. A pattern with a
  * backreference runs on a backtracker instead: that one takes its
  * stack from regex_realloc (freed before it returns) and nests a C
  * call per lookaround level. */

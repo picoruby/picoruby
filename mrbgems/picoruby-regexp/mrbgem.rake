@@ -14,10 +14,9 @@ MRuby::Gem::Specification.new('picoruby-regexp') do |spec|
     spec.add_dependency 'mruby-string-ext', gemdir: "#{MRUBY_ROOT}/mrbgems/picoruby-mruby/lib/mruby/mrbgems/mruby-string-ext"
   end
 
-  # lib/regex_engine.c and regex_engine.h come from the upstream
-  # repository through lib/import.rb. The engine needs only regex_malloc,
-  # regex_realloc and regex_free, which src/regexp.c supplies over the
-  # VM allocator.
+  # lib/regex_engine.c and regex_engine.h are the engine. It needs only
+  # regex_malloc, regex_realloc and regex_free, which src/*/regexp.c
+  # supplies over the VM allocator.
   spec.cc.include_paths << "#{dir}/lib"
 
   engine = "#{dir}/lib/regex_engine.c"

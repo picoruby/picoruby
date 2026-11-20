@@ -5,8 +5,9 @@
 
 /*
  * Regexp: instance->data holds picorb_regexp: the compiled program,
- * a scratch block for the VM sized once at compile time so a match
- * allocates nothing, the option bits and the pattern text (a String,
+ * a scratch block for the VM sized once at compile time (so a match
+ * on the Pike VM allocates nothing; the backtracker of a pattern with
+ * a backreference does), the option bits and the pattern text (a String,
  * ref-counted). The destructor frees the program and the scratch and
  * releases the text.
  *
@@ -33,8 +34,9 @@ static mrbc_class *class_Regexp;
 static mrbc_class *class_MatchData;
 static mrbc_class *class_RegexpError;
 
-/* The engine's compiler allocates through these names; mruby/c's
- * allocator has no VM argument. The VM allocates nothing. */
+/* The engine's compiler and its backtracker allocate through these
+ * names; mruby/c's allocator has no VM argument. The Pike VM allocates
+ * nothing. */
 void *
 regex_malloc(size_t n)
 {
