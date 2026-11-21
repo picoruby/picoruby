@@ -1,16 +1,26 @@
 #include <picoruby.h>
 #include <mruby/proc.h>
+#include <mruby/array.h>
 #include <mruby/data.h>
 #include <task.h>
 #include <mrc_debug.h>
 
-MRC_API void
-mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
+// Interns a name for the irep tree being resolved, and keeps the symbol in
+// `keep` until the whole tree is done. Until then no proc holds the tree, so
+// symbol GC, which a later intern can start, would free the names already
+// interned.
+static picorb_sym
+intern_kept(mrc_ccontext *cc, mrb_value keep, pm_constant_t *constant)
+{
+  mrb_sym sym = mrb_intern(cc->mrb, (const char *)constant->start, constant->length);
+  mrb_ary_push(cc->mrb, keep, mrb_symbol_value(sym));
+  return sym;
+}
+
+static void
+resolve_intern(mrc_ccontext *cc, mrc_irep *irep, mrb_value keep)
 {
   pm_constant_pool_t *constant_pool = &cc->p->constant_pool;
-  if (constant_pool->constants == NULL) {
-    return;
-  }
 
   // Symbols
   if (0 < irep->slen) {
@@ -22,9 +32,7 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
         continue;
       }
       pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
-      const char *lit = (const char *)constant->start;
-      size_t len = constant->length;
-      new_syms[i] = mrb_intern(cc->mrb, lit, len);
+      new_syms[i] = intern_kept(cc, keep, constant);
     }
     mrc_free(cc, (mrc_sym *)irep->syms); // discard const
     irep->syms = new_syms;
@@ -42,9 +50,7 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
         continue;
       }
       pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, sym);
-      const char *lit = (const char *)constant->start;
-      size_t len = constant->length;
-      new_lv[i] = mrb_intern(cc->mrb, lit, len);
+      new_lv[i] = intern_kept(cc, keep, constant);
     }
     mrc_free(cc, (mrc_sym *)irep->lv); // discard const
     irep->lv = new_lv;
@@ -55,15 +61,24 @@ mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
     for (int i = 0; i < irep->debug_info->flen; i++) {
       mrc_irep_debug_info_file *file = irep->debug_info->files[i];
       pm_constant_t *constant = pm_constant_pool_id_to_constant(constant_pool, file->filename_sym);
-      const char *lit = (const char *)constant->start;
-      size_t len = constant->length;
-      file->filename_sym = (mrc_sym)mrb_intern(cc->mrb, lit, len);
+      file->filename_sym = (mrc_sym)intern_kept(cc, keep, constant);
     }
   }
 
   for (int i = 0; i < irep->rlen; i++) {
-    mrc_resolve_intern(cc, (mrc_irep *)irep->reps[i]);
+    resolve_intern(cc, (mrc_irep *)irep->reps[i], keep);
   }
+}
+
+MRC_API void
+mrc_resolve_intern(mrc_ccontext *cc, mrc_irep *irep)
+{
+  if (cc->p->constant_pool.constants == NULL) {
+    return;
+  }
+  int ai = mrb_gc_arena_save(cc->mrb);
+  resolve_intern(cc, irep, mrb_ary_new(cc->mrb));
+  mrb_gc_arena_restore(cc->mrb, ai);
 }
 
 MRC_API mrb_value
