@@ -6,6 +6,15 @@ module MRuby
   end
 
   class Build
+    # Basenames in picoruby-shell/shell_executables to leave out of the
+    # image, for a board that has no use for them. Each one otherwise
+    # takes flash for its bytecode and a 4 KB block on the board's disk.
+    attr_writer :shell_executables_exclude
+
+    def shell_executables_exclude
+      @shell_executables_exclude || []
+    end
+
     # Override
     def build_mrbc_exec
       gem core: 'mruby-compiler' unless @gems['mruby-compiler']
