@@ -57,6 +57,21 @@ struct mrb_data_type mrb_sandbox_state_type = {
 #define SS() \
   SandboxState *ss = (SandboxState *)mrb_data_get_ptr(mrb, self, &mrb_sandbox_state_type)
 
+/* Keeps a proc of the compiled irep in a hidden instance variable until the
+   next compile. Symbol GC finds the symbols of an irep only through the procs
+   that hold it, and between Sandbox#compile and Sandbox#execute (or #run_inline)
+   only ss->irep does: Ruby code run in between could start symbol GC, which
+   would free the names the irep uses. */
+static void
+sandbox_hold_irep(mrb_state *mrb, mrb_value self, SandboxState *ss)
+{
+  mrb_value proc = mrb_nil_value();
+  if (ss->irep) {
+    proc = mrb_obj_value(mrb_proc_new(mrb, (const mrb_irep *)ss->irep));
+  }
+  mrb_iv_set(mrb, self, MRB_SYM(__irep_proc__), proc);
+}
+
 static mrb_value
 mrb_sandbox_initialize(mrb_state *mrb, mrb_value self)
 {
@@ -141,10 +156,9 @@ mrb_sandbox_compile(mrb_state *mrb, mrb_value self)
     }
   }
 
-  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)script, (const size_t)script_len, kw_values[0], filename)) {
-    return mrb_false_value();
-  }
-  return mrb_true_value();
+  mrb_bool ok = sandbox_compile_sub(mrb, ss, (const uint8_t *)script, (const size_t)script_len, kw_values[0], filename);
+  sandbox_hold_irep(mrb, self, ss);
+  return mrb_bool_value(ok);
 }
 
 static mrb_value
@@ -169,7 +183,9 @@ mrb_sandbox_compile_from_memory(mrb_state *mrb, mrb_value self)
   }
   if (mrb_undef_p(kw_values[0])) { kw_values[0] = mrb_false_value(); }
 
-  if (!sandbox_compile_sub(mrb, ss, (const uint8_t *)(uintptr_t)address, size, kw_values[0], NULL)) {
+  mrb_bool ok = sandbox_compile_sub(mrb, ss, (const uint8_t *)(uintptr_t)address, size, kw_values[0], NULL);
+  sandbox_hold_irep(mrb, self, ss);
+  if (!ok) {
     mrb_raise(mrb, E_RUNTIME_ERROR, "failed to compile script");
   }
   return mrb_true_value();
@@ -339,6 +355,7 @@ mrb_sandbox_load_mrb(mrb_state *mrb, mrb_value self)
   mrb_value vm_code;
   mrb_get_args(mrb, "S", &vm_code);
   sandbox_read_mrb(mrb, ss, vm_code);
+  sandbox_hold_irep(mrb, self, ss);
   return mrb_bool_value(ss->irep != NULL);
 }
 
