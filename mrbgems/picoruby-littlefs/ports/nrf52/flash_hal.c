@@ -11,7 +11,9 @@
 #endif
 
 #define LFS_FLASH_BLOCK_SIZE   4096
-#define LFS_FLASH_BLOCK_COUNT  56
+#if !defined(LFS_FLASH_BLOCK_COUNT)
+  #define LFS_FLASH_BLOCK_COUNT  56
+#endif
 #define LFS_FLASH_PROG_SIZE    4
 #define LFS_FLASH_READ_SIZE    16
 #define LFS_FLASH_CACHE_SIZE   64
