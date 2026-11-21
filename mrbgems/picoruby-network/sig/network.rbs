@@ -2,6 +2,11 @@ module Network
   class ConnectTimeout < RuntimeError
   end
 
+  # The Thread link, on boards whose radio speaks 802.15.4 rather than
+  # Wi-Fi. Deliberately not a WiFi: no SSID, no PSK, no IPv4, no DHCP, so
+  # none of the contract below applies to it.
+  Thread: untyped
+
   type wifi_t = (::CYW43 | ::ESP32::WiFi)
   class WiFi
     # Mirrors CYW43::Auth and ESP32::WiFi::Auth. The values differ between
