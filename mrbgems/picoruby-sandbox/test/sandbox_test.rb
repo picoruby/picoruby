@@ -435,4 +435,53 @@ class SandboxTest < Picotest::Test
     after = ObjectSpace.each_object(Task) { |_task| }
     assert_equal before, after
   end
+
+  # A script of symbol literals that no other code uses, and the names it
+  # should give back.
+  def symbol_gc_script(tag, count)
+    names = []
+    i = 0
+    while i < count
+      names << "sandbox_symbol_gc_#{tag}_#{i}"
+      i += 1
+    end
+    ["[" + names.map { |n| ":#{n}" }.join(", ") + "]", names]
+  end
+
+  def test_compile_keeps_the_names_through_symbol_gc
+    skip "symbol GC is on the mruby VM only" if femtoruby?
+    # Every symbol these compiles make is new and interned while the
+    # compiler hands the code over, so the symbol GC that the dynamic
+    # symbol limit (4096) starts runs inside one of them.
+    round = 0
+    while round < 20
+      script, names = symbol_gc_script("c#{round}", 300)
+      sandbox = Sandbox.new
+      sandbox.compile(script)
+      sandbox.execute
+      sandbox.wait(timeout: nil)
+      assert_equal names, sandbox.result.map(&:to_s)
+      # close, not terminate: a dormant task stays in the scheduler and keeps
+      # its names alive, so the rounds would run out of symbols
+      sandbox.close
+      round += 1
+    end
+  end
+
+  def test_compiled_code_keeps_its_names_until_execute
+    skip "symbol GC is on the mruby VM only" if femtoruby?
+    sandbox = Sandbox.new
+    script, names = symbol_gc_script("e", 300)
+    sandbox.compile(script)
+    # past the dynamic symbol limit (4096), so symbol GC runs before execute
+    i = 0
+    while i < 5000
+      "sandbox_symbol_gc_filler_#{i}".to_sym
+      i += 1
+    end
+    sandbox.execute
+    sandbox.wait(timeout: nil)
+    assert_equal names, sandbox.result.map(&:to_s)
+    sandbox.close
+  end
 end
