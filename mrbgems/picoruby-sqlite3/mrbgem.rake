@@ -15,22 +15,33 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
     spec.add_dependency 'picoruby-indexeddb'
     spec.cc.defines << "SQLITE_ENABLE_DESERIALIZE" # sqlite3_serialize/deserialize
     spec.cc.defines << "SQLITE_TEMP_STORE=3"       # temp b-trees in RAM (no VFS)
-  elsif build.posix? && !ENV['TEST_TASK']
-    # The host build: picoruby-vfs would reopen File and Dir over the host's
-    # own, so there is no VFS and only ":memory:" databases open.
-    spec.cc.defines << "SQLITE_TEMP_STORE=3"       # temp b-trees in RAM (no VFS)
-  else
-    spec.add_dependency 'picoruby-vfs'
+    spec.cc.defines << "SQLITE_OS_OTHER=1"         # sqlite3_os_init() is in src/sqlite3_vfs_methods.c
+    spec.cc.defines << "SQLITE_DEFAULT_LOCKING_MODE=1"
+  elsif build.posix?
+    # The host build: SQLite's own unix VFS is the default VFS and opens the
+    # host's files. picoruby-vfs would reopen File and Dir over the host's
+    # own, so it is not a dependency here. The bridge to it (prb_vfs) is
+    # still registered as a VFS that is not the default, for the test suite.
+    spec.cc.defines << "SQLITE_OS_UNIX=1"          # SQLite defines sqlite3_os_init()
+    # Other processes (the sqlite3 command, for example) can read a database
+    # file while it is open.
+    spec.cc.defines << "SQLITE_DEFAULT_LOCKING_MODE=0"
     if ENV['TEST_TASK']
       # The test suite needs a VFS driver to mount so the SQLite OS-layer bridge
       # has a real filesystem to talk to. Production builds pick their own driver,
       # so this dependency is only pulled in for `rake test:gems:*`.
+      spec.add_dependency 'picoruby-vfs'
       spec.add_dependency 'picoruby-littlefs'
+      # SQLite3::Database._unlink_file, for the tests of the unix VFS
+      spec.cc.defines << "PICORB_SQLITE3_TEST"
     end
+  else
+    spec.add_dependency 'picoruby-vfs'
+    spec.cc.defines << "SQLITE_OS_OTHER=1"         # sqlite3_os_init() is in src/sqlite3_vfs_methods.c
+    spec.cc.defines << "SQLITE_DEFAULT_LOCKING_MODE=1"
   end
 
   # SQLite build configuration https://sqlite.org/compile.html
-  spec.cc.defines << "SQLITE_OS_OTHER=1" # You need to implement sqlite3_os_init() and sqlite3_os_end()
   spec.cc.defines << "SQLITE_OMIT_ANALYZE=1"
   # spec.cc.defines << "SQLITE_OMIT_ATTACH=1"
   spec.cc.defines << "SQLITE_OMIT_AUTHORIZATION=1"
@@ -53,7 +64,6 @@ MRuby::Gem::Specification.new('picoruby-sqlite3') do |spec|
   spec.cc.defines << "SQLITE_THREADSAFE=0"
   spec.cc.defines << "SQLITE_LIKE_DOESNT_MATCH_BLOBS=1"
   spec.cc.defines << "SQLITE_MAX_EXPR_DEPTH=0"
-  spec.cc.defines << "SQLITE_DEFAULT_LOCKING_MODE=1"
   # spec.cc.defines << "SQLITE_ENABLE_RTREE=0"
   spec.cc.defines << "SQLITE_ENABLE_MEMORY_MANAGEMENT=1"
   spec.cc.defines << "SQLITE_DEFAULT_MEMSTATUS=0"

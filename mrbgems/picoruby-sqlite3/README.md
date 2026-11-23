@@ -9,7 +9,8 @@ Provides SQLite3 database functionality for PicoRuby on top of picoruby-vfs.
 SQLite's OS layer is implemented as a custom VFS that calls the Ruby methods of
 whichever driver picoruby-vfs has mounted, so the database lives on the same
 filesystem as everything else and no filesystem specific code is needed here.
-picoruby-littlefs is the usual driver.
+picoruby-littlefs is the usual driver. The POSIX host build uses the unix VFS
+of SQLite instead (see below).
 
 Requires the mruby VM (`conf.picoruby`); the gem conflicts with
 picoruby-mrubyc.
@@ -58,12 +59,32 @@ to the microcontroller build.
 
 ## POSIX host build
 
-The host build (`build_config/default.rb`) has no picoruby-vfs, because it
-would reopen `File` and `Dir` over the host's own. There only
-`SQLite3::Database.new(":memory:")` opens; any other name raises
-`SQLite3::CantOpenException`. Temporary tables live in memory
-(`SQLITE_TEMP_STORE=3`), as on wasm. `rake test:gems:*` still builds the gem
-with picoruby-vfs and a RAM littlefs.
+On a POSIX host (Linux, macOS), the gem opens the files of the host with the
+unix VFS of SQLite. `build_config/host-full.rb` has the gem, so R2P2 and the
+`picoruby` command of that build can keep a database in a file.
+
+```ruby
+require 'sqlite3'
+
+db = SQLite3::Database.new("app.db")  # relative to the current directory
+db.execute("CREATE TABLE IF NOT EXISTS notes (body TEXT)")
+db.close
+```
+
+- A path names a file of the host, as it does for `File.open`. A relative
+  path is relative to the current directory of the process. The `cd` of the
+  R2P2 shell changes that directory.
+- An absolute path is an absolute path of the host. On R2P2 for POSIX,
+  `/data/app.db` is the `/data` of the host, not a directory under the R2P2
+  root (`.r2p2/`).
+- The locking mode is NORMAL, not EXCLUSIVE as on a device. Other processes,
+  such as the `sqlite3` command, can read the file while it is open.
+- The build has no picoruby-vfs, because it would reopen `File` and `Dir`
+  over the host's own.
+
+`rake test:gems:*` builds the gem with picoruby-vfs and a RAM littlefs, as
+on a device. There `SQLite3::Database.new` goes to the VFS, and the tests of
+the unix VFS call `SQLite3::Database._open_file` directly.
 
 ## Usage
 

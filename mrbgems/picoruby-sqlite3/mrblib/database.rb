@@ -4,7 +4,8 @@ begin
 rescue LoadError
   # picoruby.wasm ships no filesystem VFS. There the database is memory backed
   # and persisted to IndexedDB; see the wasm branch in .new / #persist.
-  # The POSIX host build has neither, and opens ":memory:" only.
+  # The POSIX host build has neither, and opens the host's files with
+  # SQLite's unix VFS (_open_file).
   begin
     require "indexeddb"
     require "base64"
@@ -32,6 +33,11 @@ class SQLite3
           # The driver prepends its own prefix, so every path SQLite derives
           # from this one (journals, temporary files) stays valid too
           _open(volume[:driver], path)
+        elsif respond_to?(:_open_file, true)
+          # The POSIX host build: the path names a file of the host, as it
+          # does for File.open. SQLite makes a relative path absolute with
+          # the current directory of the process.
+          _open_file(filename)
         elsif defined?(IndexedDB)
           # No VFS (picoruby.wasm): open an in-memory database and restore any
           # snapshot previously persisted under this name.

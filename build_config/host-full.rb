@@ -60,6 +60,7 @@ MRuby::Build.new do |conf|
     mruby-objectspace-weakmap
     mruby-objectspace-finalizer
   ].each { |g| conf.gem gemdir: "#{mruby_gems}/#{g}" }
-  # ":memory:" databases only: picoruby-vfs would take over File and Dir
+  # Databases in the files of the host, with the unix VFS of SQLite. There is
+  # no picoruby-vfs: it would take over File and Dir.
   conf.gem core: "picoruby-sqlite3"
 end

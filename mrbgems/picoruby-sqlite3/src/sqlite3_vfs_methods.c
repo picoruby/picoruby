@@ -63,9 +63,22 @@ static sqlite3_io_methods prb_io_methods = {
   0                             /* xUnfetch */
 };
 
+/*
+ * Registers the PicoRuby allocator and initializes SQLite. Only the first
+ * call does the work: SQLite takes an allocator only before it is
+ * initialized. Call it before each open.
+ *
+ * Without the unix VFS, sqlite3_os_init() below registers prb_vfs as the
+ * default VFS. It must be there before sqlite3_initialize() returns: the
+ * memdb VFS (SQLITE_ENABLE_DESERIALIZE) looks up the default VFS in it.
+ * With the unix VFS, which SQLite registers as the default, prb_vfs is
+ * registered after it for a picoruby-vfs driver.
+ */
 int
-sqlite3_os_init(void)
+prb_sqlite3_setup(void)
 {
+  static int rc = -1;
+  if (rc != -1) return rc;
   static const sqlite3_mem_methods prb_mem_methods = {
     prb_mem_alloc,
     prb_mem_free,
@@ -77,7 +90,23 @@ sqlite3_os_init(void)
     0
   };
   sqlite3_config(SQLITE_CONFIG_MALLOC, &prb_mem_methods);
-  sqlite3_initialize();
+  rc = sqlite3_initialize();
+#if defined(SQLITE_OS_UNIX) && SQLITE_OS_UNIX
+  if (rc == SQLITE_OK) {
+    rc = sqlite3_vfs_register(&prb_vfs, 0);
+  }
+#endif
+  return rc;
+}
+
+#if !(defined(SQLITE_OS_UNIX) && SQLITE_OS_UNIX)
+/*
+ * SQLite calls these from sqlite3_initialize() and sqlite3_shutdown(). The
+ * unix VFS of SQLite defines its own.
+ */
+int
+sqlite3_os_init(void)
+{
   return sqlite3_vfs_register(&prb_vfs, 1);
 }
 
@@ -86,6 +115,7 @@ sqlite3_os_end(void)
 {
   return SQLITE_OK;
 }
+#endif
 
 int
 prbVFSOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags)
