@@ -150,4 +150,49 @@ class RequireTest < Picotest::Test
     end
     assert_equal "nope", error&.path
   end
+
+  # __dir__ and require_relative read the caller's file from the debug
+  # info of its code, which mruby/c does not have.
+
+  # The real path, as CRuby's: /tmp is a link to /private/tmp on macOS
+  def test_dir_is_the_real_directory_of_the_caller_s_file
+    return unless RUBY_ENGINE == "mruby"
+    assert_equal File.dirname(File.realpath(__FILE__)), __dir__
+  end
+
+  def test_require_relative_looks_beside_the_caller_s_file
+    return unless RUBY_ENGINE == "mruby"
+    stub(File).file? { true }
+    dir = File.dirname(File.realpath(__FILE__))
+    assert_equal true, require_relative("foo")
+    assert_equal true, require_relative("../bar.rb")
+    # expand_path, not "#{File.dirname(dir)}/bar.rb": that is "//bar.rb"
+    # when the file is in /tmp
+    assert_equal ["#{dir}/foo.mrb", File.expand_path("../bar.rb", dir)], @loaded
+  end
+
+  # The File of picoruby-vfs has no realpath: the name as given
+  def test_dir_without_file_realpath
+    return unless RUBY_ENGINE == "mruby"
+    sc = File.singleton_class
+    sc.send(:alias_method, :__realpath_saved, :realpath)
+    sc.send(:remove_method, :realpath)
+    begin
+      assert_equal File.dirname(__FILE__), __dir__
+    ensure
+      sc.send(:alias_method, :realpath, :__realpath_saved)
+      sc.send(:remove_method, :__realpath_saved)
+    end
+  end
+
+  # An eval given no file has no directory; given one that does not exist,
+  # its directory is that name's
+  def test_dir_and_require_relative_in_eval
+    return unless RUBY_ENGINE == "mruby"
+    assert_nil eval("__dir__")
+    assert_equal "lib/sub", eval("__dir__", nil, "lib/sub/x.rb")
+    assert_raise(LoadError, "cannot infer basepath") do
+      eval("require_relative 'foo'")
+    end
+  end
 end
