@@ -47,15 +47,11 @@ open_db_state(mrb_state *mrb, mrb_value self)
  * prepends its own prefix, so every path SQLite derives from it (journals,
  * temporary files) stays valid.
  */
+/* Opens `path` with the VFS named `vfs_name` (NULL: the default VFS) */
 static mrb_value
-mrb_s__open(mrb_state *mrb, mrb_value klass)
+open_db(mrb_state *mrb, mrb_value klass, const char *path, const char *vfs_name)
 {
-  mrb_value driver;
-  const char *path;
-  mrb_get_args(mrb, "oz", &driver, &path);
-
-  prb_vfs_set_driver(mrb, driver);
-  sqlite3_os_init();
+  prb_sqlite3_setup();
 
   DbState *state = (DbState *)mrb_malloc(mrb, sizeof(DbState));
   state->db = NULL;
@@ -68,7 +64,7 @@ mrb_s__open(mrb_state *mrb, mrb_value klass)
     path,
     &db,
     SQLITE_OPEN_READWRITE|SQLITE_OPEN_CREATE,
-    VFS_NAME
+    vfs_name
   );
   /* Assign before checking rc: sqlite3_open_v2() may hand back a handle that
      still has to be closed even when it failed */
@@ -78,6 +74,54 @@ mrb_s__open(mrb_state *mrb, mrb_value klass)
   }
   return self;
 }
+
+static mrb_value
+mrb_s__open(mrb_state *mrb, mrb_value klass)
+{
+  mrb_value driver;
+  const char *path;
+  mrb_get_args(mrb, "oz", &driver, &path);
+
+  prb_vfs_set_driver(mrb, driver);
+  return open_db(mrb, klass, path, VFS_NAME);
+}
+
+#if defined(SQLITE_OS_UNIX) && SQLITE_OS_UNIX
+/*
+ * SQLite3::Database._open_file(path)
+ *
+ * Opens a file of the host with SQLite's unix VFS, the default VFS of the
+ * POSIX build. A relative `path` is relative to the current directory of
+ * the process.
+ */
+static mrb_value
+mrb_s__open_file(mrb_state *mrb, mrb_value klass)
+{
+  const char *path;
+  mrb_get_args(mrb, "z", &path);
+
+  /* The SQLite heap (prb_mem_*) reaches the PicoRuby heap through mrb */
+  prb_vfs_set_mrb(mrb);
+  return open_db(mrb, klass, path, NULL);
+}
+#endif
+
+#if defined(PICORB_SQLITE3_TEST)
+#include <unistd.h>
+
+/*
+ * SQLite3::Database._unlink_file(path), for the tests only. The test build
+ * has picoruby-vfs, which takes over File, so Ruby cannot delete a file
+ * of the host that _open_file made.
+ */
+static mrb_value
+mrb_s__unlink_file(mrb_state *mrb, mrb_value klass)
+{
+  const char *path;
+  mrb_get_args(mrb, "z", &path);
+  return mrb_bool_value(unlink(path) == 0);
+}
+#endif
 
 static mrb_value
 mrb_Database_close(mrb_state *mrb, mrb_value self)
@@ -185,7 +229,7 @@ mrb_s__open_memory(mrb_state *mrb, mrb_value klass)
   /* The SQLite heap (prb_mem_*) is backed by the PicoRuby heap and reaches it
      through this mrb pointer. No VFS driver is mounted for a memory database. */
   prb_vfs_set_mrb(mrb);
-  sqlite3_os_init(); /* registers the allocator + prb_vfs as default VFS */
+  prb_sqlite3_setup();
 
   DbState *state = (DbState *)mrb_malloc(mrb, sizeof(DbState));
   state->db = NULL;
@@ -264,6 +308,12 @@ mrb_init_class_SQLite3_Database(mrb_state *mrb, struct RClass *class_SQLite3)
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(readonly), mrb_Database_readonly_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(filename), mrb_Database_filename, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_SQLite3_Database, MRB_SYM(_open_memory), mrb_s__open_memory, MRB_ARGS_NONE());
+#if defined(SQLITE_OS_UNIX) && SQLITE_OS_UNIX
+  mrb_define_class_method_id(mrb, class_SQLite3_Database, MRB_SYM(_open_file), mrb_s__open_file, MRB_ARGS_REQ(1));
+#endif
+#if defined(PICORB_SQLITE3_TEST)
+  mrb_define_class_method_id(mrb, class_SQLite3_Database, MRB_SYM(_unlink_file), mrb_s__unlink_file, MRB_ARGS_REQ(1));
+#endif
 #if defined(PICORB_PLATFORM_WASM)
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(serialize), mrb_Database_serialize, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(deserialize), mrb_Database_deserialize, MRB_ARGS_REQ(1));

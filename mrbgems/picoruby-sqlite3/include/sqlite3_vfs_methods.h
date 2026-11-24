@@ -10,6 +10,8 @@ extern "C" {
 
 #define VFS_NAME "prb_vfs"
 
+int prb_sqlite3_setup(void);
+
 int prbVFSOpen(sqlite3_vfs *pVfs, const char *zName, sqlite3_file *pFile, int flags, int *pOutFlags);
 int prbVFSDelete(sqlite3_vfs *pVfs, const char *zName, int syncDir);
 int prbVFSAccess(sqlite3_vfs *pVfs, const char *zName, int flags, int *pResOut);

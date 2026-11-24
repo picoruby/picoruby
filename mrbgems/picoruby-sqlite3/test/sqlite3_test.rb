@@ -612,4 +612,56 @@ class Sqlite3Test < Picotest::Test
     assert_equal([], rows)
     db.close
   end
+
+  # The POSIX build opens the host's files with SQLite's unix VFS. The test
+  # build has picoruby-vfs, so Database.new goes to the VFS: these tests call
+  # _open_file directly, and delete the file with _unlink_file, because File
+  # is the one of picoruby-vfs here.
+  def unix_file_path(tag)
+    dir = (ENV["TMPDIR"] || "/tmp").chomp("/")
+    "#{dir}/picoruby-sqlite3-test-#{tag}-#{Time.now.to_i}-#{object_id}.db"
+  end
+
+  def test_unix_file_persists_across_reopen
+    skip "POSIX only" unless SQLite3::Database.respond_to?(:_open_file, true)
+    path = unix_file_path("reopen")
+    begin
+      db = SQLite3::Database._open_file(path)
+      db.execute("CREATE TABLE t (v TEXT)")
+      db.execute("INSERT INTO t VALUES (?)", ["kept"])
+      assert_equal(path, db.filename)
+      db.close
+      db = SQLite3::Database._open_file(path)
+      assert_equal([["kept"]], db.execute("SELECT v FROM t"))
+      db.close
+    ensure
+      SQLite3::Database._unlink_file(path)
+    end
+  end
+
+  def test_unix_file_in_missing_directory_raises
+    skip "POSIX only" unless SQLite3::Database.respond_to?(:_open_file, true)
+    path = unix_file_path("missing") + ".d/a.db"
+    assert_raise(SQLite3::CantOpenException) do
+      SQLite3::Database._open_file(path)
+    end
+  end
+
+  # The POSIX build uses the NORMAL locking mode: a second connection reads
+  # what the first wrote while the first is still open.
+  def test_unix_file_second_connection_reads
+    skip "POSIX only" unless SQLite3::Database.respond_to?(:_open_file, true)
+    path = unix_file_path("second")
+    begin
+      first = SQLite3::Database._open_file(path)
+      first.execute("CREATE TABLE t (v INTEGER)")
+      first.execute("INSERT INTO t VALUES (1)")
+      second = SQLite3::Database._open_file(path)
+      assert_equal([[1]], second.execute("SELECT v FROM t"))
+      second.close
+      first.close
+    ensure
+      SQLite3::Database._unlink_file(path)
+    end
+  end
 end
