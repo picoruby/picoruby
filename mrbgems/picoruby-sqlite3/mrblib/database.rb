@@ -16,7 +16,14 @@ end
 class SQLite3
   class Database
     class << self
-      def new(filename, results_as_hash: false)
+      # new(filename, options = {}): the options Hash of the sqlite3 gem,
+      # with or without braces (no keyword parameter here, so keywords
+      # collect into it). :results_as_hash and :default_transaction_mode
+      # are read; the others (:readonly, :flags, :strict, ...) have no
+      # effect here.
+      def new(filename, options = {})
+        results_as_hash = options[:results_as_hash] || false
+        default_transaction_mode = options[:default_transaction_mode] || :deferred
         db = if filename == ":memory:"
           # CRuby sqlite3 compatible: a private in-memory database bound to
           # no file and, on wasm, to no snapshot name. Nothing is restored on
@@ -47,6 +54,7 @@ class SQLite3
             "unable to open database file: #{filename} (only \":memory:\" is available in this build)")
         end
         db.results_as_hash = results_as_hash
+        db.default_transaction_mode = default_transaction_mode
         if block_given?
           begin
             yield db
@@ -57,9 +65,30 @@ class SQLite3
         return db
       end
       alias :open :new
+
+      # The string with every ' doubled, for a SQL literal
+      def quote(string)
+        string.gsub("'", "''")
+      end
     end
 
     attr_accessor :results_as_hash
+    # The mode of a #transaction given none: :deferred, :immediate or
+    # :exclusive
+    attr_accessor :default_transaction_mode
+
+    # The text encoding of the database, as a name. The build omits UTF-16
+    # (SQLITE_OMIT_UTF16), and PRAGMA encoding with it, so it is UTF-8.
+    def encoding
+      "UTF-8"
+    end
+
+    # How long a statement waits on a locked database, in milliseconds
+    def busy_timeout=(milliseconds)
+      execute("PRAGMA busy_timeout = #{milliseconds.to_i}")
+    end
+    alias busy_timeout busy_timeout=
+    alias busy_handler_timeout= busy_timeout=
 
     def execute(sql, bind_vars = [])
       prepare(sql) do |stmt|
@@ -85,6 +114,22 @@ class SQLite3
       ensure
         stmt.close unless stmt.closed?
       end
+    end
+
+    # Run a script of several statements, as #execute_batch does, and
+    # return the rows of every query in it, each value a String (nil for
+    # NULL) as sqlite3_exec() hands them out; a Hash per row when
+    # results_as_hash. With a block, each row is yielded instead.
+    def execute_batch2(sql)
+      rows = [] #: Array[untyped]
+      _exec_batch(sql, rows, results_as_hash)
+      return rows unless block_given?
+      i = 0
+      while i < rows.size
+        yield rows[i]
+        i += 1
+      end
+      rows
     end
 
     # Like #execute but returns a ResultSet you step through yourself. With a
@@ -115,7 +160,8 @@ class SQLite3
     # Wrap a block in a transaction. Committing on success and rolling back on
     # an exception. On flash backed storage this is the main lever for cutting
     # write wear: many INSERTs in one transaction become a single commit.
-    def transaction(mode = :deferred)
+    def transaction(mode = nil)
+      mode ||= default_transaction_mode || :deferred
       execute("BEGIN #{mode.to_s.upcase} TRANSACTION")
       return true unless block_given?
       aborting = false

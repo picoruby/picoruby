@@ -82,6 +82,26 @@ class SQLite3
       int_pragma("freelist_count")
     end
 
+    # The most bytes of the database file mapped into memory; 0 where the
+    # VFS has no memory-mapped I/O
+    def mmap_size
+      int_pragma("mmap_size")
+    end
+
+    def mmap_size=(size)
+      execute("PRAGMA mmap_size = #{size.to_i}")
+    end
+
+    # The size the journal is truncated to after a transaction, in bytes;
+    # -1 for no limit
+    def journal_size_limit
+      int_pragma("journal_size_limit")
+    end
+
+    def journal_size_limit=(size)
+      execute("PRAGMA journal_size_limit = #{size.to_i}")
+    end
+
     # Returns "ok" when the database is intact, otherwise a description of the
     # first problem found. Useful after an unexpected power loss.
     def integrity_check

@@ -664,4 +664,123 @@ class Sqlite3Test < Picotest::Test
       SQLite3::Database._unlink_file(path)
     end
   end
+
+  # ---- the sqlite3 gem's API --------------------------------------------
+
+  def test_new_takes_an_options_hash
+    SQLite3::Database.new("/opts.db", results_as_hash: false).close
+    db = SQLite3::Database.new("/opts.db", { results_as_hash: true })
+    assert_equal true, db.results_as_hash
+    db.execute_batch("DROP TABLE IF EXISTS o; CREATE TABLE o (id INTEGER); INSERT INTO o VALUES (7)")
+    assert_equal [{ "id" => 7 }], db.execute("SELECT id FROM o")
+    db.close
+    db = SQLite3::Database.open("/opts.db", {})
+    assert_equal false, db.results_as_hash
+    db.close
+  end
+
+  def test_default_transaction_mode
+    db = SQLite3::Database.new("/txmode.db")
+    assert_equal :deferred, db.default_transaction_mode
+    db.close
+    db = SQLite3::Database.new("/txmode.db", { default_transaction_mode: :immediate })
+    assert_equal :immediate, db.default_transaction_mode
+    db.close
+    # the gem's options without braces: not keywords of the method
+    db = SQLite3::Database.new("/txmode.db", default_transaction_mode: :exclusive, results_as_hash: true, readonly: false)
+    assert_equal :exclusive, db.default_transaction_mode
+    assert_equal true, db.results_as_hash
+    db.transaction { assert_equal true, db.transaction_active? }
+    assert_equal false, db.transaction_active?
+    db.default_transaction_mode = :nonsense
+    assert_raise(SQLite3::Exception) { db.transaction }
+    db.close
+  end
+
+  def test_quote
+    assert_equal "it''s", SQLite3::Database.quote("it's")
+    assert_equal "", SQLite3::Database.quote("")
+  end
+
+  def test_encoding
+    db = SQLite3::Database.new("/enc.db")
+    assert_equal "UTF-8", db.encoding
+    db.close
+  end
+
+  def test_busy_timeout
+    db = SQLite3::Database.new("/busy.db")
+    db.busy_timeout = 250
+    assert_equal 250, db.get_first_value("PRAGMA busy_timeout")
+    db.busy_handler_timeout = 100
+    assert_equal 100, db.get_first_value("PRAGMA busy_timeout")
+    db.busy_timeout(50)
+    assert_equal 50, db.get_first_value("PRAGMA busy_timeout")
+    db.close
+  end
+
+  def test_execute_batch2_returns_the_rows_of_every_statement_as_strings
+    db = SQLite3::Database.new("/batch2.db")
+    db.execute("DROP TABLE IF EXISTS b")
+    rows = db.execute_batch2(<<~SQL)
+      CREATE TABLE b (id INTEGER, name TEXT, score REAL);
+      INSERT INTO b VALUES (1, 'a', 1.5);
+      INSERT INTO b VALUES (2, NULL, 2.0);
+      SELECT id, name FROM b ORDER BY id;
+      SELECT score FROM b ORDER BY id;
+    SQL
+    assert_equal [["1", "a"], ["2", nil], ["1.5"], ["2.0"]], rows
+    assert_equal [], db.execute_batch2("DELETE FROM b WHERE id = 1")
+    db.results_as_hash = true
+    assert_equal [{ "id" => "2", "name" => nil }], db.execute_batch2("SELECT id, name FROM b")
+    seen = []
+    db.execute_batch2("SELECT id FROM b") { |row| seen << row }
+    assert_equal [{ "id" => "2" }], seen
+    assert_raise(SQLite3::Exception) { db.execute_batch2("SELECT 1; NOT SQL") }
+    db.close
+  end
+
+  def test_statement_each_and_to_a
+    db = fresh_db("/stmt_each.db")
+    db.execute("INSERT INTO users (name, age) VALUES ('a', 1), ('b', 2)")
+    stmt = db.prepare("SELECT name, age FROM users ORDER BY age")
+    seen = []
+    assert_equal stmt, stmt.each { |row| seen << row }
+    assert_equal [["a", 1], ["b", 2]], seen
+    stmt.reset!
+    assert_equal [["a", 1], ["b", 2]], stmt.to_a
+    stmt.close
+    db.close
+  end
+
+  def test_bind_params_takes_an_array
+    db = fresh_db("/bind_array.db")
+    stmt = db.prepare("INSERT INTO users (name, age) VALUES (?, ?)")
+    stmt.bind_params(["c", 3])
+    stmt.step
+    stmt.close
+    assert_equal [["c", 3]], db.execute("SELECT name, age FROM users")
+    db.close
+  end
+
+  def test_mmap_size_and_journal_size_limit
+    db = SQLite3::Database.new("/sizes.db")
+    db.journal_size_limit = 65536
+    assert_equal 65536, db.journal_size_limit
+    db.mmap_size = 0
+    assert_equal 0, db.mmap_size
+    db.close
+  end
+
+  def test_open_constants
+    assert_equal 1, SQLite3::Constants::Open::READONLY
+    assert_equal 2, SQLite3::Constants::Open::READWRITE
+    assert_equal 4, SQLite3::Constants::Open::CREATE
+    assert_equal 0x80, SQLite3::Constants::Open::MEMORY
+    assert_equal 0x20000, SQLite3::Constants::Open::SHAREDCACHE
+  end
+
+  def test_fork_safety
+    assert_nil SQLite3::ForkSafety.suppress_warnings!
+  end
 end

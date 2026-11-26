@@ -25,6 +25,10 @@ class SQLite3
     def auto_vacuum: () -> Integer
     def auto_vacuum=: (Integer | String | Symbol mode) -> untyped
     def freelist_count: () -> Integer
+    def mmap_size: () -> Integer
+    def mmap_size=: (Integer size) -> untyped
+    def journal_size_limit: () -> Integer
+    def journal_size_limit=: (Integer size) -> untyped
     def integrity_check: () -> String
 
     private

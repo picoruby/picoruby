@@ -184,15 +184,19 @@ or a raw `execute("PRAGMA ...")`.
 
 ### Database Methods
 
-- `SQLite3::Database.new(filename, results_as_hash: false)` - Open/create database
+- `SQLite3::Database.new(filename, options = {})` - Open/create database. `options` is the sqlite3 gem's Hash, with or without braces: `:results_as_hash` and `:default_transaction_mode` are read, the others (`:readonly`, `:flags`, `:strict`, ...) have no effect
+- `SQLite3::Database.quote(string)` - Double the quotes for a SQL literal
 - `execute(sql, bind_vars = [])` - Execute SQL with optional bindings
 - `execute(sql, bind_vars = []) { |row| }` - Execute with block iteration
 - `execute_batch(sql)` - Run a script of several statements (no bindings)
+- `execute_batch2(sql)` - The same, returning the rows of every query in it with each value a String (`nil` for NULL)
 - `query(sql, bind_vars = [])` - Like `execute` but returns a `ResultSet`
 - `get_first_row(sql, bind_vars = [])` - First row, or `nil`
 - `get_first_value(sql, bind_vars = [])` - First column of the first row, or `nil`
 - `prepare(sql)` - Return a `SQLite3::Statement`
-- `transaction(mode = :deferred) { |db| }` / `commit` / `rollback` / `transaction_active?`
+- `transaction(mode = nil) { |db| }` / `commit` / `rollback` / `transaction_active?` - `mode` defaults to `default_transaction_mode` (`:deferred`)
+- `busy_timeout = ms` / `busy_handler_timeout = ms` - How long a statement waits on a locked database
+- `encoding` - `"UTF-8"`; the build omits UTF-16
 - `last_insert_row_id`, `changes`, `total_changes`
 - `backup(dst, srcname: "main", dstname: "main")` - Copy into another database
 - `readonly?`, `filename`
@@ -209,13 +213,20 @@ Convenience accessors for the pragmas most useful on a microcontroller:
 - `cache_size` / `cache_size=`, `page_size` / `page_size=`
 - `foreign_keys` / `foreign_keys=`, `auto_vacuum` / `auto_vacuum=`
 - `freelist_count`, `integrity_check`
+- `mmap_size` / `mmap_size=`, `journal_size_limit` / `journal_size_limit=`
 - `pragma(name, value = nil)` - generic query/set for any pragma
 
 ### Statement Methods
 
 - `bind_param(key, value)` - `key` is a 1-based index, or the parameter name as a Symbol or String
-- `bind_params(*values)` - Bind positionally; a Hash argument binds by name
+- `bind_params(*values)` - Bind positionally; a Hash argument binds by name, an Array argument is flattened into the values
 - `execute(*bind_vars)`, `step`, `reset!`, `done?`, `columns`, `types`, `close`, `closed?`
+- `each { |row| }`, `to_a` - The remaining rows, as Arrays
+
+### Constants
+
+- `SQLite3::Constants::Open::READONLY`, `READWRITE`, `CREATE`, `MEMORY`, `SHAREDCACHE`, ... - The flags of `sqlite3_open_v2()`, as the sqlite3 gem names them
+- `SQLite3::ForkSafety.suppress_warnings!` - A no-op; there is no `fork()` here
 
 ### Errors
 
