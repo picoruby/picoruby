@@ -7,14 +7,22 @@ class SQLite3
     # ":memory:" as filename opens a private in-memory database (CRuby
     # sqlite3 compatible): no file, no snapshot name, nothing restored or
     # persisted, one independent database per handle.
-    def initialize: (String filename, ?results_as_hash: bool) ?{ (SQLite3::Database) -> void } -> void
-    def self.open: (String filename) ?{ (SQLite3::Database) -> void } -> SQLite3::Database
+    # The options Hash of the sqlite3 gem: :results_as_hash and
+    # :default_transaction_mode are read, the others have no effect here
+    def initialize: (String filename, ?Hash[Symbol, untyped] options) ?{ (SQLite3::Database) -> void } -> void
+    def self.open: (String filename, ?Hash[Symbol, untyped] options) ?{ (SQLite3::Database) -> void } -> SQLite3::Database
+    def self.quote: (String string) -> String
     private def self._open: (VFS::driver_t driver, String path) -> SQLite3::Database
     private def self._open_memory: () -> SQLite3::Database
     private def self._open_file: (String path) -> SQLite3::Database
     private def self._unlink_file: (String path) -> bool
 
     attr_accessor results_as_hash: bool
+    attr_accessor default_transaction_mode: Symbol?
+    def encoding: () -> String
+    def busy_timeout=: (Integer milliseconds) -> untyped
+    def busy_timeout: (Integer milliseconds) -> untyped
+    def busy_handler_timeout=: (Integer milliseconds) -> untyped
 
     def close: () -> void
     def closed?: () -> bool
@@ -32,12 +40,15 @@ class SQLite3
     def get_first_value: (String sql, ?Array[sqlite3_bind_t] bind_vars) -> sqlite3_var_t
 
     def execute_batch: (String sql) -> nil
+    def execute_batch2: (String sql) -> Array[Array[String?] | Hash[String, String?]]
+                      | (String sql) { (Array[String?] | Hash[String, String?]) -> untyped } -> Array[Array[String?] | Hash[String, String?]]
+    private def _exec_batch: (String sql, Array[untyped] rows, bool as_hash) -> Array[untyped]
     def last_insert_row_id: () -> Integer
     def changes: () -> Integer
     def total_changes: () -> Integer
 
-    def transaction: (?Symbol mode) -> bool
-                   | (?Symbol mode) { (SQLite3::Database) -> untyped } -> untyped
+    def transaction: (?Symbol? mode) -> bool
+                   | (?Symbol? mode) { (SQLite3::Database) -> untyped } -> untyped
     def commit: () -> bool
     def rollback: () -> bool
     def transaction_active?: () -> bool

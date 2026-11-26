@@ -2,4 +2,37 @@ class SQLite3
   type sqlite3_var_t = String | Integer | Float | nil | bool
   # A Hash binds the statement's named parameters instead of a positional one
   type sqlite3_bind_t = sqlite3_var_t | Hash[Symbol, sqlite3_var_t]
+
+  # The flags of sqlite3_open_v2(), named as the sqlite3 gem names them
+  module Constants
+    module Open
+      READONLY: Integer
+      READWRITE: Integer
+      CREATE: Integer
+      DELETEONCLOSE: Integer
+      EXCLUSIVE: Integer
+      AUTOPROXY: Integer
+      URI: Integer
+      MEMORY: Integer
+      MAIN_DB: Integer
+      TEMP_DB: Integer
+      TRANSIENT_DB: Integer
+      MAIN_JOURNAL: Integer
+      TEMP_JOURNAL: Integer
+      SUBJOURNAL: Integer
+      SUPER_JOURNAL: Integer
+      MASTER_JOURNAL: Integer
+      NOMUTEX: Integer
+      FULLMUTEX: Integer
+      SHAREDCACHE: Integer
+      PRIVATECACHE: Integer
+      WAL: Integer
+      NOFOLLOW: Integer
+    end
+  end
+
+  # The sqlite3 gem's ForkSafety; there is no fork() here, so a no-op
+  module ForkSafety
+    def self.suppress_warnings!: () -> nil
+  end
 end

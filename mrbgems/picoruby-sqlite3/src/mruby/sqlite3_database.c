@@ -1,5 +1,8 @@
+#include <mruby/array.h>
 #include <mruby/class.h>
 #include <mruby/data.h>
+#include <mruby/error.h>
+#include <mruby/hash.h>
 #include <mruby/presym.h>
 #include <mruby/string.h>
 #include <string.h>
@@ -189,6 +192,17 @@ mrb_Database_filename(mrb_state *mrb, mrb_value self)
   return (name && name[0]) ? mrb_str_new_cstr(mrb, name) : mrb_nil_value();
 }
 
+/* The error of a sqlite3_exec() that did not return SQLITE_OK */
+static void
+raise_exec_error(mrb_state *mrb, int rc, char *errmsg)
+{
+  /* sqlite3_exec owns errmsg; copy it into an exception before freeing */
+  mrb_value message = errmsg ? mrb_str_new_cstr(mrb, errmsg)
+                             : mrb_str_new_lit(mrb, "SQLite3 error");
+  if (errmsg) sqlite3_free(errmsg);
+  mrb_raise(mrb, mrb_sqlite3_exception_class_for(mrb, rc), RSTRING_PTR(message));
+}
+
 /*
  * execute_batch(sql) -> nil
  *
@@ -205,14 +219,95 @@ mrb_Database_execute_batch(mrb_state *mrb, mrb_value self)
 
   char *errmsg = NULL;
   int rc = sqlite3_exec(db, sql, NULL, NULL, &errmsg);
-  if (rc != SQLITE_OK) {
-    /* sqlite3_exec owns errmsg; copy it into an exception before freeing */
-    mrb_value message = errmsg ? mrb_str_new_cstr(mrb, errmsg)
-                               : mrb_str_new_lit(mrb, "SQLite3 error");
-    if (errmsg) sqlite3_free(errmsg);
-    mrb_raise(mrb, mrb_sqlite3_exception_class_for(mrb, rc), RSTRING_PTR(message));
-  }
+  if (rc != SQLITE_OK) raise_exec_error(mrb, rc, errmsg);
   return mrb_nil_value();
+}
+
+/*
+ * SQLite3::Database#_exec_batch(sql, rows, as_hash)
+ *
+ * sqlite3_exec() with a callback that appends each row to `rows`, every
+ * value a String (nil for NULL) as the callback receives it; a Hash keyed
+ * by the column names when as_hash. `rows` is an argument, so it is on
+ * the VM stack and the GC keeps it while the callback allocates.
+ *
+ * Making a row allocates, so it can raise (NoMemoryError). The callback
+ * must not let that jump out of sqlite3_exec(), which would leave the
+ * statement of the script unfinalized: the row is made under
+ * mrb_protect_error(), an exception is kept and the callback returns
+ * non-zero, on which sqlite3_exec() stops and finalizes the statement.
+ * The exception is raised again once sqlite3_exec() has returned.
+ */
+typedef struct {
+  mrb_state *mrb;
+  mrb_value rows;
+  mrb_bool as_hash;
+  /* the row being made */
+  int argc;
+  char **argv;
+  char **colnames;
+  /* the exception that stopped the callback, else nil */
+  mrb_value exc;
+} exec_batch_rows;
+
+static mrb_value
+exec_batch_make_row(mrb_state *mrb, void *arg)
+{
+  exec_batch_rows *acc = (exec_batch_rows *)arg;
+  int argc = acc->argc;
+  mrb_value row = acc->as_hash ? mrb_hash_new_capa(mrb, argc) : mrb_ary_new_capa(mrb, argc);
+  for (int i = 0; i < argc; i++) {
+    mrb_value value = acc->argv[i] ? mrb_str_new_cstr(mrb, acc->argv[i]) : mrb_nil_value();
+    if (acc->as_hash) {
+      mrb_hash_set(mrb, row, mrb_str_new_cstr(mrb, acc->colnames[i]), value);
+    }
+    else {
+      mrb_ary_push(mrb, row, value);
+    }
+  }
+  mrb_ary_push(mrb, acc->rows, row);
+  return mrb_nil_value();
+}
+
+static int
+exec_batch_row(void *arg, int argc, char **argv, char **colnames)
+{
+  exec_batch_rows *acc = (exec_batch_rows *)arg;
+  mrb_state *mrb = acc->mrb;
+  acc->argc = argc;
+  acc->argv = argv;
+  acc->colnames = colnames;
+  int ai = mrb_gc_arena_save(mrb);
+  mrb_bool error = FALSE;
+  mrb_value result = mrb_protect_error(mrb, exec_batch_make_row, acc, &error);
+  if (error) {
+    /* the exception stays in the arena until it is raised */
+    acc->exc = result;
+    return 1;
+  }
+  mrb_gc_arena_restore(mrb, ai);
+  return 0;
+}
+
+static mrb_value
+mrb_Database__exec_batch(mrb_state *mrb, mrb_value self)
+{
+  const char *sql;
+  exec_batch_rows acc;
+  acc.mrb = mrb;
+  acc.exc = mrb_nil_value();
+  mrb_get_args(mrb, "zAb", &sql, &acc.rows, &acc.as_hash);
+  sqlite3 *db = open_db_state(mrb, self)->db;
+
+  char *errmsg = NULL;
+  int rc = sqlite3_exec(db, sql, exec_batch_row, &acc, &errmsg);
+  if (!mrb_nil_p(acc.exc)) {
+    /* SQLITE_ABORT from the callback: its "query aborted" message is not the error */
+    if (errmsg) sqlite3_free(errmsg);
+    mrb_exc_raise(mrb, acc.exc);
+  }
+  if (rc != SQLITE_OK) raise_exec_error(mrb, rc, errmsg);
+  return acc.rows;
 }
 
 /*
@@ -305,6 +400,7 @@ mrb_init_class_SQLite3_Database(mrb_state *mrb, struct RClass *class_SQLite3)
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(total_changes), mrb_Database_total_changes, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(transaction_active), mrb_Database_transaction_active_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(execute_batch), mrb_Database_execute_batch, MRB_ARGS_REQ(1));
+  mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(_exec_batch), mrb_Database__exec_batch, MRB_ARGS_REQ(3));
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM_Q(readonly), mrb_Database_readonly_p, MRB_ARGS_NONE());
   mrb_define_method_id(mrb, class_SQLite3_Database, MRB_SYM(filename), mrb_Database_filename, MRB_ARGS_NONE());
   mrb_define_class_method_id(mrb, class_SQLite3_Database, MRB_SYM(_open_memory), mrb_s__open_memory, MRB_ARGS_NONE());

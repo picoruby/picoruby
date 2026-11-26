@@ -1,6 +1,9 @@
 class SQLite3
   class Statement
+    # Positional values bind in order, a Hash binds by name; an Array of
+    # values counts as the values (bind_params([1, 2]) binds 1 and 2)
     def bind_params(*bind_vars)
+      bind_vars = bind_vars.flatten
       index = 1
       bvi = 0
       while bvi < bind_vars.size
@@ -43,13 +46,26 @@ class SQLite3
       return @columns
     end
 
-#    def each
-#      loop do
-#        val = step
-#        break self if done?
-#        yield val
-#      end
-#    end
+    # Each remaining row, as an Array
+    def each
+      while true
+        row = step
+        break if row.nil? || done?
+        yield row
+      end
+      self
+    end
+
+    # The remaining rows, as Arrays
+    def to_a
+      rows = [] #: Array[untyped]
+      while true
+        row = step
+        break if row.nil? || done?
+        rows << row
+      end
+      rows
+    end
 
     def types
       must_be_open!
