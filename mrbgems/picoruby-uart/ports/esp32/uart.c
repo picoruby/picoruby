@@ -174,7 +174,7 @@ UART_set_flow_control(int unit_num, bool cts, bool rts)
   );
 }
 
-void
+int
 UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t parity)
 {
   uart_word_length_t uart_word_length[4] = {
@@ -207,6 +207,7 @@ UART_set_format(int unit_num, uint32_t data_bits, uint32_t stop_bits, uint8_t pa
       uart_set_parity(unit_num, uart_parity[parity])
     );
   }
+  return UART_ERROR_NONE;
 }
 
 void
