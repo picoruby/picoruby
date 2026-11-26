@@ -25,7 +25,8 @@ require_relative './helper'
 
 - `require(name)` - Load library by name (only once), returns true if loaded
 - `load(path)` - Load file by path (every time), returns true
-- `require_relative(path)` - Require file relative to current file
+- `require_relative(path)` - Require file relative to current file (mruby VM only)
+- `__dir__` - Directory of current file, or nil in an eval given no file (mruby VM only)
 
 ### Global Variables
 
@@ -55,6 +56,7 @@ require_relative './helper'
 ## Notes
 
 - `.mrb` files are pre-compiled mruby bytecode
+- In a `.mrb` file compiled without `-g`, `__dir__` returns nil and `require_relative` raises `LoadError`. Compile with `mrbc -g` to keep the file name.
 - `.rb` files are Ruby source code
 - `require` is preferred for libraries (loads once)
 - `load` is useful for scripts that should run multiple times
