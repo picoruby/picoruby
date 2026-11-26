@@ -32,7 +32,7 @@ conf.gem core: 'picoruby-net-websocket'
 ```
 
 The gem declares its dependencies itself: `picoruby-socket`,
-`picoruby-base64`, `picoruby-rng`, `picoruby-mbedtls` and a `pack`
+`picoruby-base64`, `picoruby-random`, `picoruby-mbedtls` and a `pack`
 implementation (`mruby-pack` on PicoRuby, `picoruby-pack` on FemtoRuby).
 
 ## Usage

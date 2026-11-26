@@ -12,6 +12,6 @@ MRuby::Gem::Specification.new('picoruby-net-websocket') do |spec|
   end
   spec.add_dependency 'picoruby-socket'
   spec.add_dependency 'picoruby-base64'
-  spec.add_dependency 'picoruby-rng'
+  spec.add_dependency 'picoruby-random'
   spec.add_dependency 'picoruby-mbedtls'
 end

@@ -9,7 +9,7 @@ require 'irq'
 require 'rotary_encoder'
 require 'psg'
 require 'midibase-mml'
-require 'rng' # for Kernel#rand
+require 'random' # for Kernel#rand
 
 # ---------------------------------------------------------------------------
 # Constants

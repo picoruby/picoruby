@@ -1,6 +1,6 @@
 require 'socket'
 require 'base64'
-require 'rng'
+require 'random'
 require 'mbedtls'
 require 'pack'
 
@@ -236,12 +236,7 @@ module Net
           end
 
           if masked
-            mask_key = ""
-            mi = 0
-            while mi < 4
-              mask_key << [RNG.random_int % 256].pack("C")
-              mi += 1
-            end
+            mask_key = Random.urandom(4)
             frame << mask_key
             masked_payload = mask_data(payload, mask_key)
             frame << masked_payload

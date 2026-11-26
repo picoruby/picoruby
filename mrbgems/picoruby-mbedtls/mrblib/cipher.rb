@@ -1,6 +1,6 @@
-require 'rng'
+require 'random'
 
-$_mbedtls_pers = RNG.random_string(32)
+$_mbedtls_pers = Random.urandom(32)
 
 module MbedTLS
   class Cipher

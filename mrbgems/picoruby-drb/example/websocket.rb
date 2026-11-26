@@ -26,7 +26,7 @@ class SensorService
   def temperature
     puts "[#{Time.now}] temperature()"
     # Simulate sensor reading
-    20 + (RNG.random_int % 10)
+    20 + rand(10)
   end
 
   def increment

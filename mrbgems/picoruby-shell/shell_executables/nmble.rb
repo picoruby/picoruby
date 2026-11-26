@@ -141,8 +141,8 @@ end
 puts "\nLaunching BLE peripheral to configure WiFi connection."
 
 # Start BLE Peripheral
-require 'rng'
-name = "R2P2 BLE #{RNG.random_int.abs.to_s[0,4]}"
+require 'random'
+name = "R2P2 BLE #{1000 + rand(9000)}"
 peri = WifiConfigPeripheral.new(name)
 peri.debug = true
 puts "\nOpen https://picoruby.org/wifi"
