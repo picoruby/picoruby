@@ -54,7 +54,13 @@ MRuby::Gem::Specification.new('picoruby-shell') do |spec|
   executable_mrbfiles = Array.new
   executable_dir = "#{build_dir}/shell_executables"
   directory executable_dir
+  excluded = build.shell_executables_exclude
+  unknown = excluded.reject { File.exist?("#{dir}/shell_executables/#{_1}.rb") }
+  unless unknown.empty?
+    raise "shell_executables_exclude: no such executable: #{unknown.join(', ')}"
+  end
   Dir.glob("#{dir}/shell_executables/*.rb") do |rbfile|
+    next if excluded.include?(rbfile.pathmap('%n'))
     mrbfile = "#{executable_dir}/#{rbfile.pathmap('%n')}.c"
     # build.mrbcfile: the compiler of this build (bin/mrbc of the host
     # build) must exist before an executable is compiled; without the
