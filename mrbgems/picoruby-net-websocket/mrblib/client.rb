@@ -1,6 +1,6 @@
 require 'socket'
 require 'base64'
-require 'rng'
+require 'random'
 require 'pack'
 
 module Net
@@ -191,12 +191,7 @@ module Net
 
       def perform_handshake
         # Generate Sec-WebSocket-Key
-        key_bytes = ""
-        ki = 0
-        while ki < 16
-          key_bytes << [RNG.random_int % 256].pack("C")
-          ki += 1
-        end
+        key_bytes = Random.urandom(16)
         # one line of RFC 4648 Base64 (RFC 6455), not encode64's MIME lines
         sec_key = Base64.strict_encode64(key_bytes)
 
@@ -288,12 +283,7 @@ module Net
         end
 
         # Masking key (4 random bytes)
-        mask_key = ""
-        mi = 0
-        while mi < 4
-          mask_key << [RNG.random_int % 256].pack("C")
-          mi += 1
-        end
+        mask_key = Random.urandom(4)
         frame << mask_key
 
         # Masked payload

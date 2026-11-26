@@ -3,7 +3,7 @@ MRuby::Gem::Specification.new('picoruby-mbedtls') do |spec|
   spec.authors = ['HASUMI Hitoshi', 'Ryo Kajiwara']
   spec.summary = 'Mbed-TLS porting for PicoRuby'
 
-  spec.add_dependency 'picoruby-rng'
+  spec.add_dependency 'picoruby-random'
   spec.add_dependency 'picoruby-base64'
 
   MBEDTLS_VERSION = "v3.6.2"

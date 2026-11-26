@@ -1,5 +1,18 @@
 # picoruby-rng
 
+**Deprecated.** Use [picoruby-random](../picoruby-random/README.md) instead.
+
+- PicoRuby keeps this gem for compatibility. No gembox includes it.
+- To use it, add `conf.gem core: 'picoruby-rng'` to your build config.
+- Do not use it together with `picoruby-random`. Both gems define `Kernel#rand`, and the gem that initializes last wins.
+
+| picoruby-rng            | picoruby-random |
+|-------------------------|---|
+| `require 'rng'`         | `require 'random'` |
+| `RNG.random_string(n)`  | `Random.urandom(n)` |
+| `RNG.random_int % n`    | `rand(n)` (without modulo bias) |
+| `Kernel#rand` (Integer) | `Kernel#rand` (Float, as CRuby) |
+
 Random Number Generator (RNG) using hardware entropy for PicoRuby.
 
 ## Usage
