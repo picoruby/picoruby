@@ -54,6 +54,12 @@ end
 - Two channels share one PWM slice (GPIO `n` and `n + 1`, and `n + 16`), and a
   slice has a single counter: setting the frequency on one of them sets it for
   the other, and stopping one stops both.
+- On nRF52840 each PWM pin takes one of the four PWM instances, so at most
+  four pins can be driven. The prescaler and counter top belong to the
+  instance rather than the channel, so sharing one between two pins would
+  make a frequency change on either move both; four independent outputs
+  are given instead of sixteen coupled ones. The reachable range is about
+  3.8 Hz to 8 MHz.
 - On the RP2040 and RP2350 the divider is chosen per frequency, so the duty
   resolution is as fine as the hardware allows at that frequency. The lowest
   frequency a slice can produce is `sys_clk / 255 / 65536` (about 7.5 Hz at

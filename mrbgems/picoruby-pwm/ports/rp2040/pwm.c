@@ -13,10 +13,11 @@
 #define PWM_WRAP_MAX 65535.0f
 #define PWM_DIV_MAX  255.0f
 
-void
+int
 PWM_init(uint32_t pin)
 {
   gpio_set_function(pin, GPIO_FUNC_PWM);
+  return PWM_ERROR_NONE;
 }
 
 /*
