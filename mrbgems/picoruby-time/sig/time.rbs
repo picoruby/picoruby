@@ -16,11 +16,32 @@ class Time
   def succ: () -> Time
   def to_time: () -> Time
   def __adjust: (untyped digits, Symbol how) -> Time
-  def __strftime_num: (Integer value, Integer default_width, String default_pad, String? pad, Integer? width) -> String
-  def __strftime_str: (String value, String? pad, Integer? width) -> String
-  def __strftime_offset: (Integer colons, String? pad, Integer? width) -> String
-  def __strftime_frac: (Integer digits) -> String
-  def __strftime_conv: (String conv, String? pad, Integer? width, Integer colons) -> String?
-  def __cweek: () -> [Integer, Integer]
-  def __days_in_year: (Integer y) -> Integer
+
+  # what Strftime reads from its receiver
+  interface _StrftimeFields
+    def year: () -> Integer
+    def mon: () -> Integer
+    def mday: () -> Integer
+    def hour: () -> Integer
+    def min: () -> Integer
+    def sec: () -> Integer
+    def wday: () -> Integer
+    def yday: () -> Integer
+    def nsec: () -> Integer
+    def utc_offset: () -> Integer
+    def zone: () -> String?
+    def to_i: () -> Integer
+  end
+
+  module Strftime : _StrftimeFields
+    def strftime: (String fmt) -> String
+    def __strftime_num: (Integer value, Integer default_width, String default_pad, String? pad, Integer? width) -> String
+    def __strftime_str: (String value, String? pad, Integer? width) -> String
+    def __strftime_offset: (Integer colons, String? pad, Integer? width) -> String
+    def __strftime_frac: (Integer digits) -> String
+    def __strftime_conv: (String conv, String? pad, Integer? width, Integer colons) -> String?
+    def __cweek: () -> [Integer, Integer]
+    def __days_in_year: (Integer y) -> Integer
+  end
+  include Strftime
 end

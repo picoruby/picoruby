@@ -42,5 +42,7 @@ the fields; `zone` is `"UTC"`, the platform's abbreviation for a local
 time, or nil for a fixed offset. `Time.at` takes a Float or a second
 argument in `:millisecond`, `:usec` or `:nsec`. `strftime` is written in
 Ruby with CRuby's conversions and flags, so every target formats alike;
-`iso8601`/`xmlschema`, `round`, `floor`, `ceil`, `eql?`, `hash`, `day`,
-`month`, `nsec` and `subsec` come with it.
+it is the `Time::Strftime` mixin, which a Date or DateTime with the same
+field readers (`year` … `to_i`) can include. `iso8601`/`xmlschema`,
+`round`, `floor`, `ceil`, `eql?`, `hash`, `day`, `month`, `nsec` and
+`subsec` come with it.

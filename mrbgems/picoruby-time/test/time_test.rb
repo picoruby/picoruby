@@ -471,6 +471,32 @@ class TimeTest < Picotest::Test
     assert_equal("2021-01", Time.utc(2021, 1, 4).strftime("%G-%V"))
   end
 
+  # a Date-like receiver: the fields Strftime reads, nothing else. The
+  # include happens in the test: the runner loads this file on CRuby too,
+  # where Time::Strftime does not exist.
+  class StrftimeDay
+    def year = 2025
+    def mon = 3
+    def mday = 4
+    def hour = 0
+    def min = 0
+    def sec = 0
+    def wday = 2
+    def yday = 63
+    def nsec = 0
+    def utc_offset = 0
+    def zone = "+00:00"
+    def to_i = 1741046400
+  end
+
+  def test_strftime_is_a_mixin
+    assert_true(Time.ancestors.include?(Time::Strftime))
+    StrftimeDay.include(Time::Strftime)
+    day = StrftimeDay.new
+    assert_equal("2025-03-04 Tue 00:00:00 +00:00", day.strftime("%F %a %T %:z"))
+    assert_equal("March 4 1741046400 2025-10", day.strftime("%B %-d %s %G-%V"))
+  end
+
   def test_iso8601
     assert_equal("2025-03-04T05:06:07Z", Time.utc(2025, 3, 4, 5, 6, 7).iso8601)
     assert_equal("2025-03-04T05:06:07.500Z", Time.at(1741064767, 500000).utc.iso8601(3))
