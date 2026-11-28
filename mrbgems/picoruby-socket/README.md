@@ -180,6 +180,16 @@ ctx.verify_mode = SSLContext::VERIFY_NONE  # Disable verification
 
 Base class for all socket types. Provides common socket and IO-compatible methods.
 
+### Socket
+
+Subclass of BasicSocket that holds the constants, as in CRuby. Each is also in `Socket::Constants`.
+
+- `Socket::AF_UNSPEC`, `Socket::AF_INET`, `Socket::AF_INET6` - Address families (`PF_*` aliases too)
+- `Socket::SOCK_STREAM`, `Socket::SOCK_DGRAM`, `Socket::SOCK_RAW` - Socket types
+- `Socket::IPPROTO_IP`, `Socket::IPPROTO_TCP`, `Socket::IPPROTO_UDP` - Protocols
+
+The values are the platform's on POSIX and lwIP's elsewhere.
+
 ### SSLContext
 
 #### Class Methods

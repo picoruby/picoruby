@@ -10,9 +10,43 @@
 /* Socket type constants (matching socket.h) */
 #if defined(PICORB_PLATFORM_POSIX)
 #include <sys/socket.h>
+#include <netinet/in.h>
 #else
 #define SOCK_STREAM 1
 #define SOCK_DGRAM  2
+#endif
+
+/* Socket::Constants: the platform's values on POSIX, lwIP's elsewhere
+ * (lwIP's sockets.h is compiled out when LWIP_SOCKET is 0) */
+#ifndef AF_UNSPEC
+#define AF_UNSPEC   0
+#endif
+#ifndef AF_INET
+#define AF_INET     2
+#endif
+#ifndef AF_INET6
+#define AF_INET6    10
+#endif
+#ifndef PF_UNSPEC
+#define PF_UNSPEC   AF_UNSPEC
+#endif
+#ifndef PF_INET
+#define PF_INET     AF_INET
+#endif
+#ifndef PF_INET6
+#define PF_INET6    AF_INET6
+#endif
+#ifndef SOCK_RAW
+#define SOCK_RAW    3
+#endif
+#ifndef IPPROTO_IP
+#define IPPROTO_IP  0
+#endif
+#ifndef IPPROTO_TCP
+#define IPPROTO_TCP 6
+#endif
+#ifndef IPPROTO_UDP
+#define IPPROTO_UDP 17
 #endif
 
 const struct mrb_data_type mrb_socket_type = {
@@ -207,6 +241,33 @@ mrb_socket_free(mrb_state *mrb, void *ptr)
   }
 }
 
+/* Socket < BasicSocket, with the constants in Socket::Constants and
+ * reachable as Socket::AF_INET etc. through inclusion, as in CRuby */
+static void
+mrb_init_socket_constants(mrb_state *mrb, struct RClass *basic_socket_class)
+{
+  struct RClass *socket_class = mrb_define_class_id(mrb, MRB_SYM(Socket), basic_socket_class);
+  struct RClass *constants = mrb_define_module_under_id(mrb, socket_class, MRB_SYM(Constants));
+  /* #name, not MRB_SYM(name): these are macros, and MRB_SYM(AF_UNSPEC)
+   * would expand to MRB_SYM(0) */
+#define SOCKET_CONST(name) \
+  mrb_define_const(mrb, constants, #name, mrb_int_value(mrb, name))
+  SOCKET_CONST(AF_UNSPEC);
+  SOCKET_CONST(AF_INET);
+  SOCKET_CONST(AF_INET6);
+  SOCKET_CONST(PF_UNSPEC);
+  SOCKET_CONST(PF_INET);
+  SOCKET_CONST(PF_INET6);
+  SOCKET_CONST(SOCK_STREAM);
+  SOCKET_CONST(SOCK_DGRAM);
+  SOCKET_CONST(SOCK_RAW);
+  SOCKET_CONST(IPPROTO_IP);
+  SOCKET_CONST(IPPROTO_TCP);
+  SOCKET_CONST(IPPROTO_UDP);
+#undef SOCKET_CONST
+  mrb_include_module(mrb, socket_class, constants);
+}
+
 /* Initialize gem */
 void
 mrb_picoruby_socket_gem_init(mrb_state *mrb)
@@ -215,6 +276,7 @@ mrb_picoruby_socket_gem_init(mrb_state *mrb)
 
   /* BasicSocket class */
   basic_socket_class = mrb_define_class_id(mrb, MRB_SYM(BasicSocket), mrb->object_class);
+  mrb_init_socket_constants(mrb, basic_socket_class);
 
 #ifdef PICO_CYW43_ARCH_POLL
   mrb_init_dns_resolver(mrb);

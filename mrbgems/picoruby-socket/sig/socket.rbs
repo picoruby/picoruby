@@ -1,0 +1,18 @@
+class Socket < BasicSocket
+  module Constants
+    AF_UNSPEC: Integer
+    AF_INET: Integer
+    AF_INET6: Integer
+    PF_UNSPEC: Integer
+    PF_INET: Integer
+    PF_INET6: Integer
+    SOCK_STREAM: Integer
+    SOCK_DGRAM: Integer
+    SOCK_RAW: Integer
+    IPPROTO_IP: Integer
+    IPPROTO_TCP: Integer
+    IPPROTO_UDP: Integer
+  end
+
+  include Constants
+end

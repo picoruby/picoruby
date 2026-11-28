@@ -175,10 +175,71 @@ mrbc_dns_resolver_init(mrbc_vm *vm)
 /* Socket type constants (matching socket.h) */
 #if defined(PICORB_PLATFORM_POSIX)
 #include <sys/socket.h>
+#include <netinet/in.h>
 #else
 #define SOCK_STREAM 1
 #define SOCK_DGRAM  2
 #endif
+
+/* Socket::Constants: the platform's values on POSIX, lwIP's elsewhere
+ * (lwIP's sockets.h is compiled out when LWIP_SOCKET is 0) */
+#ifndef AF_UNSPEC
+#define AF_UNSPEC   0
+#endif
+#ifndef AF_INET
+#define AF_INET     2
+#endif
+#ifndef AF_INET6
+#define AF_INET6    10
+#endif
+#ifndef PF_UNSPEC
+#define PF_UNSPEC   AF_UNSPEC
+#endif
+#ifndef PF_INET
+#define PF_INET     AF_INET
+#endif
+#ifndef PF_INET6
+#define PF_INET6    AF_INET6
+#endif
+#ifndef SOCK_RAW
+#define SOCK_RAW    3
+#endif
+#ifndef IPPROTO_IP
+#define IPPROTO_IP  0
+#endif
+#ifndef IPPROTO_TCP
+#define IPPROTO_TCP 6
+#endif
+#ifndef IPPROTO_UDP
+#define IPPROTO_UDP 17
+#endif
+
+/* Socket < BasicSocket, with the constants in Socket::Constants and on
+ * Socket itself (mruby/c has no include to reach them through) */
+static void
+mrbc_socket_constants_init(mrbc_vm *vm, mrbc_class *class_BasicSocket)
+{
+  mrbc_class *class_Socket = mrbc_define_class(vm, "Socket", class_BasicSocket);
+  mrbc_class *class_Constants = mrbc_define_module_under(vm, class_Socket, "Constants");
+#define SOCKET_CONST(name) do { \
+  mrbc_value v = mrbc_integer_value(name); \
+  mrbc_set_class_const(class_Socket, mrbc_str_to_symid(#name), &v); \
+  mrbc_set_class_const(class_Constants, mrbc_str_to_symid(#name), &v); \
+} while (0)
+  SOCKET_CONST(AF_UNSPEC);
+  SOCKET_CONST(AF_INET);
+  SOCKET_CONST(AF_INET6);
+  SOCKET_CONST(PF_UNSPEC);
+  SOCKET_CONST(PF_INET);
+  SOCKET_CONST(PF_INET6);
+  SOCKET_CONST(SOCK_STREAM);
+  SOCKET_CONST(SOCK_DGRAM);
+  SOCKET_CONST(SOCK_RAW);
+  SOCKET_CONST(IPPROTO_IP);
+  SOCKET_CONST(IPPROTO_TCP);
+  SOCKET_CONST(IPPROTO_UDP);
+#undef SOCKET_CONST
+}
 
 void
 mrbc_socket_free(mrbc_value *self)
@@ -213,6 +274,7 @@ void
 mrbc_socket_init(mrbc_vm *vm)
 {
   mrbc_class *class_BasicSocket = mrbc_define_class(vm, "BasicSocket", mrbc_class_object);
+  mrbc_socket_constants_init(vm, class_BasicSocket);
 
 #ifdef PICO_CYW43_ARCH_POLL
   mrbc_dns_resolver_init(vm);
